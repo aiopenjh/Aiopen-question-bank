@@ -889,6 +889,19 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     showAlert('삭제 완료', '저장된 API Key가 안전하게 파기되었습니다.');
   }
 
+  async function handleSaveSettingsAndClose() {
+    try {
+      const trimmed = apiKey.trim();
+      if (trimmed) {
+        await saveEncryptedApiKey(trimmed);
+      }
+      showAlert('저장 완료', '설정 사항이 안전하게 저장되었습니다.');
+      setIsSettingsOpen(false);
+    } catch (err: any) {
+      showAlert('오류', `저장 중 오류 발생: ${err?.message || '알 수 없는 오류'}`);
+    }
+  }
+
   async function handleChangeRoutinePreset(presetKey: string) {
     if (!routine) return;
     const item = (routine as any)[presetKey];
@@ -1200,10 +1213,11 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
                 <Text style={styles.fullModalTitle}>학습 과목 & 문제 자료함</Text>
               </View>
               <TouchableOpacity
-                style={styles.fullModalCloseBtn}
+                style={styles.fullModalSaveBtn}
                 onPress={() => setIsLibraryOpen(false)}
+                activeOpacity={0.8}
               >
-                <Text style={styles.fullModalCloseBtnText}>✕ 닫기</Text>
+                <Text style={styles.fullModalSaveBtnText}>💾 저장</Text>
               </TouchableOpacity>
             </View>
             <LibraryScreen
@@ -1252,10 +1266,11 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
                 <Text style={styles.fullModalTitle}>환경설정 & AI 모델 관리</Text>
               </View>
               <TouchableOpacity
-                style={styles.fullModalCloseBtn}
-                onPress={() => setIsSettingsOpen(false)}
+                style={styles.fullModalSaveBtn}
+                onPress={handleSaveSettingsAndClose}
+                activeOpacity={0.8}
               >
-                <Text style={styles.fullModalCloseBtnText}>✕ 닫기</Text>
+                <Text style={styles.fullModalSaveBtnText}>💾 저장</Text>
               </TouchableOpacity>
             </View>
             <SettingsScreen
@@ -1472,6 +1487,22 @@ const styles = StyleSheet.create({
   },
   fullModalCloseBtnText: {
     color: '#be123c',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  fullModalSaveBtn: {
+    backgroundColor: '#f43f5e',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  fullModalSaveBtnText: {
+    color: '#ffffff',
     fontSize: 13,
     fontWeight: 'bold',
   },

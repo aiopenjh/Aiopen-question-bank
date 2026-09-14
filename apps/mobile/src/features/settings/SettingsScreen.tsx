@@ -137,7 +137,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 placeholder="API Key 입력 (예: AIzaSy...)"
                 placeholderTextColor="#64748b"
                 value={inputKey}
-                onChangeText={setInputKey}
+                onChangeText={(text) => {
+                  setInputKey(text);
+                  onChangeApiKey(text);
+                }}
                 autoCapitalize="none"
                 secureTextEntry={!isKeyVisible}
                 autoCorrect={false}
