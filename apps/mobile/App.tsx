@@ -1185,16 +1185,6 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
             }}
             isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
           />
-
-          {/* 우측 하단 설정 링크 플로팅 버튼 */}
-          <TouchableOpacity
-            style={styles.floatingSettingsBtn}
-            onPress={() => setIsSettingsOpen(true)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.floatingSettingsIcon}>⚙️</Text>
-            <Text style={styles.floatingSettingsText}>설정</Text>
-          </TouchableOpacity>
         </View>
 
         {/* 📚 자료함 (문제 보관함 & 교재) 새창 팝업 모달 */}
