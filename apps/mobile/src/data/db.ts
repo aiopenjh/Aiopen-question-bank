@@ -40,6 +40,7 @@ const STORAGE_KEYS = {
   MANUAL_COMPLETIONS: '@cogniquest:manual_completions',
   API_KEY: '@cogniquest:gemini_api_key',
   PREFERRED_MODEL: '@cogniquest:preferred_ai_model',
+  LAST_STUDIED_TOPIC: '@cogniquest:last_studied_topic',
 };
 
 const CURRENT_DB_VERSION = 2;
@@ -537,4 +538,20 @@ export async function getSourceChunks(revisionId?: UUID): Promise<SourceChunk[]>
   const chunksData = await AsyncStorage.getItem(STORAGE_KEYS.SOURCE_CHUNKS);
   const existingChunks: SourceChunk[] = chunksData ? JSON.parse(chunksData) : [];
   return revisionId ? existingChunks.filter((c) => c.revisionId === revisionId) : existingChunks;
+}
+
+export async function getLastStudiedTopicId(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(STORAGE_KEYS.LAST_STUDIED_TOPIC);
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function saveLastStudiedTopicId(topicId: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.LAST_STUDIED_TOPIC, topicId);
+  } catch (err) {
+    console.error('Failed to save last studied topic id:', err);
+  }
 }

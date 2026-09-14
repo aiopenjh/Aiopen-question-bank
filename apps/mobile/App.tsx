@@ -44,6 +44,8 @@ import {
   getReviewStates,
   saveReviewState,
   getIncorrectQuestions,
+  getLastStudiedTopicId,
+  saveLastStudiedTopicId,
   exportBackupJSON,
   restoreBackupJSON,
   clearAllData,
@@ -83,6 +85,7 @@ import { TopicModal } from './src/components/modals/TopicModal';
 import { UnitModal } from './src/components/modals/UnitModal';
 import { BackupModal } from './src/components/modals/BackupModal';
 import { QuizCountModal } from './src/components/modals/QuizCountModal';
+import { TopicSelectModal } from './src/components/modals/TopicSelectModal';
 import { AppAlertModal } from './src/components/modals/AppAlertModal';
 
 // Clean Modular Feature Screens
@@ -115,6 +118,8 @@ export default function App() {
   const [backupModalVisible, setBackupModalVisible] = useState(false);
   const [backupText, setBackupText] = useState('');
   const [quizCountModalVisible, setQuizCountModalVisible] = useState(false);
+  const [isTopicSelectModalVisible, setIsTopicSelectModalVisible] = useState(false);
+  const [lastStudiedTopicId, setLastStudiedTopicId] = useState<string | null>(null);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [pendingQuizUnit, setPendingQuizUnit] = useState<{
@@ -167,7 +172,7 @@ export default function App() {
       setLoading(true);
       await initializeDatabase();
 
-      const [r, t, u, c, q, a, rStates, inQ, key, s, pModel] = await Promise.all([
+      const [r, t, u, c, q, a, rStates, inQ, key, s, pModel, savedLastTId] = await Promise.all([
         getRoutine(),
         getTopics(),
         getUnits(),
@@ -179,13 +184,22 @@ export default function App() {
         getEncryptedApiKey(),
         getSources(),
         getPreferredAiModel(),
+        getLastStudiedTopicId(),
       ]);
 
       setRoutine(r);
       setTopics(t);
-      if (t.length > 0 && !selectedTopicId) {
-        setSelectedTopicId(t[0].id);
+
+      // 마지막 학습 대단원 복원 및 우선 선택
+      let activeTopicId: string | null = null;
+      if (savedLastTId && t.some((item) => item.id === savedLastTId)) {
+        activeTopicId = savedLastTId;
+      } else if (t.length > 0) {
+        activeTopicId = t[0].id;
       }
+      setSelectedTopicId(activeTopicId);
+      setLastStudiedTopicId(savedLastTId);
+
       setUnits(u);
       setCompletions(c);
       setQuestions(q);
@@ -487,6 +501,14 @@ export default function App() {
       return;
     }
 
+    // 문제의 소속 대단원 파악하여 최근 학습 대단원으로 자동 기억 및 저장
+    const firstQTopicId = list[0]?.topicId;
+    if (firstQTopicId) {
+      setSelectedTopicId(firstQTopicId);
+      setLastStudiedTopicId(firstQTopicId);
+      saveLastStudiedTopicId(firstQTopicId);
+    }
+
     // 셔플: 정답 번호가 1번이나 2번에 고정되지 않도록 균등 무작위 분산 배치 적용
     const randomizedQuestions = distributeQuestionAnswersRandomly(list);
 
@@ -498,39 +520,52 @@ export default function App() {
   }
 
   async function handleStartExamWithAutoGenerate() {
-    const currentTopic = topics.find((t) => t.id === selectedTopicId) || topics[0];
-    const topicQuestions = currentTopic
-      ? questions.filter((q) => q.topicId === currentTopic.id)
-      : questions;
+    if (topics.length === 0) {
+      showAlert('알림', '먼저 학습할 주제(대단원)를 등록해 주세요.', [
+        { text: '닫기', style: 'cancel' },
+        { text: '대단원 만들기', onPress: () => setTopicModalVisible(true) },
+      ]);
+      return;
+    }
 
+    // 대단원이 2개 이상(예: 언어, 수학 등)이면 사용자에게 선택 창을 띄움
+    // (가장 최근에 학습했던 대단원을 최상단에 우선 표시)
+    if (topics.length >= 2) {
+      setIsTopicSelectModalVisible(true);
+      return;
+    }
+
+    // 대단원이 1개인 경우 바로 시작
+    await executeStartExamForTopic(topics[0]);
+  }
+
+  async function executeStartExamForTopic(topic: Topic) {
+    setIsTopicSelectModalVisible(false);
+    setSelectedTopicId(topic.id);
+    setLastStudiedTopicId(topic.id);
+    await saveLastStudiedTopicId(topic.id);
+
+    const topicQuestions = questions.filter((q) => q.topicId === topic.id);
     if (topicQuestions.length > 0) {
       startExam(topicQuestions);
       return;
     }
 
-    if (!currentTopic) {
-      showAlert('알림', '먼저 학습할 주제를 등록해 주세요.', [
-        { text: '닫기', style: 'cancel' },
-        { text: '주제 만들기', onPress: () => setTopicModalVisible(true) },
-      ]);
-      return;
-    }
-
-    // 문제가 없을 때 AI 즉시 출제 제안
+    // 해당 대단원에 문제가 없을 때 즉시 출제 제안
     showAlert(
-      '✨ AI 즉시 출제',
-      `[${currentTopic.name}] 주제의 풀이 문제가 아직 없습니다.\nAI 출제 엔진으로 3문제를 지금 즉시 출제할까요?`,
+      '✨ AI 실전 문제 출제',
+      `[${topic.name}] 대단원의 풀이 문제가 아직 없습니다.\n새로운 실전 문제를 지금 출제하여 풀이하시겠습니까?`,
       [
         { text: '취소', style: 'cancel' },
         {
           text: '⚡ 3문제 즉시 출제',
           onPress: async () => {
-            const firstUnit = units.find((u) => u.topicId === currentTopic.id);
+            const firstUnit = units.find((u) => u.topicId === topic.id);
             await handleQuickGenerateForUnit(
-              currentTopic.id,
-              currentTopic.name,
+              topic.id,
+              topic.name,
               firstUnit?.id || generateUUID(),
-              firstUnit?.title || '핵심 종합'
+              firstUnit?.title || `${topic.name} 핵심 종합`
             );
           },
         },
@@ -542,7 +577,10 @@ export default function App() {
   // 목표 달성 후 '문제 더 풀어보기': 같은 개념 범위 신규 3문제 재생성
   // -------------------------------------------------------------
   async function handleGenerateMoreQuestions() {
-    const currentTopic = topics.find((t) => t.id === selectedTopicId) || topics[0];
+    const currentTopic =
+      topics.find((t) => t.id === selectedTopicId) ||
+      topics.find((t) => t.id === lastStudiedTopicId) ||
+      topics[0];
     if (!currentTopic) {
       showAlert('알림', '먼저 학습할 주제를 등록해 주세요.', [
         { text: '닫기', style: 'cancel' },
@@ -1319,6 +1357,16 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         unitTitle={pendingQuizUnit?.unitTitle}
         onClose={() => setQuizCountModalVisible(false)}
         onSelectCount={handleSelectQuizCount}
+      />
+
+      {/* 대단원(과목) 선택 모달 - 최근 학습 대단원 우선 노출 */}
+      <TopicSelectModal
+        visible={isTopicSelectModalVisible}
+        topics={topics}
+        questions={questions}
+        lastStudiedTopicId={lastStudiedTopicId}
+        onSelectTopic={executeStartExamForTopic}
+        onClose={() => setIsTopicSelectModalVisible(false)}
       />
 
       {/* AI 문제 출제 대기 안내 모달 */}
