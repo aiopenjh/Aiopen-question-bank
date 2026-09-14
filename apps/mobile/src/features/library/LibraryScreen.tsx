@@ -100,37 +100,8 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
     return questions.filter((q) => !q.topicId || !topicIdSet.has(q.topicId));
   }, [questions, topicIdSet]);
 
-  const handleUnitPress = (topic: Topic, unit: Unit, isCompleted: boolean) => {
-    if (isCompleted) {
-      showAlert(
-        '단원 학습 완료 안내',
-        `[${unit.title}] 단원은 이미 완료(학습)된 상태입니다.\n이 단원의 문제들을 다시 풀며 복습하시겠습니까, 아니면 새 문제를 출제하시겠습니까?`,
-        [
-          { text: '취소', style: 'cancel' },
-          {
-            text: '📖 이 단원 문제 풀기',
-            onPress: () => {
-              const unitQs = questions.filter(
-                (q) => q.topicId === topic.id && (q.unitId === unit.id || q.stem.includes(unit.title))
-              );
-              if (unitQs.length > 0) {
-                onStartExamWithQuestions(unitQs);
-              } else {
-                onQuickGenerateForUnit(topic.id, topic.name, unit.id, unit.title);
-              }
-            },
-          },
-          {
-            text: '⚡ 새 문제 출제',
-            onPress: () => {
-              onQuickGenerateForUnit(topic.id, topic.name, unit.id, unit.title);
-            },
-          },
-        ]
-      );
-    } else {
-      onQuickGenerateForUnit(topic.id, topic.name, unit.id, unit.title);
-    }
+  const handleUnitPress = (topic: Topic, unit: Unit) => {
+    onQuickGenerateForUnit(topic.id, topic.name, unit.id, unit.title);
   };
 
   return (
@@ -282,7 +253,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                     </View>
                   ) : (
                     topicUnits.map((unit) => {
-                      const isCompleted = completions.some((c) => c.unitId === unit.id && c.completed);
                       const unitQuestions = questions.filter(
                         (q) => q.topicId === topic.id && (q.unitId === unit.id || q.stem.includes(unit.title))
                       );
@@ -293,18 +263,11 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                         <View key={unit.id} style={styles.unitHouseRow}>
                           <View style={styles.unitTopBar}>
                             <TouchableOpacity
-                              style={styles.unitCheckTouch}
-                              onPress={() => onToggleUnitCompletion(unit.id)}
-                            >
-                              <Text style={{ fontSize: 16 }}>{isCompleted ? '✅' : '⬜'}</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
                               style={styles.unitTitleTouch}
-                              onPress={() => handleUnitPress(topic, unit, isCompleted)}
+                              onPress={() => handleUnitPress(topic, unit)}
                             >
                               <Text
-                                style={[styles.unitTitleText, isCompleted && styles.unitTitleCompleted]}
+                                style={styles.unitTitleText}
                                 numberOfLines={2}
                               >
                                 {unit.title}
@@ -317,7 +280,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
                               <TouchableOpacity
                                 style={styles.unitQuizBtn}
-                                onPress={() => handleUnitPress(topic, unit, isCompleted)}
+                                onPress={() => handleUnitPress(topic, unit)}
                                 disabled={isAiGenerating}
                               >
                                 {isThisUnitGenerating ? (
@@ -797,9 +760,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  unitCheckTouch: {
-    paddingRight: 8,
-  },
   unitTitleTouch: {
     flex: 1,
     marginRight: 8,
@@ -808,10 +768,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#1f2937',
     fontWeight: '600',
-  },
-  unitTitleCompleted: {
-    textDecorationLine: 'line-through',
-    color: '#94a3b8',
   },
   unitQuestionCountText: {
     fontSize: 11,
