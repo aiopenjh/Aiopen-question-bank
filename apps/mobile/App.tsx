@@ -955,7 +955,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
   async function handleRestoreFromFile() {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/json', 'text/*', '*/*'],
+        type: '*/*',
         copyToCacheDirectory: true,
       });
 
