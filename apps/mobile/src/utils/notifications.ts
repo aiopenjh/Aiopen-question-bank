@@ -65,16 +65,61 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 }
 
+export interface AlarmConfig {
+  morningEnabled: boolean;
+  morningHour: number; // 8 ~ 11
+  eveningEnabled: boolean;
+  eveningHour: number; // 19 ~ 21
+}
+
+export const DEFAULT_ALARM_CONFIG: AlarmConfig = {
+  morningEnabled: true,
+  morningHour: 8,
+  eveningEnabled: true,
+  eveningHour: 20,
+};
+
+const ALARM_CONFIG_KEY = '@celueste:alarm_config_v2';
+
+export async function getAlarmConfig(): Promise<AlarmConfig> {
+  try {
+    const raw = await AsyncStorage.getItem(ALARM_CONFIG_KEY);
+    if (!raw) return DEFAULT_ALARM_CONFIG;
+    const parsed = JSON.parse(raw);
+    return {
+      morningEnabled: parsed.morningEnabled ?? true,
+      morningHour: typeof parsed.morningHour === 'number' ? parsed.morningHour : 8,
+      eveningEnabled: parsed.eveningEnabled ?? true,
+      eveningHour: typeof parsed.eveningHour === 'number' ? parsed.eveningHour : 20,
+    };
+  } catch {
+    return DEFAULT_ALARM_CONFIG;
+  }
+}
+
+export async function saveAlarmConfig(config: AlarmConfig): Promise<void> {
+  await AsyncStorage.setItem(ALARM_CONFIG_KEY, JSON.stringify(config));
+  await scheduleWeekdayStudyAlarms(config);
+}
+
 /**
- * 평일 오전 8시, 저녁 8시 자동 알람 스케줄 등록
+ * 평일 맞춤 알람 스케줄 등록 (오전 8~11시, 저녁 19~21시 업앤다운 및 개별 On/Off 지원)
  * - 대상: 월(2), 화(3), 수(4), 목(5), 금(6)
- * - 시간: 08:00, 20:00
  */
-export async function scheduleWeekdayStudyAlarms(): Promise<void> {
+export async function scheduleWeekdayStudyAlarms(customConfig?: AlarmConfig): Promise<void> {
   if (Platform.OS === 'web' || !Notifications) return;
 
   try {
     await setupNotificationChannel();
+
+    const config = customConfig || (await getAlarmConfig());
+
+    // 둘 다 꺼져 있으면 기존 스케줄만 정리하고 종료
+    if (!config.morningEnabled && !config.eveningEnabled) {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log('모든 평일 정기 알람이 비활성화되었습니다.');
+      return;
+    }
 
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) {
@@ -88,45 +133,50 @@ export async function scheduleWeekdayStudyAlarms(): Promise<void> {
     const weekdays = [2, 3, 4, 5, 6]; // 월 ~ 금
 
     for (const weekday of weekdays) {
-      // 1. 오전 8:00 알람
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '🌸 [Celueste] 아침 8시 문제 풀이 시간!',
-          body: '오늘의 실전 문제를 풀고 활기찬 하루를 시작해 보세요! (터치하여 바로 시작)',
-          data: { action: 'START_EXAM', timeSlot: 'morning' },
-          sound: true,
-          channelId: 'default',
-        } as any,
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-          weekday,
-          hour: 8,
-          minute: 0,
-          channelId: 'default',
-        } as any,
-      });
+      // 1. 오전 알람 (활성화된 경우)
+      if (config.morningEnabled) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `🌸 [Celueste] 오전 ${config.morningHour}시 문제 풀이 시간!`,
+            body: '오늘의 실전 문제를 풀고 활기찬 하루를 시작해 보세요! (터치하여 바로 시작)',
+            data: { action: 'START_EXAM', timeSlot: 'morning' },
+            sound: true,
+            channelId: 'default',
+          } as any,
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday,
+            hour: config.morningHour,
+            minute: 0,
+            channelId: 'default',
+          } as any,
+        });
+      }
 
-      // 2. 저녁 20:00 (저녁 8시) 알람
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '🌙 [Celueste] 저녁 8시 집중 문제 풀이 시간!',
-          body: '오늘 하루의 학습 목표를 채우고 복습해 보세요! (터치하여 바로 시작)',
-          data: { action: 'START_EXAM', timeSlot: 'evening' },
-          sound: true,
-          channelId: 'default',
-        } as any,
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-          weekday,
-          hour: 20,
-          minute: 0,
-          channelId: 'default',
-        } as any,
-      });
+      // 2. 저녁 알람 (활성화된 경우)
+      if (config.eveningEnabled) {
+        const displayHour = config.eveningHour > 12 ? config.eveningHour - 12 : config.eveningHour;
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `🌙 [Celueste] 저녁 ${displayHour}시 집중 문제 풀이 시간!`,
+            body: '오늘 하루의 학습 목표를 채우고 복습해 보세요! (터치하여 바로 시작)',
+            data: { action: 'START_EXAM', timeSlot: 'evening' },
+            sound: true,
+            channelId: 'default',
+          } as any,
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday,
+            hour: config.eveningHour,
+            minute: 0,
+            channelId: 'default',
+          } as any,
+        });
+      }
     }
 
     await AsyncStorage.setItem(ALARM_SETTINGS_KEY, 'true');
-    console.log('평일 오전 8시/저녁 8시 정기 학습 알람 등록 완료');
+    console.log(`평일 정기 학습 알람 등록 완료 (오전: ${config.morningEnabled ? config.morningHour + '시' : '꺼짐'}, 저녁: ${config.eveningEnabled ? config.eveningHour + '시' : '꺼짐'})`);
   } catch (err) {
     console.warn('알람 스케줄링 중 오류 발생 (앱은 정상 작동 유지):', err);
   }
@@ -153,9 +203,12 @@ export function registerNotificationResponseListener(onStartExam: () => void): (
 }
 
 /**
- * 앱이 켜져 있을 때(포그라운드) 정기 시간(평일 8시, 20시) 도래 감지 및 인앱 안내
+ * 앱이 켜져 있을 때(포그라운드) 정기 시간(평일 설정 시간) 도래 감지 및 인앱 안내
  */
 export async function checkInAppScheduledAlarm(onStartExam: (slotLabel: string) => void): Promise<void> {
+  const config = await getAlarmConfig();
+  if (!config.morningEnabled && !config.eveningEnabled) return;
+
   const now = new Date();
   const day = now.getDay(); // 0: 일, 1: 월, ..., 5: 금, 6: 토
 
@@ -165,14 +218,16 @@ export async function checkInAppScheduledAlarm(onStartExam: (slotLabel: string) 
   const hours = now.getHours();
   const minutes = now.getMinutes();
 
-  // 8:00 ~ 8:30 (아침), 20:00 ~ 20:30 (저녁) 구간 체크
-  const isMorningSlot = hours === 8 && minutes <= 30;
-  const isEveningSlot = hours === 20 && minutes <= 30;
+  // 설정된 오전/저녁 시간대(30분 이내) 체크
+  const isMorningSlot = config.morningEnabled && hours === config.morningHour && minutes <= 30;
+  const isEveningSlot = config.eveningEnabled && hours === config.eveningHour && minutes <= 30;
 
   if (!isMorningSlot && !isEveningSlot) return;
 
   const todayStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-  const slotKey = isMorningSlot ? `${todayStr}-morning` : `${todayStr}-evening`;
+  const slotKey = isMorningSlot
+    ? `${todayStr}-morning-${config.morningHour}`
+    : `${todayStr}-evening-${config.eveningHour}`;
 
   const lastPrompt = await AsyncStorage.getItem(LAST_ALARM_PROMPT_KEY);
   if (lastPrompt === slotKey) {
@@ -181,6 +236,8 @@ export async function checkInAppScheduledAlarm(onStartExam: (slotLabel: string) 
   }
 
   await AsyncStorage.setItem(LAST_ALARM_PROMPT_KEY, slotKey);
-  const slotLabel = isMorningSlot ? '오전 8시' : '저녁 8시';
-  onStartExam(slotLabel);
+  const displayHour = isMorningSlot
+    ? `오전 ${config.morningHour}시`
+    : `저녁 ${config.eveningHour > 12 ? config.eveningHour - 12 : config.eveningHour}시`;
+  onStartExam(displayHour);
 }

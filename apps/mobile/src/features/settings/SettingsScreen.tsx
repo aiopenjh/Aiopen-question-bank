@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Activi
 import { RoutineRevision } from '../../contracts/types';
 import { ROUTINE_PRESETS } from '../../domain/routine';
 import { showAlert } from '../../utils/alert';
+import { AlarmConfig, DEFAULT_ALARM_CONFIG } from '../../utils/notifications';
 
 interface SettingsScreenProps {
   apiKey: string;
@@ -11,6 +12,8 @@ interface SettingsScreenProps {
   onDeleteApiKey?: () => Promise<void>;
   routine: RoutineRevision | null;
   onChangeRoutinePreset: (presetKey: string) => Promise<void>;
+  alarmConfig?: AlarmConfig;
+  onChangeAlarmConfig?: (config: AlarmConfig) => void;
   onExportBackup: () => Promise<void>;
   onOpenRestoreModal: () => void;
   onResetAllData: () => void;
@@ -23,6 +26,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onDeleteApiKey,
   routine,
   onChangeRoutinePreset,
+  alarmConfig = DEFAULT_ALARM_CONFIG,
+  onChangeAlarmConfig,
   onExportBackup,
   onOpenRestoreModal,
   onResetAllData,
@@ -37,6 +42,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   }, [apiKey]);
 
   const isRegistered = apiKey.trim().length > 8;
+
+  function updateAlarm(patch: Partial<AlarmConfig>) {
+    if (onChangeAlarmConfig) {
+      onChangeAlarmConfig({ ...alarmConfig, ...patch });
+    }
+  }
 
   async function handlePressSave() {
     const trimmed = inputKey.trim();
@@ -207,23 +218,179 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </View>
       </View>
 
-      {/* ⏰ 평일 정기 학습 알람 카드 */}
+      {/* ⏰ 평일 정기 학습 알람 카드 (2개 기본 폼, 시간 업앤다운 & 개별 활성화/비활성화) */}
       <View style={styles.card}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <Text style={styles.cardSectionTitle}>⏰ 평일 정기 학습 알람</Text>
+        <View style={styles.alarmCardHeader}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.cardSectionTitle}>⏰ 평일 정기 학습 알람</Text>
+            <Text style={styles.alarmSubGuide}>
+              평일(월~금) 원하는 시간대를 직접 선택하고 켜거나 끌 수 있습니다.
+            </Text>
+          </View>
           <View style={styles.alarmActiveBadge}>
-            <Text style={styles.alarmActiveBadgeText}>🔔 월~금 자동 알람</Text>
+            <Text style={styles.alarmActiveBadgeText}>🔔 월~금 알람</Text>
           </View>
         </View>
-        <Text style={styles.promptGuideText}>
-          평일(월~금) 오전 8시와 저녁 8시에 스마트폰 알람이 울리며, 알람을 탭하면 즉시 오늘의 문제 풀이로 직행합니다.
-        </Text>
-        <View style={styles.alarmTimeRow}>
-          <View style={styles.alarmTimeChip}>
-            <Text style={styles.alarmTimeChipText}>🌅 아침 08:00</Text>
+
+        {/* 1. 오전 알람 (범위: 8시 ~ 11시, 기본 8시) */}
+        <View style={[styles.alarmItemBlock, !alarmConfig.morningEnabled && styles.alarmItemBlockDisabled]}>
+          <View style={styles.alarmItemTopRow}>
+            <View style={styles.alarmItemLeft}>
+              <Text style={{ fontSize: 18 }}>🌅</Text>
+              <View>
+                <Text style={[styles.alarmItemTitle, !alarmConfig.morningEnabled && { color: '#94a3b8' }]}>
+                  오전 알람
+                </Text>
+                <Text style={styles.alarmItemSubText}>선택 가능: 08:00 ~ 11:00</Text>
+              </View>
+            </View>
+
+            {/* 개별 토글 버튼 */}
+            <TouchableOpacity
+              style={[
+                styles.alarmToggleBtn,
+                alarmConfig.morningEnabled ? styles.alarmToggleOn : styles.alarmToggleOff,
+              ]}
+              onPress={() => updateAlarm({ morningEnabled: !alarmConfig.morningEnabled })}
+              activeOpacity={0.8}
+            >
+              <Text style={alarmConfig.morningEnabled ? styles.alarmToggleTextOn : styles.alarmToggleTextOff}>
+                {alarmConfig.morningEnabled ? '🔔 활성화' : '🔕 끔'}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.alarmTimeChip}>
-            <Text style={styles.alarmTimeChipText}>🌙 저녁 20:00</Text>
+
+          {/* 시간 업앤다운 스텝퍼 컨트롤러 */}
+          <View style={[styles.alarmControlRow, !alarmConfig.morningEnabled && styles.alarmControlRowDisabled]}>
+            <TouchableOpacity
+              style={[
+                styles.stepperArrowBtn,
+                (!alarmConfig.morningEnabled || alarmConfig.morningHour <= 8) && styles.stepperArrowBtnDisabled,
+              ]}
+              onPress={() => {
+                if (alarmConfig.morningHour > 8) {
+                  updateAlarm({ morningHour: alarmConfig.morningHour - 1 });
+                }
+              }}
+              disabled={!alarmConfig.morningEnabled || alarmConfig.morningHour <= 8}
+            >
+              <Text style={[
+                styles.stepperArrowText,
+                (!alarmConfig.morningEnabled || alarmConfig.morningHour <= 8) && styles.stepperArrowTextDisabled,
+              ]}>
+                ◀
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.timeDisplayCenter}>
+              <Text style={[styles.timeDisplayText, !alarmConfig.morningEnabled && { color: '#94a3b8' }]}>
+                {String(alarmConfig.morningHour).padStart(2, '0')}:00
+              </Text>
+              <Text style={[styles.timeDisplaySub, !alarmConfig.morningEnabled && { color: '#cbd5e1' }]}>
+                오전 {alarmConfig.morningHour}시
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.stepperArrowBtn,
+                (!alarmConfig.morningEnabled || alarmConfig.morningHour >= 11) && styles.stepperArrowBtnDisabled,
+              ]}
+              onPress={() => {
+                if (alarmConfig.morningHour < 11) {
+                  updateAlarm({ morningHour: alarmConfig.morningHour + 1 });
+                }
+              }}
+              disabled={!alarmConfig.morningEnabled || alarmConfig.morningHour >= 11}
+            >
+              <Text style={[
+                styles.stepperArrowText,
+                (!alarmConfig.morningEnabled || alarmConfig.morningHour >= 11) && styles.stepperArrowTextDisabled,
+              ]}>
+                ▶
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 2. 저녁 알람 (범위: 19시 ~ 21시, 기본 20시) */}
+        <View style={[styles.alarmItemBlock, !alarmConfig.eveningEnabled && styles.alarmItemBlockDisabled]}>
+          <View style={styles.alarmItemTopRow}>
+            <View style={styles.alarmItemLeft}>
+              <Text style={{ fontSize: 18 }}>🌙</Text>
+              <View>
+                <Text style={[styles.alarmItemTitle, !alarmConfig.eveningEnabled && { color: '#94a3b8' }]}>
+                  저녁 알람
+                </Text>
+                <Text style={styles.alarmItemSubText}>선택 가능: 19:00 ~ 21:00</Text>
+              </View>
+            </View>
+
+            {/* 개별 토글 버튼 */}
+            <TouchableOpacity
+              style={[
+                styles.alarmToggleBtn,
+                alarmConfig.eveningEnabled ? styles.alarmToggleOn : styles.alarmToggleOff,
+              ]}
+              onPress={() => updateAlarm({ eveningEnabled: !alarmConfig.eveningEnabled })}
+              activeOpacity={0.8}
+            >
+              <Text style={alarmConfig.eveningEnabled ? styles.alarmToggleTextOn : styles.alarmToggleTextOff}>
+                {alarmConfig.eveningEnabled ? '🔔 활성화' : '🔕 끔'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 시간 업앤다운 스텝퍼 컨트롤러 */}
+          <View style={[styles.alarmControlRow, !alarmConfig.eveningEnabled && styles.alarmControlRowDisabled]}>
+            <TouchableOpacity
+              style={[
+                styles.stepperArrowBtn,
+                (!alarmConfig.eveningEnabled || alarmConfig.eveningHour <= 19) && styles.stepperArrowBtnDisabled,
+              ]}
+              onPress={() => {
+                if (alarmConfig.eveningHour > 19) {
+                  updateAlarm({ eveningHour: alarmConfig.eveningHour - 1 });
+                }
+              }}
+              disabled={!alarmConfig.eveningEnabled || alarmConfig.eveningHour <= 19}
+            >
+              <Text style={[
+                styles.stepperArrowText,
+                (!alarmConfig.eveningEnabled || alarmConfig.eveningHour <= 19) && styles.stepperArrowTextDisabled,
+              ]}>
+                ◀
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.timeDisplayCenter}>
+              <Text style={[styles.timeDisplayText, !alarmConfig.eveningEnabled && { color: '#94a3b8' }]}>
+                {alarmConfig.eveningHour}:00
+              </Text>
+              <Text style={[styles.timeDisplaySub, !alarmConfig.eveningEnabled && { color: '#cbd5e1' }]}>
+                저녁 {alarmConfig.eveningHour > 12 ? alarmConfig.eveningHour - 12 : alarmConfig.eveningHour}시
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.stepperArrowBtn,
+                (!alarmConfig.eveningEnabled || alarmConfig.eveningHour >= 21) && styles.stepperArrowBtnDisabled,
+              ]}
+              onPress={() => {
+                if (alarmConfig.eveningHour < 21) {
+                  updateAlarm({ eveningHour: alarmConfig.eveningHour + 1 });
+                }
+              }}
+              disabled={!alarmConfig.eveningEnabled || alarmConfig.eveningHour >= 21}
+            >
+              <Text style={[
+                styles.stepperArrowText,
+                (!alarmConfig.eveningEnabled || alarmConfig.eveningHour >= 21) && styles.stepperArrowTextDisabled,
+              ]}>
+                ▶
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -485,24 +652,125 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#be123c',
   },
-  alarmTimeRow: {
+  alarmCardHeader: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 6,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  alarmTimeChip: {
-    flex: 1,
-    backgroundColor: '#fff5f7',
+  alarmSubGuide: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  alarmItemBlock: {
+    backgroundColor: '#fffafb',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#fecdd3',
+    padding: 12,
+    marginBottom: 10,
+  },
+  alarmItemBlockDisabled: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  alarmItemTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  alarmItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  alarmItemTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#881337',
+  },
+  alarmItemSubText: {
+    fontSize: 10,
+    color: '#94a3b8',
+  },
+  alarmToggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  alarmToggleOn: {
+    backgroundColor: '#ffe4e6',
+    borderWidth: 1,
+    borderColor: '#fda4af',
+  },
+  alarmToggleOff: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  alarmToggleTextOn: {
+    color: '#e11d48',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  alarmToggleTextOff: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  alarmControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
     borderRadius: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+  },
+  alarmControlRowDisabled: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  stepperArrowBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#fff1f2',
+    borderWidth: 1,
+    borderColor: '#fda4af',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperArrowBtnDisabled: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+  },
+  stepperArrowText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#be123c',
+  },
+  stepperArrowTextDisabled: {
+    color: '#cbd5e1',
+  },
+  timeDisplayCenter: {
     alignItems: 'center',
   },
-  alarmTimeChipText: {
-    fontSize: 12,
-    fontWeight: '700',
+  timeDisplayText: {
+    fontSize: 15,
+    fontWeight: '800',
     color: '#881337',
+  },
+  timeDisplaySub: {
+    fontSize: 10,
+    color: '#e11d48',
+    marginTop: 1,
+    fontWeight: '600',
   },
   compactCard: {
     backgroundColor: '#ffffff',

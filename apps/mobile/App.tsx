@@ -20,6 +20,10 @@ import {
   scheduleWeekdayStudyAlarms,
   registerNotificationResponseListener,
   checkInAppScheduledAlarm,
+  AlarmConfig,
+  DEFAULT_ALARM_CONFIG,
+  getAlarmConfig,
+  saveAlarmConfig,
 } from './src/utils/notifications';
 
 // 고객/사용자 모바일 화면에 개발/경고 노란색 팝업(LogBox toast) 노출 방지
@@ -133,6 +137,8 @@ export default function App() {
     unitTitle: string;
   } | null>(null);
 
+  const [alarmConfig, setAlarmConfig] = useState<AlarmConfig>(DEFAULT_ALARM_CONFIG);
+
   // Exam / CBT Session State
   const [examSessionActive, setExamSessionActive] = useState(false);
   const [examQuestions, setExamQuestions] = useState<QuestionRevision[]>([]);
@@ -170,7 +176,7 @@ export default function App() {
       setLoading(true);
       await initializeDatabase();
 
-      const [r, t, u, c, q, a, rStates, inQ, key, s, savedLastTId] = await Promise.all([
+      const [r, t, u, c, q, a, rStates, inQ, key, s, savedLastTId, aConfig] = await Promise.all([
         getRoutine(),
         getTopics(),
         getUnits(),
@@ -182,6 +188,7 @@ export default function App() {
         getEncryptedApiKey(),
         getSources(),
         getLastStudiedTopicId(),
+        getAlarmConfig(),
       ]);
 
       setRoutine(r);
@@ -205,6 +212,7 @@ export default function App() {
       setIncorrectQuestions(inQ);
       setApiKey(key || '');
       setSources(s);
+      setAlarmConfig(aConfig);
 
     } catch (err) {
       console.error('앱 데이터 로드 실패:', err);
@@ -895,7 +903,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       if (trimmed) {
         await saveEncryptedApiKey(trimmed);
       }
-      showAlert('저장 완료', '설정 사항이 안전하게 저장되었습니다.');
+      await saveAlarmConfig(alarmConfig);
+      showAlert('저장 완료', '설정 사항 및 알람 시간이 안전하게 저장되었습니다.');
       setIsSettingsOpen(false);
     } catch (err: any) {
       showAlert('오류', `저장 중 오류 발생: ${err?.message || '알 수 없는 오류'}`);
@@ -1280,6 +1289,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
               onDeleteApiKey={handleDeleteApiKey}
               routine={routine}
               onChangeRoutinePreset={handleChangeRoutinePreset}
+              alarmConfig={alarmConfig}
+              onChangeAlarmConfig={setAlarmConfig}
               onExportBackup={handleExportBackup}
               onOpenRestoreModal={() => {
                 setBackupText('');
