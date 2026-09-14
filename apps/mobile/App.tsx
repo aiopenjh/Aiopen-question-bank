@@ -1008,9 +1008,6 @@ export default function App() {
               }
             }}
             isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
-            onOpenLibrary={() => setIsLibraryOpen(true)}
-            topicCount={topics.length}
-            questionCount={questions.length}
           />
 
           {/* 우측 하단 설정 링크 플로팅 버튼 */}
@@ -1034,7 +1031,7 @@ export default function App() {
             <View style={styles.fullModalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={{ fontSize: 20 }}>📚</Text>
-                <Text style={styles.fullModalTitle}>내 문제 & 자료 보관함</Text>
+                <Text style={styles.fullModalTitle}>학습 과목 & 문제 자료함</Text>
               </View>
               <TouchableOpacity
                 style={styles.fullModalCloseBtn}

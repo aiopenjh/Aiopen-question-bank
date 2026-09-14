@@ -25,11 +25,6 @@ interface StudyMapScreenProps {
   // 자유 주제 즉시 AI 출제 연동
   onQuickPromptGenerate?: (prompt: string) => Promise<void> | void;
   isAiGenerating?: boolean;
-
-  // 자료함 바로가기
-  onOpenLibrary?: () => void;
-  topicCount?: number;
-  questionCount?: number;
 }
 
 export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
@@ -43,12 +38,10 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   onGoToScaffolding,
   onQuickPromptGenerate,
   isAiGenerating = false,
-  onOpenLibrary,
-  topicCount = 0,
-  questionCount = 0,
 }) => {
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const targetCount = routine?.targetQuestionCount || 3;
+  const progressPercent = Math.min(100, Math.round((todayAttemptsCount / targetCount) * 100));
 
   const handleSendPrompt = () => {
     if (!customPrompt.trim() || isAiGenerating || !onQuickPromptGenerate) return;
@@ -59,47 +52,60 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
 
   return (
     <ScrollView style={styles.tabContent} contentContainerStyle={styles.scrollPadding}>
-      {/* 1. 오늘의 학습 현황 & 빠른 풀기/복습 카드 */}
-      <View style={styles.routineCard}>
-        <View style={styles.routineInfoRow}>
-          <Text style={styles.cardSectionTitle}>📊 오늘의 학습 현황</Text>
-          <Text style={styles.routineStatusBadge}>
-            {routine && isStudyDay(routine) ? '🔔 오늘 학습일' : '☕ 오늘은 휴식일'}
-          </Text>
-        </View>
-
-        <View style={styles.progressContainer}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>
-              목표 달성 ({routine ? ROUTINE_PRESETS[routine.preset]?.label : '격일 학습'})
-            </Text>
-            <Text style={styles.progressValue}>
-              {todayAttemptsCount} / {targetCount} 문항
+      {/* 1. 큼직하고 시원한 오늘의 학습 현황 카드 (Hero Card) */}
+      <View style={styles.heroRoutineCard}>
+        <View style={styles.routineHeaderRow}>
+          <View>
+            <Text style={styles.cardSectionTitle}>📊 오늘의 학습 현황</Text>
+            <Text style={styles.routinePresetText}>
+              {routine ? ROUTINE_PRESETS[routine.preset]?.label : '격일 학습'} · 목표 {targetCount}문항
             </Text>
           </View>
-          <View style={styles.progressBarBackground}>
-            <View
-              style={[
-                styles.progressBarFill,
-                { width: `${Math.min(100, (todayAttemptsCount / targetCount) * 100)}%` },
-              ]}
-            />
+          <View style={styles.routineStatusBadge}>
+            <Text style={styles.routineStatusBadgeText}>
+              {routine && isStudyDay(routine) ? '🔔 오늘 학습일' : '☕ 오늘은 휴식일'}
+            </Text>
           </View>
         </View>
 
+        {/* 대형 문항 달성 지표 */}
+        <View style={styles.metricRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={styles.metricCurrentNumber}>{todayAttemptsCount}</Text>
+            <Text style={styles.metricTargetNumber}> / {targetCount} 문항 완료</Text>
+          </View>
+          <View style={[styles.percentBadge, progressPercent >= 100 && styles.percentBadgeCompleted]}>
+            <Text style={[styles.percentBadgeText, progressPercent >= 100 && styles.percentBadgeTextCompleted]}>
+              {progressPercent >= 100 ? '🎉 목표 완료' : `${progressPercent}% 달성`}
+            </Text>
+          </View>
+        </View>
+
+        {/* 굵고 시원한 프로그레스 바 */}
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+        </View>
+
+        {/* 메인 CBT 실전 풀기 버튼 */}
         {onStartExam && (
-          <TouchableOpacity style={styles.primaryActionButton} onPress={onStartExam}>
+          <TouchableOpacity
+            style={styles.primaryActionButton}
+            onPress={onStartExam}
+            activeOpacity={0.85}
+          >
             <Text style={styles.primaryActionText}>
-              🚀 오늘의 실전 문제 풀기 (CBT)
+              🚀 오늘의 실전 CBT 문제 풀기
             </Text>
           </TouchableOpacity>
         )}
 
+        {/* 서브 복습 / 오답 버튼 2분할 */}
         <View style={styles.reviewBtnRow}>
           {onStartDueReview && (
             <TouchableOpacity
               style={[styles.subActionBtn, { backgroundColor: '#312e81' }]}
               onPress={onStartDueReview}
+              activeOpacity={0.85}
             >
               <Text style={styles.subActionBtnText}>
                 🔔 복습 문제 ({dueQuestionsCount})
@@ -111,6 +117,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             <TouchableOpacity
               style={[styles.subActionBtn, { backgroundColor: '#450a0a' }]}
               onPress={onStartIncorrectReview}
+              activeOpacity={0.85}
             >
               <Text style={[styles.subActionBtnText, { color: '#fca5a5' }]}>
                 📕 오답노트 ({incorrectQuestionsCount})
@@ -119,13 +126,15 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           )}
         </View>
 
+        {/* 오답 개념 보충 학습 */}
         {incorrectQuestionsCount > 0 && onGoToScaffolding && (
           <TouchableOpacity
             style={styles.scaffoldingBtn}
             onPress={onGoToScaffolding}
+            activeOpacity={0.85}
           >
             <Text style={styles.scaffoldingBtnText}>
-              💡 오답 개념 보충 학습 ({incorrectQuestionsCount}) ➔
+              💡 오답 개념 집중 보충 학습 ({incorrectQuestionsCount}개 분석) ➔
             </Text>
           </TouchableOpacity>
         )}
@@ -136,7 +145,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
         <View style={styles.quickPromptCard}>
           <Text style={styles.quickPromptLabel}>✨ 원하는 개념 즉시 출제</Text>
           <Text style={styles.quickPromptGuide}>
-            공부하고 싶은 개념을 입력하면 AI가 맞춤형 CBT 3문항을 즉시 출제합니다.
+            공부하고 싶은 개념이나 키워드를 입력하면 AI가 맞춤형 CBT 문제를 즉시 출제합니다.
           </Text>
           <View style={styles.quickPromptInputRow}>
             <TextInput
@@ -159,6 +168,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
               style={[styles.quickPromptSubmitBtn, isAiGenerating && { opacity: 0.6 }]}
               disabled={isAiGenerating}
               onPress={handleSendPrompt}
+              activeOpacity={0.85}
             >
               {isAiGenerating ? (
                 <ActivityIndicator size="small" color="#ffffff" />
@@ -169,24 +179,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </View>
         </View>
       )}
-
-      {/* 3. 자료함(과목 & 단원 커리큘럼 & 문제 보관함) 바로가기 배너 */}
-      {onOpenLibrary && (
-        <TouchableOpacity style={styles.libraryShortcutCard} onPress={onOpenLibrary} activeOpacity={0.8}>
-          <View style={{ flex: 1, marginRight: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Text style={{ fontSize: 18 }}>📚</Text>
-              <Text style={styles.libraryShortcutTitle}>학습 과목 & 문제 보관함</Text>
-            </View>
-            <Text style={styles.libraryShortcutDesc}>
-              등록된 과목 {topicCount}개 · 총 {questionCount}문항이 과목별로 정리되어 있습니다.
-            </Text>
-          </View>
-          <View style={styles.libraryShortcutBadge}>
-            <Text style={styles.libraryShortcutBadgeText}>자료실 열기 ➔</Text>
-          </View>
-        </TouchableOpacity>
-      )}
     </ScrollView>
   );
 };
@@ -196,65 +188,101 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPadding: {
-    padding: 16,
-    paddingBottom: 30,
+    padding: 18,
+    paddingBottom: 40,
   },
-  routineCard: {
+  heroRoutineCard: {
     backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderRadius: 18,
+    padding: 22,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#4338ca',
+  },
+  routineHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
   cardSectionTitle: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#f8fafc',
   },
-  routineInfoRow: {
+  routinePresetText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 3,
+  },
+  routineStatusBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  routineStatusBadgeText: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  metricRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  routineStatusBadge: {
-    color: '#38bdf8',
-    fontSize: 12,
-    fontWeight: 'bold',
+  metricCurrentNumber: {
+    fontSize: 38,
+    fontWeight: '900',
+    color: '#ffffff',
   },
-  progressContainer: {
-    marginBottom: 14,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  progressLabel: {
-    fontSize: 12,
+  metricTargetNumber: {
+    fontSize: 15,
     color: '#94a3b8',
+    marginLeft: 4,
+    fontWeight: '600',
   },
-  progressValue: {
-    fontSize: 12,
+  percentBadge: {
+    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#6366f1',
+  },
+  percentBadgeCompleted: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    borderColor: '#10b981',
+  },
+  percentBadgeText: {
+    color: '#a5b4fc',
+    fontSize: 13,
     fontWeight: 'bold',
-    color: '#f8fafc',
+  },
+  percentBadgeTextCompleted: {
+    color: '#6ee7b7',
   },
   progressBarBackground: {
-    height: 8,
+    height: 12,
     backgroundColor: '#0f172a',
-    borderRadius: 4,
+    borderRadius: 6,
     overflow: 'hidden',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: '#6366f1',
-    borderRadius: 4,
+    borderRadius: 6,
   },
   primaryActionButton: {
     backgroundColor: '#6366f1',
-    borderRadius: 10,
-    paddingVertical: 13,
+    borderRadius: 12,
+    paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -262,23 +290,23 @@ const styles = StyleSheet.create({
   },
   primaryActionText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   reviewBtnRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   subActionBtn: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   subActionBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#ffffff',
   },
@@ -286,27 +314,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#311042',
     borderColor: '#a855f7',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
     marginTop: 10,
   },
   scaffoldingBtnText: {
     color: '#f3e8ff',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   quickPromptCard: {
     backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 15,
-    marginBottom: 14,
+    borderRadius: 16,
+    padding: 18,
     borderWidth: 1,
-    borderColor: '#4f46e5',
+    borderColor: '#334155',
   },
   quickPromptLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#c7d2fe',
     marginBottom: 4,
@@ -314,8 +341,8 @@ const styles = StyleSheet.create({
   quickPromptGuide: {
     fontSize: 12,
     color: '#94a3b8',
-    marginBottom: 10,
-    lineHeight: 16,
+    marginBottom: 12,
+    lineHeight: 17,
   },
   quickPromptInputRow: {
     flexDirection: 'row',
@@ -325,58 +352,25 @@ const styles = StyleSheet.create({
   quickPromptInput: {
     flex: 1,
     backgroundColor: '#0f172a',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#334155',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 14,
   },
   quickPromptSubmitBtn: {
     backgroundColor: '#6366f1',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickPromptSubmitText: {
     color: '#ffffff',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  libraryShortcutCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  libraryShortcutTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#f8fafc',
-  },
-  libraryShortcutDesc: {
-    fontSize: 12,
-    color: '#94a3b8',
-    lineHeight: 16,
-  },
-  libraryShortcutBadge: {
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    borderWidth: 1,
-    borderColor: '#6366f1',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  libraryShortcutBadgeText: {
-    color: '#a5b4fc',
-    fontSize: 12,
     fontWeight: 'bold',
   },
 });

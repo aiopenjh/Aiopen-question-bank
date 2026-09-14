@@ -28,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
         <TouchableOpacity onPress={onOpenLibrary} style={styles.libraryHeaderBtn} activeOpacity={0.8}>
           <Text style={styles.libraryHeaderBtnText}>
-            📚 자료함{questionCount > 0 ? ` (${questionCount})` : ''}
+            📚 과목 & 자료함{questionCount > 0 ? ` (${questionCount})` : ''}
           </Text>
         </TouchableOpacity>
       </View>
