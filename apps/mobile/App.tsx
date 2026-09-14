@@ -899,25 +899,6 @@ export default function App() {
 
       <View style={styles.mainContent}>
         <StudyMapScreen
-            topics={topics}
-            selectedTopicId={selectedTopicId}
-            units={units}
-            completions={completions}
-            onSelectTopic={(id) => {
-              setSelectedTopicId(id);
-              setSelectedUnitId(null);
-            }}
-            onOpenTopicModal={() => setTopicModalVisible(true)}
-            onOpenUnitModal={() => setUnitModalVisible(true)}
-            onDeleteTopic={handleDeleteTopic}
-            onToggleUnitCompletion={handleToggleUnitCompletion}
-            onDeleteUnit={handleDeleteUnit}
-            onGenerateCurriculumForTopic={handleGenerateCurriculumForTopic}
-            onQuickGenerateForUnit={handlePromptQuizCount}
-            onDeduplicateUnits={handleDeduplicateUnits}
-            isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
-            generatingUnitId={generatingUnitId}
-            onOpenLibrary={() => setIsLibraryOpen(true)}
             routine={routine}
             todayAttemptsCount={todayAttempts.length}
             dueQuestionsCount={dueQuestions.length}
@@ -1026,6 +1007,10 @@ export default function App() {
                 setGeneratingWaitStatus(null);
               }
             }}
+            isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
+            onOpenLibrary={() => setIsLibraryOpen(true)}
+            topicCount={topics.length}
+            questionCount={questions.length}
           />
 
           {/* 우측 하단 설정 링크 플로팅 버튼 */}
@@ -1061,17 +1046,32 @@ export default function App() {
             <LibraryScreen
               questions={questions}
               topics={topics}
+              units={units}
+              completions={completions}
+              onOpenTopicModal={() => setTopicModalVisible(true)}
+              onOpenUnitModal={() => setUnitModalVisible(true)}
+              onDeleteTopic={handleDeleteTopic}
+              onToggleUnitCompletion={handleToggleUnitCompletion}
+              onDeleteUnit={handleDeleteUnit}
+              onGenerateCurriculumForTopic={handleGenerateCurriculumForTopic}
+              onQuickGenerateForUnit={(topicId, topicName, unitId, unitTitle) => {
+                setIsLibraryOpen(false);
+                handlePromptQuizCount(topicId, topicName, unitId, unitTitle);
+              }}
+              onDeduplicateUnits={handleDeduplicateUnits}
+              isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
+              generatingUnitId={generatingUnitId}
+              onStartExamWithQuestions={(qs) => {
+                setIsLibraryOpen(false);
+                startExam(qs);
+              }}
+              onDeleteQuestion={handleDeleteQuestion}
               sources={sources}
               sourceTitle={sourceTitle}
               onChangeSourceTitle={setSourceTitle}
               sourceText={sourceText}
               onChangeSourceText={setSourceText}
               onSaveSource={handleSaveSource}
-              onStartExamWithQuestions={(qs) => {
-                setIsLibraryOpen(false);
-                startExam(qs);
-              }}
-              onDeleteQuestion={handleDeleteQuestion}
             />
           </SafeAreaView>
         </Modal>

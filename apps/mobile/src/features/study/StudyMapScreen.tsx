@@ -1,28 +1,18 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
-import { Topic, Unit, ManualCompletion, RoutineRevision } from '../../contracts/types';
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  TextInput,
+} from 'react-native';
+import { RoutineRevision } from '../../contracts/types';
 import { ROUTINE_PRESETS, isStudyDay } from '../../domain/routine';
-import { showAlert } from '../../utils/alert';
 
 interface StudyMapScreenProps {
-  topics: Topic[];
-  selectedTopicId: string | null;
-  units: Unit[];
-  completions: ManualCompletion[];
-  onSelectTopic: (id: string) => void;
-  onOpenTopicModal: () => void;
-  onOpenUnitModal: () => void;
-  onDeleteTopic: (id: string, name: string) => void;
-  onToggleUnitCompletion: (unitId: string) => Promise<void>;
-  onDeleteUnit: (unitId: string) => Promise<void>;
-  onGenerateCurriculumForTopic: (topicId: string, topicName: string) => Promise<void>;
-  onQuickGenerateForUnit: (topicId: string, topicName: string, unitId: string, unitTitle: string) => void | Promise<void>;
-  onDeduplicateUnits?: (topicId: string) => Promise<void>;
-  isAiGenerating?: boolean;
-  generatingUnitId?: string | null;
-  onOpenLibrary?: () => void;
-
-  // 통합 학습 루틴 & 복습 연동
+  // 통합 학습 현황 & 복습 연동
   routine?: RoutineRevision | null;
   todayAttemptsCount?: number;
   dueQuestionsCount?: number;
@@ -34,26 +24,15 @@ interface StudyMapScreenProps {
 
   // 자유 주제 즉시 AI 출제 연동
   onQuickPromptGenerate?: (prompt: string) => Promise<void> | void;
+  isAiGenerating?: boolean;
+
+  // 자료함 바로가기
+  onOpenLibrary?: () => void;
+  topicCount?: number;
+  questionCount?: number;
 }
 
 export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
-  topics,
-  selectedTopicId,
-  units,
-  completions,
-  onSelectTopic,
-  onOpenTopicModal,
-  onOpenUnitModal,
-  onDeleteTopic,
-  onToggleUnitCompletion,
-  onDeleteUnit,
-  onGenerateCurriculumForTopic,
-  onQuickGenerateForUnit,
-  onDeduplicateUnits,
-  isAiGenerating = false,
-  generatingUnitId = null,
-  onOpenLibrary,
-
   routine = null,
   todayAttemptsCount = 0,
   dueQuestionsCount = 0,
@@ -63,74 +42,20 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   onStartIncorrectReview,
   onGoToScaffolding,
   onQuickPromptGenerate,
+  isAiGenerating = false,
+  onOpenLibrary,
+  topicCount = 0,
+  questionCount = 0,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const [customPrompt, setCustomPrompt] = useState<string>('');
-
   const targetCount = routine?.targetQuestionCount || 3;
 
-  const handleUnitPress = (unit: Unit, isCompleted: boolean) => {
-    if (!currentTopic) return;
-    if (isCompleted) {
-      showAlert(
-        '단원 학습 완료 안내',
-        `[${unit.title}] 단원은 이미 완료(학습)된 상태입니다.\n오답노트 및 복습창으로 이동하시겠습니까, 아니면 새로운 문제를 다시 출제하여 푸시겠습니까?`,
-        [
-          {
-            text: '취소',
-            style: 'cancel',
-          },
-          {
-            text: '📖 복습창으로 이동',
-            onPress: () => {
-              if (onOpenLibrary) {
-                onOpenLibrary();
-              } else if (onStartDueReview) {
-                onStartDueReview();
-              }
-            },
-          },
-          {
-            text: '⚡ 새 문제 풀기',
-            onPress: () => {
-              onQuickGenerateForUnit(currentTopic.id, currentTopic.name, unit.id, unit.title);
-            },
-          },
-        ]
-      );
-    } else {
-      // 미완료 단원: 이름 클릭 시 즉시 문제 출제(문항 수 선택 모달) 실행
-      onQuickGenerateForUnit(currentTopic.id, currentTopic.name, unit.id, unit.title);
-    }
+  const handleSendPrompt = () => {
+    if (!customPrompt.trim() || isAiGenerating || !onQuickPromptGenerate) return;
+    const p = customPrompt.trim();
+    setCustomPrompt('');
+    onQuickPromptGenerate(p);
   };
-
-  const categories = React.useMemo(() => {
-    const set = new Set<string>();
-    topics.forEach((t) => {
-      if (t.category) set.add(t.category);
-      else set.add('📚 일반');
-    });
-    return ['전체', ...Array.from(set)];
-  }, [topics]);
-
-  const filteredTopics = React.useMemo(() => {
-    if (selectedCategory === '전체') return topics;
-    return topics.filter((t) => (t.category || '📚 일반') === selectedCategory);
-  }, [topics, selectedCategory]);
-
-  const currentTopic = topics.find((t) => t.id === selectedTopicId);
-  const topicUnits = units.filter((u) => u.topicId === selectedTopicId);
-  const hasDuplicates = new Set(topicUnits.map((u) => u.title.trim())).size < topicUnits.length;
-
-  // 선택된 토픽의 대단위(카테고리)가 현재 카테고리 필터와 다를 경우 자동 전환하여 항상 노출되도록 보장
-  React.useEffect(() => {
-    if (currentTopic && selectedCategory !== '전체') {
-      const topicCat = currentTopic.category || '📚 일반';
-      if (selectedCategory !== topicCat) {
-        setSelectedCategory(topicCat);
-      }
-    }
-  }, [selectedTopicId, currentTopic?.category]);
 
   return (
     <ScrollView style={styles.tabContent} contentContainerStyle={styles.scrollPadding}>
@@ -165,7 +90,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
         {onStartExam && (
           <TouchableOpacity style={styles.primaryActionButton} onPress={onStartExam}>
             <Text style={styles.primaryActionText}>
-              🚀 {currentTopic ? `[${currentTopic.name}] 실전 문제 풀기` : '오늘의 실전 문제 풀기 (CBT)'}
+              🚀 오늘의 실전 문제 풀기 (CBT)
             </Text>
           </TouchableOpacity>
         )}
@@ -206,31 +131,26 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
         )}
       </View>
 
-      {/* 3. 즉시 AI 문제 출제 바 (자유 주제) */}
+      {/* 2. 즉시 AI 문제 출제 바 (자유 주제) */}
       {onQuickPromptGenerate && (
         <View style={styles.quickPromptCard}>
           <Text style={styles.quickPromptLabel}>✨ 원하는 개념 즉시 출제</Text>
+          <Text style={styles.quickPromptGuide}>
+            공부하고 싶은 개념을 입력하면 AI가 맞춤형 CBT 3문항을 즉시 출제합니다.
+          </Text>
           <View style={styles.quickPromptInputRow}>
             <TextInput
               style={styles.quickPromptInput}
-              placeholder="예: Git cherry-pick 원리, 피타고라스 정리..."
+              placeholder="예: Git cherry-pick 원리, 미적분 기초, 회계원리..."
               placeholderTextColor="#64748b"
               value={customPrompt}
               onChangeText={setCustomPrompt}
               returnKeyType="send"
-              onSubmitEditing={() => {
-                if (!customPrompt.trim() || isAiGenerating) return;
-                const p = customPrompt.trim();
-                setCustomPrompt('');
-                onQuickPromptGenerate(p);
-              }}
+              onSubmitEditing={handleSendPrompt}
               onKeyPress={(e: any) => {
                 if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
                   e?.preventDefault?.();
-                  if (!customPrompt.trim() || isAiGenerating) return;
-                  const p = customPrompt.trim();
-                  setCustomPrompt('');
-                  onQuickPromptGenerate(p);
+                  handleSendPrompt();
                 }
               }}
               blurOnSubmit={false}
@@ -238,12 +158,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             <TouchableOpacity
               style={[styles.quickPromptSubmitBtn, isAiGenerating && { opacity: 0.6 }]}
               disabled={isAiGenerating}
-              onPress={() => {
-                if (!customPrompt.trim() || isAiGenerating) return;
-                const p = customPrompt.trim();
-                setCustomPrompt('');
-                onQuickPromptGenerate(p);
-              }}
+              onPress={handleSendPrompt}
             >
               {isAiGenerating ? (
                 <ActivityIndicator size="small" color="#ffffff" />
@@ -255,186 +170,22 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
         </View>
       )}
 
-      {/* 4. 과목 / 커리큘럼 헤더 */}
-      <View style={styles.studyHeaderCard}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.studyHeaderTitle}>📚 학습 과목 & 단원 커리큘럼</Text>
-          <TouchableOpacity style={styles.headerActionBtn} onPress={onOpenTopicModal}>
-            <Text style={styles.headerActionBtnText}>+ 새 주제</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.studyHeaderSubtitle}>
-          과목과 단원을 선택하여 맞춤형 CBT 시험을 응시하세요.
-        </Text>
-      </View>
-
-      {topics.length === 0 ? (
-        <View style={styles.emptyTopicCard}>
-          <Text style={{ fontSize: 30, marginBottom: 8 }}>📚</Text>
-          <Text style={styles.emptyTopicText}>등록된 학습 주제가 없습니다.</Text>
-          <TouchableOpacity style={styles.primaryActionButton} onPress={onOpenTopicModal}>
-            <Text style={styles.primaryActionText}>✨ AI 맞춤 학습 주제 만들기</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <>
-          {/* 대분류(카테고리) 탭 필터 바 */}
-          {categories.length > 1 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {categories.map((cat) => {
-                const isActive = selectedCategory === cat;
-                return (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      styles.categoryFilterChip,
-                      isActive && styles.categoryFilterChipActive,
-                    ]}
-                    onPress={() => setSelectedCategory(cat)}
-                  >
-                    <Text style={[styles.categoryFilterText, isActive && styles.categoryFilterTextActive]}>
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-
-          {/* 주제 선택 탭 바 */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.topicPillsScroll}>
-            {filteredTopics.map((t) => (
-              <TouchableOpacity
-                key={t.id}
-                style={[styles.topicPill, selectedTopicId === t.id && styles.topicPillActive]}
-                onPress={() => onSelectTopic(t.id)}
-              >
-                <Text style={[styles.topicPillText, selectedTopicId === t.id && styles.topicPillTextActive]}>
-                  {t.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {currentTopic && (
-            <View style={styles.topicSectionCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                    <Text style={styles.categoryBadge}>{currentTopic.category || '📚 일반'}</Text>
-                    <Text style={styles.topicTitle}>{currentTopic.name}</Text>
-                  </View>
-                  <Text style={styles.topicDesc}>{currentTopic.description || '맞춤 커리큘럼'}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => onDeleteTopic(currentTopic.id, currentTopic.name)}
-                  style={styles.deleteTopicBtn}
-                >
-                  <Text style={styles.deleteTopicText}>삭제</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 10 }}>
-                <Text style={styles.unitListHeading}>목차 리스트 ({topicUnits.length}개)</Text>
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                  {hasDuplicates && onDeduplicateUnits && (
-                    <TouchableOpacity
-                      style={styles.cleanupBtn}
-                      onPress={() => onDeduplicateUnits(currentTopic.id)}
-                    >
-                      <Text style={styles.cleanupBtnText}>🧹 중복 정리</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={styles.aiAddUnitBtn}
-                    onPress={() => onGenerateCurriculumForTopic(currentTopic.id, currentTopic.name)}
-                    disabled={isAiGenerating}
-                  >
-                    <Text style={styles.aiAddUnitBtnText}>✨ AI 목차 자동 생성</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={onOpenUnitModal}>
-                    <Text style={styles.addUnitText}>+ 직접 추가</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {topicUnits.length === 0 ? (
-                <View style={styles.emptyUnitCard}>
-                  <Text style={{ fontSize: 28, marginBottom: 6 }}>⚡</Text>
-                  <Text style={styles.emptyUnitText}>아직 등록된 단원이 없습니다.</Text>
-                  <Text style={styles.emptyUnitSubText}>
-                    AI를 통해 공인 표준 5단계 목차를 자동 구성할 수 있습니다.
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.aiGenerateCurriculumBtn}
-                    onPress={() => onGenerateCurriculumForTopic(currentTopic.id, currentTopic.name)}
-                    disabled={isAiGenerating}
-                  >
-                    {isAiGenerating ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <ActivityIndicator color="#ffffff" size="small" />
-                        <Text style={styles.aiGenerateCurriculumBtnText}>AI 목차 설계 중...</Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.aiGenerateCurriculumBtnText}>✨ AI 5단계 목차 생성</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                topicUnits.map((u) => {
-                  const isCompleted = completions.some((c) => c.unitId === u.id && c.completed);
-                  const isThisUnitGenerating = generatingUnitId === u.id;
-                  return (
-                    <View key={u.id} style={styles.unitRow}>
-                      <View style={styles.unitMainCol}>
-                        <TouchableOpacity
-                          style={styles.unitCheckTouch}
-                          onPress={() => onToggleUnitCompletion(u.id)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Text style={styles.checkIcon}>{isCompleted ? '✅' : '⬜'}</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.unitTitleTouch}
-                          onPress={() => handleUnitPress(u, isCompleted)}
-                          activeOpacity={0.7}
-                        >
-                          <Text
-                            style={[styles.microUnitText, isCompleted && styles.microUnitTextCompleted]}
-                            numberOfLines={2}
-                          >
-                            {u.title}
-                          </Text>
-                          {isCompleted && (
-                            <Text style={styles.unitCompletedBadge}>완료됨 · 클릭 시 복습 / 재출제</Text>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <TouchableOpacity
-                          style={styles.unitQuickQuizBtn}
-                          onPress={() => onQuickGenerateForUnit(currentTopic.id, currentTopic.name, u.id, u.title)}
-                          disabled={isAiGenerating}
-                        >
-                          {isThisUnitGenerating ? (
-                            <ActivityIndicator color="#ffffff" size="small" />
-                          ) : (
-                            <Text style={styles.unitQuickQuizBtnText}>⚡ 문제 풀기</Text>
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => onDeleteUnit(u.id)}>
-                          <Text style={styles.unitDeleteText}>✕</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
+      {/* 3. 자료함(과목 & 단원 커리큘럼 & 문제 보관함) 바로가기 배너 */}
+      {onOpenLibrary && (
+        <TouchableOpacity style={styles.libraryShortcutCard} onPress={onOpenLibrary} activeOpacity={0.8}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Text style={{ fontSize: 18 }}>📚</Text>
+              <Text style={styles.libraryShortcutTitle}>학습 과목 & 문제 보관함</Text>
             </View>
-          )}
-        </>
+            <Text style={styles.libraryShortcutDesc}>
+              등록된 과목 {topicCount}개 · 총 {questionCount}문항이 과목별로 정리되어 있습니다.
+            </Text>
+          </View>
+          <View style={styles.libraryShortcutBadge}>
+            <Text style={styles.libraryShortcutBadgeText}>자료실 열기 ➔</Text>
+          </View>
+        </TouchableOpacity>
       )}
     </ScrollView>
   );
@@ -448,274 +199,16 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 30,
   },
-  studyHeaderCard: {
-    marginBottom: 14,
-  },
-  studyHeaderTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#f8fafc',
-  },
-  studyHeaderSubtitle: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 4,
-  },
-  headerActionBtn: {
-    backgroundColor: '#4338ca',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  headerActionBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  emptyTopicCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 24,
-    alignItems: 'center',
-  },
-  emptyTopicText: {
-    color: '#94a3b8',
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  primaryActionButton: {
-    backgroundColor: '#6366f1',
-    borderRadius: 10,
-    paddingVertical: 13,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryActionText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  topicPillsScroll: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  topicPill: {
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  topicPillActive: {
-    backgroundColor: '#4338ca',
-    borderColor: '#6366f1',
-  },
-  topicPillText: {
-    color: '#94a3b8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  topicPillTextActive: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
-  topicSectionCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  topicTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#f8fafc',
-  },
-  topicDesc: {
-    fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 3,
-  },
-  deleteTopicBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  deleteTopicText: {
-    color: '#ef4444',
-    fontSize: 12,
-  },
-  unitListHeading: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#cbd5e1',
-  },
-  addUnitText: {
-    fontSize: 13,
-    color: '#818cf8',
-    fontWeight: 'bold',
-  },
-  unitRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  unitMainCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-  },
-  unitCheckTouch: {
-    paddingVertical: 4,
-    paddingRight: 8,
-  },
-  unitTitleTouch: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  checkIcon: {
-    fontSize: 16,
-  },
-  microUnitText: {
-    fontSize: 14,
-    color: '#e2e8f0',
-    fontWeight: '500',
-  },
-  microUnitTextCompleted: {
-    textDecorationLine: 'line-through',
-    color: '#64748b',
-  },
-  unitCompletedBadge: {
-    fontSize: 10,
-    color: '#38bdf8',
-    marginTop: 2,
-    fontWeight: '600',
-  },
-  unitDeleteText: {
-    color: '#64748b',
-    fontSize: 14,
-    paddingHorizontal: 6,
-  },
-  cleanupBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ef4444',
-  },
-  cleanupBtnText: {
-    color: '#fca5a5',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  aiAddUnitBtn: {
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#6366f1',
-  },
-  aiAddUnitBtnText: {
-    color: '#a5b4fc',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  unitQuickQuizBtn: {
-    backgroundColor: '#0f766e',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  unitQuickQuizBtnText: {
-    color: '#ccfbf1',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  emptyUnitCard: {
-    paddingVertical: 20,
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    paddingHorizontal: 16,
-    marginTop: 6,
-  },
-  emptyUnitText: {
-    color: '#cbd5e1',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  emptyUnitSubText: {
-    color: '#94a3b8',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
-    marginBottom: 14,
-  },
-  aiGenerateCurriculumBtn: {
-    backgroundColor: '#6366f1',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-  },
-  aiGenerateCurriculumBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  categoryFilterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginRight: 6,
-  },
-  categoryFilterChipActive: {
-    backgroundColor: 'rgba(99, 102, 241, 0.25)',
-    borderColor: '#6366f1',
-  },
-  categoryFilterText: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontWeight: '600',
-  },
-  categoryFilterTextActive: {
-    color: '#ffffff',
-    fontWeight: '800',
-  },
-  categoryBadge: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
   routineCard: {
     backgroundColor: '#1e293b',
     borderRadius: 14,
-    padding: 15,
+    padding: 16,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#334155',
   },
   cardSectionTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#f8fafc',
   },
@@ -723,7 +216,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   routineStatusBadge: {
     color: '#38bdf8',
@@ -731,7 +224,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   progressContainer: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   progressHeader: {
     flexDirection: 'row',
@@ -748,7 +241,7 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
   },
   progressBarBackground: {
-    height: 7,
+    height: 8,
     backgroundColor: '#0f172a',
     borderRadius: 4,
     overflow: 'hidden',
@@ -758,10 +251,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366f1',
     borderRadius: 4,
   },
+  primaryActionButton: {
+    backgroundColor: '#6366f1',
+    borderRadius: 10,
+    paddingVertical: 13,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  primaryActionText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   reviewBtnRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
   },
   subActionBtn: {
     flex: 1,
@@ -784,7 +290,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 12,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 10,
   },
   scaffoldingBtnText: {
     color: '#f3e8ff',
@@ -794,16 +300,22 @@ const styles = StyleSheet.create({
   quickPromptCard: {
     backgroundColor: '#1e293b',
     borderRadius: 14,
-    padding: 13,
+    padding: 15,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#4f46e5',
   },
   quickPromptLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#c7d2fe',
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  quickPromptGuide: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginBottom: 10,
+    lineHeight: 16,
   },
   quickPromptInputRow: {
     flexDirection: 'row',
@@ -817,7 +329,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     color: '#ffffff',
     fontSize: 13,
   },
@@ -825,13 +337,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366f1',
     borderRadius: 8,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickPromptSubmitText: {
     color: '#ffffff',
     fontSize: 13,
+    fontWeight: 'bold',
+  },
+  libraryShortcutCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  libraryShortcutTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  libraryShortcutDesc: {
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: 16,
+  },
+  libraryShortcutBadge: {
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    borderWidth: 1,
+    borderColor: '#6366f1',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  libraryShortcutBadgeText: {
+    color: '#a5b4fc',
+    fontSize: 12,
     fontWeight: 'bold',
   },
 });
