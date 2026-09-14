@@ -169,14 +169,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
               {isRegistered && (
                 <TouchableOpacity
-                  style={[styles.primaryActionButton, { backgroundColor: '#334155', flex: 0.4 }]}
+                  style={[styles.primaryActionButton, { backgroundColor: '#ffe4e6', borderWidth: 1, borderColor: '#fecdd3', flex: 0.4 }]}
                   onPress={() => {
                     setInputKey(apiKey);
                     setIsEditingKey(false);
                   }}
                   disabled={saving}
                 >
-                  <Text style={styles.primaryActionText}>취소</Text>
+                  <Text style={[styles.primaryActionText, { color: '#be123c' }]}>취소</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -249,17 +249,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity
-            style={[styles.primaryActionButton, { flex: 1, backgroundColor: '#0f766e' }]}
+            style={[styles.primaryActionButton, { flex: 1, backgroundColor: '#f43f5e' }]}
             onPress={onExportBackup}
           >
             <Text style={styles.primaryActionText}>💾 백업 내보내기</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.primaryActionButton, { flex: 1, backgroundColor: '#334155' }]}
+            style={[styles.primaryActionButton, { flex: 1, backgroundColor: '#fff1f2', borderWidth: 1, borderColor: '#fda4af' }]}
             onPress={onOpenRestoreModal}
           >
-            <Text style={styles.primaryActionText}>🔄 백업 복원하기</Text>
+            <Text style={[styles.primaryActionText, { color: '#be123c' }]}>🔄 백업 복원하기</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -271,10 +271,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           모든 데이터를 비우고 깨끗한 백지 상태에서 처음부터 다시 시작합니다.
         </Text>
         <TouchableOpacity
-          style={[styles.primaryActionButton, { backgroundColor: '#7f1d1d' }]}
+          style={[styles.primaryActionButton, { backgroundColor: '#fff1f2', borderWidth: 1, borderColor: '#fca5a5' }]}
           onPress={onResetAllData}
         >
-          <Text style={styles.primaryActionText}>🗑️ 전체 데이터 초기화</Text>
+          <Text style={[styles.primaryActionText, { color: '#b91c1c' }]}>🗑️ 전체 데이터 초기화</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -284,44 +284,50 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 const styles = StyleSheet.create({
   tabContent: {
     flex: 1,
+    backgroundColor: '#fff1f4',
   },
   scrollPadding: {
     padding: 16,
     paddingBottom: 30,
   },
   card: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 18,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardSectionTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#881337',
     marginBottom: 8,
   },
   promptGuideText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#64748b',
     lineHeight: 19,
     marginBottom: 12,
   },
   inputField: {
-    backgroundColor: '#0f172a',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#f8fafc',
+    backgroundColor: '#fff5f7',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#1f2937',
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
     marginBottom: 10,
   },
   primaryActionButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#f43f5e',
     borderRadius: 10,
     paddingVertical: 13,
     alignItems: 'center',
@@ -338,22 +344,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   presetButton: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#fff5f7',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
     minWidth: '45%',
     alignItems: 'center',
   },
   presetButtonSelected: {
-    backgroundColor: '#4338ca',
-    borderColor: '#6366f1',
+    backgroundColor: '#f43f5e',
+    borderColor: '#e11d48',
   },
   presetButtonText: {
-    color: '#94a3b8',
+    color: '#64748b',
     fontSize: 13,
+    fontWeight: '600',
   },
   presetButtonTextSelected: {
     color: '#ffffff',
@@ -366,26 +373,28 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   connectedBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: '#ecfdf5',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#10b981',
+    borderColor: '#a7f3d0',
   },
   connectedBadgeText: {
-    color: '#34d399',
+    color: '#059669',
     fontSize: 11,
     fontWeight: '800',
   },
   disconnectedBadge: {
-    backgroundColor: '#334155',
+    backgroundColor: '#ffe4e6',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
   },
   disconnectedBadgeText: {
-    color: '#94a3b8',
+    color: '#be123c',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -397,94 +406,96 @@ const styles = StyleSheet.create({
   },
   keyInputField: {
     flex: 1,
-    backgroundColor: '#0f172a',
-    borderRadius: 8,
+    backgroundColor: '#fff5f7',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#f8fafc',
+    color: '#1f2937',
     fontSize: 13,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
   },
   eyeBtn: {
-    backgroundColor: '#334155',
+    backgroundColor: '#ffe4e6',
     paddingHorizontal: 12,
     paddingVertical: 11,
-    borderRadius: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
   },
   eyeBtnText: {
-    color: '#cbd5e1',
+    color: '#be123c',
     fontSize: 12,
     fontWeight: '700',
   },
   saveSuccessBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderRadius: 8,
+    backgroundColor: '#ecfdf5',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#10b981',
+    borderColor: '#a7f3d0',
   },
   saveSuccessTitle: {
-    color: '#34d399',
+    color: '#059669',
     fontSize: 12,
     fontWeight: 'bold',
   },
   modelChip: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#fff5f7',
     borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 6,
+    borderColor: '#fecdd3',
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   modelChipSelected: {
-    backgroundColor: 'rgba(56, 189, 248, 0.18)',
-    borderColor: '#38bdf8',
+    backgroundColor: '#ffe4e6',
+    borderColor: '#f43f5e',
   },
   modelChipText: {
-    color: '#94a3b8',
+    color: '#64748b',
     fontSize: 12,
     fontWeight: '600',
   },
   modelChipTextSelected: {
-    color: '#38bdf8',
+    color: '#be123c',
     fontWeight: '700',
   },
   savedKeyBanner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
-    borderRadius: 10,
+    backgroundColor: '#fff5f7',
+    borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
   },
   savedKeyTitle: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#881337',
   },
   savedKeySubText: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: '#64748b',
     lineHeight: 16,
     marginTop: 2,
   },
   keyActionSmallBtn: {
-    backgroundColor: '#334155',
+    backgroundColor: '#ffe4e6',
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#475569',
+    borderColor: '#fecdd3',
   },
   keyActionSmallBtnText: {
-    color: '#e2e8f0',
+    color: '#be123c',
     fontSize: 11,
     fontWeight: 'bold',
   },

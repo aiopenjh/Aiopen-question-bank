@@ -103,7 +103,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
           <TextInput
             style={styles.inputField}
             placeholder="과목 이름 (예: Git 협업 워크플로우, 미적분학 등)"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#fda4af"
             value={topicName}
             onChangeText={setTopicName}
             editable={!isSubmitting}
@@ -165,14 +165,14 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#334155' }]}
+              style={[styles.actionBtn, { backgroundColor: '#ffe4e6', borderWidth: 1, borderColor: '#fecdd3' }]}
               onPress={onClose}
               disabled={isSubmitting}
             >
-              <Text style={styles.actionBtnText}>취소</Text>
+              <Text style={[styles.actionBtnText, { color: '#be123c' }]}>취소</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#6366f1' }]}
+              style={[styles.actionBtn, { backgroundColor: '#f43f5e' }]}
               onPress={handleCreate}
               disabled={isSubmitting}
             >
@@ -197,65 +197,70 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center',
     padding: 16,
   },
   modalCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
     padding: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderWidth: 1.5,
+    borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 8,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#881337',
     marginBottom: 6,
   },
   promptGuideText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#64748b',
     lineHeight: 18,
     marginBottom: 12,
   },
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#cbd5e1',
+    color: '#881337',
     marginBottom: 6,
   },
   presetChip: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#fff5f7',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
     marginRight: 6,
   },
   presetChipActive: {
-    borderColor: '#6366f1',
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    borderColor: '#f43f5e',
+    backgroundColor: '#ffe4e6',
   },
   presetChipText: {
-    color: '#94a3b8',
+    color: '#64748b',
     fontSize: 12,
   },
   presetChipTextActive: {
-    color: '#a5b4fc',
+    color: '#be123c',
     fontWeight: 'bold',
   },
   inputField: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#fff5f7',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#f8fafc',
+    color: '#1f2937',
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
     marginBottom: 12,
   },
   levelRow: {
@@ -265,49 +270,49 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   levelBtn: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#fff5f7',
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
     flexBasis: '48%',
     alignItems: 'center',
   },
   levelBtnActive: {
-    borderColor: '#6366f1',
-    backgroundColor: '#4338ca',
+    borderColor: '#f43f5e',
+    backgroundColor: '#ffe4e6',
   },
   levelBtnText: {
-    color: '#94a3b8',
+    color: '#64748b',
     fontSize: 12,
   },
   levelBtnTextActive: {
-    color: '#ffffff',
+    color: '#be123c',
     fontWeight: 'bold',
   },
   autoCurriculumCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#fff5f7',
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
     marginTop: 4,
   },
   autoCurriculumCardActive: {
-    borderColor: '#6366f1',
-    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+    borderColor: '#f43f5e',
+    backgroundColor: '#ffe4e6',
   },
   autoCurriculumTitle: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#94a3b8',
+    color: '#64748b',
     marginBottom: 2,
   },
   autoCurriculumTitleActive: {
-    color: '#a5b4fc',
+    color: '#be123c',
   },
   autoCurriculumDesc: {
     fontSize: 11,
