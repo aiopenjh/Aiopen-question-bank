@@ -19,7 +19,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   const options = [
     {
       count: 3,
-      badge: '⚡ 약 3~5초 (빠른 출제)',
+      badge: '⚡ 약 10초 내외 (빠른 출제)',
       title: '3문제 풀기',
       desc: '핵심 개념 위주의 신속한 마이크로러닝 (즉시 생성)',
       color: '#38bdf8',
@@ -28,7 +28,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
     },
     {
       count: 5,
-      badge: '🎯 약 8~12초 (시간 약간 소요)',
+      badge: '🎯 약 15~20초 소요',
       title: '5문제 풀기',
       desc: '개념 이해 + 기출 함정 선지 + 꼼꼼한 해설지 구성',
       color: '#a78bfa',
@@ -37,7 +37,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
     },
     {
       count: 10,
-      badge: '🏆 약 15~25초 (시간 조금 더 소요)',
+      badge: '🏆 약 30~45초 소요',
       title: '10문제 풀기',
       desc: '실전 모의고사 수준의 빈틈없는 고난도 집중 트레이닝',
       color: '#f59e0b',

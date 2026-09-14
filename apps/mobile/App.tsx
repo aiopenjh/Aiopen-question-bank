@@ -353,10 +353,10 @@ export default function App() {
       title: unitTitle,
       message:
         targetCount === 3
-          ? '⚡ 3문제는 가볍고 빠르게 즉시 출제됩니다 (약 3~5초 소요)...'
+          ? '⚡ 3문제를 생성 중입니다 (약 10초 내외 소요)...'
           : targetCount === 5
-          ? '🎯 5문제 정밀 출제 중입니다.\n기출 함정 선지와 꼼꼼한 해설을 작성하고 있어 시간이 조금 걸립니다 (약 8~12초 소요)...'
-          : '🏆 10문제 마스터 시험지 생성 중입니다.\n고난도 심층 개념 검증과 4지선다 오개념 분석 작성으로 시간이 조금 더 걸립니다. 잠시만 기다려 주세요 (약 15~25초 소요)...',
+          ? '🎯 5문제를 정밀 출제 중입니다 (약 15~20초 소요)...'
+          : '🏆 10문제 시험지를 출제 중입니다 (약 30~45초 소요)...',
     });
     try {
       const scoped = analyzeUserIntent(`[${unitTitle}] 핵심 개념 ${targetCount}문제 출제`, topicName, {
@@ -593,7 +593,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       active: true,
       count: 3,
       title: `${currentTopic.name} 추가 학습`,
-      message: '⚡ 같은 개념 범위에서 새로운 문제를 출제 중입니다 (약 3~5초 소요)...',
+      message: '⚡ 같은 개념 범위에서 새로운 문제를 출제 중입니다 (약 10초 내외 소요)...',
     });
 
     try {
@@ -765,7 +765,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       active: true,
       count: 3,
       title: currentTopic?.name || '오답 개념 집중 보충',
-      message: '⚡ 틀린 문제를 분석하여 맞춤 보충 문제를 준비 중입니다...',
+      message: '⚡ 틀린 문제를 분석하여 맞춤 보충 문제를 준비 중입니다 (약 10초 내외 소요)...',
     });
 
     try {
@@ -1101,7 +1101,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
                   active: true,
                   count: 3,
                   title: prompt,
-                  message: '⚡ AI 맞춤 문제 출제 중입니다 (약 3~5초 소요)...',
+                  message: '⚡ AI 맞춤 문제 출제 중입니다 (약 10초 내외 소요)...',
                 });
                 // 1. 사용자 프롬프트로부터 순수 도메인 의도 분석 (기존 선택된 주제 오염 방지)
                 const intent = analyzeUserIntent(prompt);
@@ -1346,8 +1346,10 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
               <View style={styles.loadingWaitNoteBox}>
                 <Text style={styles.loadingWaitNoteText}>
                   {generatingWaitStatus.count === 3
-                    ? '⚡ 초고속 마이크로러닝: 약 3~5초 후 바로 시작됩니다.'
-                    : '⏳ 5문제·10문제는 꼼꼼한 해설과 오답 분석을 위해 시간이 조금 걸립니다.'}
+                    ? '⚡ 약 10초 내외 생성 후 바로 시험장으로 연결됩니다.'
+                    : generatingWaitStatus.count === 5
+                    ? '🎯 5문제는 정밀 해설 구성을 위해 약 15~20초 소요됩니다.'
+                    : '🏆 10문제는 심층 오답 분석 작성을 위해 약 30~45초 소요됩니다.'}
                 </Text>
                 <Text style={[styles.loadingWaitNoteText, { color: '#38bdf8', marginTop: 4, fontWeight: 'bold' }]}>
                   ※ 멈춤이나 오류 없이 안전하게 시험장으로 연결됩니다.
