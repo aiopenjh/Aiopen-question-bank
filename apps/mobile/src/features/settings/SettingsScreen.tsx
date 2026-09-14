@@ -372,7 +372,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <View style={{ flex: 1, paddingRight: 8 }}>
             <Text style={styles.compactCardTitle}>🛡️ 데이터 백업 및 복원</Text>
             <Text style={styles.compactCardSubtitle}>
-              학습 데이터 백업 파일 공유 및 복원
+              초경량 ZIP 압축 백업 파일 내보내기 및 자동 복원
             </Text>
           </View>
           <View style={styles.compactBtnGroup}>

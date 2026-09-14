@@ -24,7 +24,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>🔄 학습 데이터 복원하기</Text>
           <Text style={styles.promptGuideText}>
-            이전에 카카오톡이나 파일로 저장해둔 백업 파일(.json)을 불러오면 학습 데이터가 1초 만에 복구됩니다.
+            이전에 카카오톡이나 파일로 저장해둔 압축 백업 파일(.zip 또는 .json)을 불러오면 자동으로 압축을 풀어 학습 데이터가 1초 만에 복구됩니다.
           </Text>
 
           {/* 1. 원클릭 파일 선택 버튼 (가장 추천) */}
@@ -34,10 +34,10 @@ export const BackupModal: React.FC<BackupModalProps> = ({
               onPress={onRestoreFromFile}
               activeOpacity={0.8}
             >
-              <Text style={styles.filePickBtnIcon}>📁</Text>
+              <Text style={styles.filePickBtnIcon}>📦</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.filePickBtnTitle}>백업 파일(.json) 선택하여 복원</Text>
-                <Text style={styles.filePickBtnSub}>카톡/다운로드 폴더의 백업 파일 원클릭 복구</Text>
+                <Text style={styles.filePickBtnTitle}>압축 백업 파일(.zip / .json) 선택 복원</Text>
+                <Text style={styles.filePickBtnSub}>자동 압축 해제 및 1초 원클릭 데이터 복구</Text>
               </View>
             </TouchableOpacity>
           )}

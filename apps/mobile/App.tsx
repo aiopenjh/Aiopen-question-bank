@@ -85,6 +85,7 @@ import {
   generateCurriculumUnits,
 } from './src/domain/generator';
 import { filterDueReviewQuestions } from './src/domain/spaced_repetition';
+import { compressBackupToZip, decompressBackupPayload, u8ToBase64, base64ToU8 } from './src/utils/backupArchive';
 
 // Clean Modular Custom Hooks & Styles
 import { appStyles as styles } from './src/styles/appStyles';
@@ -580,32 +581,34 @@ export default function App() {
     try {
       json = await exportBackupJSON();
       const dateStr = new Date().toISOString().slice(0, 10);
-      const fileName = `Celueste_Study_Backup_${dateStr}.json`;
+      const zipFileName = `Celueste_Study_Backup_${dateStr}.zip`;
+      const zipBytes = compressBackupToZip(json);
 
       if (Platform.OS === 'web') {
-        // 웹 브라우저: .json 파일 직접 다운로드
-        const blob = new Blob([json], { type: 'application/json' });
+        // 웹 브라우저: .zip 압축 파일 직접 다운로드
+        const blob = new Blob([zipBytes.buffer as ArrayBuffer], { type: 'application/zip' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = fileName;
+        a.download = zipFileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showAlert('백업 완료', `백업 파일(${fileName})이 성공적으로 다운로드되었습니다.`);
+        showAlert('압축 백업 완료', `85~90% 용량이 압축된 백업 파일(${zipFileName})이 다운로드되었습니다.`);
       } else {
-        // 모바일 (Android/iOS): 실제 파일로 저장 후 공유 시트로 전송 (카톡/메일/파일 저장 등)
-        const fileUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${fileName}`;
-        await FileSystem.writeAsStringAsync(fileUri, json, {
-          encoding: FileSystem.EncodingType.UTF8,
+        // 모바일 (Android/iOS): 압축 파일 생성 후 공유 시트로 전송 (카톡/메일/클라우드 저장 등)
+        const fileUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${zipFileName}`;
+        const base64 = u8ToBase64(zipBytes);
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
         });
 
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(fileUri, {
-            mimeType: 'application/json',
-            dialogTitle: '학습 데이터 백업 파일 공유/저장',
-            UTI: 'public.json',
+            mimeType: 'application/zip',
+            dialogTitle: '학습 데이터 압축 백업 파일 공유/저장',
+            UTI: 'public.zip-archive',
           });
         } else {
           // 공유 기능 미지원 기기 폴백
@@ -614,7 +617,7 @@ export default function App() {
         }
       }
     } catch (err: any) {
-      console.warn('백업 파일 생성 및 공유 실패:', err);
+      console.warn('압축 백업 파일 생성 및 공유 실패:', err);
       if (json) {
         setBackupText(json);
         setBackupModalVisible(true);
@@ -639,20 +642,31 @@ export default function App() {
       let content = '';
 
       if (Platform.OS === 'web' && (file as any).file) {
-        content = await (file as any).file.text();
+        const arrayBuffer = await (file as any).file.arrayBuffer();
+        const u8 = new Uint8Array(arrayBuffer);
+        content = decompressBackupPayload(u8);
       } else {
-        content = await FileSystem.readAsStringAsync(file.uri, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
+        // 모바일: ZIP 압축 파일 여부 자동 감지 및 압축 해제
+        try {
+          const base64 = await FileSystem.readAsStringAsync(file.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const u8 = base64ToU8(base64);
+          content = decompressBackupPayload(u8);
+        } catch {
+          content = await FileSystem.readAsStringAsync(file.uri, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+        }
       }
 
       if (!content || !content.trim()) {
-        showAlert('오류', '선택한 파일의 내용이 비어 있습니다.');
+        showAlert('오류', '선택한 파일의 내용이 비어 있거나 올바르지 않습니다.');
         return;
       }
 
       const res = await restoreBackupJSON(content);
-      showAlert(res.success ? '복원 완료' : '복원 실패', res.message);
+      showAlert(res.success ? '압축 해제 및 복원 완료' : '복원 실패', res.message);
       if (res.success) {
         await loadAppData();
         setBackupModalVisible(false);
@@ -660,7 +674,7 @@ export default function App() {
       }
     } catch (err: any) {
       console.warn('파일 복원 실패:', err);
-      showAlert('복원 실패', `백업 파일을 읽을 수 없습니다: ${err?.message || '파일 오류'}`);
+      showAlert('복원 실패', `백업 파일을 읽거나 압축을 푸는 중 오류가 발생했습니다: ${err?.message || '파일 오류'}`);
     }
   }
 
