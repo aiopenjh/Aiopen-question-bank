@@ -44,6 +44,15 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
       borderColor: '#f43f5e',
       bg: '#fff1f2',
     },
+    {
+      count: 20,
+      badge: '📦 대량 출제 (문제은행 빌드업)',
+      title: '20문제 풀기',
+      desc: '단원당 50~100문제를 빠르게 누적 저장하는 대량 집중 생성',
+      color: '#881337',
+      borderColor: '#be123c',
+      bg: '#fff1f2',
+    },
   ];
 
   return (
@@ -52,7 +61,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
         <View style={styles.modalCard}>
           <View style={styles.header}>
             <Text style={styles.badge}>📝 실전 출제 문항 수 선택</Text>
-            <Text style={styles.title}>몇 문제를 풀어볼까요?</Text>
+            <Text style={styles.title}>몇 문제를 출제해 드릴까요?</Text>
             {unitTitle && (
               <Text style={styles.subtitle} numberOfLines={1}>
                 {topicName ? `[${topicName}] ` : ''}{unitTitle}
@@ -89,13 +98,13 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
           {/* 소요 시간 및 대기 안내 카드 */}
           <View style={styles.timeNoticeCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Text style={{ fontSize: 13 }}>⏱️</Text>
-              <Text style={styles.timeNoticeTitle}>출제 대기시간 안내</Text>
+              <Text style={{ fontSize: 13 }}>💡</Text>
+              <Text style={styles.timeNoticeTitle}>개인 문제은행 무제한 저장 안내</Text>
             </View>
             <Text style={styles.timeNoticeText}>
-              • 3문제는 가볍고 빠르게 즉시 출제됩니다.{'\n'}
-              • 5문제 / 10문제는 정답 및 오답 해설지를 꼼꼼하게 작성하므로 시간이 조금 걸립니다.{'\n'}
-              • 오류 없이 안전하게 시험장으로 연결되니 잠시만 기다려 주세요.
+              • 개인 API를 사용하므로 문항 수 제한 없이 단원당 50~100문제 이상 원하는 만큼 영구 보존할 수 있습니다.{'\n'}
+              • 여러 번 반복 출제하더라도 기존에 생성된 문제와 겹치지 않는 새로운 문제가 추가됩니다.{'\n'}
+              • 3/5문제는 10~20초, 10/20문제는 정밀 해설지 작성에 30~50초 소요됩니다.
             </Text>
           </View>
 

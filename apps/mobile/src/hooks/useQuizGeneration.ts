@@ -98,7 +98,9 @@ export function useQuizGeneration({
             ? '⚡ 3문제를 생성 중입니다 (약 10초 내외 소요)...'
             : targetCount === 5
             ? '🎯 5문제를 정밀 출제 중입니다 (약 15~20초 소요)...'
-            : '🏆 10문제 시험지를 출제 중입니다 (약 30~45초 소요)...',
+            : targetCount === 10
+            ? '🏆 10문제 시험지를 출제 중입니다 (약 30~45초 소요)...'
+            : `📦 ${targetCount}문제 대량 출제 중입니다 (약 45~60초 소요)...`,
       });
       try {
         const scoped = analyzeUserIntent(
@@ -110,6 +112,19 @@ export function useQuizGeneration({
           }
         );
 
+        // 이 단원에 이미 저장된 문제 파악 -> 중복 방지 및 50~100문제 누적 출제 컨텍스트 전달
+        const existingInUnit = questions.filter(
+          (q) => q.topicId === topicId && (q.unitId === unitId || q.stem.includes(unitTitle))
+        );
+        const existingSummary = existingInUnit
+          .slice(-15)
+          .map((q) => `• ${q.stem}`)
+          .join('\n');
+
+        const customContext = existingSummary
+          ? `[이 단원에 이미 출제되어 보관 중인 기존 문제 목록 (중복 출제 엄격 금지)]:\n${existingSummary}\n※ 학습자가 이 단원에서 50~100문제 이상 대량의 문제은행을 영구 누적 보존할 수 있도록, 위 기존 문제와 겹치지 않는 새로운 발문과 개념 범위를 확장하여 독창적으로 출제해 주세요.`
+          : undefined;
+
         const outcome = await generateFactBasedQuestions({
           intent: scoped,
           ownerId: 'owner-default',
@@ -117,6 +132,7 @@ export function useQuizGeneration({
           topicName,
           unitId,
           unitTitle,
+          customContext,
         });
 
         if (outcome.status === 'NEEDS_CONNECTION') {
@@ -248,12 +264,14 @@ export function useQuizGeneration({
 
       const existingTitles = existing.map((u) => u.title.trim());
       const nextStartIndex = existing.length + 1;
+      const startPad = String(nextStartIndex).padStart(2, '0');
+      const endPad = String(nextStartIndex + 4).padStart(2, '0');
 
-      // 이미 15단원 이상 완성된 경우: 전 과정 마스터 안내
-      if (existing.length >= 15) {
+      // 30단원 이상 도달 시: 30단계 마스터 축하 및 계속 추가 생성 선택 제공
+      if (existing.length >= 30) {
         showAlert(
-          '🏆 전 과정 커리큘럼 완료',
-          `[${topicName}]의 입문부터 심화 마스터(총 ${existing.length}개 단원)까지 모든 교육과정이 완성되었습니다!\n\n새 단원을 만들기보다, 지금까지의 전체 CBT 문제 풀이를 통해 학습을 완벽히 검증해 보세요!`,
+          '👑 30단계 초정밀 마스터 커리큘럼 완성',
+          `[${topicName}]의 입문부터 실전 프로젝트까지 총 ${existing.length}개의 촘촘한 마이크로 커리큘럼이 완성되었습니다!\n\n현재 총 ${topicQuestions.length}문항이 저장되어 있습니다. 추가 단원을 더 생성하시겠습니까, 아니면 전체 CBT 모의고사를 보시겠습니까?`,
           [
             { text: '닫기', style: 'cancel' },
             ...(topicQuestions.length > 0
@@ -264,6 +282,16 @@ export function useQuizGeneration({
                   },
                 ]
               : []),
+            {
+              text: `🚀 다음 ${startPad}~${endPad}단원 계속 확장`,
+              onPress: () =>
+                executeCurriculumGeneration(topicId, topicName, {
+                  startUnitIndex: nextStartIndex,
+                  stageName: `${Math.floor((nextStartIndex - 1) / 5) + 1}단계: 고난도 실전 심화 확장 과정`,
+                  shouldReplace: false,
+                  existingTitles,
+                }),
+            },
             {
               text: '처음부터 1단계로 새로고침',
               style: 'destructive',
@@ -279,18 +307,20 @@ export function useQuizGeneration({
         return;
       }
 
-      // 5단원 또는 10단원 이후의 다음과정 명칭 및 번호 산출
-      const nextStageName =
-        existing.length < 10
-          ? '2단계: 초급/실전 응용 및 빈출 함정 과정'
-          : '3단계: 중급/심화 마스터 종합 추론 과정';
-
-      const startPad = String(nextStartIndex).padStart(2, '0');
-      const endPad = String(nextStartIndex + 4).padStart(2, '0');
+      // 5단위 단계별(1~6단계, 30단원까지) 세분화된 단계명 산출
+      const stageNumber = Math.floor((nextStartIndex - 1) / 5) + 1;
+      const stageNames: Record<number, string> = {
+        2: '2단계: 핵심 자료형 & 기본 제어 흐름',
+        3: '3단계: 반복문 제어 & 기초 내장 함수',
+        4: '4단계: 함수 정의 & 모듈/패키지 & 파일 I/O',
+        5: '5단계: 객체지향 OOP & 예외 처리 & 실전 테크닉',
+        6: '6단계: 고급 표준 라이브러리 & 알고리즘 & 종합 프로젝트',
+      };
+      const nextStageName = stageNames[stageNumber] || `${stageNumber}단계: 실전 심화 연속 과정`;
 
       showAlert(
-        `📚 다음 학습 과정 확장 안내 (${startPad}~${endPad}단원)`,
-        `현재 ${existing.length}개 단원이 등록되어 있습니다.\n\n이전 단계 학습이 끝나셨다면, ${startPad}번 이후의 [${nextStageName}] 5개 단원을 이어서 생성하시겠습니까?\n\n(또는 전체 CBT 문제를 먼저 풀며 검증 후 다음 과정으로 넘어가실 수도 있습니다.)`,
+        `📚 촘촘한 마이크로 커리큘럼 확장 (${startPad}~${endPad}단원)`,
+        `현재 ${existing.length}개 단원이 등록되어 있습니다.\n\n이전 단계 학습이 끝나셨다면, ${startPad}번 이후의 [${nextStageName}] 5개 단원을 촘촘하게 이어서 생성하시겠습니까?\n\n(또는 전체 CBT 문제를 먼저 풀며 검증 후 다음 과정으로 넘어가실 수도 있습니다.)`,
         [
           { text: '취소', style: 'cancel' },
           ...(topicQuestions.length > 0

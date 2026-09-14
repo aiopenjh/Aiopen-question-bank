@@ -1029,7 +1029,9 @@ export default function App() {
                   ? '⚡ 3문제 빠른 출제 중...'
                   : generatingWaitStatus.count === 5
                   ? '🎯 5문제 정밀 출제 중...'
-                  : '🏆 10문제 마스터 시험지 생성 중...'}
+                  : generatingWaitStatus.count === 10
+                  ? '🏆 10문제 마스터 시험지 생성 중...'
+                  : '📦 20문제 대량 문제은행 빌드업 중...'}
               </Text>
               {generatingWaitStatus.title ? (
                 <Text style={styles.loadingWaitSubtitle} numberOfLines={1}>
@@ -1046,10 +1048,12 @@ export default function App() {
                     ? '⚡ 약 10초 내외 생성 후 바로 시험장으로 연결됩니다.'
                     : generatingWaitStatus.count === 5
                     ? '🎯 5문제는 정밀 해설 구성을 위해 약 15~20초 소요됩니다.'
-                    : '🏆 10문제는 심층 오답 분석 작성을 위해 약 30~45초 소요됩니다.'}
+                    : generatingWaitStatus.count === 10
+                    ? '🏆 10문제는 심층 오답 분석 작성을 위해 약 30~45초 소요됩니다.'
+                    : '📦 20문제 대량 출제는 약 45~60초 소요되며, 단원에 영구 누적 보관됩니다.'}
                 </Text>
                 <Text style={[styles.loadingWaitNoteText, { color: '#be123c', marginTop: 4, fontWeight: 'bold' }]}>
-                  ※ 멈춤이나 오류 없이 안전하게 시험장으로 연결됩니다.
+                  ※ 생성 완료 시 개인 DB에 영구 보존되어 언제든 50~100문제까지 자유롭게 누적됩니다.
                 </Text>
               </View>
             </View>
