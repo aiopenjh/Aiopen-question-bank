@@ -538,6 +538,102 @@ export default function App() {
     );
   }
 
+  // -------------------------------------------------------------
+  // 목표 달성 후 '문제 더 풀어보기': 같은 개념 범위 신규 3문제 재생성
+  // -------------------------------------------------------------
+  async function handleGenerateMoreQuestions() {
+    const currentTopic = topics.find((t) => t.id === selectedTopicId) || topics[0];
+    if (!currentTopic) {
+      showAlert('알림', '먼저 학습할 주제를 등록해 주세요.', [
+        { text: '닫기', style: 'cancel' },
+        { text: '주제 만들기', onPress: () => setTopicModalVisible(true) },
+      ]);
+      return;
+    }
+
+    const targetUnit =
+      units.find((u) => u.id === selectedUnitId) ||
+      units.find((u) => u.topicId === currentTopic.id);
+
+    // 기존 출제된 문제들을 파악하여 중복 방지 컨텍스트 구성
+    const existingQuestions = questions.filter((q) => q.topicId === currentTopic.id);
+    const existingSummary = existingQuestions
+      .slice(-4)
+      .map((q, idx) => `${idx + 1}. ${q.stem.slice(0, 80)}`)
+      .join('\n');
+
+    const customContext = `[추가 자율 학습: 동일 개념 범위 신규 출제 지침]
+학습자가 현재 [${currentTopic.name}${targetUnit ? ` - ${targetUnit.title}` : ''}] 개념 범위를 집중 학습 중이며, 목표 달성 후 추가 연습 문제를 요청했습니다.
+반드시 아래 지침을 준수하여 동일한 개념과 범위 내에서 신선한 4지선다형 실전 문제를 3문항 출제하세요:
+
+1. [개념 일관성]: 다루는 학습 개념과 출제 범위는 [${currentTopic.name}${targetUnit ? ` - ${targetUnit.title}` : ''}]와 정확히 동일해야 합니다.
+2. [중복 배제]: 아래 기존 문제들과 똑같은 문장이나 선지를 재탕하지 말고, 동일한 개념을 다른 각도의 상황, 변형 보기, 실무 적용 사례로 재구성하여 출제하세요.
+${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existingSummary}` : ''}
+3. [품질 및 해설]: 각 문항마다 오답 선지가 왜 틀렸는지와 정답의 핵심 원리를 명쾌하게 해설하세요.`;
+
+    setIsGenerating(true);
+    setGeneratingWaitStatus({
+      active: true,
+      count: 3,
+      title: `${currentTopic.name} 추가 학습`,
+      message: '⚡ 같은 개념 범위에서 새로운 문제를 출제 중입니다 (약 3~5초 소요)...',
+    });
+
+    try {
+      const targetUnitId = targetUnit?.id || generateUUID();
+      const targetUnitTitle = targetUnit?.title || `${currentTopic.name} 핵심 종합`;
+
+      const scoped = analyzeUserIntent(
+        `[${currentTopic.name}] ${targetUnitTitle} 동일 개념 추가 심화 문제 출제`,
+        currentTopic.name,
+        {
+          learnerLevel: 'basic',
+          targetCount: 3,
+        }
+      );
+
+      const outcome = await generateFactBasedQuestions({
+        intent: scoped,
+        ownerId: 'owner-default',
+        topicId: currentTopic.id,
+        unitId: targetUnitId,
+        unitTitle: targetUnitTitle,
+        customContext,
+      });
+
+      if (outcome.status === 'NEEDS_CONNECTION') {
+        showAlert(
+          '⚠️ AI 출제 엔진 연결 필요',
+          `${outcome.message}\n\n새로운 문제를 출제하려면 설정에서 API 키를 입력해 주세요.`,
+          [
+            { text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) },
+            { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
+          ]
+        );
+        return;
+      }
+
+      if (outcome.status === 'FAILED') {
+        showAlert('AI 출제 실패', outcome.message, [
+          { text: '닫기', style: 'cancel' },
+          { text: '기존 문제로 풀기', onPress: () => startExam(existingQuestions) },
+        ]);
+        return;
+      }
+
+      const allQ = await getQuestions();
+      setQuestions(allQ);
+
+      // 즉시 새로 출제된 문제로 CBT 시험 시작!
+      startExam(outcome.questions);
+    } catch (err: any) {
+      showAlert('출제 오류', `문제 재생성 중 오류: ${err?.message || '네트워크 오류'}`);
+    } finally {
+      setIsGenerating(false);
+      setGeneratingWaitStatus(null);
+    }
+  }
+
   async function handleCompleteExam(
     results: Array<{ question: QuestionRevision; selectedOptionId: string; isCorrect: boolean }>
   ) {
@@ -900,6 +996,7 @@ export default function App() {
             dueQuestionsCount={dueQuestions.length}
             incorrectQuestionsCount={topicIncorrect.length}
             onStartExam={handleStartExamWithAutoGenerate}
+            onStartMoreQuestions={handleGenerateMoreQuestions}
             onStartDueReview={() => {
               if (dueQuestions.length === 0) {
                 showAlert('복습 완료', '오늘 기한이 도래한 복습 문제가 없습니다!');

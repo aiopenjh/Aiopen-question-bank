@@ -18,6 +18,7 @@ interface StudyMapScreenProps {
   dueQuestionsCount?: number;
   incorrectQuestionsCount?: number;
   onStartExam?: () => void;
+  onStartMoreQuestions?: () => void;
   onStartDueReview?: () => void;
   onStartIncorrectReview?: () => void;
   onGoToScaffolding?: () => void;
@@ -33,6 +34,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   dueQuestionsCount = 0,
   incorrectQuestionsCount = 0,
   onStartExam,
+  onStartMoreQuestions,
   onStartDueReview,
   onStartIncorrectReview,
   onGoToScaffolding,
@@ -99,15 +101,15 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* 목표 달성 후 추가 연습을 원하는 경우의 추가 버튼 */}
-        {progressPercent >= 100 && onStartExam && (
+        {/* 목표 달성 후 추가 연습을 원하는 경우의 추가 버튼 (동일 개념 범위 신규 출제) */}
+        {progressPercent >= 100 && (onStartMoreQuestions || onStartExam) && (
           <TouchableOpacity
             style={styles.extraPracticeBtn}
-            onPress={onStartExam}
+            onPress={onStartMoreQuestions || onStartExam}
             activeOpacity={0.85}
           >
             <Text style={styles.extraPracticeBtnText}>
-              ⚡ 문제 더 풀어보기 (추가 자율 학습)
+              ⚡ 문제 더 풀어보기 (같은 범위 새 문제 출제)
             </Text>
           </TouchableOpacity>
         )}
