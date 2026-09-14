@@ -1359,7 +1359,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         onSelectCount={handleSelectQuizCount}
       />
 
-      {/* 대단원(과목) 선택 모달 - 최근 학습 대단원 우선 노출 */}
+      {/* 대단원(과목) 선택 모달 - 최근 학습 대단원 우선 노출 (상위 5개 표시 & 더보기 지원) */}
       <TopicSelectModal
         visible={isTopicSelectModalVisible}
         topics={topics}
@@ -1367,6 +1367,10 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         lastStudiedTopicId={lastStudiedTopicId}
         onSelectTopic={executeStartExamForTopic}
         onClose={() => setIsTopicSelectModalVisible(false)}
+        onOpenLibrary={() => {
+          setIsTopicSelectModalVisible(false);
+          setIsLibraryOpen(true);
+        }}
       />
 
       {/* AI 문제 출제 대기 안내 모달 */}

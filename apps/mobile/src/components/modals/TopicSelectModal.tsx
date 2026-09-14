@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -16,6 +16,7 @@ interface TopicSelectModalProps {
   lastStudiedTopicId?: string | null;
   onSelectTopic: (topic: Topic) => void;
   onClose: () => void;
+  onOpenLibrary?: () => void;
 }
 
 export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
@@ -25,13 +26,20 @@ export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
   lastStudiedTopicId,
   onSelectTopic,
   onClose,
+  onOpenLibrary,
 }) => {
+  const [showAll, setShowAll] = useState(false);
+
   // 최근 학습한 대단원이 맨 위에 오도록 정렬
   const sortedTopics = [...topics].sort((a, b) => {
     if (a.id === lastStudiedTopicId) return -1;
     if (b.id === lastStudiedTopicId) return 1;
     return 0;
   });
+
+  // 상위 5개만 표시 (더보기 토글 시 전체 표시)
+  const displayedTopics = showAll ? sortedTopics : sortedTopics.slice(0, 5);
+  const remainingCount = Math.max(0, sortedTopics.length - 5);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -46,7 +54,7 @@ export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
           </View>
 
           <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
-            {sortedTopics.map((t) => {
+            {displayedTopics.map((t) => {
               const isLastStudied = t.id === lastStudiedTopicId;
               const topicQuestions = questions.filter((q) => q.topicId === t.id);
 
@@ -70,7 +78,7 @@ export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
                   </View>
 
                   {t.description ? (
-                    <Text style={styles.topicDesc} numberOfLines={2}>
+                    <Text style={styles.topicDesc} numberOfLines={1}>
                       {t.description}
                     </Text>
                   ) : null}
@@ -86,6 +94,34 @@ export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
                 </TouchableOpacity>
               );
             })}
+
+            {/* 5개 초과 시 펼치기/접기 버튼 */}
+            {sortedTopics.length > 5 && (
+              <TouchableOpacity
+                style={styles.expandToggleBtn}
+                onPress={() => setShowAll(!showAll)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.expandToggleBtnText}>
+                  {showAll
+                    ? '▲ 상위 5개만 접기'
+                    : `➕ 다른 대단원 더보기 (${remainingCount}개 더 있음) ▼`}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* 전체 과목 및 문제 보관함(자료함)으로 이동 버튼 */}
+            {onOpenLibrary && (
+              <TouchableOpacity
+                style={styles.libraryNavBtn}
+                onPress={onOpenLibrary}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.libraryNavBtnText}>
+                  📂 전체 과목 자료함에서 문제 선택하러 가기 ➔
+                </Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
 
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
@@ -205,6 +241,36 @@ const styles = StyleSheet.create({
   },
   selectCtaText: {
     color: '#818cf8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  expandToggleBtn: {
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#475569',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  expandToggleBtnText: {
+    color: '#93c5fd',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  libraryNavBtn: {
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#6366f1',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  libraryNavBtnText: {
+    color: '#c7d2fe',
     fontSize: 13,
     fontWeight: '700',
   },
