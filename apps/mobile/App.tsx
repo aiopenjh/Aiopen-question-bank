@@ -66,7 +66,6 @@ import {
   Topic,
   Unit,
   RoutineRevision,
-  RoutinePreset,
   QuestionRevision,
   Attempt,
   ManualCompletion,
@@ -84,9 +83,13 @@ import {
   analyzeUserIntent,
   generateFactBasedQuestions,
   generateCurriculumUnits,
-  distributeQuestionAnswersRandomly,
 } from './src/domain/generator';
-import { calculateNextReviewState, filterDueReviewQuestions } from './src/domain/spaced_repetition';
+import { filterDueReviewQuestions } from './src/domain/spaced_repetition';
+
+// Clean Modular Custom Hooks & Styles
+import { appStyles as styles } from './src/styles/appStyles';
+import { useExamSession } from './src/hooks/useExamSession';
+import { useQuizGeneration } from './src/hooks/useQuizGeneration';
 
 // Clean Modular Components
 import { Header } from './src/components/common/Header';
@@ -127,36 +130,79 @@ export default function App() {
   const [unitModalVisible, setUnitModalVisible] = useState(false);
   const [backupModalVisible, setBackupModalVisible] = useState(false);
   const [backupText, setBackupText] = useState('');
-  const [quizCountModalVisible, setQuizCountModalVisible] = useState(false);
   const [isTopicSelectModalVisible, setIsTopicSelectModalVisible] = useState(false);
   const [isUnitSelectModalVisible, setIsUnitSelectModalVisible] = useState(false);
   const [unitSelectTopic, setUnitSelectTopic] = useState<Topic | null>(null);
   const [lastStudiedTopicId, setLastStudiedTopicId] = useState<string | null>(null);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [pendingQuizUnit, setPendingQuizUnit] = useState<{
-    topicId: string;
-    topicName: string;
-    unitId: string;
-    unitTitle: string;
-  } | null>(null);
-
   const [alarmConfig, setAlarmConfig] = useState<AlarmConfig>(DEFAULT_ALARM_CONFIG);
 
-  // Exam / CBT Session State
-  const [examSessionActive, setExamSessionActive] = useState(false);
-  const [examQuestions, setExamQuestions] = useState<QuestionRevision[]>([]);
+  // Modular Exam Session Hook
+  const {
+    examSessionActive,
+    examQuestions,
+    startExam,
+    handleCompleteExam,
+    exitExamSession,
+  } = useExamSession({
+    questions,
+    reviewStates,
+    units,
+    selectedTopicId,
+    selectedUnitId,
+    setSelectedTopicId,
+    setLastStudiedTopicId,
+    onRefreshData: async () => {
+      const [updatedAttempts, updatedRS, updatedInQ] = await Promise.all([
+        getAttempts(),
+        getReviewStates(),
+        getIncorrectQuestions(),
+      ]);
+      setAttempts(updatedAttempts);
+      setReviewStates(updatedRS);
+      setIncorrectQuestions(updatedInQ);
+    },
+  });
 
-  // AI Generation State
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatingUnitId, setGeneratingUnitId] = useState<string | null>(null);
-  const [isCurriculumGenerating, setIsCurriculumGenerating] = useState(false);
-  const [generatingWaitStatus, setGeneratingWaitStatus] = useState<{
-    active: boolean;
-    count: number;
-    title: string;
-    message: string;
-  } | null>(null);
+  // Modular AI Quiz Generation Hook
+  const {
+    isGenerating,
+    setIsGenerating,
+    isCurriculumGenerating,
+    generatingUnitId,
+    generatingWaitStatus,
+    setGeneratingWaitStatus,
+    quizCountModalVisible,
+    setQuizCountModalVisible,
+    pendingQuizUnit,
+    handlePromptQuizCount,
+    handleSelectQuizCount,
+    handleQuickGenerateForUnit,
+    handleGenerateMoreQuestions,
+    handleApplyScaffolding,
+    handleGenerateCurriculumForTopic,
+    handleDeduplicateUnits,
+  } = useQuizGeneration({
+    apiKey,
+    topics,
+    units,
+    questions,
+    selectedTopicId,
+    selectedUnitId,
+    lastStudiedTopicId,
+    incorrectQuestions,
+    startExam,
+    onOpenSettings: () => setIsSettingsOpen(true),
+    onOpenTopicModal: () => setTopicModalVisible(true),
+    onRefreshData: async () => {
+      const [allQ, upUnits] = await Promise.all([getQuestions(), getUnits()]);
+      setQuestions(allQ);
+      setUnits(upUnits);
+    },
+    setUnits,
+    setQuestions,
+  });
 
   // Library Input State
   const [sourceTitle, setSourceTitle] = useState('');
@@ -334,159 +380,7 @@ export default function App() {
     }
   }
 
-  async function executeCurriculumGeneration(topicId: string, topicName: string, shouldReplace = false) {
-    setIsCurriculumGenerating(true);
-    try {
-      const generatedUnits = await generateCurriculumUnits({ topicName });
-      if (shouldReplace) {
-        await replaceTopicUnits(topicId, generatedUnits);
-      } else {
-        // 중복 방지: 이미 존재하는 동일 단원명은 추가하지 않음
-        const currentUnits = await getUnits(topicId);
-        const existingTitles = new Set(currentUnits.map((u) => u.title.trim()));
-        for (const u of generatedUnits) {
-          if (!existingTitles.has(u.title.trim())) {
-            await createUnit({ topicId, title: u.title, depth: u.depth });
-          }
-        }
-      }
 
-      const updatedUnits = await getUnits();
-      setUnits(updatedUnits);
-      showAlert(
-        '목차 생성 완료',
-        `[${topicName}]의 5단계 목차가 구성되었습니다.`
-      );
-    } catch (err: any) {
-      showAlert('오류', `AI 커리큘럼 생성 실패: ${err?.message || '알 수 없는 오류'}`);
-    } finally {
-      setIsCurriculumGenerating(false);
-    }
-  }
-
-  async function handleGenerateCurriculumForTopic(topicId: string, topicName: string) {
-    const existing = units.filter((u) => u.topicId === topicId);
-    // 단원이 1개 이하이거나 (예: 즉시 출제 시 만들어진 기본 단원 1개), 단원 목록이 비어있으면 불필요한 경고창 없이 즉시 5단계 표준 목차 자동 생성!
-    if (existing.length <= 1) {
-      await executeCurriculumGeneration(topicId, topicName, true);
-      return;
-    }
-
-    // 이미 사용자가 2개 이상의 단원을 구성해둔 경우에만 선택 팝업 제공
-    showAlert(
-      '🌳 AI 5단계 목차 자동 구성',
-      `이미 [${topicName}]에 ${existing.length}개의 단원이 등록되어 있습니다.\n\n어떤 방식으로 목차를 구성하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '기존 단원에 추가하기',
-          onPress: () => executeCurriculumGeneration(topicId, topicName, false),
-        },
-        {
-          text: '5단계 표준으로 새로 교체',
-          style: 'destructive',
-          onPress: () => executeCurriculumGeneration(topicId, topicName, true),
-        },
-      ]
-    );
-  }
-
-  async function handleDeduplicateUnits(topicId: string) {
-    try {
-      const cleaned = await deduplicateTopicUnits(topicId);
-      const updatedUnits = await getUnits();
-      setUnits(updatedUnits);
-      showAlert(
-        '🧹 중복 단원 정리 완료',
-        `중복된 단원을 모두 정리하여 ${cleaned.length}개의 고유 단원으로 깔끔하게 정돈했습니다!`
-      );
-    } catch (err: any) {
-      showAlert('오류', `단원 정리 실패: ${err?.message || '알 수 없는 오류'}`);
-    }
-  }
-
-  function handlePromptQuizCount(
-    topicId: string,
-    topicName: string,
-    unitId: string,
-    unitTitle: string
-  ) {
-    setPendingQuizUnit({ topicId, topicName, unitId, unitTitle });
-    setQuizCountModalVisible(true);
-  }
-
-  async function handleSelectQuizCount(count: number) {
-    setQuizCountModalVisible(false);
-    if (!pendingQuizUnit) return;
-    const { topicId, topicName, unitId, unitTitle } = pendingQuizUnit;
-    await handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count);
-  }
-
-  async function handleQuickGenerateForUnit(
-    topicId: string,
-    topicName: string,
-    unitId: string,
-    unitTitle: string,
-    targetCount: number = 3
-  ) {
-    setGeneratingUnitId(unitId);
-    setGeneratingWaitStatus({
-      active: true,
-      count: targetCount,
-      title: unitTitle,
-      message:
-        targetCount === 3
-          ? '⚡ 3문제를 생성 중입니다 (약 10초 내외 소요)...'
-          : targetCount === 5
-          ? '🎯 5문제를 정밀 출제 중입니다 (약 15~20초 소요)...'
-          : '🏆 10문제 시험지를 출제 중입니다 (약 30~45초 소요)...',
-    });
-    try {
-      const scoped = analyzeUserIntent(`[${unitTitle}] 핵심 개념 ${targetCount}문제 출제`, topicName, {
-        learnerLevel: 'basic',
-        targetCount,
-      });
-
-      const outcome = await generateFactBasedQuestions({
-        intent: scoped,
-        ownerId: 'owner-default',
-        topicId,
-        unitId,
-        unitTitle,
-      });
-
-      if (outcome.status === 'NEEDS_CONNECTION') {
-        showAlert(
-          '⚠️ AI 출제 엔진 연결 필요',
-          `${outcome.message}\n\n${outcome.requiredAction}`,
-          [
-            { text: '닫기', style: 'cancel' },
-            { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
-          ]
-        );
-        return;
-      }
-
-      if (outcome.status === 'FAILED') {
-        showAlert('AI 출제 실패', outcome.message, [
-          { text: '닫기', style: 'cancel' },
-          { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
-        ]);
-        return;
-      }
-
-      const allQ = await getQuestions();
-      setQuestions(allQ);
-
-      // 시험 세션 즉시 시작!
-      startExam(outcome.questions);
-    } catch (err: any) {
-      showAlert('오류', `단원 문제 출제 실패: ${err?.message || '네트워크 응답 오류'}`);
-    } finally {
-      setGeneratingUnitId(null);
-      setGeneratingWaitStatus(null);
-    }
-  }
 
   async function handleDeleteTopic(topicId: string, topicName: string) {
     showAlert(
@@ -543,47 +437,6 @@ export default function App() {
     setCompletions(updated);
   }
 
-  // -------------------------------------------------------------
-  // 시험 및 CBT 풀이 핸들러
-  // -------------------------------------------------------------
-  function startExam(filteredQuestions?: QuestionRevision[]) {
-    let list = filteredQuestions;
-    if (!list || list.length === 0) {
-      // 1순위: 선택된 단원의 문제
-      if (selectedUnitId) {
-        list = questions.filter((q) => q.unitId === selectedUnitId);
-      }
-      // 2순위: 선택된 주제의 문제
-      if (!list || list.length === 0) {
-        list = selectedTopicId ? questions.filter((q) => q.topicId === selectedTopicId) : questions;
-      }
-    }
-    if (!list || list.length === 0) {
-      list = questions;
-    }
-
-    if (list.length === 0) {
-      showAlert(
-        '출제된 문제 없음',
-        '현재 풀 수 있는 문제가 없습니다.\n[AI 출제] 탭에서 주제나 단원에 맞는 문제를 먼저 생성해 보세요!'
-      );
-      return;
-    }
-
-    // 문제의 소속 대단원 파악하여 최근 학습 대단원으로 자동 기억 및 저장
-    const firstQTopicId = list[0]?.topicId;
-    if (firstQTopicId) {
-      setSelectedTopicId(firstQTopicId);
-      setLastStudiedTopicId(firstQTopicId);
-      saveLastStudiedTopicId(firstQTopicId);
-    }
-
-    // 셔플: 정답 번호가 1번이나 2번에 고정되지 않도록 균등 무작위 분산 배치 적용
-    const randomizedQuestions = distributeQuestionAnswersRandomly(list);
-
-    setExamQuestions(randomizedQuestions);
-    setExamSessionActive(true);
-  }
 
   async function handleStartExamWithAutoGenerate() {
     if (topics.length === 0) {
@@ -616,203 +469,6 @@ export default function App() {
     setIsUnitSelectModalVisible(true);
   }
 
-  // -------------------------------------------------------------
-  // 목표 달성 후 '문제 더 풀어보기': 같은 개념 범위 신규 3문제 재생성
-  // -------------------------------------------------------------
-  async function handleGenerateMoreQuestions() {
-    const currentTopic =
-      topics.find((t) => t.id === selectedTopicId) ||
-      topics.find((t) => t.id === lastStudiedTopicId) ||
-      topics[0];
-    if (!currentTopic) {
-      showAlert('알림', '먼저 학습할 주제를 등록해 주세요.', [
-        { text: '닫기', style: 'cancel' },
-        { text: '주제 만들기', onPress: () => setTopicModalVisible(true) },
-      ]);
-      return;
-    }
-
-    const targetUnit =
-      units.find((u) => u.id === selectedUnitId) ||
-      units.find((u) => u.topicId === currentTopic.id);
-
-    // 기존 출제된 문제들을 파악하여 중복 방지 컨텍스트 구성
-    const existingQuestions = questions.filter((q) => q.topicId === currentTopic.id);
-
-    // API 키 미등록 시 사실대로 고지하고 기존 문제 복습 진행 여부 확인
-    if (!apiKey || apiKey.trim().length <= 8) {
-      showAlert(
-        'API 키 미등록',
-        '새로운 문제를 생성하기 위한 AI API 키가 등록되지 않아 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
-        [
-          { text: '취소', style: 'cancel' },
-          { text: 'API 키 설정', onPress: () => setIsSettingsOpen(true) },
-          ...(existingQuestions.length > 0
-            ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
-            : []),
-        ]
-      );
-      return;
-    }
-
-    const existingSummary = existingQuestions
-      .slice(-4)
-      .map((q, idx) => `${idx + 1}. ${q.stem.slice(0, 80)}`)
-      .join('\n');
-
-    const customContext = `[추가 자율 학습: 동일 개념 범위 신규 출제 지침]
-학습자가 현재 [${currentTopic.name}${targetUnit ? ` - ${targetUnit.title}` : ''}] 개념 범위를 집중 학습 중이며, 목표 달성 후 추가 연습 문제를 요청했습니다.
-반드시 아래 지침을 준수하여 동일한 개념과 범위 내에서 신선한 4지선다형 실전 문제를 3문항 출제하세요:
-
-1. [개념 일관성]: 다루는 학습 개념과 출제 범위는 [${currentTopic.name}${targetUnit ? ` - ${targetUnit.title}` : ''}]와 정확히 동일해야 합니다.
-2. [중복 배제]: 아래 기존 문제들과 똑같은 문장이나 선지를 재탕하지 말고, 동일한 개념을 다른 각도의 상황, 변형 보기, 실무 적용 사례로 재구성하여 출제하세요.
-${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existingSummary}` : ''}
-3. [품질 및 해설]: 각 문항마다 오답 선지가 왜 틀렸는지와 정답의 핵심 원리를 명쾌하게 해설하세요.`;
-
-    setIsGenerating(true);
-    setGeneratingWaitStatus({
-      active: true,
-      count: 3,
-      title: `${currentTopic.name} 추가 학습`,
-      message: '⚡ 같은 개념 범위에서 새로운 문제를 출제 중입니다 (약 10초 내외 소요)...',
-    });
-
-    try {
-      const targetUnitId = targetUnit?.id || generateUUID();
-      const targetUnitTitle = targetUnit?.title || `${currentTopic.name} 핵심 종합`;
-
-      const scoped = analyzeUserIntent(
-        `[${currentTopic.name}] ${targetUnitTitle} 동일 개념 추가 심화 문제 출제`,
-        currentTopic.name,
-        {
-          learnerLevel: 'basic',
-          targetCount: 3,
-        }
-      );
-
-      const outcome = await generateFactBasedQuestions({
-        intent: scoped,
-        ownerId: 'owner-default',
-        topicId: currentTopic.id,
-        unitId: targetUnitId,
-        unitTitle: targetUnitTitle,
-        customContext,
-      });
-
-      if (outcome.status === 'NEEDS_CONNECTION') {
-        showAlert(
-          'API 키 미등록',
-          '새로운 문제를 생성하기 위한 AI API 키가 등록되지 않아 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
-          [
-            { text: '취소', style: 'cancel' },
-            { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
-            ...(existingQuestions.length > 0
-              ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
-              : []),
-          ]
-        );
-        return;
-      }
-
-      if (outcome.status === 'FAILED') {
-        showAlert(
-          '문제 생성 실패',
-          `새로운 문제를 만들지 못했습니다.\n(${outcome.message})\n\n기존에 학습했던 문제를 복습하시겠습니까?`,
-          [
-            { text: '취소', style: 'cancel' },
-            { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
-            ...(existingQuestions.length > 0
-              ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
-              : []),
-          ]
-        );
-        return;
-      }
-
-      const allQ = await getQuestions();
-      setQuestions(allQ);
-
-      // 즉시 새로 출제된 문제로 CBT 시험 시작!
-      startExam(outcome.questions);
-    } catch (err: any) {
-      showAlert(
-        '문제 생성 실패',
-        `새로운 문제를 만들지 못했습니다.\n(${err?.message || '네트워크 오류'})\n\n기존에 학습했던 문제를 복습하시겠습니까?`,
-        [
-          { text: '취소', style: 'cancel' },
-          { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
-          ...(existingQuestions.length > 0
-            ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
-            : []),
-        ]
-      );
-    } finally {
-      setIsGenerating(false);
-      setGeneratingWaitStatus(null);
-    }
-  }
-
-  async function handleCompleteExam(
-    results: Array<{ question: QuestionRevision; selectedOptionId: string; isCorrect: boolean }>
-  ) {
-    for (const item of results) {
-      const attemptId = generateUUID();
-      const attempt: Attempt = {
-        id: attemptId,
-        sessionItemId: generateUUID(),
-        submissionKey: `sub-${item.question.id}-${getLocalDateString()}-${attemptId.slice(0, 6)}`,
-        answerOptionId: item.selectedOptionId,
-        isCorrect: item.isCorrect,
-        submittedAt: getCurrentISOTime(),
-      };
-      await saveAttempt(attempt);
-
-      const currentRS = reviewStates.find((rs) => rs.questionRevisionId === item.question.id);
-      const nextRS = calculateNextReviewState({
-        ownerId: 'owner-default',
-        questionRevisionId: item.question.id,
-        currentReviewState: currentRS,
-        isCorrect: item.isCorrect,
-        attemptId,
-      });
-      await saveReviewState(nextRS);
-    }
-
-    const sessionUnitId = results[0]?.question.unitId;
-    const targetUnit = units.find((u) => u.id === sessionUnitId);
-    if (targetUnit) {
-      await markUnitAsCompleted(targetUnit.id);
-      const updatedCompletions = await getManualCompletions();
-      setCompletions(updatedCompletions);
-    }
-
-    const [updatedAttempts, updatedRS, updatedInQ] = await Promise.all([
-      getAttempts(),
-      getReviewStates(),
-      getIncorrectQuestions(),
-    ]);
-    setAttempts(updatedAttempts);
-    setReviewStates(updatedRS);
-    setIncorrectQuestions(updatedInQ);
-  }
-
-  // -------------------------------------------------------------
-  // 오답 개념 집중 보충 학습: 내가 틀렸던 문제들을 바로 풀고 개념/해설 완벽 학습
-  // -------------------------------------------------------------
-  async function handleApplyScaffolding() {
-    const topicIncorrect = selectedTopicId
-      ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
-      : incorrectQuestions;
-    const targetMistakes = topicIncorrect.length > 0 ? topicIncorrect : incorrectQuestions;
-
-    if (!targetMistakes || targetMistakes.length === 0) {
-      showAlert('알림', '현재 등록된 오답 문제가 없습니다. 모든 문제를 완벽히 맞히셨습니다!');
-      return;
-    }
-
-    // 내가 틀렸던 바로 그 오답 문제들로 즉시 CBT 시험 및 개념 복습 시작!
-    startExam(targetMistakes);
-  }
 
   // -------------------------------------------------------------
   // 자료 등록 핸들러
@@ -916,19 +572,6 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     }
   }
 
-  async function handleChangeRoutinePreset(presetKey: string) {
-    if (!routine) return;
-    const item = (routine as any)[presetKey];
-    const updated: RoutineRevision = {
-      ...routine,
-      id: generateUUID(),
-      preset: presetKey as RoutinePreset,
-      activeDays: item ? item.days : [1, 3, 5],
-      effectiveDate: getLocalDateString(),
-    };
-    await saveRoutine(updated);
-    setRoutine(updated);
-  }
 
   async function handleExportBackup() {
     let json = '';
@@ -1068,7 +711,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       <SafeAreaProvider>
         <ExamSessionScreen
           questions={examQuestions}
-          onExitExam={() => setExamSessionActive(false)}
+          onExitExam={exitExamSession}
           onCompleteExam={handleCompleteExam}
         />
         {/* CBT 시험장 내 전용 인앱 알림 모달 (나가기 확인창 등 정상 작동 보장) */}
@@ -1419,158 +1062,3 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff1f4',
-  },
-  centerContainer: {
-    flex: 1,
-    backgroundColor: '#fff1f4',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#9f1239',
-    marginTop: 12,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  mainContent: {
-    flex: 1,
-  },
-  loadingWaitOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  loadingWaitCard: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    elevation: 8,
-  },
-  loadingWaitTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#881337',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  loadingWaitSubtitle: {
-    fontSize: 13,
-    color: '#e11d48',
-    marginBottom: 12,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  loadingWaitMessage: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 19,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  loadingWaitNoteBox: {
-    backgroundColor: '#fff1f4',
-    borderRadius: 10,
-    padding: 12,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-    alignItems: 'center',
-  },
-  loadingWaitNoteText: {
-    fontSize: 11,
-    color: '#9f1239',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  fullModalContainer: {
-    flex: 1,
-    backgroundColor: '#fff1f4',
-  },
-  fullModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#fecdd3',
-    backgroundColor: '#ffffff',
-  },
-  fullModalTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#881337',
-  },
-  fullModalCloseBtn: {
-    backgroundColor: '#fff1f2',
-    borderWidth: 1,
-    borderColor: '#fda4af',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  fullModalCloseBtnText: {
-    color: '#be123c',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  fullModalSaveBtn: {
-    backgroundColor: '#f43f5e',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  fullModalSaveBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  floatingSettingsBtn: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#fda4af',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    gap: 6,
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 999,
-  },
-  floatingSettingsIcon: {
-    fontSize: 16,
-  },
-  floatingSettingsText: {
-    color: '#be123c',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-});

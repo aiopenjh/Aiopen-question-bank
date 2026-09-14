@@ -1,0 +1,411 @@
+import { useState, useCallback } from 'react';
+import { Topic, Unit, QuestionRevision } from '../contracts/types';
+import {
+  analyzeUserIntent,
+  generateFactBasedQuestions,
+  generateCurriculumUnits,
+} from '../domain/generator';
+import {
+  getQuestions,
+  getUnits,
+  replaceTopicUnits,
+  createUnit,
+  deduplicateTopicUnits,
+  generateUUID,
+} from '../data/db';
+import { showAlert } from '../utils/alert';
+
+export interface GeneratingWaitStatus {
+  active: boolean;
+  count: number;
+  title: string;
+  message: string;
+}
+
+export interface PendingQuizUnit {
+  topicId: string;
+  topicName: string;
+  unitId: string;
+  unitTitle: string;
+}
+
+export interface UseQuizGenerationProps {
+  apiKey: string;
+  topics: Topic[];
+  units: Unit[];
+  questions: QuestionRevision[];
+  selectedTopicId: string | null;
+  selectedUnitId: string | null;
+  lastStudiedTopicId: string | null;
+  incorrectQuestions: QuestionRevision[];
+  startExam: (questions: QuestionRevision[]) => void;
+  onOpenSettings: () => void;
+  onOpenTopicModal: () => void;
+  onRefreshData: () => Promise<void>;
+  setUnits: (units: Unit[]) => void;
+  setQuestions: (questions: QuestionRevision[]) => void;
+}
+
+export function useQuizGeneration({
+  apiKey,
+  topics,
+  units,
+  questions,
+  selectedTopicId,
+  selectedUnitId,
+  lastStudiedTopicId,
+  incorrectQuestions,
+  startExam,
+  onOpenSettings,
+  onOpenTopicModal,
+  onRefreshData,
+  setUnits,
+  setQuestions,
+}: UseQuizGenerationProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isCurriculumGenerating, setIsCurriculumGenerating] = useState(false);
+  const [generatingUnitId, setGeneratingUnitId] = useState<string | null>(null);
+  const [generatingWaitStatus, setGeneratingWaitStatus] = useState<GeneratingWaitStatus | null>(null);
+
+  const [quizCountModalVisible, setQuizCountModalVisible] = useState(false);
+  const [pendingQuizUnit, setPendingQuizUnit] = useState<PendingQuizUnit | null>(null);
+
+  const handlePromptQuizCount = useCallback(
+    (topicId: string, topicName: string, unitId: string, unitTitle: string) => {
+      setPendingQuizUnit({ topicId, topicName, unitId, unitTitle });
+      setQuizCountModalVisible(true);
+    },
+    []
+  );
+
+  const handleQuickGenerateForUnit = useCallback(
+    async (
+      topicId: string,
+      topicName: string,
+      unitId: string,
+      unitTitle: string,
+      targetCount: number = 3
+    ) => {
+      setGeneratingUnitId(unitId);
+      setGeneratingWaitStatus({
+        active: true,
+        count: targetCount,
+        title: unitTitle,
+        message:
+          targetCount === 3
+            ? '⚡ 3문제를 생성 중입니다 (약 10초 내외 소요)...'
+            : targetCount === 5
+            ? '🎯 5문제를 정밀 출제 중입니다 (약 15~20초 소요)...'
+            : '🏆 10문제 시험지를 출제 중입니다 (약 30~45초 소요)...',
+      });
+      try {
+        const scoped = analyzeUserIntent(`[${unitTitle}] 핵심 개념 ${targetCount}문제 출제`, topicName, {
+          learnerLevel: 'basic',
+          targetCount,
+        });
+
+        const outcome = await generateFactBasedQuestions({
+          intent: scoped,
+          ownerId: 'owner-default',
+          topicId,
+          unitId,
+          unitTitle,
+        });
+
+        if (outcome.status === 'NEEDS_CONNECTION') {
+          showAlert(
+            '⚠️ AI 출제 엔진 연결 필요',
+            `${outcome.message}\n\n${outcome.requiredAction}`,
+            [
+              { text: '닫기', style: 'cancel' },
+              { text: '설정 열기', onPress: onOpenSettings },
+            ]
+          );
+          return;
+        }
+
+        if (outcome.status === 'FAILED') {
+          showAlert('AI 출제 실패', outcome.message, [
+            { text: '닫기', style: 'cancel' },
+            { text: '설정 열기', onPress: onOpenSettings },
+          ]);
+          return;
+        }
+
+        const allQ = await getQuestions();
+        setQuestions(allQ);
+
+        // 시험 세션 즉시 시작
+        startExam(outcome.questions);
+      } catch (err: any) {
+        showAlert('오류', `단원 문제 출제 실패: ${err?.message || '네트워크 응답 오류'}`);
+      } finally {
+        setGeneratingUnitId(null);
+        setGeneratingWaitStatus(null);
+      }
+    },
+    [onOpenSettings, setQuestions, startExam]
+  );
+
+  const handleSelectQuizCount = useCallback(
+    async (count: number) => {
+      setQuizCountModalVisible(false);
+      if (!pendingQuizUnit) return;
+      const { topicId, topicName, unitId, unitTitle } = pendingQuizUnit;
+      await handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count);
+    },
+    [pendingQuizUnit, handleQuickGenerateForUnit]
+  );
+
+  const executeCurriculumGeneration = useCallback(
+    async (topicId: string, topicName: string, shouldReplace = false) => {
+      setIsCurriculumGenerating(true);
+      try {
+        const generatedUnits = await generateCurriculumUnits({ topicName });
+        if (shouldReplace) {
+          await replaceTopicUnits(topicId, generatedUnits);
+        } else {
+          // 중복 방지: 이미 존재하는 동일 단원명은 추가하지 않음
+          const currentUnits = await getUnits(topicId);
+          const existingTitles = new Set(currentUnits.map((u) => u.title.trim()));
+          for (const u of generatedUnits) {
+            if (!existingTitles.has(u.title.trim())) {
+              await createUnit({ topicId, title: u.title, depth: u.depth });
+            }
+          }
+        }
+
+        const updatedUnits = await getUnits();
+        setUnits(updatedUnits);
+        showAlert('목차 생성 완료', `[${topicName}]의 5단계 목차가 구성되었습니다.`);
+      } catch (err: any) {
+        showAlert('오류', `AI 커리큘럼 생성 실패: ${err?.message || '알 수 없는 오류'}`);
+      } finally {
+        setIsCurriculumGenerating(false);
+      }
+    },
+    [setUnits]
+  );
+
+  const handleGenerateCurriculumForTopic = useCallback(
+    async (topicId: string, topicName: string) => {
+      const existing = units.filter((u) => u.topicId === topicId);
+      if (existing.length <= 1) {
+        await executeCurriculumGeneration(topicId, topicName, true);
+        return;
+      }
+
+      showAlert(
+        '🌳 AI 5단계 목차 자동 구성',
+        `이미 [${topicName}]에 ${existing.length}개의 단원이 등록되어 있습니다.\n\n어떤 방식으로 목차를 구성하시겠습니까?`,
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '기존 단원에 추가하기',
+            onPress: () => executeCurriculumGeneration(topicId, topicName, false),
+          },
+          {
+            text: '5단계 표준으로 새로 교체',
+            style: 'destructive',
+            onPress: () => executeCurriculumGeneration(topicId, topicName, true),
+          },
+        ]
+      );
+    },
+    [units, executeCurriculumGeneration]
+  );
+
+  const handleDeduplicateUnits = useCallback(
+    async (topicId: string) => {
+      try {
+        const cleaned = await deduplicateTopicUnits(topicId);
+        const updatedUnits = await getUnits();
+        setUnits(updatedUnits);
+        showAlert(
+          '🧹 중복 단원 정리 완료',
+          `중복된 단원을 모두 정리하여 ${cleaned.length}개의 고유 단원으로 깔끔하게 정돈했습니다!`
+        );
+      } catch (err: any) {
+        showAlert('오류', `단원 정리 실패: ${err?.message || '알 수 없는 오류'}`);
+      }
+    },
+    [setUnits]
+  );
+
+  const handleGenerateMoreQuestions = useCallback(async () => {
+    const currentTopic =
+      topics.find((t) => t.id === selectedTopicId) ||
+      topics.find((t) => t.id === lastStudiedTopicId) ||
+      topics[0];
+    if (!currentTopic) {
+      showAlert('알림', '먼저 학습할 주제를 등록해 주세요.', [
+        { text: '닫기', style: 'cancel' },
+        { text: '주제 만들기', onPress: onOpenTopicModal },
+      ]);
+      return;
+    }
+
+    const targetUnit =
+      units.find((u) => u.id === selectedUnitId) ||
+      units.find((u) => u.topicId === currentTopic.id);
+
+    const existingQuestions = questions.filter((q) => q.topicId === currentTopic.id);
+
+    if (!apiKey || apiKey.trim().length <= 8) {
+      showAlert(
+        'API 키 미등록',
+        '새로운 문제를 생성하기 위한 AI API 키가 등록되지 않아 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
+        [
+          { text: '취소', style: 'cancel' },
+          { text: 'API 키 설정', onPress: onOpenSettings },
+          ...(existingQuestions.length > 0
+            ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
+            : []),
+        ]
+      );
+      return;
+    }
+
+    const existingSummary = existingQuestions
+      .slice(-4)
+      .map((q, idx) => `${idx + 1}. ${q.stem.slice(0, 80)}`)
+      .join('\n');
+
+    const customContext = `[추가 자율 학습: 동일 개념 범위 신규 출제 지침]
+학습자가 현재 [${currentTopic.name}${targetUnit ? ` - ${targetUnit.title}` : ''}] 개념 범위를 집중 학습 중이며, 목표 달성 후 추가 연습 문제를 요청했습니다.
+반드시 아래 지침을 준수하여 동일한 개념과 범위 내에서 신선한 4지선다형 실전 문제를 3문항 출제하세요:
+
+1. [개념 일관성]: 다루는 학습 개념과 출제 범위는 [${currentTopic.name}${targetUnit ? ` - ${targetUnit.title}` : ''}]와 정확히 동일해야 합니다.
+2. [중복 배제]: 아래 기존 문제들과 똑같은 문장이나 선지를 재탕하지 말고, 동일한 개념을 다른 각도의 상황, 변형 보기, 실무 적용 사례로 재구성하여 출제하세요.
+${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existingSummary}` : ''}
+3. [품질 및 해설]: 각 문항마다 오답 선지가 왜 틀렸는지와 정답의 핵심 원리를 명쾌하게 해설하세요.`;
+
+    setIsGenerating(true);
+    setGeneratingWaitStatus({
+      active: true,
+      count: 3,
+      title: `${currentTopic.name} 추가 학습`,
+      message: '⚡ 같은 개념 범위에서 새로운 문제를 출제 중입니다 (약 10초 내외 소요)...',
+    });
+
+    try {
+      const targetUnitId = targetUnit?.id || generateUUID();
+      const targetUnitTitle = targetUnit?.title || `${currentTopic.name} 핵심 종합`;
+
+      const scoped = analyzeUserIntent(
+        `[${currentTopic.name}] ${targetUnitTitle} 동일 개념 추가 심화 문제 출제`,
+        currentTopic.name,
+        {
+          learnerLevel: 'basic',
+          targetCount: 3,
+        }
+      );
+
+      const outcome = await generateFactBasedQuestions({
+        intent: scoped,
+        ownerId: 'owner-default',
+        topicId: currentTopic.id,
+        unitId: targetUnitId,
+        unitTitle: targetUnitTitle,
+        customContext,
+      });
+
+      if (outcome.status === 'NEEDS_CONNECTION') {
+        showAlert(
+          'API 키 미등록',
+          '새로운 문제를 생성하기 위한 AI API 키가 등록되지 않아 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
+          [
+            { text: '취소', style: 'cancel' },
+            { text: '설정 열기', onPress: onOpenSettings },
+            ...(existingQuestions.length > 0
+              ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
+              : []),
+          ]
+        );
+        return;
+      }
+
+      if (outcome.status === 'FAILED') {
+        showAlert(
+          '문제 생성 실패',
+          `새로운 문제를 만들지 못했습니다.\n(${outcome.message})\n\n기존에 학습했던 문제를 복습하시겠습니까?`,
+          [
+            { text: '취소', style: 'cancel' },
+            { text: '설정 열기', onPress: onOpenSettings },
+            ...(existingQuestions.length > 0
+              ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
+              : []),
+          ]
+        );
+        return;
+      }
+
+      const allQ = await getQuestions();
+      setQuestions(allQ);
+
+      // 즉시 새로 출제된 문제로 CBT 시험 시작
+      startExam(outcome.questions);
+    } catch (err: any) {
+      showAlert(
+        '문제 생성 실패',
+        `새로운 문제를 만들지 못했습니다.\n(${err?.message || '네트워크 오류'})\n\n기존에 학습했던 문제를 복습하시겠습니까?`,
+        [
+          { text: '취소', style: 'cancel' },
+          { text: '설정 열기', onPress: onOpenSettings },
+          ...(existingQuestions.length > 0
+            ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
+            : []),
+        ]
+      );
+    } finally {
+      setIsGenerating(false);
+      setGeneratingWaitStatus(null);
+    }
+  }, [
+    apiKey,
+    topics,
+    selectedTopicId,
+    lastStudiedTopicId,
+    units,
+    selectedUnitId,
+    questions,
+    onOpenTopicModal,
+    onOpenSettings,
+    startExam,
+    setQuestions,
+  ]);
+
+  const handleApplyScaffolding = useCallback(async () => {
+    const topicIncorrect = selectedTopicId
+      ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
+      : incorrectQuestions;
+    const targetMistakes = topicIncorrect.length > 0 ? topicIncorrect : incorrectQuestions;
+
+    if (!targetMistakes || targetMistakes.length === 0) {
+      showAlert('알림', '현재 등록된 오답 문제가 없습니다. 모든 문제를 완벽히 맞히셨습니다!');
+      return;
+    }
+
+    // 내가 틀렸던 바로 그 오답 문제들로 즉시 CBT 시험 및 개념 복습 시작
+    startExam(targetMistakes);
+  }, [selectedTopicId, incorrectQuestions, startExam]);
+
+  return {
+    isGenerating,
+    setIsGenerating,
+    isCurriculumGenerating,
+    generatingUnitId,
+    generatingWaitStatus,
+    setGeneratingWaitStatus,
+    quizCountModalVisible,
+    setQuizCountModalVisible,
+    pendingQuizUnit,
+    handlePromptQuizCount,
+    handleSelectQuizCount,
+    handleQuickGenerateForUnit,
+    handleGenerateMoreQuestions,
+    handleApplyScaffolding,
+    handleGenerateCurriculumForTopic,
+    handleDeduplicateUnits,
+  };
+}
