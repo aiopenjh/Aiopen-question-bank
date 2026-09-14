@@ -793,15 +793,17 @@ export default function App() {
   // -------------------------------------------------------------
   // 설정 & 보안 저장 핸들러
   // -------------------------------------------------------------
-  async function handleSaveApiKey() {
-    if (!apiKey.trim()) {
+  async function handleSaveApiKey(keyToSave?: string) {
+    const targetKey = (typeof keyToSave === 'string' ? keyToSave : apiKey).trim();
+    if (!targetKey) {
       showAlert('알림', '저장할 API Key를 입력해 주세요.');
       return;
     }
-    await saveEncryptedApiKey(apiKey);
+    await saveEncryptedApiKey(targetKey);
+    setApiKey(targetKey);
     showAlert(
       '🔒 보안 암호화 저장 완료',
-      'API Key가 대칭 솔트(Salted Cipher) 암호화되어 전용 보안 볼트에 안전하게 격리 보관되었습니다.\n\n화면에서는 보안 마스킹(••••••••)으로 안전하게 보호됩니다.'
+      'API Key가 안전하게 보관되었습니다.\n이제 AI 맞춤 문제 출제를 바로 이용하실 수 있습니다!'
     );
   }
 

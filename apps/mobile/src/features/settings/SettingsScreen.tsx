@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { RoutineRevision } from '../../contracts/types';
 import { ROUTINE_PRESETS } from '../../domain/routine';
@@ -7,7 +7,7 @@ import { showAlert } from '../../utils/alert';
 interface SettingsScreenProps {
   apiKey: string;
   onChangeApiKey: (text: string) => void;
-  onSaveApiKey: () => Promise<void>;
+  onSaveApiKey: (keyToSave?: string) => Promise<void>;
   onDeleteApiKey?: () => Promise<void>;
   preferredModel?: string;
   onChangePreferredModel?: (model: string) => Promise<void>;
@@ -31,20 +31,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onOpenRestoreModal,
   onResetAllData,
 }) => {
+  const [inputKey, setInputKey] = useState(apiKey);
   const [isEditingKey, setIsEditingKey] = useState(false);
   const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    setInputKey(apiKey);
+  }, [apiKey]);
+
   const isRegistered = apiKey.trim().length > 8;
 
   async function handlePressSave() {
-    if (!apiKey.trim()) {
+    const trimmed = inputKey.trim();
+    if (!trimmed) {
       showAlert('알림', '저장할 API Key를 입력해 주세요.');
       return;
     }
     setSaving(true);
     try {
-      await onSaveApiKey();
+      onChangeApiKey(trimmed);
+      await onSaveApiKey(trimmed);
       setIsEditingKey(false);
     } catch (err: any) {
       showAlert('오류', `저장 중 오류 발생: ${err?.message || '알 수 없는 오류'}`);
@@ -62,6 +69,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         style: 'destructive',
         onPress: async () => {
           await onDeleteApiKey();
+          setInputKey('');
           setIsEditingKey(true);
         },
       },
@@ -103,7 +111,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               <TouchableOpacity
                 style={styles.keyActionSmallBtn}
-                onPress={() => setIsEditingKey(true)}
+                onPress={() => {
+                  setInputKey(apiKey);
+                  setIsEditingKey(true);
+                }}
               >
                 <Text style={styles.keyActionSmallBtnText}>✏️ 변경</Text>
               </TouchableOpacity>
@@ -121,7 +132,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           /* 최초 등록이거나 사용자가 '변경'을 눌렀을 때만 입력창 노출 */
           <View style={{ marginTop: 2 }}>
             <Text style={styles.promptGuideText}>
-              Google Gemini(AIzaSy...), Anthropic Claude(sk-ant-), OpenAI(sk-) 키를 입력하세요. 한 번 저장하면 입력창은 자동으로 사라집니다.
+              Google Gemini(AIzaSy...), Anthropic Claude(sk-ant-), OpenAI(sk-) 키를 입력하세요. [저장하기]를 누르면 안전하게 암호화 보관됩니다.
             </Text>
 
             <View style={styles.keyInputRow}>
@@ -129,8 +140,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 style={styles.keyInputField}
                 placeholder="API Key 입력 (예: AIzaSy...)"
                 placeholderTextColor="#64748b"
-                value={apiKey}
-                onChangeText={onChangeApiKey}
+                value={inputKey}
+                onChangeText={setInputKey}
                 autoCapitalize="none"
                 secureTextEntry={!isKeyVisible}
                 autoCorrect={false}
@@ -159,7 +170,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               {isRegistered && (
                 <TouchableOpacity
                   style={[styles.primaryActionButton, { backgroundColor: '#334155', flex: 0.4 }]}
-                  onPress={() => setIsEditingKey(false)}
+                  onPress={() => {
+                    setInputKey(apiKey);
+                    setIsEditingKey(false);
+                  }}
                   disabled={saving}
                 >
                   <Text style={styles.primaryActionText}>취소</Text>
