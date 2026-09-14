@@ -11,6 +11,9 @@ import {
   Platform,
   Share,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { showAlert, registerAlertListener, AlertData } from './src/utils/alert';
 import {
@@ -904,24 +907,88 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     let json = '';
     try {
       json = await exportBackupJSON();
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const fileName = `Celueste_Study_Backup_${dateStr}.json`;
+
       if (Platform.OS === 'web') {
-        setBackupText(json);
-        setBackupModalVisible(true);
+        // 웹 브라우저: .json 파일 직접 다운로드
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showAlert('백업 완료', `백업 파일(${fileName})이 성공적으로 다운로드되었습니다.`);
       } else {
-        const result = await Share.share({
-          message: json,
-          title: 'Celueste_Study_Backup.json',
+        // 모바일 (Android/iOS): 실제 파일로 저장 후 공유 시트로 전송 (카톡/메일/파일 저장 등)
+        const fileUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${fileName}`;
+        await FileSystem.writeAsStringAsync(fileUri, json, {
+          encoding: FileSystem.EncodingType.UTF8,
         });
-        if (result.action === Share.sharedAction) {
-          showAlert('백업 완료', '데이터 백업이 안전하게 공유/내보내기 되었습니다.');
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'application/json',
+            dialogTitle: '학습 데이터 백업 파일 공유/저장',
+            UTI: 'public.json',
+          });
+        } else {
+          // 공유 기능 미지원 기기 폴백
+          setBackupText(json);
+          setBackupModalVisible(true);
         }
       }
     } catch (err: any) {
-      // 오류 발생 시 백업 텍스트 모달로 폴백
+      console.warn('백업 파일 생성 및 공유 실패:', err);
       if (json) {
         setBackupText(json);
         setBackupModalVisible(true);
+      } else {
+        showAlert('오류', `백업 생성 중 오류 발생: ${err?.message || '알 수 없는 오류'}`);
       }
+    }
+  }
+
+  async function handleRestoreFromFile() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/json', 'text/*', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const file = result.assets[0];
+      let content = '';
+
+      if (Platform.OS === 'web' && (file as any).file) {
+        content = await (file as any).file.text();
+      } else {
+        content = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+      }
+
+      if (!content || !content.trim()) {
+        showAlert('오류', '선택한 파일의 내용이 비어 있습니다.');
+        return;
+      }
+
+      const res = await restoreBackupJSON(content);
+      showAlert(res.success ? '복원 완료' : '복원 실패', res.message);
+      if (res.success) {
+        await loadAppData();
+        setBackupModalVisible(false);
+        setBackupText('');
+      }
+    } catch (err: any) {
+      console.warn('파일 복원 실패:', err);
+      showAlert('복원 실패', `백업 파일을 읽을 수 없습니다: ${err?.message || '파일 오류'}`);
     }
   }
 
@@ -1237,6 +1304,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         onChangeBackupText={setBackupText}
         onClose={() => setBackupModalVisible(false)}
         onRestore={handleRestoreBackup}
+        onRestoreFromFile={handleRestoreFromFile}
       />
 
       <QuizCountModal
