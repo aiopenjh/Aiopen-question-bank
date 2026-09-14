@@ -9,8 +9,6 @@ interface SettingsScreenProps {
   onChangeApiKey: (text: string) => void;
   onSaveApiKey: (keyToSave?: string) => Promise<void>;
   onDeleteApiKey?: () => Promise<void>;
-  preferredModel?: string;
-  onChangePreferredModel?: (model: string) => Promise<void>;
   routine: RoutineRevision | null;
   onChangeRoutinePreset: (presetKey: string) => Promise<void>;
   onExportBackup: () => Promise<void>;
@@ -23,8 +21,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onChangeApiKey,
   onSaveApiKey,
   onDeleteApiKey,
-  preferredModel = 'gemini-3.5-flash',
-  onChangePreferredModel,
   routine,
   onChangeRoutinePreset,
   onExportBackup,
@@ -411,27 +407,6 @@ const styles = StyleSheet.create({
     color: '#059669',
     fontSize: 12,
     fontWeight: 'bold',
-  },
-  modelChip: {
-    backgroundColor: '#fff5f7',
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  modelChipSelected: {
-    backgroundColor: '#ffe4e6',
-    borderColor: '#f43f5e',
-  },
-  modelChipText: {
-    color: '#64748b',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  modelChipTextSelected: {
-    color: '#be123c',
-    fontWeight: '700',
   },
   savedKeyBanner: {
     flexDirection: 'row',

@@ -35,8 +35,6 @@ import {
   saveAttempt,
   getEncryptedApiKey,
   saveEncryptedApiKey,
-  getPreferredAiModel,
-  savePreferredAiModel,
   addSource,
   getSources,
   generateUUID,
@@ -66,7 +64,6 @@ import {
   detectCategoryForTopic,
 } from './src/contracts/types';
 import {
-  isStudyDay,
   getLocalDateString,
 } from './src/domain/routine';
 import {
@@ -74,7 +71,6 @@ import {
   generateFactBasedQuestions,
   generateCurriculumUnits,
   distributeQuestionAnswersRandomly,
-  ScopedIntent,
 } from './src/domain/generator';
 import { calculateNextReviewState, filterDueReviewQuestions } from './src/domain/spaced_repetition';
 import { buildAdaptiveScaffoldingSpec } from './src/domain/adaptive_scaffolding';
@@ -109,7 +105,6 @@ export default function App() {
   const [reviewStates, setReviewStates] = useState<ReviewState[]>([]);
   const [incorrectQuestions, setIncorrectQuestions] = useState<QuestionRevision[]>([]);
   const [apiKey, setApiKey] = useState('');
-  const [preferredModel, setPreferredModel] = useState('gemini-3.5-flash');
   const [sources, setSources] = useState<Source[]>([]);
 
   // Modals Visibility
@@ -131,15 +126,9 @@ export default function App() {
 
   // Exam / CBT Session State
   const [examSessionActive, setExamSessionActive] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
-  const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
   const [examQuestions, setExamQuestions] = useState<QuestionRevision[]>([]);
 
-  // AI Prompt & Scaffolding State
-  const [promptInput, setPromptInput] = useState('');
-  const [analyzedIntent, setAnalyzedIntent] = useState<ScopedIntent | null>(null);
-  const [scaffoldingContext, setScaffoldingContext] = useState<string | null>(null);
+  // AI Generation State
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingUnitId, setGeneratingUnitId] = useState<string | null>(null);
   const [isCurriculumGenerating, setIsCurriculumGenerating] = useState(false);
@@ -172,7 +161,7 @@ export default function App() {
       setLoading(true);
       await initializeDatabase();
 
-      const [r, t, u, c, q, a, rStates, inQ, key, s, pModel, savedLastTId] = await Promise.all([
+      const [r, t, u, c, q, a, rStates, inQ, key, s, savedLastTId] = await Promise.all([
         getRoutine(),
         getTopics(),
         getUnits(),
@@ -183,7 +172,6 @@ export default function App() {
         getIncorrectQuestions(),
         getEncryptedApiKey(),
         getSources(),
-        getPreferredAiModel(),
         getLastStudiedTopicId(),
       ]);
 
@@ -208,7 +196,6 @@ export default function App() {
       setIncorrectQuestions(inQ);
       setApiKey(key || '');
       setSources(s);
-      setPreferredModel(pModel || 'gemini-3.5-flash');
 
     } catch (err) {
       console.error('앱 데이터 로드 실패:', err);
@@ -513,9 +500,6 @@ export default function App() {
     const randomizedQuestions = distributeQuestionAnswersRandomly(list);
 
     setExamQuestions(randomizedQuestions);
-    setCurrentQuestionIndex(0);
-    setSelectedOptionId(null);
-    setIsAnswerRevealed(false);
     setExamSessionActive(true);
   }
 
@@ -754,19 +738,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
   }
 
   // -------------------------------------------------------------
-  // AI 출제 및 적응형 하향 비계 핸들러
+  // 적응형 하향 비계 (Scaffolding) 원클릭 세팅
   // -------------------------------------------------------------
-  function handleAnalyzePrompt(options?: { learnerLevel?: LearnerKnowledgeLevel; knownScope?: string }) {
-    if (!promptInput.trim()) {
-      showAlert('알림', '질문이나 공부하고 싶은 내용을 입력해 주세요.');
-      return;
-    }
-    const currentTopic = topics.find((t) => t.id === selectedTopicId);
-    const scoped = analyzeUserIntent(promptInput, currentTopic?.name, options);
-    setAnalyzedIntent(scoped);
-  }
-
-  // 2. 적응형 하향 비계 (Scaffolding) 원클릭 세팅
   async function handleApplyScaffolding() {
     const currentTopic = topics.find((t) => t.id === selectedTopicId);
     const topicIncorrect = selectedTopicId
@@ -863,61 +836,6 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     } finally {
       setIsGenerating(false);
       setGeneratingWaitStatus(null);
-    }
-  }
-
-  async function handleCreateQuestions() {
-    if (!analyzedIntent) return;
-    setIsGenerating(true);
-    try {
-      const activeTopic = topics.find((t) => t.id === selectedTopicId) || topics[0];
-      const targetTopicId = activeTopic ? activeTopic.id : generateUUID();
-      const targetUnit = units.find((u) => u.id === selectedUnitId);
-
-      const outcome = await generateFactBasedQuestions({
-        intent: analyzedIntent,
-        ownerId: 'owner-default',
-        topicId: targetTopicId,
-        unitId: selectedUnitId || undefined,
-        unitTitle: targetUnit?.title,
-        customContext: scaffoldingContext || undefined,
-      });
-
-      if (outcome.status === 'NEEDS_CONNECTION') {
-        showAlert(
-          '⚠️ AI 출제 엔진 연결 필요',
-          `${outcome.message}\n\n${outcome.requiredAction}`,
-          [
-            { text: '닫기', style: 'cancel' },
-            { text: '설정창 열기', onPress: () => setIsSettingsOpen(true) },
-          ]
-        );
-        return;
-      }
-
-      if (outcome.status === 'FAILED') {
-        showAlert('출제 실패', outcome.message);
-        return;
-      }
-
-      const allQ = await getQuestions();
-      setQuestions(allQ);
-      setScaffoldingContext(null); // 컨텍스트 소진 후 리셋
-
-      showAlert(
-        '출제 완료!',
-        `[${analyzedIntent.domain}] 분야의 사실 검증된 문제 ${outcome.questions.length}문항이 출제되었습니다.${
-          targetUnit ? `\n(배속 단원: ${targetUnit.title})` : ''
-        }\n바로 풀어보시겠습니까?`,
-        [
-          { text: '나중에 풀기', style: 'cancel' },
-          { text: '지금 풀기', onPress: () => startExam(outcome.questions) },
-        ]
-      );
-    } catch (err: any) {
-      showAlert('오류', `출제 요청 중 예외 발생: ${err.message}`);
-    } finally {
-      setIsGenerating(false);
     }
   }
 
@@ -1309,15 +1227,6 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
               onChangeApiKey={setApiKey}
               onSaveApiKey={handleSaveApiKey}
               onDeleteApiKey={handleDeleteApiKey}
-              preferredModel={preferredModel}
-              onChangePreferredModel={async (model) => {
-                setPreferredModel(model);
-                await savePreferredAiModel(model);
-                showAlert(
-                  'AI 모델 설정',
-                  `출제 모델이 [${model}]로 지정되었습니다.\n(연결 실패 시 가짜 문제 출제 없이 상태를 보고합니다)`
-                );
-              }}
               routine={routine}
               onChangeRoutinePreset={handleChangeRoutinePreset}
               onExportBackup={handleExportBackup}
