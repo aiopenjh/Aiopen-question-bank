@@ -557,6 +557,23 @@ export default function App() {
 
     // 기존 출제된 문제들을 파악하여 중복 방지 컨텍스트 구성
     const existingQuestions = questions.filter((q) => q.topicId === currentTopic.id);
+
+    // API 키 미등록 시 사실대로 고지하고 기존 문제 복습 진행 여부 확인
+    if (!apiKey || apiKey.trim().length <= 8) {
+      showAlert(
+        'API 키 미등록',
+        '새로운 문제를 생성하기 위한 AI API 키가 등록되지 않아 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
+        [
+          { text: '취소', style: 'cancel' },
+          { text: 'API 키 설정', onPress: () => setIsSettingsOpen(true) },
+          ...(existingQuestions.length > 0
+            ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
+            : []),
+        ]
+      );
+      return;
+    }
+
     const existingSummary = existingQuestions
       .slice(-4)
       .map((q, idx) => `${idx + 1}. ${q.stem.slice(0, 80)}`)
@@ -603,21 +620,31 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
 
       if (outcome.status === 'NEEDS_CONNECTION') {
         showAlert(
-          '⚠️ AI 출제 엔진 연결 필요',
-          `${outcome.message}\n\n새로운 문제를 출제하려면 설정에서 API 키를 입력해 주세요.`,
+          'API 키 미등록',
+          '새로운 문제를 생성하기 위한 AI API 키가 등록되지 않아 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
           [
-            { text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) },
+            { text: '취소', style: 'cancel' },
             { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
+            ...(existingQuestions.length > 0
+              ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
+              : []),
           ]
         );
         return;
       }
 
       if (outcome.status === 'FAILED') {
-        showAlert('AI 출제 실패', outcome.message, [
-          { text: '닫기', style: 'cancel' },
-          { text: '기존 문제로 풀기', onPress: () => startExam(existingQuestions) },
-        ]);
+        showAlert(
+          '문제 생성 실패',
+          `새로운 문제를 만들지 못했습니다.\n(${outcome.message})\n\n기존에 학습했던 문제를 복습하시겠습니까?`,
+          [
+            { text: '취소', style: 'cancel' },
+            { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
+            ...(existingQuestions.length > 0
+              ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
+              : []),
+          ]
+        );
         return;
       }
 
@@ -627,7 +654,17 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       // 즉시 새로 출제된 문제로 CBT 시험 시작!
       startExam(outcome.questions);
     } catch (err: any) {
-      showAlert('출제 오류', `문제 재생성 중 오류: ${err?.message || '네트워크 오류'}`);
+      showAlert(
+        '문제 생성 실패',
+        `새로운 문제를 만들지 못했습니다.\n(${err?.message || '네트워크 오류'})\n\n기존에 학습했던 문제를 복습하시겠습니까?`,
+        [
+          { text: '취소', style: 'cancel' },
+          { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
+          ...(existingQuestions.length > 0
+            ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
+            : []),
+        ]
+      );
     } finally {
       setIsGenerating(false);
       setGeneratingWaitStatus(null);
@@ -704,6 +741,20 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       return;
     }
 
+    // API 키 미등록 시 사실대로 고지하고 기존 오답노트 복습 여부 확인
+    if (!apiKey || apiKey.trim().length <= 8) {
+      showAlert(
+        'API 키 미등록',
+        'AI 맞춤 보충 문제를 출제하기 위한 API 키가 등록되어 있지 않아 새 문제를 만들지 못했습니다.\n\n기존에 틀렸던 오답 문제를 다시 복습하시겠습니까?',
+        [
+          { text: '취소', style: 'cancel' },
+          { text: 'API 키 설정', onPress: () => setIsSettingsOpen(true) },
+          { text: '기존 오답 다시 풀기', onPress: () => startExam(targetMistakes) },
+        ]
+      );
+      return;
+    }
+
     const pkg = buildAdaptiveScaffoldingSpec({
       incorrectQuestions: targetMistakes,
       topicName: currentTopic?.name || '자유 학습',
@@ -718,7 +769,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     });
 
     try {
-      if (pkg && apiKey && apiKey.length > 8) {
+      if (pkg) {
         const activeTopic = topics.find((t) => t.id === selectedTopicId) || topics[0];
         const targetTopicId = activeTopic ? activeTopic.id : generateUUID();
         const outcome = await generateFactBasedQuestions({
@@ -734,13 +785,43 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
           startExam(outcome.questions);
           return;
         }
-      }
 
-      // API 키가 없거나 AI 새 문제 생성이 어려운 경우 -> 수집된 오답 문제들로 즉시 오답 집중 풀이 세션 실행
-      startExam(targetMistakes);
+        if (outcome.status === 'NEEDS_CONNECTION') {
+          showAlert(
+            'API 키 미등록',
+            'AI 맞춤 보충 문제를 출제하기 위한 API 키가 등록되어 있지 않아 새 문제를 만들지 못했습니다.\n\n기존에 틀렸던 오답 문제를 다시 복습하시겠습니까?',
+            [
+              { text: '취소', style: 'cancel' },
+              { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
+              { text: '기존 오답 다시 풀기', onPress: () => startExam(targetMistakes) },
+            ]
+          );
+          return;
+        }
+
+        if (outcome.status === 'FAILED') {
+          showAlert(
+            '문제 생성 실패',
+            `오답 맞춤 보충 문제를 출제하지 못했습니다.\n(${outcome.message})\n\n기존에 틀렸던 오답 문제를 다시 복습하시겠습니까?`,
+            [
+              { text: '취소', style: 'cancel' },
+              { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
+              { text: '기존 오답 다시 풀기', onPress: () => startExam(targetMistakes) },
+            ]
+          );
+          return;
+        }
+      }
     } catch (err: any) {
-      // 오류 발생 시에도 기존 오답 문제로 즉시 안전하게 세션 시작
-      startExam(targetMistakes);
+      showAlert(
+        '문제 생성 실패',
+        `오답 맞춤 보충 문제를 출제하지 못했습니다.\n(${err?.message || '네트워크 오류'})\n\n기존에 틀렸던 오답 문제를 다시 복습하시겠습니까?`,
+        [
+          { text: '취소', style: 'cancel' },
+          { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
+          { text: '기존 오답 다시 풀기', onPress: () => startExam(targetMistakes) },
+        ]
+      );
     } finally {
       setIsGenerating(false);
       setGeneratingWaitStatus(null);
