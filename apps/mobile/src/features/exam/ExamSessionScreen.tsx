@@ -16,7 +16,6 @@ import { showAlert } from '../../utils/alert';
 interface ExamSessionScreenProps {
   questions: QuestionRevision[];
   onExitExam: () => void;
-  onOpenFactModal: () => void;
   onCompleteExam: (
     results: Array<{ question: QuestionRevision; selectedOptionId: string; isCorrect: boolean }>
   ) => Promise<void>;
@@ -25,7 +24,6 @@ interface ExamSessionScreenProps {
 export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   questions,
   onExitExam,
-  onOpenFactModal,
   onCompleteExam,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -142,7 +140,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
         </Text>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {/* 요구사항: 문제 풀 때마다 힌트를 주는 게 아니고, 오른쪽 위에 힌트보기를 따로 둠 */}
+          {/* 문제 풀이 시 필요한 경우에만 우측 상단 힌트 제공 */}
           {!isSubmitted && (
             <TouchableOpacity
               style={styles.hintHeaderBtn}
@@ -151,9 +149,6 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
               <Text style={styles.hintHeaderBtnText}>💡 힌트</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={onOpenFactModal} style={styles.factButton}>
-            <Text style={styles.factButtonText}>🔍 근거</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -274,7 +269,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
               </View>
             </View>
             <Text style={styles.reportGuide}>
-              모든 문제의 공식 정답과 출제 근거 팩트, 오답 분석을 아래에서 차례대로 꼼꼼히 확인해 보세요.
+              틀린 문제의 원인과 정답 풀이를 아래에서 차례대로 꼼꼼히 확인해 보세요.
             </Text>
           </View>
 
@@ -337,27 +332,30 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
                   })}
                 </View>
 
-                {/* 30초 지식 굳히기 1줄 개념 */}
-                {item.conceptDefinition && (
-                  <View style={styles.conceptBox}>
-                    <Text style={styles.conceptBoxTitle}>📌 지식 굳히기 핵심 정의</Text>
-                    <Text style={styles.conceptBoxText}>{item.conceptDefinition}</Text>
+                {/* 1. 내가 왜 틀렸는지 확인하는 오답 분석 박스 (오답인 경우 집중 노출) */}
+                {!isQCorrect && chosenOpt && (
+                  <View style={styles.wrongAnalysisBox}>
+                    <Text style={styles.wrongAnalysisTitle}>
+                      ❌ 내가 선택한 오답 분석 (내 선택: {chosenOpt.text})
+                    </Text>
+                    <Text style={styles.wrongAnalysisText}>
+                      {chosenOpt.distractorRationale || '문제의 핵심 조건이나 개념에 부합하지 않는 오답입니다.'}
+                    </Text>
                   </View>
                 )}
 
-                {/* 출제 근거 팩트 및 해설 */}
+                {/* 2. 상세 문제 풀이 및 정답 해설 */}
                 <View style={styles.explanationBox}>
-                  <Text style={styles.explanationTitle}>📖 정답 해설 및 출제 근거</Text>
-                  <Text style={styles.explanationText}>{item.explanation}</Text>
+                  <Text style={styles.explanationTitle}>💡 정답 및 문제 풀이</Text>
+                  <Text style={styles.explanationText}>
+                    {item.explanation
+                      ? item.explanation
+                          .replace(/\[출제\s*근거\s*팩트\s*:[^\]]*\]/gi, '')
+                          .replace(/출제\s*근거\s*팩트\s*:[^\n]*/gi, '')
+                          .trim()
+                      : (correctOpt ? `${correctOpt.text}이(가) 올바른 정답입니다.` : '')}
+                  </Text>
                 </View>
-
-                {/* 심화 역추론 힌트 */}
-                {item.deepReasoningHint && (
-                  <View style={styles.deepHintBoxReview}>
-                    <Text style={styles.deepHintTitleReview}>🧠 심화 역추론 (오답 극복 포인트)</Text>
-                    <Text style={styles.deepHintTextReview}>{item.deepReasoningHint}</Text>
-                  </View>
-                )}
               </View>
             );
           })}
@@ -428,18 +426,6 @@ const styles = StyleSheet.create({
     color: '#fbbf24',
     fontSize: 12,
     fontWeight: 'bold',
-  },
-  factButton: {
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  factButtonText: {
-    color: '#94a3b8',
-    fontSize: 12,
   },
   examBody: {
     flex: 1,
@@ -738,23 +724,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingLeft: 16,
   },
-  conceptBox: {
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+  wrongAnalysisBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
-  conceptBoxTitle: {
+  wrongAnalysisTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#38bdf8',
+    color: '#f87171',
     marginBottom: 4,
   },
-  conceptBoxText: {
+  wrongAnalysisText: {
     fontSize: 12,
-    color: '#e2e8f0',
+    color: '#fca5a5',
     lineHeight: 18,
   },
   explanationBox: {
@@ -762,35 +748,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   explanationTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#a5b4fc',
+    color: '#818cf8',
     marginBottom: 4,
   },
   explanationText: {
-    fontSize: 12,
-    color: '#cbd5e1',
-    lineHeight: 18,
-  },
-  deepHintBoxReview: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
-  },
-  deepHintTitleReview: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#fbbf24',
-    marginBottom: 3,
-  },
-  deepHintTextReview: {
-    fontSize: 11,
-    color: '#fef3c7',
-    lineHeight: 16,
+    fontSize: 13,
+    color: '#e2e8f0',
+    lineHeight: 20,
   },
   finishReviewBtn: {
     backgroundColor: '#6366f1',

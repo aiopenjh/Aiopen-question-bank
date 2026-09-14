@@ -65,9 +65,7 @@ import {
 } from './src/contracts/types';
 import {
   isStudyDay,
-  generateMentorMessage,
   getLocalDateString,
-  MentorMessage,
 } from './src/domain/routine';
 import {
   analyzeUserIntent,
@@ -83,7 +81,6 @@ import { buildAdaptiveScaffoldingSpec } from './src/domain/adaptive_scaffolding'
 import { Header } from './src/components/common/Header';
 import { TopicModal } from './src/components/modals/TopicModal';
 import { UnitModal } from './src/components/modals/UnitModal';
-import { FactModal } from './src/components/modals/FactModal';
 import { BackupModal } from './src/components/modals/BackupModal';
 import { QuizCountModal } from './src/components/modals/QuizCountModal';
 import { AppAlertModal } from './src/components/modals/AppAlertModal';
@@ -110,13 +107,11 @@ export default function App() {
   const [incorrectQuestions, setIncorrectQuestions] = useState<QuestionRevision[]>([]);
   const [apiKey, setApiKey] = useState('');
   const [preferredModel, setPreferredModel] = useState('gemini-3.5-flash');
-  const [mentorMessage, setMentorMessage] = useState<MentorMessage | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
 
   // Modals Visibility
   const [topicModalVisible, setTopicModalVisible] = useState(false);
   const [unitModalVisible, setUnitModalVisible] = useState(false);
-  const [showFactModal, setShowFactModal] = useState(false);
   const [backupModalVisible, setBackupModalVisible] = useState(false);
   const [backupText, setBackupText] = useState('');
   const [quizCountModalVisible, setQuizCountModalVisible] = useState(false);
@@ -201,20 +196,6 @@ export default function App() {
       setSources(s);
       setPreferredModel(pModel || 'gemini-3.5-flash');
 
-      if (r) {
-        const todayStr = getLocalDateString();
-        const todayAttempts = a.filter((att) => att.submittedAt.startsWith(todayStr));
-        const studyDay = isStudyDay(r);
-
-        const msg = generateMentorMessage({
-          isStudyDayToday: studyDay,
-          todayCompletedCount: todayAttempts.length,
-          targetCount: r.targetQuestionCount,
-          streakDays: Math.min(todayAttempts.length, 5),
-          daysSinceLastActive: 0,
-        });
-        setMentorMessage(msg);
-      }
     } catch (err) {
       console.error('앱 데이터 로드 실패:', err);
     } finally {
@@ -877,19 +858,12 @@ export default function App() {
 
   // 독립 시험장 (CBT)
   if (examSessionActive && examQuestions.length > 0) {
-    const currentQ = examQuestions[0];
     return (
       <SafeAreaProvider>
         <ExamSessionScreen
           questions={examQuestions}
           onExitExam={() => setExamSessionActive(false)}
-          onOpenFactModal={() => setShowFactModal(true)}
           onCompleteExam={handleCompleteExam}
-        />
-        <FactModal
-          visible={showFactModal}
-          citationText={currentQ ? currentQ.explanation : ''}
-          onClose={() => setShowFactModal(false)}
         />
         {/* CBT 시험장 내 전용 인앱 알림 모달 (나가기 확인창 등 정상 작동 보장) */}
         <AppAlertModal alert={appAlert} onClose={() => setAppAlert(null)} />

@@ -190,19 +190,16 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                         })}
                       </View>
 
-                      {/* 1줄 개념 정의 */}
-                      {q.conceptDefinition ? (
-                        <View style={styles.definitionBox}>
-                          <Text style={styles.definitionTitle}>📌 1줄 핵심 개념 정의:</Text>
-                          <Text style={styles.definitionText}>{q.conceptDefinition}</Text>
-                        </View>
-                      ) : null}
-
-                      {/* 정답 해설 및 근거 */}
+                      {/* 정답 및 문제 풀이 */}
                       {q.explanation ? (
                         <View style={styles.explanationBox}>
-                          <Text style={styles.explanationTitle}>📖 정답 해설 및 출제 근거:</Text>
-                          <Text style={styles.explanationText}>{q.explanation}</Text>
+                          <Text style={styles.explanationTitle}>💡 정답 및 문제 풀이:</Text>
+                          <Text style={styles.explanationText}>
+                            {q.explanation
+                              .replace(/\[출제\s*근거\s*팩트\s*:[^\]]*\]/gi, '')
+                              .replace(/출제\s*근거\s*팩트\s*:[^\n]*/gi, '')
+                              .trim()}
+                          </Text>
                         </View>
                       ) : null}
                     </View>
@@ -221,7 +218,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
           <Text style={styles.capabilityBadgeReadyText}>🟢 로컬 즉시 사용 가능 (오프라인 100% 안전)</Text>
         </View>
         <Text style={styles.promptGuideText}>
-          가지고 계신 교재의 본문이나 강의 요약 텍스트를 등록해 두시면 영구적인 출제 근거 팩트로 활용됩니다.
+          교재 본문이나 학습 요약 텍스트를 등록해 두시면 해당 내용을 우선 반영하여 문제가 출제됩니다.
         </Text>
 
         <TextInput
