@@ -112,34 +112,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* 서브 복습 / 오답 버튼 2분할 */}
-        <View style={styles.reviewBtnRow}>
-          {onStartDueReview && (
-            <TouchableOpacity
-              style={[styles.subActionBtn, { backgroundColor: '#312e81' }]}
-              onPress={onStartDueReview}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.subActionBtnText}>
-                🔔 복습 문제 ({dueQuestionsCount})
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {onStartIncorrectReview && (
-            <TouchableOpacity
-              style={[styles.subActionBtn, { backgroundColor: '#450a0a' }]}
-              onPress={onStartIncorrectReview}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.subActionBtnText, { color: '#fca5a5' }]}>
-                📕 오답노트 ({incorrectQuestionsCount})
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* 오답 개념 보충 학습 */}
+        {/* 오답 개념 집중 보충 학습 */}
         {incorrectQuestionsCount > 0 && onGoToScaffolding && (
           <TouchableOpacity
             style={styles.scaffoldingBtn}
@@ -321,23 +294,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: 'bold',
-  },
-  reviewBtnRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  subActionBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subActionBtnText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#ffffff',
   },
   scaffoldingBtn: {
     backgroundColor: '#311042',
