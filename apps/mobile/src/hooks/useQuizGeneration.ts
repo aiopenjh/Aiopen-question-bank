@@ -166,18 +166,40 @@ export function useQuizGeneration({
   );
 
   const executeCurriculumGeneration = useCallback(
-    async (topicId: string, topicName: string, shouldReplace = false) => {
+    async (
+      topicId: string,
+      topicName: string,
+      options?: {
+        startUnitIndex?: number;
+        stageName?: string;
+        shouldReplace?: boolean;
+        existingTitles?: string[];
+      }
+    ) => {
+      const {
+        startUnitIndex = 1,
+        stageName,
+        shouldReplace = false,
+        existingTitles = [],
+      } = options || {};
+
       setIsCurriculumGenerating(true);
       try {
-        const generatedUnits = await generateCurriculumUnits({ topicName });
+        const generatedUnits = await generateCurriculumUnits({
+          topicName,
+          startUnitIndex,
+          stageName,
+          existingUnitTitles: existingTitles,
+        });
+
         if (shouldReplace) {
           await replaceTopicUnits(topicId, generatedUnits);
         } else {
           // 중복 방지: 이미 존재하는 동일 단원명은 추가하지 않음
           const currentUnits = await getUnits(topicId);
-          const existingTitles = new Set(currentUnits.map((u) => u.title.trim()));
+          const existingSet = new Set(currentUnits.map((u) => u.title.trim()));
           for (const u of generatedUnits) {
-            if (!existingTitles.has(u.title.trim())) {
+            if (!existingSet.has(u.title.trim())) {
               await createUnit({ topicId, title: u.title, depth: u.depth });
             }
           }
@@ -185,7 +207,21 @@ export function useQuizGeneration({
 
         const updatedUnits = await getUnits();
         setUnits(updatedUnits);
-        showAlert('목차 생성 완료', `[${topicName}]의 5단계 목차가 구성되었습니다.`);
+
+        const startPad = String(startUnitIndex).padStart(2, '0');
+        const endPad = String(startUnitIndex + 4).padStart(2, '0');
+
+        if (startUnitIndex > 1) {
+          showAlert(
+            '🎉 다음 단계 목차 확장 완료',
+            `[${topicName}]의 ${startPad}~${endPad}단원(${stageName || '다음 학습 단계'})이 성공적으로 추가되었습니다!\n\n새로 생성된 단원의 문제를 풀며 단계별로 학습을 이어가 보세요.`
+          );
+        } else {
+          showAlert(
+            '목차 생성 완료',
+            `[${topicName}]의 1단계(01~05단원) 필수 과정이 구성되었습니다.\n\n각 단원의 [출제 / 풀기]를 눌러 문제를 학습해 보세요!`
+          );
+        }
       } catch (err: any) {
         showAlert('오류', `AI 커리큘럼 생성 실패: ${err?.message || '알 수 없는 오류'}`);
       } finally {
@@ -198,29 +234,97 @@ export function useQuizGeneration({
   const handleGenerateCurriculumForTopic = useCallback(
     async (topicId: string, topicName: string) => {
       const existing = units.filter((u) => u.topicId === topicId);
+      const topicQuestions = questions.filter((q) => q.topicId === topicId);
+
+      // 단원이 아직 없거나 1개뿐인 경우 -> 1단계(01~05단원) 즉시 생성
       if (existing.length <= 1) {
-        await executeCurriculumGeneration(topicId, topicName, true);
+        await executeCurriculumGeneration(topicId, topicName, {
+          startUnitIndex: 1,
+          stageName: '1단계: 입문/기초 핵심 표준 과정',
+          shouldReplace: true,
+        });
         return;
       }
 
+      const existingTitles = existing.map((u) => u.title.trim());
+      const nextStartIndex = existing.length + 1;
+
+      // 이미 15단원 이상 완성된 경우: 전 과정 마스터 안내
+      if (existing.length >= 15) {
+        showAlert(
+          '🏆 전 과정 커리큘럼 완료',
+          `[${topicName}]의 입문부터 심화 마스터(총 ${existing.length}개 단원)까지 모든 교육과정이 완성되었습니다!\n\n새 단원을 만들기보다, 지금까지의 전체 CBT 문제 풀이를 통해 학습을 완벽히 검증해 보세요!`,
+          [
+            { text: '닫기', style: 'cancel' },
+            ...(topicQuestions.length > 0
+              ? [
+                  {
+                    text: `📝 전체 CBT 문제 풀기 (${topicQuestions.length}문항)`,
+                    onPress: () => startExam(topicQuestions),
+                  },
+                ]
+              : []),
+            {
+              text: '처음부터 1단계로 새로고침',
+              style: 'destructive',
+              onPress: () =>
+                executeCurriculumGeneration(topicId, topicName, {
+                  startUnitIndex: 1,
+                  stageName: '1단계: 입문/기초 핵심 표준 과정',
+                  shouldReplace: true,
+                }),
+            },
+          ]
+        );
+        return;
+      }
+
+      // 5단원 또는 10단원 이후의 다음과정 명칭 및 번호 산출
+      const nextStageName =
+        existing.length < 10
+          ? '2단계: 초급/실전 응용 및 빈출 함정 과정'
+          : '3단계: 중급/심화 마스터 종합 추론 과정';
+
+      const startPad = String(nextStartIndex).padStart(2, '0');
+      const endPad = String(nextStartIndex + 4).padStart(2, '0');
+
       showAlert(
-        '🌳 AI 5단계 목차 자동 구성',
-        `이미 [${topicName}]에 ${existing.length}개의 단원이 등록되어 있습니다.\n\n어떤 방식으로 목차를 구성하시겠습니까?`,
+        `📚 다음 학습 과정 확장 안내 (${startPad}~${endPad}단원)`,
+        `현재 ${existing.length}개 단원이 등록되어 있습니다.\n\n이전 단계 학습이 끝나셨다면, ${startPad}번 이후의 [${nextStageName}] 5개 단원을 이어서 생성하시겠습니까?\n\n(또는 전체 CBT 문제를 먼저 풀며 검증 후 다음 과정으로 넘어가실 수도 있습니다.)`,
         [
           { text: '취소', style: 'cancel' },
+          ...(topicQuestions.length > 0
+            ? [
+                {
+                  text: `📝 전체 CBT 검증 후 넘어가기 (${topicQuestions.length}문항)`,
+                  onPress: () => startExam(topicQuestions),
+                },
+              ]
+            : []),
           {
-            text: '기존 단원에 추가하기',
-            onPress: () => executeCurriculumGeneration(topicId, topicName, false),
+            text: `🚀 다음 ${startPad}~${endPad}단원 생성`,
+            onPress: () =>
+              executeCurriculumGeneration(topicId, topicName, {
+                startUnitIndex: nextStartIndex,
+                stageName: nextStageName,
+                shouldReplace: false,
+                existingTitles,
+              }),
           },
           {
-            text: '5단계 표준으로 새로 교체',
+            text: '1단계부터 새로고침',
             style: 'destructive',
-            onPress: () => executeCurriculumGeneration(topicId, topicName, true),
+            onPress: () =>
+              executeCurriculumGeneration(topicId, topicName, {
+                startUnitIndex: 1,
+                stageName: '1단계: 입문/기초 핵심 표준 과정',
+                shouldReplace: true,
+              }),
           },
         ]
       );
     },
-    [units, executeCurriculumGeneration]
+    [units, questions, executeCurriculumGeneration, startExam]
   );
 
   const handleDeduplicateUnits = useCallback(

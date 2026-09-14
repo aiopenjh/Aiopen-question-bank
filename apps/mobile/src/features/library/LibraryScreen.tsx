@@ -221,12 +221,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                     >
                       <Text style={styles.actionPillText}>✨ AI 5단계 목차 생성</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionPillBtn}
-                      onPress={onOpenUnitModal}
-                    >
-                      <Text style={styles.actionPillText}>+ 단원 추가</Text>
-                    </TouchableOpacity>
                     {hasDuplicates && onDeduplicateUnits && (
                       <TouchableOpacity
                         style={[styles.actionPillBtn, { borderColor: '#ef4444' }]}
@@ -257,131 +251,49 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                         (q) => q.topicId === topic.id && (q.unitId === unit.id || q.stem.includes(unit.title))
                       );
                       const isThisUnitGenerating = generatingUnitId === unit.id;
-                      const isUnitQuestionsOpen = expandedUnitQuestionId === unit.id;
 
                       return (
                         <View key={unit.id} style={styles.unitHouseRow}>
-                          <View style={styles.unitTopBar}>
+                          {/* 상단: 소단원 전체 명칭 100% 완전 노출 + 우측 삭제 아이콘 */}
+                          <View style={styles.unitHeaderRow}>
                             <TouchableOpacity
-                              style={styles.unitTitleTouch}
+                              style={{ flex: 1 }}
                               onPress={() => handleUnitPress(topic, unit)}
+                              activeOpacity={0.7}
                             >
-                              <Text
-                                style={styles.unitTitleText}
-                                numberOfLines={2}
-                              >
+                              <Text style={styles.unitTitleText}>
                                 {unit.title}
-                              </Text>
-                              <Text style={styles.unitQuestionCountText}>
-                                {unitQuestions.length > 0 ? `보관된 문제: ${unitQuestions.length}개` : '미출제'}
                               </Text>
                             </TouchableOpacity>
 
-                            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                              <TouchableOpacity
-                                style={styles.unitQuizBtn}
-                                onPress={() => handleUnitPress(topic, unit)}
-                                disabled={isAiGenerating}
-                              >
-                                {isThisUnitGenerating ? (
-                                  <ActivityIndicator size="small" color="#ffffff" />
-                                ) : (
-                                  <Text style={styles.unitQuizBtnText}>⚡ 출제/풀기</Text>
-                                )}
-                              </TouchableOpacity>
-
-                              {unitQuestions.length > 0 && (
-                                <TouchableOpacity
-                                  style={[styles.unitViewBtn, isUnitQuestionsOpen && styles.unitViewBtnActive]}
-                                  onPress={() =>
-                                    setExpandedUnitQuestionId(isUnitQuestionsOpen ? null : unit.id)
-                                  }
-                                >
-                                  <Text style={styles.unitViewBtnText}>
-                                    {isUnitQuestionsOpen ? '접기 ▲' : `문제 (${unitQuestions.length}) ▼`}
-                                  </Text>
-                                </TouchableOpacity>
-                              )}
-
-                              <TouchableOpacity onPress={() => onDeleteUnit(unit.id)}>
-                                <Text style={styles.unitDeleteIcon}>✕</Text>
-                              </TouchableOpacity>
-                            </View>
+                            <TouchableOpacity
+                              onPress={() => onDeleteUnit(unit.id)}
+                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                              style={styles.unitDeleteTouch}
+                            >
+                              <Text style={styles.unitDeleteIcon}>✕</Text>
+                            </TouchableOpacity>
                           </View>
 
-                          {/* 단원 내 저장된 문제 상세 펼치기 */}
-                          {isUnitQuestionsOpen && unitQuestions.length > 0 && (
-                            <View style={styles.unitQuestionsContainer}>
-                              {unitQuestions.map((q, qIdx) => {
-                                const isDetailOpen = expandedQuestionDetailId === q.id;
-                                return (
-                                  <View key={q.id} style={styles.questionItemCard}>
-                                    <View style={styles.questionItemHeader}>
-                                      <Text style={styles.questionItemNumber}>Q{qIdx + 1}.</Text>
-                                      <Text style={styles.questionItemStem} numberOfLines={isDetailOpen ? undefined : 2}>
-                                        {q.stem}
-                                      </Text>
-                                      {onDeleteQuestion && (
-                                        <TouchableOpacity onPress={() => onDeleteQuestion(q.id)}>
-                                          <Text style={styles.questionItemDelete}>삭제</Text>
-                                        </TouchableOpacity>
-                                      )}
-                                    </View>
+                          {/* 하단: 보관된 문항 수 + 우측 소형 [출제/풀기] 버튼 */}
+                          <View style={styles.unitFooterRow}>
+                            <Text style={styles.unitQuestionCountText}>
+                              {unitQuestions.length > 0 ? `📚 보관된 문제: ${unitQuestions.length}문항` : '⚡ 출제 대기'}
+                            </Text>
 
-                                    <TouchableOpacity
-                                      style={styles.toggleAnswerBtn}
-                                      onPress={() =>
-                                        setExpandedQuestionDetailId(isDetailOpen ? null : q.id)
-                                      }
-                                    >
-                                      <Text style={styles.toggleAnswerBtnText}>
-                                        {isDetailOpen ? '▲ 정답 및 풀이 접기' : '▼ 정답 및 풀이 확인'}
-                                      </Text>
-                                    </TouchableOpacity>
-
-                                    {isDetailOpen && (
-                                      <View style={styles.questionDetailBox}>
-                                        {/* 보기 목록 */}
-                                        <View style={styles.optionsList}>
-                                          {q.options.map((opt, oIdx) => {
-                                            const isAnswer = opt.id === q.answerOptionId;
-                                            return (
-                                              <View
-                                                key={opt.id}
-                                                style={[
-                                                  styles.optionRow,
-                                                  isAnswer && styles.optionRowCorrect,
-                                                ]}
-                                              >
-                                                <Text style={styles.optionIndex}>{oIdx + 1}.</Text>
-                                                <Text style={[styles.optionText, isAnswer && styles.optionTextCorrect]}>
-                                                  {opt.text}
-                                                </Text>
-                                                {isAnswer && <Text style={styles.correctTag}>[공식 정답]</Text>}
-                                              </View>
-                                            );
-                                          })}
-                                        </View>
-
-                                        {/* 풀이 및 해설 */}
-                                        {q.explanation && (
-                                          <View style={styles.solutionBox}>
-                                            <Text style={styles.solutionTitle}>💡 문제 풀이 및 정답 해설</Text>
-                                            <Text style={styles.solutionText}>
-                                              {q.explanation
-                                                .replace(/\[출제\s*근거\s*팩트\s*:[^\]]*\]/gi, '')
-                                                .replace(/출제\s*근거\s*팩트\s*:[^\n]*/gi, '')
-                                                .trim()}
-                                            </Text>
-                                          </View>
-                                        )}
-                                      </View>
-                                    )}
-                                  </View>
-                                );
-                              })}
-                            </View>
-                          )}
+                            <TouchableOpacity
+                              style={styles.unitQuizBtn}
+                              onPress={() => handleUnitPress(topic, unit)}
+                              disabled={isAiGenerating}
+                              activeOpacity={0.8}
+                            >
+                              {isThisUnitGenerating ? (
+                                <ActivityIndicator size="small" color="#ffffff" />
+                              ) : (
+                                <Text style={styles.unitQuizBtnText}>⚡ 출제 / 풀기</Text>
+                              )}
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       );
                     })
@@ -748,65 +660,67 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   unitHouseRow: {
-    backgroundColor: '#fff5f7',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  unitTopBar: {
+  unitHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  unitTitleText: {
+    fontSize: 14,
+    color: '#1f2937',
+    fontWeight: '700',
+    lineHeight: 20,
+    flex: 1,
+    paddingRight: 8,
+  },
+  unitDeleteTouch: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  unitDeleteIcon: {
+    color: '#94a3b8',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  unitFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  unitTitleTouch: {
-    flex: 1,
-    marginRight: 8,
-  },
-  unitTitleText: {
-    fontSize: 13,
-    color: '#1f2937',
-    fontWeight: '600',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#fff1f2',
   },
   unitQuestionCountText: {
-    fontSize: 11,
-    color: '#e11d48',
-    marginTop: 2,
+    fontSize: 12,
+    color: '#be123c',
     fontWeight: '600',
   },
   unitQuizBtn: {
     backgroundColor: '#f43f5e',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   unitQuizBtnText: {
     color: '#ffffff',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'bold',
-  },
-  unitViewBtn: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-  },
-  unitViewBtnActive: {
-    borderColor: '#f43f5e',
-    backgroundColor: '#ffe4e6',
-  },
-  unitViewBtnText: {
-    color: '#475569',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  unitDeleteIcon: {
-    color: '#94a3b8',
-    fontSize: 13,
-    paddingHorizontal: 4,
   },
   unitQuestionsContainer: {
     marginTop: 10,
@@ -815,7 +729,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   questionItemCard: {
-    backgroundColor: '#ffffff',
     borderRadius: 8,
     padding: 10,
     marginBottom: 8,

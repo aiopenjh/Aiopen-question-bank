@@ -655,8 +655,19 @@ export async function generateCurriculumUnits(params: {
   topicDescription?: string;
   learnerLevel?: LearnerKnowledgeLevel;
   knownScope?: string;
+  startUnitIndex?: number;
+  stageName?: string;
+  existingUnitTitles?: string[];
 }): Promise<GeneratedUnitItem[]> {
-  const { topicName, topicDescription, learnerLevel = 'basic', knownScope } = params;
+  const {
+    topicName,
+    topicDescription,
+    learnerLevel = 'basic',
+    knownScope,
+    startUnitIndex = 1,
+    stageName,
+    existingUnitTitles = [],
+  } = params;
   const apiKey = await getGeminiApiKey();
 
   // API 키가 있으면 실제 최신 AI를 호출하여 고품질 맞춤형 목차 생성
@@ -669,32 +680,38 @@ export async function generateCurriculumUnits(params: {
         master: '심화/종합 (고난도 복합 융합 추론)',
       };
 
-      const prompt = `당신은 대한민국 교육부 및 국가공인 평가원 수준의 최고 권위 교육과정 설계 전문가(National Curriculum Architect)입니다.
-학습자가 공부하고자 하는 주제("${topicName}")에 대해, 학계 및 공인 시험(수능, 내신, 국가자격증, 표준 대학 교재 등)에서 공식적으로 사용하는 표준 교육과정에 철저히 기반하여 체계적인 핵심 5단계 단원(목차)을 설계하여 순수 JSON 포맷으로 출력하세요.
+      const startIdx = Math.max(1, startUnitIndex);
+      const endIdx = startIdx + 4;
+      const startPad = String(startIdx).padStart(2, '0');
+      const endPad = String(endIdx).padStart(2, '0');
 
-[학습 주제 정보]
+      const prompt = `당신은 대한민국 교육부 및 국가공인 평가원 수준의 최고 권위 교육과정 설계 전문가(National Curriculum Architect)입니다.
+학습자가 공부하고자 하는 주제("${topicName}")에 대해, 학계 및 공인 시험(수능, 내신, 국가자격증, 표준 대학 교재 등)에서 공식적으로 사용하는 표준 교육과정에 철저히 기반하여 체계적인 5단계 단원(목차)을 설계하여 순수 JSON 포맷으로 출력하세요.
+
+[학습 주제 및 단계 정보]
 - 과목/주제: ${topicName}
 ${topicDescription ? `- 주제 설명/목표: ${topicDescription}` : ''}
 - 학습자 지식 수준: ${levelMap[learnerLevel]}
 ${knownScope ? `- 학습자가 이미 알고 있는 범위: "${knownScope}"` : ''}
+- 생성 단계 목표: ${stageName || `${startPad}단원부터 이어지는 다음 연속 교육과정`}
+- 이번 회차 출제 단원 번호: ${startPad}단원 ~ ${endPad}단원 (총 5개 단원)
+${existingUnitTitles.length > 0 ? `- 이미 이전 단계에 등록된 단원 목록 (※ 절대 중복 생성 금지, 이 단원들을 마친 후 이어지는 다음 연계 심화 과정으로 설계할 것):\n${existingUnitTitles.map((t) => `  * ${t}`).join('\n')}` : ''}
 
-[절대적 공인 교육과정 설계 헌법 (Anti-Hallucination & Standard Curriculum)]
-1. [유치한 은유 및 가짜 창작 단원 절대 금지]: 감성적이거나 모호하고 유치한 창작 단원명(예: '~의 첫걸음', '~와의 만남', '~의 이야기', '~뽀개기' 등 비표준적 표현)을 절대 사용하지 마십시오.
-2. [공인 교과서/기출 표준 단원명 필수 준수]: 반드시 해당 분야의 정규 공인 교과서(교육부 공인 교육과정, EBS 수능특강, 한국산업인력공단 기출 기준, 대학 표준 전공서 등)에 등재된 "정통 학술/표준 단원 명칭"을 정확히 채택하십시오.
-   - 예시 1 (고등 3학년 수학): 01단원. 수열의 극한과 급수 / 02단원. 여러 가지 함수의 미분법 / 03단원. 도함수의 활용과 접선의 방정식 / 04단원. 여러 가지 적분법 / 05단원. 확률분포와 통계적 추정
-   - 예시 2 (Git/GitHub): 01단원. Git 핵심 아키텍처와 로컬 저장소 커밋 / 02단원. 브랜치(Branch) 생성 및 병합(Merge) 전략 / 03단원. GitHub 원격 저장소 연동 및 협업 워크플로우 / 04단원. 충돌(Conflict) 해결 및 Stash, Rebase / 05단원. Pull Request와 Git Flow 실무
-   - 예시 3 (노인복지/사회복지): 01단원. 노인복지론의 기초와 노화의 다면적 특성 / 02단원. 노인복지 관련 법률 및 공적 소득보장 / 03단원. 노인장기요양보험제도와 급여 체계 / 04단원. 노인 재가 및 시설 복지 실천 기법 / 05단원. 노인 인권 보호와 통합 사례 관리
-3. [단원 형식 통일]: 각 단원 제목은 "01단원. [공인 단원명]" 형식(01단원, 02단원, 03단원, 04단원, 05단원)으로 한국어로 전문성 있게 작성할 것.
-4. [체계적 5단계 학습 로드맵]: "기초 개념 체계 -> 핵심 원리/기법 -> 심화 응용 -> 빈출 함정/문제 해결 -> 실전 종합 마스터"의 5단계 정통 표준 커리큘럼을 따를 것.
+[절대적 공인 교육과정 설계 헌법 (Anti-Hallucination & Progressive Curriculum)]
+1. [지정 과목 100% 한정]: 반드시 지정된 [${topicName}] 과목의 공식 커리큘럼에만 국한하여 출제해야 합니다.
+2. [단원 번호 연속성 필수 준수]: 각 단원의 제목은 반드시 "${startPad}단원. [공인 단원명]"부터 시작하여 순차적으로 번호를 매겨 "${endPad}단원. [공인 단원명]"까지 총 5개 단원을 출력하십시오.
+3. [선행 단원과의 중복 금지 및 발전적 연계]: 이전 단계 단원들과 중복되지 않도록, 선행 지식을 바탕으로 자연스럽게 이어지는 다음 수준의 심화/응용/실전/문제해결 목차를 설계하십시오.
+4. [공인 교과서/기출 표준 단원명 필수 준수]: 반드시 해당 분야의 정규 공인 교과서나 기출 기준의 "정통 학술/표준 단원 명칭"을 정확히 채택하십시오.
+5. [유치한 은유 및 가짜 창작 단원 절대 금지]: 감성적이거나 모호하고 유치한 창작 단원명(~뽀개기, ~와의 만남 등)을 배제하고 학술적 공인 단원명을 사용할 것.
 
 [출력 JSON 규격]
 {
   "units": [
-    { "title": "01단원. ...", "description": "해당 단원의 정통 핵심 학습 목표 1줄 요약" },
-    { "title": "02단원. ...", "description": "..." },
-    { "title": "03단원. ...", "description": "..." },
-    { "title": "04단원. ...", "description": "..." },
-    { "title": "05단원. ...", "description": "..." }
+    { "title": "${startPad}단원. ...", "description": "해당 단원의 정통 핵심 학습 목표 1줄 요약" },
+    { "title": "${String(startIdx + 1).padStart(2, '0')}단원. ...", "description": "..." },
+    { "title": "${String(startIdx + 2).padStart(2, '0')}단원. ...", "description": "..." },
+    { "title": "${String(startIdx + 3).padStart(2, '0')}단원. ...", "description": "..." },
+    { "title": "${endPad}단원. ...", "description": "..." }
   ]
 }`;
 
