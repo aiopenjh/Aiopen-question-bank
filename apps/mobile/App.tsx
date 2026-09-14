@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,9 +8,16 @@ import {
   Modal,
   TouchableOpacity,
   LogBox,
+  Platform,
+  Share,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { showAlert, registerAlertListener, AlertData } from './src/utils/alert';
+import {
+  scheduleWeekdayStudyAlarms,
+  registerNotificationResponseListener,
+  checkInAppScheduledAlarm,
+} from './src/utils/notifications';
 
 // 고객/사용자 모바일 화면에 개발/경고 노란색 팝업(LogBox toast) 노출 방지
 LogBox.ignoreAllLogs(true);
@@ -73,7 +80,6 @@ import {
   distributeQuestionAnswersRandomly,
 } from './src/domain/generator';
 import { calculateNextReviewState, filterDueReviewQuestions } from './src/domain/spaced_repetition';
-import { buildAdaptiveScaffoldingSpec } from './src/domain/adaptive_scaffolding';
 
 // Clean Modular Components
 import { Header } from './src/components/common/Header';
@@ -203,6 +209,43 @@ export default function App() {
       setLoading(false);
     }
   }
+
+  // 알람 및 푸시 탭 리스너
+  const handleStartExamRef = useRef(handleStartExamWithAutoGenerate);
+  useEffect(() => {
+    handleStartExamRef.current = handleStartExamWithAutoGenerate;
+  });
+
+  useEffect(() => {
+    // 1. 평일 오전 8시, 저녁 8시 정기 학습 알람 등록
+    scheduleWeekdayStudyAlarms();
+
+    // 2. 알람 탭(푸시 클릭) 시 즉시 시험 풀이 진입
+    const unsubscribe = registerNotificationResponseListener(() => {
+      handleStartExamRef.current?.();
+    });
+
+    // 3. 앱 실행 시 포그라운드 정기 알람 시간 도래 확인
+    checkInAppScheduledAlarm((slotLabel) => {
+      showAlert(
+        `⏰ [평일 ${slotLabel}] 정기 학습 시간입니다!`,
+        '오늘의 실전 문제를 풀고 학습을 이어가시겠습니까?',
+        [
+          { text: '나중에', style: 'cancel' },
+          {
+            text: '지금 문제 풀기',
+            onPress: () => {
+              handleStartExamRef.current?.();
+            },
+          },
+        ]
+      );
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   // -------------------------------------------------------------
   // 주제(Topic) 및 단원(Unit) 핸들러
@@ -738,10 +781,9 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
   }
 
   // -------------------------------------------------------------
-  // 적응형 하향 비계 (Scaffolding) 원클릭 세팅
+  // 오답 개념 집중 보충 학습: 내가 틀렸던 문제들을 바로 풀고 개념/해설 완벽 학습
   // -------------------------------------------------------------
   async function handleApplyScaffolding() {
-    const currentTopic = topics.find((t) => t.id === selectedTopicId);
     const topicIncorrect = selectedTopicId
       ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
       : incorrectQuestions;
@@ -752,91 +794,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       return;
     }
 
-    // API 키 미등록 시 사실대로 고지하고 기존 오답노트 복습 여부 확인
-    if (!apiKey || apiKey.trim().length <= 8) {
-      showAlert(
-        'API 키 미등록',
-        'AI 맞춤 보충 문제를 출제하기 위한 API 키가 등록되어 있지 않아 새 문제를 만들지 못했습니다.\n\n기존에 틀렸던 오답 문제를 다시 복습하시겠습니까?',
-        [
-          { text: '취소', style: 'cancel' },
-          { text: 'API 키 설정', onPress: () => setIsSettingsOpen(true) },
-          { text: '기존 오답 다시 풀기', onPress: () => startExam(targetMistakes) },
-        ]
-      );
-      return;
-    }
-
-    const pkg = buildAdaptiveScaffoldingSpec({
-      incorrectQuestions: targetMistakes,
-      topicName: currentTopic?.name || '자유 학습',
-    });
-
-    setIsGenerating(true);
-    setGeneratingWaitStatus({
-      active: true,
-      count: 3,
-      title: currentTopic?.name || '오답 개념 집중 보충',
-      message: '⚡ 틀린 문제를 분석하여 맞춤 보충 문제를 준비 중입니다 (약 10초 내외 소요)...',
-    });
-
-    try {
-      if (pkg) {
-        const activeTopic = topics.find((t) => t.id === selectedTopicId) || topics[0];
-        const targetTopicId = activeTopic ? activeTopic.id : generateUUID();
-        const outcome = await generateFactBasedQuestions({
-          intent: pkg.intent,
-          ownerId: 'owner-default',
-          topicId: targetTopicId,
-          customContext: pkg.scaffoldingContext,
-        });
-
-        if (outcome.status === 'READY' && outcome.questions.length > 0) {
-          const allQ = await getQuestions();
-          setQuestions(allQ);
-          startExam(outcome.questions);
-          return;
-        }
-
-        if (outcome.status === 'NEEDS_CONNECTION') {
-          showAlert(
-            'API 키 미등록',
-            'AI 맞춤 보충 문제를 출제하기 위한 API 키가 등록되어 있지 않아 새 문제를 만들지 못했습니다.\n\n기존에 틀렸던 오답 문제를 다시 복습하시겠습니까?',
-            [
-              { text: '취소', style: 'cancel' },
-              { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
-              { text: '기존 오답 다시 풀기', onPress: () => startExam(targetMistakes) },
-            ]
-          );
-          return;
-        }
-
-        if (outcome.status === 'FAILED') {
-          showAlert(
-            '문제 생성 실패',
-            `오답 맞춤 보충 문제를 출제하지 못했습니다.\n(${outcome.message})\n\n기존에 틀렸던 오답 문제를 다시 복습하시겠습니까?`,
-            [
-              { text: '취소', style: 'cancel' },
-              { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
-              { text: '기존 오답 다시 풀기', onPress: () => startExam(targetMistakes) },
-            ]
-          );
-          return;
-        }
-      }
-    } catch (err: any) {
-      showAlert(
-        '문제 생성 실패',
-        `오답 맞춤 보충 문제를 출제하지 못했습니다.\n(${err?.message || '네트워크 오류'})\n\n기존에 틀렸던 오답 문제를 다시 복습하시겠습니까?`,
-        [
-          { text: '취소', style: 'cancel' },
-          { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
-          { text: '기존 오답 다시 풀기', onPress: () => startExam(targetMistakes) },
-        ]
-      );
-    } finally {
-      setIsGenerating(false);
-      setGeneratingWaitStatus(null);
-    }
+    // 내가 틀렸던 바로 그 오답 문제들로 즉시 CBT 시험 및 개념 복습 시작!
+    startExam(targetMistakes);
   }
 
   // -------------------------------------------------------------
@@ -942,17 +901,41 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
   }
 
   async function handleExportBackup() {
-    const json = await exportBackupJSON();
-    setBackupText(json);
-    setBackupModalVisible(true);
+    let json = '';
+    try {
+      json = await exportBackupJSON();
+      if (Platform.OS === 'web') {
+        setBackupText(json);
+        setBackupModalVisible(true);
+      } else {
+        const result = await Share.share({
+          message: json,
+          title: 'Celueste_Study_Backup.json',
+        });
+        if (result.action === Share.sharedAction) {
+          showAlert('백업 완료', '데이터 백업이 안전하게 공유/내보내기 되었습니다.');
+        }
+      }
+    } catch (err: any) {
+      // 오류 발생 시 백업 텍스트 모달로 폴백
+      if (json) {
+        setBackupText(json);
+        setBackupModalVisible(true);
+      }
+    }
   }
 
   async function handleRestoreBackup() {
+    if (!backupText.trim()) {
+      showAlert('알림', '복원할 백업 JSON 데이터를 입력(붙여넣기)해 주세요.');
+      return;
+    }
     const res = await restoreBackupJSON(backupText);
     showAlert(res.success ? '복원 완료' : '복원 실패', res.message);
     if (res.success) {
       await loadAppData();
       setBackupModalVisible(false);
+      setBackupText('');
     }
   }
 
@@ -978,7 +961,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     return (
       <SafeAreaProvider>
         <SafeAreaView style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#6366f1" />
+          <ActivityIndicator size="large" color="#f43f5e" />
           <Text style={styles.loadingText}>데이터를 불러오는 중입니다...</Text>
         </SafeAreaView>
       </SafeAreaProvider>
@@ -1009,10 +992,6 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
   const topicIncorrect = selectedTopicId
     ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
     : incorrectQuestions;
-  const scaffoldingPackage = buildAdaptiveScaffoldingSpec({
-    incorrectQuestions: topicIncorrect.length > 0 ? topicIncorrect : incorrectQuestions,
-    topicName: currentTopic?.name || '자유 학습',
-  });
 
   return (
     <SafeAreaProvider>
@@ -1287,7 +1266,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         <Modal visible transparent animationType="fade">
           <View style={styles.loadingWaitOverlay}>
             <View style={styles.loadingWaitCard}>
-              <ActivityIndicator size="large" color="#6366f1" style={{ marginBottom: 14 }} />
+              <ActivityIndicator size="large" color="#f43f5e" style={{ marginBottom: 14 }} />
               <Text style={styles.loadingWaitTitle}>
                 {generatingWaitStatus.count === 3
                   ? '⚡ 3문제 빠른 출제 중...'
@@ -1312,7 +1291,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
                     ? '🎯 5문제는 정밀 해설 구성을 위해 약 15~20초 소요됩니다.'
                     : '🏆 10문제는 심층 오답 분석 작성을 위해 약 30~45초 소요됩니다.'}
                 </Text>
-                <Text style={[styles.loadingWaitNoteText, { color: '#38bdf8', marginTop: 4, fontWeight: 'bold' }]}>
+                <Text style={[styles.loadingWaitNoteText, { color: '#be123c', marginTop: 4, fontWeight: 'bold' }]}>
                   ※ 멈춤이나 오류 없이 안전하게 시험장으로 연결됩니다.
                 </Text>
               </View>

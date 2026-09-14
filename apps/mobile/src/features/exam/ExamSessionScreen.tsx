@@ -127,7 +127,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.examContainer}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
 
       {/* 헤더 바 */}
       <View style={styles.examHeader}>
@@ -264,7 +264,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
                   {scorePercent === 100 ? '완벽합니다! 100점 만점 🎉' : scorePercent >= 80 ? '훌륭한 성적입니다! 🌟' : '수고하셨습니다! 오답을 복습해 보세요 🌱'}
                 </Text>
                 <Text style={styles.reportScoreSub}>
-                  맞힌 문제: <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>{correctCount}</Text> / {questions.length}문항 ({scorePercent}점)
+                  맞힌 문제: <Text style={{ color: '#f43f5e', fontWeight: 'bold' }}>{correctCount}</Text> / {questions.length}문항 ({scorePercent}점)
                 </Text>
               </View>
             </View>
@@ -344,7 +344,23 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
                   </View>
                 )}
 
-                {/* 2. 상세 문제 풀이 및 정답 해설 */}
+                {/* 2. 오답 극복 핵심 개념 정리 (개념 고정 학습) */}
+                {item.conceptDefinition ? (
+                  <View style={styles.conceptBox}>
+                    <Text style={styles.conceptBoxTitle}>📖 오답 극복 핵심 개념 정리</Text>
+                    <Text style={styles.conceptBoxText}>{item.conceptDefinition}</Text>
+                  </View>
+                ) : null}
+
+                {/* 3. 심화 원리 및 오답 방지 팁 */}
+                {!isQCorrect && item.deepReasoningHint ? (
+                  <View style={styles.hintBox}>
+                    <Text style={styles.hintBoxTitle}>🔍 개념 고정 및 오답 방지 팁</Text>
+                    <Text style={styles.hintBoxText}>{item.deepReasoningHint}</Text>
+                  </View>
+                ) : null}
+
+                {/* 4. 상세 문제 풀이 및 정답 해설 */}
                 <View style={styles.explanationBox}>
                   <Text style={styles.explanationTitle}>💡 정답 및 문제 풀이</Text>
                   <Text style={styles.explanationText}>
@@ -391,7 +407,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
 const styles = StyleSheet.create({
   examContainer: {
     flex: 1,
-    backgroundColor: '#090d16',
+    backgroundColor: '#fff1f4',
   },
   examHeader: {
     flexDirection: 'row',
@@ -400,35 +416,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#fecdd3',
+    backgroundColor: '#ffffff',
   },
   backButton: {
     padding: 6,
   },
   backButtonText: {
-    color: '#94a3b8',
+    color: '#be123c',
     fontSize: 13,
+    fontWeight: 'bold',
   },
   examProgressText: {
-    color: '#f8fafc',
-    fontSize: 14,
+    color: '#881337',
+    fontSize: 15,
     fontWeight: 'bold',
   },
   hintHeaderBtn: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: '#fff1f2',
     borderWidth: 1,
-    borderColor: '#f59e0b',
+    borderColor: '#fda4af',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   hintHeaderBtnText: {
-    color: '#fbbf24',
+    color: '#e11d48',
     fontSize: 12,
     fontWeight: 'bold',
   },
   examBody: {
     flex: 1,
+    backgroundColor: '#fff1f4',
   },
   examContentContainer: {
     padding: 18,
@@ -444,54 +463,65 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   quickNavDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#1e293b',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   quickNavDotAnswered: {
-    backgroundColor: '#1e1b4b',
-    borderColor: '#6366f1',
+    backgroundColor: '#fff1f2',
+    borderColor: '#fda4af',
   },
   quickNavDotCurrent: {
-    borderColor: '#38bdf8',
+    borderColor: '#f43f5e',
     borderWidth: 2,
+    backgroundColor: '#ffe4e6',
   },
   quickNavDotText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748b',
     fontWeight: '700',
   },
   quickNavDotTextAnswered: {
-    color: '#a5b4fc',
+    color: '#e11d48',
   },
   quickNavDotTextCurrent: {
-    color: '#38bdf8',
+    color: '#881337',
     fontWeight: '900',
   },
   questionCard: {
-    backgroundColor: '#131c31',
-    borderRadius: 14,
-    padding: 18,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 20,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#1e293b',
+    borderWidth: 1.5,
+    borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 4,
   },
   questionIndexLabel: {
-    color: '#38bdf8',
-    fontSize: 14,
+    color: '#f43f5e',
+    fontSize: 15,
     fontWeight: '900',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   questionStem: {
-    color: '#f8fafc',
+    color: '#1f2937',
     fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '600',
+    lineHeight: 25,
+    fontWeight: '700',
   },
   optionsList: {
     gap: 12,
@@ -499,81 +529,91 @@ const styles = StyleSheet.create({
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 16,
     borderWidth: 1.5,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   optionButtonSelected: {
-    borderColor: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderColor: '#f43f5e',
+    backgroundColor: '#fff1f2',
+    borderWidth: 2,
   },
   optionIndexBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#0f172a',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff5f7',
+    borderWidth: 1,
+    borderColor: '#fecdd3',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   optionIndexBadgeSelected: {
-    backgroundColor: '#38bdf8',
+    backgroundColor: '#f43f5e',
+    borderColor: '#e11d48',
   },
   optionIndexText: {
-    color: '#94a3b8',
-    fontSize: 12,
+    color: '#64748b',
+    fontSize: 13,
     fontWeight: 'bold',
   },
   optionIndexTextSelected: {
-    color: '#0f172a',
+    color: '#ffffff',
   },
   optionText: {
     flex: 1,
     fontSize: 14,
-    color: '#cbd5e1',
-    lineHeight: 20,
+    color: '#334155',
+    lineHeight: 21,
+    fontWeight: '500',
   },
   optionTextSelected: {
-    color: '#ffffff',
+    color: '#881337',
     fontWeight: '700',
   },
   checkMark: {
-    color: '#38bdf8',
-    fontSize: 16,
+    color: '#f43f5e',
+    fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,
   },
   examFooter: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#1e293b',
-    backgroundColor: '#090d16',
+    borderTopColor: '#fecdd3',
+    backgroundColor: '#ffffff',
   },
   navBtn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    backgroundColor: '#fff1f2',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fda4af',
   },
   navBtnDisabled: {
-    opacity: 0.3,
+    opacity: 0.35,
   },
   navBtnText: {
-    color: '#cbd5e1',
+    color: '#be123c',
     fontSize: 14,
     fontWeight: 'bold',
   },
   navBtnTextDisabled: {
-    color: '#64748b',
+    color: '#94a3b8',
   },
   navBtnNext: {
-    backgroundColor: '#334155',
-    borderColor: '#475569',
+    backgroundColor: '#f43f5e',
+    borderColor: '#e11d48',
   },
   navBtnNextText: {
     color: '#ffffff',
@@ -581,8 +621,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   submitBtn: {
-    backgroundColor: '#6366f1',
-    borderColor: '#818cf8',
+    backgroundColor: '#f43f5e',
+    borderColor: '#e11d48',
   },
   submitBtnText: {
     color: '#ffffff',
@@ -591,12 +631,17 @@ const styles = StyleSheet.create({
   },
   // 종합 성적표 스타일
   reportScoreCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 20,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderWidth: 1.5,
+    borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
   },
   reportScoreHeader: {
     flexDirection: 'row',
@@ -604,68 +649,77 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reportScoreTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#881337',
     marginBottom: 4,
   },
   reportScoreSub: {
     fontSize: 14,
-    color: '#cbd5e1',
+    color: '#475569',
   },
   reportGuide: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
     lineHeight: 18,
     borderTopWidth: 1,
-    borderTopColor: '#334155',
+    borderTopColor: '#fecdd3',
     paddingTop: 10,
   },
   reviewItemCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 18,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
   reviewItemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   reviewItemNumber: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#38bdf8',
+    color: '#881337',
   },
   resultBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   resultBadgeCorrect: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
   },
   resultBadgeWrong: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: '#fff1f2',
+    borderWidth: 1,
+    borderColor: '#fecdd3',
   },
   resultBadgeText: {
     fontSize: 11,
     fontWeight: '800',
   },
   resultBadgeTextCorrect: {
-    color: '#34d399',
+    color: '#059669',
   },
   resultBadgeTextWrong: {
-    color: '#f87171',
+    color: '#be123c',
   },
   reviewStem: {
     fontSize: 15,
-    color: '#f8fafc',
+    color: '#1f2937',
     fontWeight: '600',
-    lineHeight: 22,
+    lineHeight: 23,
     marginBottom: 14,
   },
   reviewOptionsList: {
@@ -673,19 +727,19 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   reviewOptionRow: {
-    backgroundColor: '#1e293b',
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: '#fff5f7',
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
   },
   reviewOptionRowCorrect: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    backgroundColor: '#ecfdf5',
     borderColor: '#10b981',
   },
   reviewOptionRowWrong: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: '#ef4444',
+    backgroundColor: '#fff1f2',
+    borderColor: '#f43f5e',
   },
   reviewOptionTop: {
     flexDirection: 'row',
@@ -694,76 +748,115 @@ const styles = StyleSheet.create({
   reviewOptionIndex: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#94a3b8',
+    color: '#64748b',
     marginRight: 6,
   },
   reviewOptionText: {
     flex: 1,
     fontSize: 13,
-    color: '#cbd5e1',
+    color: '#334155',
+    lineHeight: 19,
   },
   reviewOptionTextCorrect: {
-    color: '#a7f3d0',
+    color: '#065f46',
     fontWeight: 'bold',
   },
   correctTag: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#34d399',
+    color: '#059669',
     marginLeft: 6,
   },
   myChoiceTag: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#f87171',
+    color: '#be123c',
     marginLeft: 6,
   },
   distractorRationaleText: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: '#64748b',
     marginTop: 4,
     paddingLeft: 16,
   },
   wrongAnalysisBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 8,
+    backgroundColor: '#fff1f2',
+    borderRadius: 10,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: '#fecdd3',
   },
   wrongAnalysisTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#f87171',
+    color: '#be123c',
     marginBottom: 4,
   },
   wrongAnalysisText: {
     fontSize: 12,
-    color: '#fca5a5',
+    color: '#881337',
     lineHeight: 18,
   },
-  explanationBox: {
-    backgroundColor: '#1e293b',
-    borderRadius: 8,
+  conceptBox: {
+    backgroundColor: '#fff1f4',
+    borderRadius: 10,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#fecdd3',
+  },
+  conceptBoxTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#be123c',
+    marginBottom: 4,
+  },
+  conceptBoxText: {
+    fontSize: 13,
+    color: '#881337',
+    lineHeight: 19,
+  },
+  hintBox: {
+    backgroundColor: '#fff8f6',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+  },
+  hintBoxTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#c2410c',
+    marginBottom: 4,
+  },
+  hintBoxText: {
+    fontSize: 13,
+    color: '#7c2d12',
+    lineHeight: 19,
+  },
+  explanationBox: {
+    backgroundColor: '#fff5f7',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
   },
   explanationTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#818cf8',
+    color: '#881337',
     marginBottom: 4,
   },
   explanationText: {
     fontSize: 13,
-    color: '#e2e8f0',
+    color: '#1f2937',
     lineHeight: 20,
   },
   finishReviewBtn: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#f43f5e',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -777,7 +870,7 @@ const styles = StyleSheet.create({
   // 힌트 팝업 모달
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -785,31 +878,36 @@ const styles = StyleSheet.create({
   hintModalCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#f59e0b',
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 22,
+    borderWidth: 1.5,
+    borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
   hintModalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#fbbf24',
+    color: '#881337',
   },
   hintModalContent: {
     fontSize: 13,
-    color: '#f8fafc',
+    color: '#334155',
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: 18,
   },
   closeHintBtn: {
-    backgroundColor: '#334155',
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: '#f43f5e',
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
   },
   closeHintBtnText: {
-    color: '#f8fafc',
+    color: '#ffffff',
     fontSize: 13,
     fontWeight: 'bold',
   },

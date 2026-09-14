@@ -204,42 +204,69 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </View>
       </View>
 
-      {/* 백업 및 복원 */}
+      {/* ⏰ 평일 정기 학습 알람 카드 */}
       <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>🛡️ 데이터 백업 및 복원</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <Text style={styles.cardSectionTitle}>⏰ 평일 정기 학습 알람</Text>
+          <View style={styles.alarmActiveBadge}>
+            <Text style={styles.alarmActiveBadgeText}>🔔 월~금 자동 알람</Text>
+          </View>
+        </View>
         <Text style={styles.promptGuideText}>
-          모든 학습 데이터와 오답 기록은 스마트폰 로컬에 안전하게 저장됩니다.
+          평일(월~금) 오전 8시와 저녁 8시에 스마트폰 알람이 울리며, 알람을 탭하면 즉시 오늘의 문제 풀이로 직행합니다.
         </Text>
-
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity
-            style={[styles.primaryActionButton, { flex: 1, backgroundColor: '#f43f5e' }]}
-            onPress={onExportBackup}
-          >
-            <Text style={styles.primaryActionText}>💾 백업 내보내기</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.primaryActionButton, { flex: 1, backgroundColor: '#fff1f2', borderWidth: 1, borderColor: '#fda4af' }]}
-            onPress={onOpenRestoreModal}
-          >
-            <Text style={[styles.primaryActionText, { color: '#be123c' }]}>🔄 백업 복원하기</Text>
-          </TouchableOpacity>
+        <View style={styles.alarmTimeRow}>
+          <View style={styles.alarmTimeChip}>
+            <Text style={styles.alarmTimeChipText}>🌅 아침 08:00</Text>
+          </View>
+          <View style={styles.alarmTimeChip}>
+            <Text style={styles.alarmTimeChipText}>🌙 저녁 20:00</Text>
+          </View>
         </View>
       </View>
 
-      {/* 완전 초기화 버튼 */}
-      <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>⚠️ 데이터 클린 초기화</Text>
-        <Text style={styles.promptGuideText}>
-          모든 데이터를 비우고 깨끗한 백지 상태에서 처음부터 다시 시작합니다.
-        </Text>
-        <TouchableOpacity
-          style={[styles.primaryActionButton, { backgroundColor: '#fff1f2', borderWidth: 1, borderColor: '#fca5a5' }]}
-          onPress={onResetAllData}
-        >
-          <Text style={[styles.primaryActionText, { color: '#b91c1c' }]}>🗑️ 전체 데이터 초기화</Text>
-        </TouchableOpacity>
+      {/* 🛡️ 데이터 백업 및 복원 (간소화된 컴팩트 디자인) */}
+      <View style={styles.compactCard}>
+        <View style={styles.compactCardHeader}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.compactCardTitle}>🛡️ 데이터 백업 및 복원</Text>
+            <Text style={styles.compactCardSubtitle}>
+              학습 데이터 백업 파일 공유 및 복원
+            </Text>
+          </View>
+          <View style={styles.compactBtnGroup}>
+            <TouchableOpacity
+              style={styles.miniBtnPrimary}
+              onPress={onExportBackup}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.miniBtnPrimaryText}>💾 백업</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.miniBtnSecondary}
+              onPress={onOpenRestoreModal}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.miniBtnSecondaryText}>🔄 복원</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* ⚠️ 데이터 클린 초기화 (간소화) */}
+      <View style={[styles.compactCard, { backgroundColor: '#fffafb', borderColor: '#ffe4e6' }]}>
+        <View style={styles.compactCardHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.compactCardTitle, { fontSize: 13, color: '#94a3b8' }]}>전체 데이터 초기화</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.miniResetBtn}
+            onPress={onResetAllData}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.miniResetBtnText}>🗑️ 초기화</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );
@@ -441,5 +468,106 @@ const styles = StyleSheet.create({
     color: '#be123c',
     fontSize: 11,
     fontWeight: 'bold',
+  },
+  alarmActiveBadge: {
+    backgroundColor: '#ffe4e6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+  },
+  alarmActiveBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#be123c',
+  },
+  alarmTimeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  alarmTimeChip: {
+    flex: 1,
+    backgroundColor: '#fff5f7',
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  alarmTimeChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#881337',
+  },
+  compactCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+    marginBottom: 12,
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  compactCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  compactCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#881337',
+    marginBottom: 2,
+  },
+  compactCardSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  compactBtnGroup: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  miniBtnPrimary: {
+    backgroundColor: '#f43f5e',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  miniBtnPrimaryText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  miniBtnSecondary: {
+    backgroundColor: '#fff1f2',
+    borderWidth: 1,
+    borderColor: '#fda4af',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  miniBtnSecondaryText: {
+    color: '#be123c',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  miniResetBtn: {
+    backgroundColor: '#fff1f2',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  miniResetBtnText: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

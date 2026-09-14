@@ -114,7 +114,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* 오답 개념 집중 보충 학습 */}
+        {/* 오답 개념 집중 보충 학습 (틀린 문제 재풀이 및 핵심 개념 고정 학습) */}
         {incorrectQuestionsCount > 0 && onGoToScaffolding && (
           <TouchableOpacity
             style={styles.scaffoldingBtn}
@@ -122,7 +122,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             activeOpacity={0.85}
           >
             <Text style={styles.scaffoldingBtnText}>
-              💡 오답 개념 집중 보충 학습 ({incorrectQuestionsCount}개 분석) ➔
+              💡 틀린 문제 다시 풀기 & 개념 복습 ({incorrectQuestionsCount}개) ➔
             </Text>
           </TouchableOpacity>
         )}
