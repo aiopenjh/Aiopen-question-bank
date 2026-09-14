@@ -17,8 +17,8 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <View style={styles.header}>
       <View>
-        <Text style={styles.appTitle}>CogniQuest</Text>
-        <Text style={styles.appSubtitle}>나만의 평생 지적 성장 기록부</Text>
+        <Text style={styles.appTitle}>Celueste ✨</Text>
+        <Text style={styles.appSubtitle}>나만의 스마트 맞춤형 학습 기록부</Text>
       </View>
       <View style={styles.headerRightActions}>
         {!hasApiKey && (
@@ -48,9 +48,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   appTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '800',
     color: '#881337',
+    letterSpacing: 0.3,
   },
   appSubtitle: {
     fontSize: 11,
