@@ -27,6 +27,7 @@ export interface PendingQuizUnit {
   topicName: string;
   unitId: string;
   unitTitle: string;
+  existingCount?: number;
 }
 
 export interface UseQuizGenerationProps {
@@ -74,10 +75,13 @@ export function useQuizGeneration({
 
   const handlePromptQuizCount = useCallback(
     (topicId: string, topicName: string, unitId: string, unitTitle: string) => {
-      setPendingQuizUnit({ topicId, topicName, unitId, unitTitle });
+      const existingCount = questions.filter(
+        (q) => q.topicId === topicId && (q.unitId === unitId || q.stem.includes(unitTitle))
+      ).length;
+      setPendingQuizUnit({ topicId, topicName, unitId, unitTitle, existingCount });
       setQuizCountModalVisible(true);
     },
-    []
+    [questions]
   );
 
   const handleQuickGenerateForUnit = useCallback(
@@ -98,9 +102,7 @@ export function useQuizGeneration({
             ? '⚡ 3문제를 생성 중입니다 (약 10초 내외 소요)...'
             : targetCount === 5
             ? '🎯 5문제를 정밀 출제 중입니다 (약 15~20초 소요)...'
-            : targetCount === 10
-            ? '🏆 10문제 시험지를 출제 중입니다 (약 30~45초 소요)...'
-            : `📦 ${targetCount}문제 대량 출제 중입니다 (약 45~60초 소요)...`,
+            : '🏆 10문제 시험지를 출제 중입니다 (약 25~35초 소요)...',
       });
       try {
         const scoped = analyzeUserIntent(

@@ -5,21 +5,25 @@ interface QuizCountModalProps {
   visible: boolean;
   unitTitle?: string;
   topicName?: string;
+  existingCount?: number;
   onClose: () => void;
   onSelectCount: (count: number) => void;
+  onOpenBackup?: () => void;
 }
 
 export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   visible,
   unitTitle,
   topicName,
+  existingCount = 0,
   onClose,
   onSelectCount,
+  onOpenBackup,
 }) => {
   const options = [
     {
       count: 3,
-      badge: '⚡ 약 10초 내외 (빠른 출제)',
+      badge: '⚡ 약 10초 (빠른 출제)',
       title: '3문제 풀기',
       desc: '핵심 개념 위주의 신속한 마이크로러닝 (즉시 생성)',
       color: '#e11d48',
@@ -37,20 +41,11 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
     },
     {
       count: 10,
-      badge: '🏆 약 30~45초 소요',
+      badge: '🏆 약 25~35초 (안정적 최대 출제)',
       title: '10문제 풀기',
-      desc: '실전 모의고사 수준의 빈틈없는 고난도 집중 트레이닝',
+      desc: 'API 지연 없는 최대 문항 출제 (5~10회 누적 시 50~100문제 완성)',
       color: '#9f1239',
       borderColor: '#f43f5e',
-      bg: '#fff1f2',
-    },
-    {
-      count: 20,
-      badge: '📦 대량 출제 (문제은행 빌드업)',
-      title: '20문제 풀기',
-      desc: '단원당 50~100문제를 빠르게 누적 저장하는 대량 집중 생성',
-      color: '#881337',
-      borderColor: '#be123c',
       bg: '#fff1f2',
     },
   ];
@@ -60,7 +55,14 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
       <View style={styles.overlay}>
         <View style={styles.modalCard}>
           <View style={styles.header}>
-            <Text style={styles.badge}>📝 실전 출제 문항 수 선택</Text>
+            <View style={styles.headerTopRow}>
+              <Text style={styles.badge}>📝 실전 출제 문항 수 선택</Text>
+              {existingCount > 0 && (
+                <View style={styles.storedBadge}>
+                  <Text style={styles.storedBadgeText}>📚 보관: {existingCount}문항</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.title}>몇 문제를 출제해 드릴까요?</Text>
             {unitTitle && (
               <Text style={styles.subtitle} numberOfLines={1}>
@@ -68,6 +70,31 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
               </Text>
             )}
           </View>
+
+          {/* 30문제 이상 누적 시 안전 백업 권장 배너 */}
+          {existingCount >= 30 && (
+            <View style={styles.backupRecommendBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Text style={{ fontSize: 13 }}>🛡️</Text>
+                <Text style={styles.backupRecommendTitle}>데이터 안전 백업 권장 (누적 {existingCount}문항)</Text>
+              </View>
+              <Text style={styles.backupRecommendText}>
+                단원에 소중한 문제가 많이 누적되었습니다! 스마트폰 캐시 정리나 기기 변경에 대비해 지금 백업해두세요.
+              </Text>
+              {onOpenBackup && (
+                <TouchableOpacity
+                  style={styles.backupActionBtn}
+                  onPress={() => {
+                    onClose();
+                    onOpenBackup();
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.backupActionBtnText}>💾 지금 데이터 백업 파일 내보내기</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           <View style={styles.optionsContainer}>
             {options.map((opt) => (
@@ -99,12 +126,12 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
           <View style={styles.timeNoticeCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <Text style={{ fontSize: 13 }}>💡</Text>
-              <Text style={styles.timeNoticeTitle}>개인 문제은행 무제한 저장 안내</Text>
+              <Text style={styles.timeNoticeTitle}>API 안정성 및 50~100문제 누적 안내</Text>
             </View>
             <Text style={styles.timeNoticeText}>
-              • 개인 API를 사용하므로 문항 수 제한 없이 단원당 50~100문제 이상 원하는 만큼 영구 보존할 수 있습니다.{'\n'}
-              • 여러 번 반복 출제하더라도 기존에 생성된 문제와 겹치지 않는 새로운 문제가 추가됩니다.{'\n'}
-              • 3/5문제는 10~20초, 10/20문제는 정밀 해설지 작성에 30~50초 소요됩니다.
+              • AI API 과부하 및 지연 방지를 위해 1회 최대 10문제씩 가장 쾌적하게 출제됩니다.{'\n'}
+              • 10문제씩 여러 번 출제하셔도 기존 문제와 겹치지 않는 새로운 변형 문제가 생성되어 단원당 50~100문제 이상 안전하게 쌓을 수 있습니다.{'\n'}
+              • 생성된 문제는 스마트폰 개인 DB에 영구 보존됩니다.
             </Text>
           </View>
 
@@ -140,15 +167,33 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   header: {
-    marginBottom: 16,
+    marginBottom: 14,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   badge: {
     fontSize: 11,
     fontWeight: '800',
     color: '#e11d48',
-    marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  storedBadge: {
+    backgroundColor: '#ffe4e6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#f43f5e',
+  },
+  storedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#be123c',
   },
   title: {
     fontSize: 18,
@@ -160,14 +205,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
   },
+  backupRecommendBox: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  backupRecommendTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#166534',
+  },
+  backupRecommendText: {
+    fontSize: 11,
+    color: '#15803d',
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  backupActionBtn: {
+    backgroundColor: '#16a34a',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  backupActionBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
   optionsContainer: {
-    gap: 10,
+    gap: 9,
     marginBottom: 12,
   },
   optionCard: {
     borderWidth: 1.5,
     borderRadius: 12,
-    padding: 14,
+    padding: 13,
   },
   optionTopRow: {
     flexDirection: 'row',
@@ -176,7 +252,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   optionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   optionBadge: {
@@ -189,30 +265,30 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   optionDesc: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#475569',
-    lineHeight: 16,
+    lineHeight: 15,
   },
   timeNoticeCard: {
     backgroundColor: '#fff1f4',
     borderRadius: 10,
-    padding: 12,
-    marginBottom: 14,
+    padding: 11,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#fecdd3',
   },
   timeNoticeTitle: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: 'bold',
     color: '#881337',
   },
   timeNoticeText: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#9f1239',
-    lineHeight: 16,
+    lineHeight: 15,
   },
   cancelBtn: {
-    paddingVertical: 12,
+    paddingVertical: 11,
     alignItems: 'center',
     borderRadius: 8,
     backgroundColor: '#f1f5f9',
