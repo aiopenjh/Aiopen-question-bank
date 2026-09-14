@@ -50,6 +50,7 @@ import {
   getEncryptedApiKey,
   saveEncryptedApiKey,
   addSource,
+  deleteSource,
   getSources,
   generateUUID,
   getCurrentISOTime,
@@ -101,6 +102,7 @@ import { QuizCountModal } from './src/components/modals/QuizCountModal';
 import { TopicSelectModal } from './src/components/modals/TopicSelectModal';
 import { UnitSelectModal } from './src/components/modals/UnitSelectModal';
 import { AppAlertModal } from './src/components/modals/AppAlertModal';
+import { SourceUploadModal } from './src/components/modals/SourceUploadModal';
 
 // Clean Modular Feature Screens
 import { StudyMapScreen } from './src/features/study/StudyMapScreen';
@@ -137,6 +139,7 @@ export default function App() {
   const [lastStudiedTopicId, setLastStudiedTopicId] = useState<string | null>(null);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSourceUploadModalOpen, setIsSourceUploadModalOpen] = useState(false);
   const [alarmConfig, setAlarmConfig] = useState<AlarmConfig>(DEFAULT_ALARM_CONFIG);
 
   // Modular Exam Session Hook
@@ -563,8 +566,8 @@ export default function App() {
   }
 
   async function handleSaveSource() {
-    if (!sourceTitle.trim() || !sourceText.trim()) {
-      showAlert('알림', '자료 제목과 본문 내용을 모두 입력해 주세요.');
+    if (!sourceTitle.trim()) {
+      showAlert('알림', '자료 제목을 입력해 주세요.');
       return;
     }
 
@@ -596,11 +599,12 @@ export default function App() {
       createdAt: getCurrentISOTime(),
     };
 
+    const content = sourceText.trim() || sourceTitle.trim();
     const newChunk: SourceChunk = {
       id: generateUUID(),
       revisionId: revId,
-      rawText: sourceText.trim(),
-      normalizedText: sourceText.trim().replace(/\s+/g, ' '),
+      rawText: content,
+      normalizedText: content.replace(/\s+/g, ' '),
       locator: { kind: 'text', blockIndex: 0 },
       extractionStatus: 'success',
     };
@@ -612,6 +616,22 @@ export default function App() {
     showAlert('등록 완료', `"${finalTitle}" 교재 자료가 안전하게 로컬 저장소에 보관되었습니다.`);
     setSourceTitle('');
     setSourceText('');
+  }
+
+  async function handleDeleteSource(sourceId: string) {
+    showAlert('자료 삭제', '이 교재 자료를 보관함에서 삭제하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제하기',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteSource(sourceId);
+          const updatedSources = await getSources();
+          setSources(updatedSources);
+          showAlert('삭제 완료', '교재 자료가 삭제되었습니다.');
+        },
+      },
+    ]);
   }
 
   async function handleDeleteQuestion(questionId: string) {
@@ -876,6 +896,7 @@ export default function App() {
               startExam(incorrect);
             }}
             onGoToScaffolding={handleApplyScaffolding}
+            onOpenSourceUpload={() => setIsSourceUploadModalOpen(true)}
             onQuickPromptGenerate={async (prompt) => {
               try {
                 setIsGenerating(true);
@@ -1021,6 +1042,10 @@ export default function App() {
               onPickSourceFile={handlePickSourceFile}
               selectedSourceTopicId={sourceTopicId}
               onSelectSourceTopicId={setSourceTopicId}
+              onDeleteSource={handleDeleteSource}
+              incorrectQuestions={incorrectQuestions}
+              reviewStates={reviewStates}
+              onOpenSourceModal={() => setIsSourceUploadModalOpen(true)}
             />
           </SafeAreaView>
         </Modal>
@@ -1127,6 +1152,24 @@ export default function App() {
           startExam(qs);
         }}
         onClose={() => setIsUnitSelectModalVisible(false)}
+      />
+
+      {/* 📁 내자료업로드 새창(모달) */}
+      <SourceUploadModal
+        visible={isSourceUploadModalOpen}
+        topics={topics}
+        sources={sources}
+        sourceTitle={sourceTitle}
+        selectedSourceTopicId={sourceTopicId}
+        onSelectSourceTopicId={setSourceTopicId}
+        onChangeSourceTitle={setSourceTitle}
+        onPickSourceFile={handlePickSourceFile}
+        onSaveSource={async () => {
+          await handleSaveSource();
+          setIsSourceUploadModalOpen(false);
+        }}
+        onDeleteSource={handleDeleteSource}
+        onClose={() => setIsSourceUploadModalOpen(false)}
       />
 
       {/* AI 문제 출제 대기 안내 모달 */}

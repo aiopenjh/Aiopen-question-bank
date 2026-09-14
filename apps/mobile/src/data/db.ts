@@ -41,6 +41,7 @@ const STORAGE_KEYS = {
   API_KEY: '@cogniquest:gemini_api_key',
   PREFERRED_MODEL: '@cogniquest:preferred_ai_model',
   LAST_STUDIED_TOPIC: '@cogniquest:last_studied_topic',
+  CUSTOM_NOTE_QUESTIONS: '@cogniquest:custom_note_questions',
 };
 
 const CURRENT_DB_VERSION = 2;
@@ -354,6 +355,26 @@ export async function deleteQuestion(questionId: UUID): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(updated));
 }
 
+export async function getCustomNoteQuestionIds(): Promise<string[]> {
+  const data = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
+  return data ? JSON.parse(data) : [];
+}
+
+export async function toggleCustomNoteQuestion(questionId: UUID): Promise<boolean> {
+  const list = await getCustomNoteQuestionIds();
+  const set = new Set(list);
+  let isSaved = false;
+  if (set.has(questionId)) {
+    set.delete(questionId);
+    isSaved = false;
+  } else {
+    set.add(questionId);
+    isSaved = true;
+  }
+  await AsyncStorage.setItem(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS, JSON.stringify(Array.from(set)));
+  return isSaved;
+}
+
 export async function clearAllData(): Promise<void> {
   await AsyncStorage.clear();
   await initializeDatabase();
@@ -532,6 +553,12 @@ export async function addSource(source: Source, revision: SourceRevision, chunks
   const existingChunks: SourceChunk[] = chunksData ? JSON.parse(chunksData) : [];
   existingChunks.push(...chunks);
   await AsyncStorage.setItem(STORAGE_KEYS.SOURCE_CHUNKS, JSON.stringify(existingChunks));
+}
+
+export async function deleteSource(sourceId: string): Promise<void> {
+  const sources = await getSources();
+  const filtered = sources.filter((s) => s.id !== sourceId);
+  await AsyncStorage.setItem(STORAGE_KEYS.SOURCES, JSON.stringify(filtered));
 }
 
 export async function getSourceChunks(revisionId?: UUID): Promise<SourceChunk[]> {

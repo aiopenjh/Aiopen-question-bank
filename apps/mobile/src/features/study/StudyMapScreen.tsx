@@ -23,6 +23,9 @@ interface StudyMapScreenProps {
   onStartIncorrectReview?: () => void;
   onGoToScaffolding?: () => void;
 
+  // 내자료업로드 새페이지 연결
+  onOpenSourceUpload?: () => void;
+
   // 당겨서 새로고침 (Pull to Refresh)
   refreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
@@ -42,6 +45,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   onStartDueReview,
   onStartIncorrectReview,
   onGoToScaffolding,
+  onOpenSourceUpload,
   refreshing = false,
   onRefresh,
   onQuickPromptGenerate,
@@ -73,6 +77,22 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
         ) : undefined
       }
     >
+      {/* 0. 내자료업로드 새페이지(모달) 연결 링크 바 (슬림 & 콤팩트) */}
+      {onOpenSourceUpload && (
+        <TouchableOpacity
+          style={styles.sourceUploadCompactBar}
+          onPress={onOpenSourceUpload}
+          activeOpacity={0.8}
+        >
+          <View style={styles.sourceUploadCompactLeft}>
+            <Text style={styles.sourceUploadCompactIcon}>📁</Text>
+            <Text style={styles.sourceUploadCompactTitle}>내자료업로드</Text>
+            <Text style={styles.sourceUploadCompactSub}>(PDF · TXT · ZIP 교재 첨부)</Text>
+          </View>
+          <Text style={styles.sourceUploadCompactArrow}>열기 ➔</Text>
+        </TouchableOpacity>
+      )}
+
       {/* 1. 큼직하고 시원한 오늘의 학습 현황 카드 (Hero Card) */}
       <View style={styles.heroRoutineCard}>
         <View style={styles.routineHeaderRow}>
@@ -202,6 +222,45 @@ const styles = StyleSheet.create({
   scrollPadding: {
     padding: 18,
     paddingBottom: 40,
+  },
+  sourceUploadCompactBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  sourceUploadCompactLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sourceUploadCompactIcon: {
+    fontSize: 14,
+  },
+  sourceUploadCompactTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#881337',
+  },
+  sourceUploadCompactSub: {
+    fontSize: 11,
+    color: '#9f1239',
+  },
+  sourceUploadCompactArrow: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#e11d48',
   },
   heroRoutineCard: {
     backgroundColor: '#ffffff',
