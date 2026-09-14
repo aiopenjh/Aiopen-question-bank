@@ -58,7 +58,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
       <View style={styles.heroRoutineCard}>
         <View style={styles.routineHeaderRow}>
           <View>
-            <Text style={styles.cardSectionTitle}>📊 오늘의 학습 현황</Text>
+            <Text style={styles.cardSectionTitle}>🎯 오늘의 목표치 채우자</Text>
             <Text style={styles.routinePresetText}>
               {routine ? ROUTINE_PRESETS[routine.preset]?.label : '격일 학습'} · 목표 {targetCount}문항
             </Text>
