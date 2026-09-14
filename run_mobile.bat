@@ -15,7 +15,9 @@ echo.
 echo 앱 서버를 시작합니다... 잠시만 기다려주세요.
 echo.
 
+if exist "C:\Program Files\nodejs" set "PATH=C:\Program Files\nodejs;%PATH%"
+
 cd /d "%~dp0apps\mobile"
-call npm start
+call npm start -- -c
 
 pause
