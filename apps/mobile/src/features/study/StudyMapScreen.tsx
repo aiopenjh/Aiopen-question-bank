@@ -68,16 +68,27 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </View>
         </View>
 
-        {/* 대형 문항 달성 지표 */}
+        {/* 대형 문항 달성 지표 & 목표 완료 / 문제 더 풀어보기 */}
         <View style={styles.metricRow}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
             <Text style={styles.metricCurrentNumber}>{todayAttemptsCount}</Text>
             <Text style={styles.metricTargetNumber}> / {targetCount} 문항 완료</Text>
           </View>
-          <View style={[styles.percentBadge, progressPercent >= 100 && styles.percentBadgeCompleted]}>
-            <Text style={[styles.percentBadgeText, progressPercent >= 100 && styles.percentBadgeTextCompleted]}>
-              {progressPercent >= 100 ? '🎉 목표 완료' : `${progressPercent}% 달성`}
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={[styles.percentBadge, progressPercent >= 100 && styles.percentBadgeCompleted]}>
+              <Text style={[styles.percentBadgeText, progressPercent >= 100 && styles.percentBadgeTextCompleted]}>
+                {progressPercent >= 100 ? '🎉 목표 완료' : `${progressPercent}% 달성`}
+              </Text>
+            </View>
+            {onStartExam && (
+              <TouchableOpacity
+                style={styles.moreQuestionsPillBtn}
+                onPress={onStartExam}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.moreQuestionsPillText}>⚡ 문제 더 풀어보기</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -86,18 +97,28 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
         </View>
 
-        {/* 메인 CBT 실전 풀기 / 목표 완료 시 문제 더 풀기 버튼 */}
+        {/* 메인 학습목표 문제 풀기 버튼 */}
         {onStartExam && (
           <TouchableOpacity
-            style={[
-              styles.primaryActionButton,
-              progressPercent >= 100 && styles.moreQuestionsBtn,
-            ]}
+            style={styles.primaryActionButton}
             onPress={onStartExam}
             activeOpacity={0.85}
           >
             <Text style={styles.primaryActionText}>
-              {progressPercent >= 100 ? '⚡ 문제 더 풀기' : '🚀 오늘의 실전 CBT 문제 풀기'}
+              🚀 오늘의 학습목표 문제 풀기
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* 목표 달성 후 추가 연습을 원하는 경우의 추가 버튼 */}
+        {progressPercent >= 100 && onStartExam && (
+          <TouchableOpacity
+            style={styles.extraPracticeBtn}
+            onPress={onStartExam}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.extraPracticeBtnText}>
+              ⚡ 문제 더 풀어보기 (추가 자율 학습)
             </Text>
           </TouchableOpacity>
         )}
@@ -268,6 +289,21 @@ const styles = StyleSheet.create({
   percentBadgeTextCompleted: {
     color: '#6ee7b7',
   },
+  moreQuestionsPillBtn: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moreQuestionsPillText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   progressBarBackground: {
     height: 12,
     backgroundColor: '#0f172a',
@@ -291,10 +327,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 10,
   },
-  moreQuestionsBtn: {
-    backgroundColor: '#4338ca',
+  extraPracticeBtn: {
+    backgroundColor: '#1e1b4b',
+    borderColor: '#818cf8',
     borderWidth: 1.5,
-    borderColor: '#6366f1',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  extraPracticeBtnText: {
+    color: '#c7d2fe',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   primaryActionText: {
     color: '#ffffff',
