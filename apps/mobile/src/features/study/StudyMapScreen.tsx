@@ -68,27 +68,16 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </View>
         </View>
 
-        {/* 대형 문항 달성 지표 & 목표 완료 / 문제 더 풀어보기 */}
+        {/* 대형 문항 달성 지표 & 목표 완료 뱃지 */}
         <View style={styles.metricRow}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
             <Text style={styles.metricCurrentNumber}>{todayAttemptsCount}</Text>
             <Text style={styles.metricTargetNumber}> / {targetCount} 문항 완료</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={[styles.percentBadge, progressPercent >= 100 && styles.percentBadgeCompleted]}>
-              <Text style={[styles.percentBadgeText, progressPercent >= 100 && styles.percentBadgeTextCompleted]}>
-                {progressPercent >= 100 ? '🎉 목표 완료' : `${progressPercent}% 달성`}
-              </Text>
-            </View>
-            {onStartExam && (
-              <TouchableOpacity
-                style={styles.moreQuestionsPillBtn}
-                onPress={onStartExam}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.moreQuestionsPillText}>⚡ 문제 더 풀어보기</Text>
-              </TouchableOpacity>
-            )}
+          <View style={[styles.percentBadge, progressPercent >= 100 && styles.percentBadgeCompleted]}>
+            <Text style={[styles.percentBadgeText, progressPercent >= 100 && styles.percentBadgeTextCompleted]}>
+              {progressPercent >= 100 ? '🎉 목표 완료' : `${progressPercent}% 달성`}
+            </Text>
           </View>
         </View>
 
@@ -288,21 +277,6 @@ const styles = StyleSheet.create({
   },
   percentBadgeTextCompleted: {
     color: '#6ee7b7',
-  },
-  moreQuestionsPillBtn: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#60a5fa',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  moreQuestionsPillText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   progressBarBackground: {
     height: 12,
