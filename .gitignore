@@ -1,0 +1,86 @@
+# ==========================================
+# 🔒 보안 및 민감 정보 보호 (API Keys & Credentials)
+# ==========================================
+*.env
+*.env.*
+*.env*.local
+.env
+.env.local
+.env.production
+.env.development
+*.key
+*.pem
+*.cert
+*.crt
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+credentials.json
+client_secrets.json
+service_account.json
+secrets/
+
+# ==========================================
+# 📦 의존성 및 패키지 (Dependencies)
+# ==========================================
+node_modules/
+apps/*/node_modules/
+.pnpm-store/
+
+# ==========================================
+# 🚀 Expo & 빌드 산출물 (Build Outputs)
+# ==========================================
+.expo/
+apps/*/.expo/
+dist/
+apps/*/dist/
+web-build/
+apps/*/web-build/
+expo-env.d.ts
+apps/*/expo-env.d.ts
+*.tsbuildinfo
+.metro-health-check*
+
+# Native Builds
+/ios/
+/android/
+apps/*/ios/
+apps/*/android/
+.kotlin/
+*.orig.*
+
+# ==========================================
+# 💻 개발 툴 & 운영체제 임시 파일 (IDE & OS)
+# ==========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Agent & AI System artifacts
+.system_generated/
+.gemini/
+.agents/
+
+# ==========================================
+# 📋 로그 및 디버그 파일 (Logs)
+# ==========================================
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.log*
+
+# ==========================================
+# 🗄️ 로컬 데이터베이스 및 캐시 (Local Cache)
+# ==========================================
+*.sqlite
+*.sqlite3
+*.local
