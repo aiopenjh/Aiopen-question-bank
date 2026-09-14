@@ -99,12 +99,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </View>
               <Text style={styles.savedKeySubText}>
                 {apiKey.trim().startsWith('AIzaSy')
-                  ? 'Google Gemini 정식 키가 안전하게 보관 중입니다.'
+                  ? 'Google Gemini 키가 등록되어 있습니다.'
                   : apiKey.trim().startsWith('sk-ant-')
-                  ? 'Anthropic Claude 3.5 Sonnet 정식 키가 보관 중입니다.'
+                  ? 'Anthropic Claude 키가 등록되어 있습니다.'
                   : apiKey.trim().startsWith('sk-')
-                  ? 'OpenAI GPT-4o 정식 키가 보관 중입니다.'
-                  : '보안 솔트 암호화 볼트에 안전하게 격리 보관되어 있습니다.'}
+                  ? 'OpenAI GPT 키가 등록되어 있습니다.'
+                  : 'API Key가 안전하게 보관되어 있습니다.'}
               </Text>
             </View>
 
@@ -132,7 +132,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           /* 최초 등록이거나 사용자가 '변경'을 눌렀을 때만 입력창 노출 */
           <View style={{ marginTop: 2 }}>
             <Text style={styles.promptGuideText}>
-              Google Gemini(AIzaSy...), Anthropic Claude(sk-ant-), OpenAI(sk-) 키를 입력하세요. [저장하기]를 누르면 안전하게 암호화 보관됩니다.
+              사용하실 AI API 키를 입력 후 [저장하기]를 눌러주세요.
             </Text>
 
             <View style={styles.keyInputRow}>

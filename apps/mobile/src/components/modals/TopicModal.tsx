@@ -57,13 +57,13 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>✨ 새 학습 주제 만들기</Text>
+          <Text style={styles.modalTitle}>✨ 새 학습 과목 추가</Text>
           <Text style={styles.promptGuideText}>
-            공부하고 싶은 대분류와 주제를 선택하면, AI가 체계적인 학습 목차(단원)를 자동으로 설계합니다.
+            학습할 과목명과 카테고리를 설정하세요.
           </Text>
 
           {/* 대단위 카테고리 선택 */}
-          <Text style={styles.fieldLabel}>📂 대분류(과목 영역):</Text>
+          <Text style={styles.fieldLabel}>📂 과목 분류:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
             {CATEGORY_OPTIONS.map((cat) => (
               <TouchableOpacity
@@ -79,7 +79,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
           </ScrollView>
 
           {/* 추천 주제 칩 */}
-          <Text style={styles.fieldLabel}>💡 빠른 추천 주제:</Text>
+          <Text style={styles.fieldLabel}>💡 추천 과목:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
             {presets.map((p, idx) => (
               <TouchableOpacity
@@ -102,7 +102,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
 
           <TextInput
             style={styles.inputField}
-            placeholder="주제 이름 (예: Git 협업 워크플로우, 미적분 기초 등)"
+            placeholder="과목 이름 (예: Git 협업 워크플로우, 미적분학 등)"
             placeholderTextColor="#94a3b8"
             value={topicName}
             onChangeText={setTopicName}
@@ -118,14 +118,14 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
           />
 
           {/* 학습자 수준 선택 (캘리브레이션) */}
-          <Text style={styles.fieldLabel}>🎯 나의 시작 지식 수준:</Text>
+          <Text style={styles.fieldLabel}>🎯 난이도 수준:</Text>
           <View style={styles.levelRow}>
             {(
               [
-                { key: 'beginner', label: '🐣 왕초보 입문' },
-                { key: 'basic', label: '🌿 기본 개념' },
-                { key: 'advanced', label: '🚀 실전 시험' },
-                { key: 'master', label: '👑 심화 킬러' },
+                { key: 'beginner', label: '입문' },
+                { key: 'basic', label: '기본' },
+                { key: 'advanced', label: '실전' },
+                { key: 'master', label: '심화' },
               ] as const
             ).map((item) => {
               const isSelected = learnerLevel === item.key;
@@ -153,12 +153,12 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
             <Text style={{ fontSize: 18, marginRight: 8 }}>{autoCurriculum ? '⚡' : '⬜'}</Text>
             <View style={{ flex: 1 }}>
               <Text style={[styles.autoCurriculumTitle, autoCurriculum && styles.autoCurriculumTitleActive]}>
-                AI가 학습 단원(목차 5개) 자동 분할 생성
+                표준 5단계 목차 자동 생성
               </Text>
               <Text style={styles.autoCurriculumDesc}>
                 {autoCurriculum
-                  ? '입력하신 주제에 맞춰 AI가 논리적 5단계 목차를 즉시 구성합니다. (직접 입력 불필요)'
-                  : '직접 빈 단원을 하나씩 추가합니다.'}
+                  ? '과목에 부합하는 공인 5단계 목차를 자동 구성합니다.'
+                  : '목차를 수동으로 직접 구성합니다.'}
               </Text>
             </View>
           </TouchableOpacity>

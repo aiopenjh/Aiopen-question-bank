@@ -5,11 +5,11 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Modal,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuestionRevision } from '../../contracts/types';
 import { showAlert } from '../../utils/alert';
 

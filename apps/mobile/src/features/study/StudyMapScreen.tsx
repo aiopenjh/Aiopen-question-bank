@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { Topic, Unit, ManualCompletion, RoutineRevision } from '../../contracts/types';
-import { ROUTINE_PRESETS, isStudyDay, MentorMessage } from '../../domain/routine';
+import { ROUTINE_PRESETS, isStudyDay } from '../../domain/routine';
 import { showAlert } from '../../utils/alert';
 
 interface StudyMapScreenProps {
@@ -27,7 +27,6 @@ interface StudyMapScreenProps {
   todayAttemptsCount?: number;
   dueQuestionsCount?: number;
   incorrectQuestionsCount?: number;
-  mentorMessage?: MentorMessage | null;
   onStartExam?: () => void;
   onStartDueReview?: () => void;
   onStartIncorrectReview?: () => void;
@@ -59,7 +58,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   todayAttemptsCount = 0,
   dueQuestionsCount = 0,
   incorrectQuestionsCount = 0,
-  mentorMessage = null,
   onStartExam,
   onStartDueReview,
   onStartIncorrectReview,
@@ -136,22 +134,10 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
 
   return (
     <ScrollView style={styles.tabContent} contentContainerStyle={styles.scrollPadding}>
-      {/* 1. 멘토 피드백 카드 */}
-      {mentorMessage && (
-        <View style={styles.mentorCard}>
-          <View style={styles.mentorHeader}>
-            <Text style={styles.mentorBadge}>{mentorMessage.badge}</Text>
-            <Text style={styles.mentorRole}>나의 학습 메이트</Text>
-          </View>
-          <Text style={styles.mentorTitle}>{mentorMessage.title}</Text>
-          <Text style={styles.mentorText}>{mentorMessage.message}</Text>
-        </View>
-      )}
-
-      {/* 2. 오늘의 마이크로 러닝 루틴 & 빠른 풀기/복습 카드 */}
+      {/* 1. 오늘의 학습 현황 & 빠른 풀기/복습 카드 */}
       <View style={styles.routineCard}>
         <View style={styles.routineInfoRow}>
-          <Text style={styles.cardSectionTitle}>📅 오늘의 마이크로 러닝 루틴</Text>
+          <Text style={styles.cardSectionTitle}>📊 오늘의 학습 현황</Text>
           <Text style={styles.routineStatusBadge}>
             {routine && isStudyDay(routine) ? '🔔 오늘 학습일' : '☕ 오늘은 휴식일'}
           </Text>
@@ -191,7 +177,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
               onPress={onStartDueReview}
             >
               <Text style={styles.subActionBtnText}>
-                🔔 망각곡선 복습 ({dueQuestionsCount})
+                🔔 복습 문제 ({dueQuestionsCount})
               </Text>
             </TouchableOpacity>
           )}
@@ -214,7 +200,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             onPress={onGoToScaffolding}
           >
             <Text style={styles.scaffoldingBtnText}>
-              💡 최근 오답 개념 기초 다지기 ({incorrectQuestionsCount}개 분석) ➔
+              💡 오답 개념 보충 학습 ({incorrectQuestionsCount}) ➔
             </Text>
           </TouchableOpacity>
         )}
@@ -272,13 +258,13 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
       {/* 4. 과목 / 커리큘럼 헤더 */}
       <View style={styles.studyHeaderCard}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.studyHeaderTitle}>🌳 대단위 커리큘럼 & 문제 출제</Text>
+          <Text style={styles.studyHeaderTitle}>📚 학습 과목 & 단원 커리큘럼</Text>
           <TouchableOpacity style={styles.headerActionBtn} onPress={onOpenTopicModal}>
             <Text style={styles.headerActionBtnText}>+ 새 주제</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.studyHeaderSubtitle}>
-          대단위(IT, 수학, 언어 등) 과목을 선택하면 단원별로 3/5/10문항 즉시 출제 및 CBT 시험이 진행됩니다.
+          과목과 단원을 선택하여 맞춤형 CBT 시험을 응시하세요.
         </Text>
       </View>
 
@@ -338,7 +324,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
                     <Text style={styles.categoryBadge}>{currentTopic.category || '📚 일반'}</Text>
                     <Text style={styles.topicTitle}>{currentTopic.name}</Text>
                   </View>
-                  <Text style={styles.topicDesc}>{currentTopic.description || 'AI 맞춤 학습 커리큘럼'}</Text>
+                  <Text style={styles.topicDesc}>{currentTopic.description || '맞춤 커리큘럼'}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => onDeleteTopic(currentTopic.id, currentTopic.name)}
@@ -377,7 +363,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
                   <Text style={{ fontSize: 28, marginBottom: 6 }}>⚡</Text>
                   <Text style={styles.emptyUnitText}>아직 등록된 단원이 없습니다.</Text>
                   <Text style={styles.emptyUnitSubText}>
-                    일일이 입력하실 필요 없습니다! 아래 버튼을 누르면 AI가 [{currentTopic.name}] 주제의 5단계 목차를 즉시 자동 설계합니다.
+                    AI를 통해 공인 표준 5단계 목차를 자동 구성할 수 있습니다.
                   </Text>
                   <TouchableOpacity
                     style={styles.aiGenerateCurriculumBtn}
@@ -387,10 +373,10 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
                     {isAiGenerating ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <ActivityIndicator color="#ffffff" size="small" />
-                        <Text style={styles.aiGenerateCurriculumBtnText}>AI 커리큘럼 설계 중...</Text>
+                        <Text style={styles.aiGenerateCurriculumBtnText}>AI 목차 설계 중...</Text>
                       </View>
                     ) : (
-                      <Text style={styles.aiGenerateCurriculumBtnText}>✨ AI 커리큘럼(단원) 자동 완성</Text>
+                      <Text style={styles.aiGenerateCurriculumBtnText}>✨ AI 5단계 목차 생성</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -719,39 +705,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
     overflow: 'hidden',
-  },
-  mentorCard: {
-    backgroundColor: '#1e1b4b',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#4338ca',
-  },
-  mentorHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  mentorBadge: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  mentorRole: {
-    fontSize: 11,
-    color: '#a5b4fc',
-    fontWeight: 'bold',
-  },
-  mentorTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#e0e7ff',
-    marginBottom: 3,
-  },
-  mentorText: {
-    fontSize: 12,
-    color: '#c7d2fe',
-    lineHeight: 17,
   },
   routineCard: {
     backgroundColor: '#1e293b',

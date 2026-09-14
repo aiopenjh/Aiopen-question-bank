@@ -3,13 +3,17 @@ import {
   StyleSheet,
   View,
   Text,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
   Modal,
   TouchableOpacity,
+  LogBox,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { showAlert, registerAlertListener, AlertData } from './src/utils/alert';
+
+// 고객/사용자 모바일 화면에 개발/경고 노란색 팝업(LogBox toast) 노출 방지
+LogBox.ignoreAllLogs(true);
 import {
   initializeDatabase,
   getRoutine,
@@ -258,11 +262,11 @@ export default function App() {
 
     if (generatedCount > 0) {
       showAlert(
-        '✨ AI 커리큘럼 설계 완료!',
-        `[${created.name}] 주제와 함께 AI가 설계한 ${generatedCount}개 핵심 단원(목차)이 자동 구성되었습니다!\n\n이제 단원 옆 [⚡ 3문제 풀기]를 누르시면 즉시 문제를 푸실 수 있습니다.`
+        '주제 등록 완료',
+        `[${created.name}] 주제와 ${generatedCount}개 학습 목차가 구성되었습니다.`
       );
     } else {
-      showAlert('성공', `[${created.name}] 주제가 등록되었습니다!`);
+      showAlert('주제 등록 완료', `[${created.name}] 주제가 등록되었습니다.`);
     }
   }
 
@@ -286,8 +290,8 @@ export default function App() {
       const updatedUnits = await getUnits();
       setUnits(updatedUnits);
       showAlert(
-        '✨ AI 목차 완성!',
-        `[${topicName}] 주제에 5단계 맞춤형 목차가 깔끔하게 정돈되었습니다!`
+        '목차 생성 완료',
+        `[${topicName}]의 5단계 목차가 구성되었습니다.`
       );
     } catch (err: any) {
       showAlert('오류', `AI 커리큘럼 생성 실패: ${err?.message || '알 수 없는 오류'}`);
@@ -862,10 +866,12 @@ export default function App() {
   // -------------------------------------------------------------
   if (loading) {
     return (
-      <SafeAreaView style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
-        <Text style={styles.loadingText}>CogniQuest 엔진을 준비 중입니다...</Text>
-      </SafeAreaView>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#6366f1" />
+          <Text style={styles.loadingText}>데이터를 불러오는 중입니다...</Text>
+        </SafeAreaView>
+      </SafeAreaProvider>
     );
   }
 
@@ -873,7 +879,7 @@ export default function App() {
   if (examSessionActive && examQuestions.length > 0) {
     const currentQ = examQuestions[0];
     return (
-      <>
+      <SafeAreaProvider>
         <ExamSessionScreen
           questions={examQuestions}
           onExitExam={() => setExamSessionActive(false)}
@@ -887,7 +893,7 @@ export default function App() {
         />
         {/* CBT 시험장 내 전용 인앱 알림 모달 (나가기 확인창 등 정상 작동 보장) */}
         <AppAlertModal alert={appAlert} onClose={() => setAppAlert(null)} />
-      </>
+      </SafeAreaProvider>
     );
   }
 
@@ -906,8 +912,9 @@ export default function App() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
 
       <Header
         hasApiKey={apiKey.length > 8}
@@ -941,7 +948,6 @@ export default function App() {
             todayAttemptsCount={todayAttempts.length}
             dueQuestionsCount={dueQuestions.length}
             incorrectQuestionsCount={topicIncorrect.length}
-            mentorMessage={mentorMessage}
             onStartExam={handleStartExamWithAutoGenerate}
             onStartDueReview={() => {
               if (dueQuestions.length === 0) {
@@ -1210,6 +1216,7 @@ export default function App() {
       {/* Global In-App Alert Modal */}
       <AppAlertModal alert={appAlert} onClose={() => setAppAlert(null)} />
     </SafeAreaView>
+  </SafeAreaProvider>
   );
 }
 
