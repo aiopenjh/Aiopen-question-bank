@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { RoutineRevision } from '../../contracts/types';
 
@@ -21,6 +22,10 @@ interface StudyMapScreenProps {
   onStartDueReview?: () => void;
   onStartIncorrectReview?: () => void;
   onGoToScaffolding?: () => void;
+
+  // 당겨서 새로고침 (Pull to Refresh)
+  refreshing?: boolean;
+  onRefresh?: () => Promise<void> | void;
 
   // 자유 주제 즉시 AI 출제 연동
   onQuickPromptGenerate?: (prompt: string) => Promise<void> | void;
@@ -37,6 +42,8 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   onStartDueReview,
   onStartIncorrectReview,
   onGoToScaffolding,
+  refreshing = false,
+  onRefresh,
   onQuickPromptGenerate,
   isAiGenerating = false,
 }) => {
@@ -52,7 +59,20 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   };
 
   return (
-    <ScrollView style={styles.tabContent} contentContainerStyle={styles.scrollPadding}>
+    <ScrollView
+      style={styles.tabContent}
+      contentContainerStyle={styles.scrollPadding}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#f43f5e', '#be123c']}
+            tintColor="#f43f5e"
+          />
+        ) : undefined
+      }
+    >
       {/* 1. 큼직하고 시원한 오늘의 학습 현황 카드 (Hero Card) */}
       <View style={styles.heroRoutineCard}>
         <View style={styles.routineHeaderRow}>

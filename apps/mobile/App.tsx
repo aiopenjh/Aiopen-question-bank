@@ -105,6 +105,7 @@ import { ExamSessionScreen } from './src/features/exam/ExamSessionScreen';
 
 export default function App() {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Core Data States
   const [routine, setRoutine] = useState<RoutineRevision | null>(null);
@@ -171,9 +172,20 @@ export default function App() {
     loadAppData();
   }, []);
 
-  async function loadAppData() {
+  async function handlePullRefresh() {
+    setRefreshing(true);
     try {
-      setLoading(true);
+      await loadAppData(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function loadAppData(isPullRefresh: boolean = false) {
+    try {
+      if (!isPullRefresh) {
+        setLoading(true);
+      }
       await initializeDatabase();
 
       const [r, t, u, c, q, a, rStates, inQ, key, s, savedLastTId, aConfig] = await Promise.all([
@@ -217,7 +229,9 @@ export default function App() {
     } catch (err) {
       console.error('앱 데이터 로드 실패:', err);
     } finally {
-      setLoading(false);
+      if (!isPullRefresh) {
+        setLoading(false);
+      }
     }
   }
 
@@ -1100,6 +1114,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
             todayAttemptsCount={todayAttempts.length}
             dueQuestionsCount={dueQuestions.length}
             incorrectQuestionsCount={topicIncorrect.length}
+            refreshing={refreshing}
+            onRefresh={handlePullRefresh}
             onStartExam={handleStartExamWithAutoGenerate}
             onStartMoreQuestions={handleGenerateMoreQuestions}
             onStartDueReview={() => {
@@ -1234,6 +1250,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
               topics={topics}
               units={units}
               completions={completions}
+              refreshing={refreshing}
+              onRefresh={handlePullRefresh}
               onOpenTopicModal={() => setTopicModalVisible(true)}
               onOpenUnitModal={() => setUnitModalVisible(true)}
               onDeleteTopic={handleDeleteTopic}

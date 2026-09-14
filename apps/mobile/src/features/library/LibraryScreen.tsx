@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Source, QuestionRevision, Topic, Unit, ManualCompletion } from '../../contracts/types';
 import { showAlert } from '../../utils/alert';
@@ -28,6 +29,10 @@ export interface LibraryScreenProps {
   generatingUnitId?: string | null;
   onStartExamWithQuestions: (questions: QuestionRevision[]) => void;
   onDeleteQuestion?: (questionId: string) => Promise<void>;
+
+  // 당겨서 새로고침 (Pull to Refresh)
+  refreshing?: boolean;
+  onRefresh?: () => Promise<void> | void;
 
   // Source / Text notes
   sources: Source[];
@@ -55,6 +60,8 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   generatingUnitId = null,
   onStartExamWithQuestions,
   onDeleteQuestion,
+  refreshing = false,
+  onRefresh,
 
   sources,
   sourceTitle,
@@ -127,7 +134,20 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   };
 
   return (
-    <ScrollView style={styles.tabContent} contentContainerStyle={styles.scrollPadding}>
+    <ScrollView
+      style={styles.tabContent}
+      contentContainerStyle={styles.scrollPadding}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#f43f5e', '#be123c']}
+            tintColor="#f43f5e"
+          />
+        ) : undefined
+      }
+    >
       {/* 1. 상단 통계 및 과목 생성 헤더 */}
       <View style={styles.headerCard}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
