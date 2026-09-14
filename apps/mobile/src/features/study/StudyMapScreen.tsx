@@ -86,15 +86,18 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
         </View>
 
-        {/* 메인 CBT 실전 풀기 버튼 */}
+        {/* 메인 CBT 실전 풀기 / 목표 완료 시 문제 더 풀기 버튼 */}
         {onStartExam && (
           <TouchableOpacity
-            style={styles.primaryActionButton}
+            style={[
+              styles.primaryActionButton,
+              progressPercent >= 100 && styles.moreQuestionsBtn,
+            ]}
             onPress={onStartExam}
             activeOpacity={0.85}
           >
             <Text style={styles.primaryActionText}>
-              🚀 오늘의 실전 CBT 문제 풀기
+              {progressPercent >= 100 ? '⚡ 문제 더 풀기' : '🚀 오늘의 실전 CBT 문제 풀기'}
             </Text>
           </TouchableOpacity>
         )}
@@ -287,6 +290,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
+  },
+  moreQuestionsBtn: {
+    backgroundColor: '#4338ca',
+    borderWidth: 1.5,
+    borderColor: '#6366f1',
   },
   primaryActionText: {
     color: '#ffffff',
