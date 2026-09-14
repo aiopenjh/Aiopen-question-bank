@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { RoutineRevision } from '../../contracts/types';
-import { ROUTINE_PRESETS } from '../../domain/routine';
 import { showAlert } from '../../utils/alert';
 import { AlarmConfig, DEFAULT_ALARM_CONFIG } from '../../utils/notifications';
 
@@ -10,8 +8,6 @@ interface SettingsScreenProps {
   onChangeApiKey: (text: string) => void;
   onSaveApiKey: (keyToSave?: string) => Promise<void>;
   onDeleteApiKey?: () => Promise<void>;
-  routine: RoutineRevision | null;
-  onChangeRoutinePreset: (presetKey: string) => Promise<void>;
   alarmConfig?: AlarmConfig;
   onChangeAlarmConfig?: (config: AlarmConfig) => void;
   onExportBackup: () => Promise<void>;
@@ -24,8 +20,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onChangeApiKey,
   onSaveApiKey,
   onDeleteApiKey,
-  routine,
-  onChangeRoutinePreset,
   alarmConfig = DEFAULT_ALARM_CONFIG,
   onChangeAlarmConfig,
   onExportBackup,
@@ -194,29 +188,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         )}
       </View>
 
-      {/* 루틴 요일 설정 카드 */}
-      <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>🌿 라이프스타일 학습 요일 설정</Text>
-        <Text style={styles.promptGuideText}>
-          나의 생활 패턴에 맞게 학습 요일을 선택하세요. 쉬는 날에는 스트레스 없는 편안한 휴식 모드로 전환됩니다.
-        </Text>
-        <View style={styles.presetButtonsContainer}>
-          {Object.entries(ROUTINE_PRESETS).map(([key, item]) => {
-            const isSelected = routine?.preset === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[styles.presetButton, isSelected && styles.presetButtonSelected]}
-                onPress={() => onChangeRoutinePreset(key)}
-              >
-                <Text style={[styles.presetButtonText, isSelected && styles.presetButtonTextSelected]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
 
       {/* ⏰ 평일 정기 학습 알람 카드 (2개 기본 폼, 시간 업앤다운 & 개별 활성화/비활성화) */}
       <View style={styles.card}>
@@ -497,34 +468,6 @@ const styles = StyleSheet.create({
   primaryActionText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: 'bold',
-  },
-  presetButtonsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  presetButton: {
-    backgroundColor: '#fff5f7',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-    minWidth: '45%',
-    alignItems: 'center',
-  },
-  presetButtonSelected: {
-    backgroundColor: '#f43f5e',
-    borderColor: '#e11d48',
-  },
-  presetButtonText: {
-    color: '#64748b',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  presetButtonTextSelected: {
-    color: '#ffffff',
     fontWeight: 'bold',
   },
   cardHeaderRow: {

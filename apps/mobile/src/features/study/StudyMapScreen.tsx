@@ -9,7 +9,6 @@ import {
   TextInput,
 } from 'react-native';
 import { RoutineRevision } from '../../contracts/types';
-import { ROUTINE_PRESETS, isStudyDay } from '../../domain/routine';
 
 interface StudyMapScreenProps {
   // 통합 학습 현황 & 복습 연동
@@ -60,12 +59,16 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           <View>
             <Text style={styles.cardSectionTitle}>📊 오늘의 학습 현황</Text>
             <Text style={styles.routinePresetText}>
-              {routine ? ROUTINE_PRESETS[routine.preset]?.label : '격일 학습'} · 목표 {targetCount}문항
+              일일 목표 {targetCount}문항 풀이
             </Text>
           </View>
           <View style={styles.routineStatusBadge}>
             <Text style={styles.routineStatusBadgeText}>
-              {routine && isStudyDay(routine) ? '🔔 오늘 학습일' : '☕ 오늘은 휴식일'}
+              {progressPercent >= 100
+                ? '🎉 오늘 목표 달성'
+                : todayAttemptsCount > 0
+                ? '🔥 열공 진행 중'
+                : '🎯 학습 대기'}
             </Text>
           </View>
         </View>

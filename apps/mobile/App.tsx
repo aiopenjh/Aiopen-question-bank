@@ -1287,8 +1287,6 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
               onChangeApiKey={setApiKey}
               onSaveApiKey={handleSaveApiKey}
               onDeleteApiKey={handleDeleteApiKey}
-              routine={routine}
-              onChangeRoutinePreset={handleChangeRoutinePreset}
               alarmConfig={alarmConfig}
               onChangeAlarmConfig={setAlarmConfig}
               onExportBackup={handleExportBackup}
