@@ -596,63 +596,59 @@ export default function App() {
   }
 
   // 2. 적응형 하향 비계 (Scaffolding) 원클릭 세팅
-  function handleApplyScaffolding() {
+  async function handleApplyScaffolding() {
     const currentTopic = topics.find((t) => t.id === selectedTopicId);
     const topicIncorrect = selectedTopicId
       ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
       : incorrectQuestions;
+    const targetMistakes = topicIncorrect.length > 0 ? topicIncorrect : incorrectQuestions;
 
-    const pkg = buildAdaptiveScaffoldingSpec({
-      incorrectQuestions: topicIncorrect.length > 0 ? topicIncorrect : incorrectQuestions,
-      topicName: currentTopic?.name || '자유 학습',
-    });
-
-    if (!pkg) {
-      showAlert('알림', '분석할 오답 문제가 없습니다. 모든 문제를 완벽히 맞히셨습니다!');
+    if (!targetMistakes || targetMistakes.length === 0) {
+      showAlert('알림', '현재 등록된 오답 문제가 없습니다. 모든 문제를 완벽히 맞히셨습니다!');
       return;
     }
 
-    showAlert(
-      '💡 오답 기초 다지기 출제',
-      `최근 틀린 개념 [${pkg.intent.domain}]의 취약점을 보완하는 맞춤 스캐폴딩 문제를 지금 바로 출제하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '지금 출제 & 풀기',
-          onPress: async () => {
-            setIsGenerating(true);
-            try {
-              const activeTopic = topics.find((t) => t.id === selectedTopicId) || topics[0];
-              const targetTopicId = activeTopic ? activeTopic.id : generateUUID();
-              const outcome = await generateFactBasedQuestions({
-                intent: pkg.intent,
-                ownerId: 'owner-default',
-                topicId: targetTopicId,
-                customContext: pkg.scaffoldingContext,
-              });
-              if (outcome.status === 'NEEDS_CONNECTION') {
-                showAlert('⚠️ API 키 필요', outcome.message, [
-                  { text: '닫기' },
-                  { text: '설정 열기', onPress: () => setIsSettingsOpen(true) },
-                ]);
-                return;
-              }
-              if (outcome.status === 'FAILED') {
-                showAlert('출제 실패', outcome.message);
-                return;
-              }
-              const allQ = await getQuestions();
-              setQuestions(allQ);
-              startExam(outcome.questions);
-            } catch (err: any) {
-              showAlert('출제 오류', err.message);
-            } finally {
-              setIsGenerating(false);
-            }
-          },
-        },
-      ]
-    );
+    const pkg = buildAdaptiveScaffoldingSpec({
+      incorrectQuestions: targetMistakes,
+      topicName: currentTopic?.name || '자유 학습',
+    });
+
+    setIsGenerating(true);
+    setGeneratingWaitStatus({
+      active: true,
+      count: 3,
+      title: currentTopic?.name || '오답 개념 집중 보충',
+      message: '⚡ 틀린 문제를 분석하여 맞춤 보충 문제를 준비 중입니다...',
+    });
+
+    try {
+      if (pkg && apiKey && apiKey.length > 8) {
+        const activeTopic = topics.find((t) => t.id === selectedTopicId) || topics[0];
+        const targetTopicId = activeTopic ? activeTopic.id : generateUUID();
+        const outcome = await generateFactBasedQuestions({
+          intent: pkg.intent,
+          ownerId: 'owner-default',
+          topicId: targetTopicId,
+          customContext: pkg.scaffoldingContext,
+        });
+
+        if (outcome.status === 'READY' && outcome.questions.length > 0) {
+          const allQ = await getQuestions();
+          setQuestions(allQ);
+          startExam(outcome.questions);
+          return;
+        }
+      }
+
+      // API 키가 없거나 AI 새 문제 생성이 어려운 경우 -> 수집된 오답 문제들로 즉시 오답 집중 풀이 세션 실행
+      startExam(targetMistakes);
+    } catch (err: any) {
+      // 오류 발생 시에도 기존 오답 문제로 즉시 안전하게 세션 시작
+      startExam(targetMistakes);
+    } finally {
+      setIsGenerating(false);
+      setGeneratingWaitStatus(null);
+    }
   }
 
   async function handleCreateQuestions() {
