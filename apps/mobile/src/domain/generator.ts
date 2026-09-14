@@ -264,19 +264,19 @@ async function callUniversalAiCompletion(apiKey: string, prompt: string): Promis
     return rawText;
   }
 
-  // 3. Google Gemini: 공식 최신 3.5+ 모델 우선 호출 및 지능형 동적 모델 탐색
+  // 3. Google Gemini: 3.5 최우선 사용 및 통신 시간 만료(타임아웃) 시 다음 버전 자동 우회
   const preferredModel = await getPreferredAiModel();
-  const safeModel = preferredModel || 'gemini-3.5-flash';
   let candidateModels = Array.from(
     new Set([
-      safeModel,
+      preferredModel,
       'gemini-3.5-flash',
-      'gemini-3.5-flash-latest',
-      'gemini-3.5-pro',
-      'gemini-3.5-pro-latest',
       'gemini-3.5-flash-lite',
-      'gemini-3.0-flash',
-    ].filter(Boolean))
+      'gemini-3.5-pro',
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+    ].filter(Boolean) as string[])
   );
 
   let lastError: any = null;
@@ -292,7 +292,8 @@ async function callUniversalAiCompletion(apiKey: string, prompt: string): Promis
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(trimmedKey)}`;
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
       if (controller) {
-        timeoutTimer = setTimeout(() => controller.abort(), 90000); // 90초 대기 버퍼
+        // 통신 시간 만료(25초 초과) 시 자동 중단 후 다음 가용 모델로 자동 전환
+        timeoutTimer = setTimeout(() => controller.abort(), 25000);
       }
 
       const res = await fetch(endpoint, {
@@ -315,7 +316,7 @@ async function callUniversalAiCompletion(apiKey: string, prompt: string): Promis
 
       if (res.status === 404) {
         lastError = new Error(`Gemini 모델 [${model}] 404 Not Found`);
-        console.warn(`Gemini 모델 [${model}] 404 -> 다음 호환 모델 탐색`);
+        console.warn(`Gemini 모델 [${model}] 404 -> 다음 호환 모델 자동 전환`);
 
         // 만약 등록된 후보 모델들이 모두 404인 경우, 구글 API 모델 목록 엔드포인트를 동적 질의하여 가용 모델 자동 발견
         if (i === candidateModels.length - 1) {
@@ -370,6 +371,7 @@ async function callUniversalAiCompletion(apiKey: string, prompt: string): Promis
       if (timeoutTimer) clearTimeout(timeoutTimer);
       lastError = err;
       const msg = err?.message || '';
+      // 통신 시간 만료, AbortError, 서버 혼잡 시 즉시 다음 버전 모델로 자동 폴백
       if (
         msg.includes('404') ||
         msg.includes('503') ||
@@ -379,8 +381,13 @@ async function callUniversalAiCompletion(apiKey: string, prompt: string): Promis
         msg.includes('429') ||
         msg.includes('high demand') ||
         msg.includes('UNAVAILABLE') ||
-        msg.includes('Resource has been exhausted')
+        msg.includes('Resource has been exhausted') ||
+        err.name === 'AbortError' ||
+        msg.includes('aborted') ||
+        msg.includes('timeout') ||
+        msg.includes('Network request failed')
       ) {
+        console.warn(`Gemini 모델 [${model}] 통신 지연/타임아웃 발생 -> 다음 상위 버전으로 자동 우회 시도`);
         continue;
       }
       throw err;

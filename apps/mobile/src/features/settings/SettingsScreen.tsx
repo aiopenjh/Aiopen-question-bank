@@ -99,7 +99,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </View>
               <Text style={styles.savedKeySubText}>
                 {apiKey.trim().startsWith('AIzaSy')
-                  ? 'Google Gemini 키가 등록되어 있습니다.'
+                  ? 'Google Gemini 키가 등록되어 있습니다. (최신 3.5 우선 자동 통신)'
                   : apiKey.trim().startsWith('sk-ant-')
                   ? 'Anthropic Claude 키가 등록되어 있습니다.'
                   : apiKey.trim().startsWith('sk-')
@@ -132,7 +132,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           /* 최초 등록이거나 사용자가 '변경'을 눌렀을 때만 입력창 노출 */
           <View style={{ marginTop: 2 }}>
             <Text style={styles.promptGuideText}>
-              사용하실 AI API 키를 입력 후 [저장하기]를 눌러주세요.
+              사용하실 AI API 키를 입력 후 [저장하기]를 눌러주세요. (최신 3.5 모델이 자동 적용됩니다)
             </Text>
 
             <View style={styles.keyInputRow}>
@@ -182,38 +182,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </View>
           </View>
         )}
-      </View>
-
-      {/* 2. 출제 AI 모델 선택 (독립 카드) */}
-      <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>🎯 출제 AI 모델 선택 (3.5+ 최우선)</Text>
-        <Text style={styles.promptGuideText}>
-          문제를 생성할 때 우선 적용할 최신 AI 모델을 지정합니다. 일시 혼잡(503) 시 다음 가용 모델로 자동 우회됩니다.
-        </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {[
-            { id: 'gemini-3.5-flash', label: '⚡ Gemini 3.5 Flash' },
-            { id: 'gemini-3.5-flash-lite', label: '🪶 Gemini 3.5 Lite' },
-            { id: 'gemini-3.6-flash', label: '🚀 Gemini 3.6 Flash' },
-            { id: 'gemini-3.7-flash', label: '🧠 Gemini 3.7 Flash' },
-            { id: 'gemini-3.8-flash', label: '👑 Gemini 3.8 Flash' },
-            { id: 'claude-3-5-sonnet-20241022', label: '🟣 Claude 3.5' },
-            { id: 'gpt-4o', label: '🟢 GPT-4o' },
-          ].map((m) => {
-            const isSelected = preferredModel === m.id;
-            return (
-              <TouchableOpacity
-                key={m.id}
-                style={[styles.modelChip, isSelected && styles.modelChipSelected]}
-                onPress={() => onChangePreferredModel && onChangePreferredModel(m.id)}
-              >
-                <Text style={[styles.modelChipText, isSelected && styles.modelChipTextSelected]}>
-                  {m.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
       </View>
 
       {/* 루틴 요일 설정 카드 */}
