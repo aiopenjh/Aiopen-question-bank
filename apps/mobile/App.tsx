@@ -95,6 +95,7 @@ import { UnitModal } from './src/components/modals/UnitModal';
 import { BackupModal } from './src/components/modals/BackupModal';
 import { QuizCountModal } from './src/components/modals/QuizCountModal';
 import { TopicSelectModal } from './src/components/modals/TopicSelectModal';
+import { UnitSelectModal } from './src/components/modals/UnitSelectModal';
 import { AppAlertModal } from './src/components/modals/AppAlertModal';
 
 // Clean Modular Feature Screens
@@ -128,6 +129,8 @@ export default function App() {
   const [backupText, setBackupText] = useState('');
   const [quizCountModalVisible, setQuizCountModalVisible] = useState(false);
   const [isTopicSelectModalVisible, setIsTopicSelectModalVisible] = useState(false);
+  const [isUnitSelectModalVisible, setIsUnitSelectModalVisible] = useState(false);
+  const [unitSelectTopic, setUnitSelectTopic] = useState<Topic | null>(null);
   const [lastStudiedTopicId, setLastStudiedTopicId] = useState<string | null>(null);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -309,14 +312,25 @@ export default function App() {
     setUnits(updatedUnits);
     setSelectedTopicId(created.id);
     setSelectedUnitId(null);
+    setLastStudiedTopicId(created.id);
+    await saveLastStudiedTopicId(created.id);
 
-    if (generatedCount > 0) {
-      showAlert(
-        '주제 등록 완료',
-        `[${created.name}] 주제와 ${generatedCount}개 학습 목차가 구성되었습니다.`
-      );
+    setTopicModalVisible(false);
+
+    if (isLibraryOpen) {
+      if (generatedCount > 0) {
+        showAlert(
+          '과목 등록 완료',
+          `[${created.name}] 과목과 ${generatedCount}개 학습 단원이 구성되었습니다.`
+        );
+      } else {
+        showAlert('과목 등록 완료', `[${created.name}] 과목이 등록되었습니다.`);
+      }
     } else {
-      showAlert('주제 등록 완료', `[${created.name}] 주제가 등록되었습니다.`);
+      // 대단원이 없는 상태에서 문제풀기를 눌러 새로 생성했을 때:
+      // 일일이 과목 자료함으로 가지 않고, 즉시 단원(영역) 선택 모달을 띄워 출제로 원스톱 직행!
+      setUnitSelectTopic(created);
+      setIsUnitSelectModalVisible(true);
     }
   }
 
@@ -597,32 +611,9 @@ export default function App() {
     setLastStudiedTopicId(topic.id);
     await saveLastStudiedTopicId(topic.id);
 
-    const topicQuestions = questions.filter((q) => q.topicId === topic.id);
-    if (topicQuestions.length > 0) {
-      startExam(topicQuestions);
-      return;
-    }
-
-    // 해당 대단원에 문제가 없을 때 즉시 출제 제안
-    showAlert(
-      '✨ AI 실전 문제 출제',
-      `[${topic.name}] 대단원의 풀이 문제가 아직 없습니다.\n새로운 실전 문제를 지금 출제하여 풀이하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '⚡ 3문제 즉시 출제',
-          onPress: async () => {
-            const firstUnit = units.find((u) => u.topicId === topic.id);
-            await handleQuickGenerateForUnit(
-              topic.id,
-              topic.name,
-              firstUnit?.id || generateUUID(),
-              firstUnit?.title || `${topic.name} 핵심 종합`
-            );
-          },
-        },
-      ]
-    );
+    // 대단원이 선택되면 자동으로 "어느 영역 문제를 생성해드릴까요?" 모달을 띄워 영역 선택 및 출제로 연결
+    setUnitSelectTopic(topic);
+    setIsUnitSelectModalVisible(true);
   }
 
   // -------------------------------------------------------------
@@ -1359,6 +1350,27 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
           setIsTopicSelectModalVisible(false);
           setIsLibraryOpen(true);
         }}
+      />
+
+      {/* 🎯 단원(영역) 선택 모달 - 어느 영역 문제를 생성해드릴까요? */}
+      <UnitSelectModal
+        visible={isUnitSelectModalVisible}
+        topic={unitSelectTopic}
+        units={units}
+        questions={questions}
+        onSelectUnitForGeneration={(topic, unit) => {
+          setIsUnitSelectModalVisible(false);
+          handlePromptQuizCount(topic.id, topic.name, unit.id, unit.title);
+        }}
+        onSelectTopicOverviewForGeneration={(topic) => {
+          setIsUnitSelectModalVisible(false);
+          handlePromptQuizCount(topic.id, topic.name, generateUUID(), `${topic.name} 핵심 종합`);
+        }}
+        onStartExamWithExistingQuestions={(qs) => {
+          setIsUnitSelectModalVisible(false);
+          startExam(qs);
+        }}
+        onClose={() => setIsUnitSelectModalVisible(false)}
       />
 
       {/* AI 문제 출제 대기 안내 모달 */}
