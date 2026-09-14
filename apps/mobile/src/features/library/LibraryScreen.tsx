@@ -41,6 +41,9 @@ export interface LibraryScreenProps {
   sourceText: string;
   onChangeSourceText: (text: string) => void;
   onSaveSource: () => Promise<void>;
+  onPickSourceFile?: () => Promise<void>;
+  selectedSourceTopicId?: string | null;
+  onSelectSourceTopicId?: (topicId: string | null) => void;
 }
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({
@@ -69,6 +72,9 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   sourceText,
   onChangeSourceText,
   onSaveSource,
+  onPickSourceFile,
+  selectedSourceTopicId,
+  onSelectSourceTopicId,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const [expandedTopicId, setExpandedTopicId] = useState<string | null>(null);
@@ -413,33 +419,101 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
         </View>
       )}
 
-      {/* 5. 교재 및 텍스트 자료 등록 카드 */}
+      {/* 5. 교재 및 학습 자료 등록 (과목 선택 & 파일 업로드) */}
       <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>📖 내 교재 및 텍스트 발췌 등록</Text>
-        <Text style={styles.promptGuideText}>
-          교재 본문이나 학습 요약 텍스트를 등록해 두시면 해당 내용을 우선 반영하여 문제가 출제됩니다.
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <Text style={styles.cardSectionTitle}>📖 내 교재 및 학습 자료 등록</Text>
+          <View style={styles.badgePill}>
+            <Text style={styles.badgePillText}>과목 연계 & 파일 첨부</Text>
+          </View>
+        </View>
 
+        {/* ⚠️ 파일 업로드 시 주의사항 (유저 요청 100% 반영) */}
+        <View style={styles.sourceNoticeBox}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Text style={{ fontSize: 13 }}>⚠️</Text>
+            <Text style={styles.sourceNoticeTitle}>파일 업로드 시 주의사항</Text>
+          </View>
+          <Text style={styles.sourceNoticeText}>
+            • <Text style={{ fontWeight: 'bold' }}>PDF, TXT 파일</Text>은 단일 파일 또는 ZIP 압축으로 바로 첨부 가능합니다.{'\n'}
+            • <Text style={{ fontWeight: 'bold', color: '#be123c' }}>한글 문서(.hwp)</Text>는 AI가 직접 읽을 수 없으므로, 반드시 <Text style={{ fontWeight: 'bold', color: '#9f1239' }}>[PDF 또는 TXT 파일로 변환]</Text>하여 첨부 바랍니다.{'\n'}
+            • 파일을 첨부하시면 제목과 본문 내용이 자동 추출되어 일일이 타이핑하실 필요가 없습니다.
+          </Text>
+        </View>
+
+        {/* 1단계: 적용할 학습 과목(대단원) 선택 */}
+        <Text style={styles.stepLabel}>1️⃣ 적용할 학습 과목(대단원) 선택</Text>
+        {topics.length === 0 ? (
+          <Text style={styles.emptyTopicHint}>※ 먼저 상단에서 학습 과목(대단원)을 생성해 주세요.</Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.topicChipScroll}>
+            {topics.map((t) => {
+              const isSelected = selectedSourceTopicId === t.id;
+              return (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.topicChip, isSelected && styles.topicChipSelected]}
+                  onPress={() => onSelectSourceTopicId?.(isSelected ? null : t.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.topicChipText, isSelected && styles.topicChipTextSelected]}>
+                    {isSelected ? '✓ ' : ''}{t.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {/* 2단계: 파일 원클릭 첨부 버튼 (PDF, TXT, ZIP) */}
+        <Text style={[styles.stepLabel, { marginTop: 12 }]}>2️⃣ 교재 파일 첨부 (일일이 타자칠 필요 없음!)</Text>
+        {onPickSourceFile && (
+          <TouchableOpacity
+            style={styles.fileUploadBigBtn}
+            onPress={onPickSourceFile}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.fileUploadBigIcon}>📁</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fileUploadBigTitle}>교재 / 요약 파일 선택하기</Text>
+              <Text style={styles.fileUploadBigSub}>PDF, TXT, ZIP 압축 파일 지원 (한글 문서는 변환 후 첨부)</Text>
+            </View>
+            <View style={styles.fileUploadTag}>
+              <Text style={styles.fileUploadTagText}>파일 탐색</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* 3단계: 추출된 자료 확인 & 등록 */}
+        <Text style={[styles.stepLabel, { marginTop: 12 }]}>3️⃣ 등록할 자료 제목 및 요약 내용</Text>
         <TextInput
           style={styles.inputField}
-          placeholder="자료 제목 (예: 자료구조 3장 트리, 영문법 수동태 요약)"
-          placeholderTextColor="#64748b"
+          placeholder="파일을 선택하면 제목이 자동 입력됩니다 (직접 수정 가능)"
+          placeholderTextColor="#94a3b8"
           value={sourceTitle}
           onChangeText={onChangeSourceTitle}
         />
 
         <TextInput
           style={[styles.inputField, styles.textArea]}
-          placeholder="교재 본문이나 강의 요약 노트를 붙여넣으세요..."
-          placeholderTextColor="#64748b"
+          placeholder="파일을 첨부하시면 내용이 자동 입력됩니다..."
+          placeholderTextColor="#94a3b8"
           multiline
-          numberOfLines={4}
+          numberOfLines={3}
           value={sourceText}
           onChangeText={onChangeSourceText}
         />
 
-        <TouchableOpacity style={styles.primaryActionButton} onPress={onSaveSource}>
-          <Text style={styles.primaryActionText}>💾 자료 저장하기</Text>
+        <TouchableOpacity
+          style={[
+            styles.primaryActionButton,
+            (!sourceTitle.trim() || !sourceText.trim()) && styles.disabledActionBtn,
+          ]}
+          onPress={onSaveSource}
+          disabled={!sourceTitle.trim() || !sourceText.trim()}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.primaryActionText}>💾 선택한 과목에 교재 자료 등록하기</Text>
         </TouchableOpacity>
 
         {sources.length > 0 && (
@@ -903,5 +977,111 @@ const styles = StyleSheet.create({
   sourceItemMeta: {
     fontSize: 11,
     color: '#64748b',
+  },
+  badgePill: {
+    backgroundColor: '#ffe4e6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fda4af',
+  },
+  badgePillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#e11d48',
+  },
+  sourceNoticeBox: {
+    backgroundColor: '#fff1f4',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+  },
+  sourceNoticeTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#881337',
+  },
+  sourceNoticeText: {
+    fontSize: 11,
+    color: '#9f1239',
+    lineHeight: 16,
+  },
+  stepLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  emptyTopicHint: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginBottom: 8,
+  },
+  topicChipScroll: {
+    marginBottom: 6,
+  },
+  topicChip: {
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    marginRight: 6,
+  },
+  topicChipSelected: {
+    backgroundColor: '#f43f5e',
+    borderColor: '#f43f5e',
+  },
+  topicChipText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  topicChipTextSelected: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  fileUploadBigBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#f43f5e',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    gap: 10,
+  },
+  fileUploadBigIcon: {
+    fontSize: 24,
+  },
+  fileUploadBigTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#881337',
+    marginBottom: 2,
+  },
+  fileUploadBigSub: {
+    fontSize: 10.5,
+    color: '#64748b',
+  },
+  fileUploadTag: {
+    backgroundColor: '#ffe4e6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  fileUploadTagText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#e11d48',
+  },
+  disabledActionBtn: {
+    backgroundColor: '#cbd5e1',
+    opacity: 0.6,
   },
 });

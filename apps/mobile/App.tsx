@@ -85,7 +85,7 @@ import {
   generateCurriculumUnits,
 } from './src/domain/generator';
 import { filterDueReviewQuestions } from './src/domain/spaced_repetition';
-import { compressBackupToZip, decompressBackupPayload, u8ToBase64, base64ToU8 } from './src/utils/backupArchive';
+import { compressBackupToZip, decompressBackupPayload, u8ToBase64, base64ToU8, unzipSync, strFromU8 } from './src/utils/backupArchive';
 
 // Clean Modular Custom Hooks & Styles
 import { appStyles as styles } from './src/styles/appStyles';
@@ -210,6 +210,7 @@ export default function App() {
   // Library Input State
   const [sourceTitle, setSourceTitle] = useState('');
   const [sourceText, setSourceText] = useState('');
+  const [sourceTopicId, setSourceTopicId] = useState<string | null>(null);
 
   // Global In-App Alert Modal State
   const [appAlert, setAppAlert] = useState<AlertData | null>(null);
@@ -474,13 +475,104 @@ export default function App() {
 
 
   // -------------------------------------------------------------
-  // 자료 등록 핸들러
+  // 교재/발췌 자료 파일 첨부 & 등록 핸들러
   // -------------------------------------------------------------
+  async function handlePickSourceFile() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const file = result.assets[0];
+      const fileName = file.name;
+      const ext = fileName.split('.').pop()?.toLowerCase() || '';
+
+      // 1. 한글 파일(.hwp, .hwpx) 차단 및 친절한 변환 가이드
+      if (ext === 'hwp' || ext === 'hwpx') {
+        showAlert(
+          '⚠️ 한글 문서(.hwp) 변환 안내',
+          '한글 문서(.hwp)는 AI 엔진이 바로 읽을 수 없는 고유 바이너리 규격입니다.\n\n한글 프로그램에서 [파일 > 다른 이름으로 저장 > PDF 또는 텍스트(.txt)]로 변환하신 후 첨부해 주세요!'
+        );
+        return;
+      }
+
+      let extractedText = '';
+
+      // 2. ZIP 압축 파일 (내부 txt, md, json, pdf 등 자동 압축 해제)
+      if (ext === 'zip') {
+        let u8: Uint8Array;
+        if (Platform.OS === 'web' && (file as any).file) {
+          const buf = await (file as any).file.arrayBuffer();
+          u8 = new Uint8Array(buf);
+        } else {
+          const b64 = await FileSystem.readAsStringAsync(file.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          u8 = base64ToU8(b64);
+        }
+        const unzipped = unzipSync(u8);
+        let foundCount = 0;
+        for (const name of Object.keys(unzipped)) {
+          const innerExt = name.split('.').pop()?.toLowerCase();
+          if (innerExt === 'txt' || innerExt === 'md' || innerExt === 'json' || innerExt === 'csv') {
+            extractedText += `[${name}]\n` + strFromU8(unzipped[name]) + '\n\n';
+            foundCount++;
+          } else if (innerExt === 'pdf') {
+            extractedText += `[압축 내 PDF 교재: ${name}]\n`;
+            foundCount++;
+          }
+        }
+        if (foundCount === 0) {
+          extractedText = `[ZIP 아카이브: ${fileName}] (${Object.keys(unzipped).length}개 파일 포함)`;
+        }
+      } else if (ext === 'txt' || ext === 'md' || ext === 'csv' || ext === 'json') {
+        // 3. 텍스트 / 마크다운 문서
+        if (Platform.OS === 'web' && (file as any).file) {
+          extractedText = await (file as any).file.text();
+        } else {
+          extractedText = await FileSystem.readAsStringAsync(file.uri, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+        }
+      } else if (ext === 'pdf') {
+        // 4. PDF 교재 문서
+        const sizeKb = file.size ? Math.round(file.size / 1024) : 0;
+        extractedText = `[PDF 교재: ${fileName} (${sizeKb}KB)]\n해당 PDF 교재의 학습 내용에 기반하여 문제가 정밀 출제됩니다.`;
+      } else {
+        extractedText = `[첨부 파일: ${fileName}]`;
+      }
+
+      // 제목 자동 기입 (확장자 제거)
+      const cleanTitle = fileName.replace(/\.[^/.]+$/, '');
+      setSourceTitle(cleanTitle);
+      setSourceText(extractedText);
+
+      showAlert(
+        '📁 파일 불러오기 완료',
+        `"${fileName}" 파일 내용이 준비되었습니다.\n\n적용할 학습 과목(대단원)을 선택하신 후 [💾 교재 자료 등록하기]를 눌러주세요!`
+      );
+    } catch (err: any) {
+      console.warn('파일 첨부 실패:', err);
+      showAlert('오류', `파일을 불러오는 중 오류가 발생했습니다: ${err?.message || '알 수 없는 오류'}`);
+    }
+  }
+
   async function handleSaveSource() {
     if (!sourceTitle.trim() || !sourceText.trim()) {
       showAlert('알림', '자료 제목과 본문 내용을 모두 입력해 주세요.');
       return;
     }
+
+    const targetTopic = topics.find((t) => t.id === sourceTopicId);
+    const finalTitle = targetTopic
+      ? `[${targetTopic.name}] ${sourceTitle.trim()}`
+      : sourceTitle.trim();
+
     const sourceId = generateUUID();
     const revId = generateUUID();
 
@@ -488,7 +580,7 @@ export default function App() {
       id: sourceId,
       ownerId: 'owner-default',
       kind: 'text',
-      title: sourceTitle.trim(),
+      title: finalTitle,
       visibility: 'private',
       allowExternalProcessing: false,
       archivedAt: null,
@@ -499,7 +591,7 @@ export default function App() {
       id: revId,
       sourceId,
       hash: 'sha256-' + Date.now(),
-      provenance: '직접 입력 텍스트 발췌',
+      provenance: targetTopic ? `[${targetTopic.name}] 연계 교재 자료` : '교재 및 텍스트 발췌',
       originalFileRef: null,
       createdAt: getCurrentISOTime(),
     };
@@ -517,7 +609,7 @@ export default function App() {
     const updatedSources = await getSources();
     setSources(updatedSources);
 
-    showAlert('등록 완료', '내 텍스트 자료가 안전하게 로컬 저장소에 보관되었습니다.');
+    showAlert('등록 완료', `"${finalTitle}" 교재 자료가 안전하게 로컬 저장소에 보관되었습니다.`);
     setSourceTitle('');
     setSourceText('');
   }
@@ -926,6 +1018,9 @@ export default function App() {
               sourceText={sourceText}
               onChangeSourceText={setSourceText}
               onSaveSource={handleSaveSource}
+              onPickSourceFile={handlePickSourceFile}
+              selectedSourceTopicId={sourceTopicId}
+              onSelectSourceTopicId={setSourceTopicId}
             />
           </SafeAreaView>
         </Modal>
