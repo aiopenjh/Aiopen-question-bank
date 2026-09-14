@@ -60,9 +60,10 @@ export function analyzeUserIntent(
   }
 ): ScopedIntent {
   const text = inputPrompt.trim();
-  // 사용자가 직접 입력한 텍스트에서 도메인을 최우선 추출 (이전 선택된 주제에 오염되지 않도록 보장)
-  const extracted = extractDomainFromText(text);
-  const domain = extracted || topicName || '자유 학습 주제';
+  // topicName이 전달된 경우 해당 과목명을 최우선 도메인으로 고정 (단원명/프롬프트에 의한 분야 왜곡 방지)
+  const domain = (topicName && topicName.trim().length > 0)
+    ? topicName.trim()
+    : (extractDomainFromText(text) || '자유 학습 주제');
 
   const learnerLevel: LearnerKnowledgeLevel = options?.learnerLevel || 'basic';
   const knownScope = options?.knownScope?.trim();
@@ -121,7 +122,9 @@ export function analyzeUserIntent(
 
 function extractDomainFromText(text: string): string {
   const cleaned = text
+    .replace(/\[[^\]]*\]/g, '') // 단원명이나 태그 [기초과정] 등 제거
     .replace(/([0-9]+)\s*문제.*/, '')
+    .replace(/([0-9]+)\s*문항.*/, '')
     .replace(/출제.*/, '')
     .replace(/풀어줘.*/, '')
     .replace(/풀어볼래.*/, '')
@@ -140,11 +143,12 @@ export async function generateFactBasedQuestions(params: {
   intent: ScopedIntent;
   ownerId: UUID;
   topicId: UUID;
+  topicName?: string;
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
 }): Promise<GenerationOutcome> {
-  const { intent, ownerId, topicId, unitId, unitTitle, customContext } = params;
+  const { intent, ownerId, topicId, topicName, unitId, unitTitle, customContext } = params;
   const apiKey = await getGeminiApiKey();
 
   // API Key 미연동 시: 가짜 문제를 억지로 내지 않고 솔직한 통로 안내 반환
@@ -163,6 +167,7 @@ export async function generateFactBasedQuestions(params: {
       intent,
       ownerId,
       topicId,
+      topicName,
       unitId,
       unitTitle,
       customContext,
@@ -410,6 +415,7 @@ async function generateViaUniversalAiApi(params: {
   intent: ScopedIntent;
   ownerId: UUID;
   topicId: UUID;
+  topicName?: string;
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
@@ -418,7 +424,7 @@ async function generateViaUniversalAiApi(params: {
   questions: QuestionRevision[];
   validations: ValidationRecord[];
 }> {
-  const { apiKey, intent, ownerId, topicId, unitId, unitTitle, customContext } = params;
+  const { apiKey, intent, ownerId, topicId, topicName, unitId, unitTitle, customContext } = params;
 
   const specId = generateUUID();
   const spec: LearningSpec = {
@@ -433,11 +439,15 @@ async function generateViaUniversalAiApi(params: {
     createdAt: getCurrentISOTime(),
   };
 
+  const resolvedDomain = (topicName && topicName.trim().length > 0)
+    ? topicName.trim()
+    : intent.domain;
+
   const prompt = `당신은 대한민국 최고 권위의 공인 시험 출제위원 및 평가 전문가(Certified Psychometrician)입니다.
 아래 명세에 맞추어 최고 품질의 4지선다형 객관식 시험 문제 ${intent.targetCount}문항을 생성하여 순수 JSON 포맷으로 출력하세요.
 
-[학습 주제 및 출제 범위]
-- 과목/도메인: ${intent.domain}
+[학습 과목 및 출제 범위]
+- 과목/도메인: ${resolvedDomain}
 ${unitTitle ? `- 지정 단원(공식 목차): ${unitTitle}` : ''}
 - 학습자 지식 수준: ${intent.levelLabel} (${intent.learnerLevel || 'basic'})
 ${intent.knownScope ? `- 학습자가 밝힌 현재 학습 도달점: "${intent.knownScope}"` : ''}
@@ -445,12 +455,16 @@ ${intent.knownScope ? `- 학습자가 밝힌 현재 학습 도달점: "${intent.
 - 세부 요구사항: ${intent.focusConcepts.join(', ')}
 ${customContext ? `- 참고 자료 및 특별 지침:\n${customContext}` : ''}
 
-[절대적 무결성 및 환각 제로 헌법 (Zero-Hallucination & Ground Truth)]
-1. [철저한 공인 팩트 기반]: 실제 정규 교과서, 공인 기출문제, 공식 기술 표준 문서에 등재된 "100% 검증된 정통 학술 팩트"에만 근거하여 출제하십시오. 존재하지 않는 가짜 이론, 틀린 공식, 인위적으로 날조한 단어/함수/명령어(환각 증세)를 절대 배제하십시오.
-2. [단 하나의 명백한 유일 정답]: 4개의 보기 중 오직 1개만이 완전무결하고 반박 불가능한 정답이어야 합니다. 복수정답 시비가 없도록 발문(stem)에 명확한 조건("다음 중 가장 적절한 것은?", "올바른 설명만을 있는 대로 고른 것은?" 등)을 부여하십시오.
-3. [정답 위치의 완전 무작위 분산]: 정답 번호(correctIndex: 0~3)는 특정 번호(1번, 2번 등)에 고정되지 않도록 1, 2, 3, 4번 선지에 걸쳐 골고루 무작위로 분산하여 배치하십시오.
-4. [매력적인 오답 선지 및 명확한 오답 이유 (distractorRationale)]: 3개의 오답 선지는 지어낸 허구의 단어가 아니라, 수험자가 실제로 혼동하기 쉬운 인접 개념이나 전형적인 오개념을 활용하여 설계하십시오. 각 오답 선지마다 distractorRationale에 "수험자가 왜 이 보기를 골라 틀리기 쉬운지, 무엇이 잘못된 것인지"를 학습자가 납득할 수 있도록 명확히 서술하십시오 (정답 선지의 distractorRationale은 빈 문자열 "").
-5. [명쾌하고 상세한 문제 풀이 (explanation)]: 정답이 왜 옳은지, 문제를 해결하는 핵심 원리와 도출 과정을 친절하고 상세하게 서술하십시오. 불필요하게 "[출제 근거 팩트: ...]" 같은 딱딱한 꼬리표를 붙이지 말고, 수험자가 오답노트를 보고 왜 틀렸는지 완벽히 이해할 수 있는 정통 풀이 및 해설 형태로 작성하십시오.
+[과목 일치 및 교차 분야 혼동 방지 절대 헌법 (CRITICAL - Strict Domain Isolation)]
+1. [지정 과목 100% 한정]: 본 시험 문제는 반드시 지정된 과목 [${resolvedDomain}] 에 100% 국한하여 출제해야 합니다.
+2. [단원명/용어에 의한 타 분야 왜곡 절대 금지]:
+   - 단원명(${unitTitle ? `"${unitTitle}"` : '지정 단원'})이나 세부 요구사항에 '기초', '원리', '문법', '구조', '기초과정', '입문' 등의 일반적 어휘가 있더라도, 절대 다른 분야(예: 컴퓨터 프로그래밍 언어, 파이썬, 코딩, 수학 등)로 분야를 혼동하여 출제하지 마십시오.
+   - [예시]: 과목이 '토익', '영어', '영단어'인 경우, 단원이 '기초과정'이라도 반드시 토익 빈출 필수 영단어, 어휘 의미, 알맞은 단어 채우기, 품사 구분, 예문 독해 문항이어야 하며, 파이썬(Python)이나 컴퓨터 프로그래밍 코드가 단 한 줄이라도 들어가서는 절대 안 됩니다! 100% [${resolvedDomain}] 과목의 공식 시험 문제입니다.
+3. [철저한 공인 팩트 기반]: 실제 정규 교과서, 공인 기출문제, 공식 기술 표준 문서에 등재된 "100% 검증된 정통 학술 팩트"에만 근거하여 출제하십시오. 존재하지 않는 가짜 이론, 틀린 공식, 인위적으로 날조한 단어/함수/명령어(환각 증세)를 절대 배제하십시오.
+4. [단 하나의 명백한 유일 정답]: 4개의 보기 중 오직 1개만이 완전무결하고 반박 불가능한 정답이어야 합니다. 복수정답 시비가 없도록 발문(stem)에 명확한 조건("다음 중 가장 적절한 것은?", "올바른 설명만을 있는 대로 고른 것은?" 등)을 부여하십시오.
+5. [정답 위치의 완전 무작위 분산]: 정답 번호(correctIndex: 0~3)는 특정 번호(1번, 2번 등)에 고정되지 않도록 1, 2, 3, 4번 선지에 걸쳐 골고루 무작위로 분산하여 배치하십시오.
+6. [매력적인 오답 선지 및 명확한 오답 이유 (distractorRationale)]: 3개의 오답 선지는 지어낸 허구의 단어가 아니라, 수험자가 실제로 혼동하기 쉬운 인접 개념이나 전형적인 오개념을 활용하여 설계하십시오. 각 오답 선지마다 distractorRationale에 "수험자가 왜 이 보기를 골라 틀리기 쉬운지, 무엇이 잘못된 것인지"를 학습자가 납득할 수 있도록 명확히 서술하십시오 (정답 선지의 distractorRationale은 빈 문자열 "").
+7. [명쾌하고 상세한 문제 풀이 (explanation)]: 정답이 왜 옳은지, 문제를 해결하는 핵심 원리와 도출 과정을 친절하고 상세하게 서술하십시오. 불필요하게 "[출제 근거 팩트: ...]" 같은 딱딱한 꼬리표를 붙이지 말고, 수험자가 오답노트를 보고 왜 틀렸는지 완벽히 이해할 수 있는 정통 풀이 및 해설 형태로 작성하십시오.
 
 [출력 JSON 스키마 규격]
 {

@@ -44,6 +44,7 @@ export interface UseQuizGenerationProps {
   onRefreshData: () => Promise<void>;
   setUnits: (units: Unit[]) => void;
   setQuestions: (questions: QuestionRevision[]) => void;
+  onCloseLibrary?: () => void;
 }
 
 export function useQuizGeneration({
@@ -61,6 +62,7 @@ export function useQuizGeneration({
   onRefreshData,
   setUnits,
   setQuestions,
+  onCloseLibrary,
 }: UseQuizGenerationProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCurriculumGenerating, setIsCurriculumGenerating] = useState(false);
@@ -90,7 +92,7 @@ export function useQuizGeneration({
       setGeneratingWaitStatus({
         active: true,
         count: targetCount,
-        title: unitTitle,
+        title: `${topicName} - ${unitTitle}`,
         message:
           targetCount === 3
             ? '⚡ 3문제를 생성 중입니다 (약 10초 내외 소요)...'
@@ -99,15 +101,20 @@ export function useQuizGeneration({
             : '🏆 10문제 시험지를 출제 중입니다 (약 30~45초 소요)...',
       });
       try {
-        const scoped = analyzeUserIntent(`[${unitTitle}] 핵심 개념 ${targetCount}문제 출제`, topicName, {
-          learnerLevel: 'basic',
-          targetCount,
-        });
+        const scoped = analyzeUserIntent(
+          `[${topicName} - ${unitTitle}] 핵심 개념 ${targetCount}문제 출제`,
+          topicName,
+          {
+            learnerLevel: 'basic',
+            targetCount,
+          }
+        );
 
         const outcome = await generateFactBasedQuestions({
           intent: scoped,
           ownerId: 'owner-default',
           topicId,
+          topicName,
           unitId,
           unitTitle,
         });
@@ -135,7 +142,8 @@ export function useQuizGeneration({
         const allQ = await getQuestions();
         setQuestions(allQ);
 
-        // 시험 세션 즉시 시작
+        // 출제 완료 시 자료함 닫고 CBT 시험장 즉시 입장
+        onCloseLibrary?.();
         startExam(outcome.questions);
       } catch (err: any) {
         showAlert('오류', `단원 문제 출제 실패: ${err?.message || '네트워크 응답 오류'}`);
@@ -144,7 +152,7 @@ export function useQuizGeneration({
         setGeneratingWaitStatus(null);
       }
     },
-    [onOpenSettings, setQuestions, startExam]
+    [onOpenSettings, setQuestions, startExam, onCloseLibrary]
   );
 
   const handleSelectQuizCount = useCallback(
@@ -305,6 +313,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         intent: scoped,
         ownerId: 'owner-default',
         topicId: currentTopic.id,
+        topicName: currentTopic.name,
         unitId: targetUnitId,
         unitTitle: targetUnitTitle,
         customContext,

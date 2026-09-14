@@ -149,6 +149,7 @@ export default function App() {
     questions,
     reviewStates,
     units,
+    topics,
     selectedTopicId,
     selectedUnitId,
     setSelectedTopicId,
@@ -202,6 +203,7 @@ export default function App() {
     },
     setUnits,
     setQuestions,
+    onCloseLibrary: () => setIsLibraryOpen(false),
   });
 
   // Library Input State
@@ -830,6 +832,7 @@ export default function App() {
                   intent,
                   ownerId: 'owner-default',
                   topicId: targetTopic.id,
+                  topicName: targetTopic.name,
                   unitId: targetUnitId,
                   unitTitle: targetUnitTitle || intent.domain,
                   customContext: prompt,
@@ -893,7 +896,6 @@ export default function App() {
               onDeleteUnit={handleDeleteUnit}
               onGenerateCurriculumForTopic={handleGenerateCurriculumForTopic}
               onQuickGenerateForUnit={(topicId, topicName, unitId, unitTitle) => {
-                setIsLibraryOpen(false);
                 handlePromptQuizCount(topicId, topicName, unitId, unitTitle);
               }}
               onDeduplicateUnits={handleDeduplicateUnits}

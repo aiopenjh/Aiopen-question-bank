@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { QuestionRevision, ReviewState, Unit, Attempt } from '../contracts/types';
+import { QuestionRevision, ReviewState, Unit, Attempt, Topic } from '../contracts/types';
 import { distributeQuestionAnswersRandomly } from '../domain/generator';
 import { calculateNextReviewState } from '../domain/spaced_repetition';
 import { getLocalDateString } from '../domain/routine';
@@ -17,6 +17,7 @@ export interface UseExamSessionProps {
   questions: QuestionRevision[];
   reviewStates: ReviewState[];
   units: Unit[];
+  topics?: Topic[];
   selectedTopicId: string | null;
   selectedUnitId: string | null;
   setSelectedTopicId: (id: string | null) => void;
@@ -28,6 +29,7 @@ export function useExamSession({
   questions,
   reviewStates,
   units,
+  topics = [],
   selectedTopicId,
   selectedUnitId,
   setSelectedTopicId,
@@ -47,17 +49,21 @@ export function useExamSession({
         }
         // 2순위: 선택된 주제의 문제
         if (!list || list.length === 0) {
-          list = selectedTopicId ? questions.filter((q) => q.topicId === selectedTopicId) : questions;
+          if (selectedTopicId) {
+            list = questions.filter((q) => q.topicId === selectedTopicId);
+          } else {
+            list = questions;
+          }
         }
       }
-      if (!list || list.length === 0) {
-        list = questions;
-      }
 
-      if (list.length === 0) {
+      if (!list || list.length === 0) {
+        const topicObj = topics.find((t) => t.id === selectedTopicId);
         showAlert(
           '출제된 문제 없음',
-          '현재 풀 수 있는 문제가 없습니다.\n[AI 출제] 탭에서 주제나 단원에 맞는 문제를 먼저 생성해 보세요!'
+          topicObj
+            ? `[${topicObj.name}] 과목에 출제된 문제가 아직 없습니다.\n'새 문제 출제'를 눌러 맞춤 문제를 먼저 생성해 보세요!`
+            : '현재 풀 수 있는 문제가 없습니다.\n원하는 과목이나 단원의 문제를 먼저 출제해 보세요!'
         );
         return;
       }
