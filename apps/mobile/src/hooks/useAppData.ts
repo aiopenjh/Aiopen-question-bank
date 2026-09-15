@@ -141,12 +141,30 @@ export function useAppData(callbacks?: {
   async function handleCreateTopic(
     name: string,
     description: string,
-    options?: { autoCurriculum?: boolean; learnerLevel?: LearnerKnowledgeLevel; category?: string }
+    options?: {
+      autoCurriculum?: boolean;
+      learnerLevel?: LearnerKnowledgeLevel;
+      category?: string;
+      customUnits?: string[];
+    }
   ) {
-    const created = await createTopic(name, description, options?.category || '📚 일반');
+    const categoryName = options?.category?.trim() || '📚 일반';
+    const created = await createTopic(name, description, categoryName);
 
     let generatedCount = 0;
-    if (options?.autoCurriculum !== false) {
+    if (options?.customUnits && options.customUnits.length > 0) {
+      for (const title of options.customUnits) {
+        const cleanTitle = title.trim();
+        if (cleanTitle) {
+          await createUnit({
+            topicId: created.id,
+            title: cleanTitle,
+            depth: 1,
+          });
+          generatedCount++;
+        }
+      }
+    } else if (options?.autoCurriculum !== false) {
       try {
         const generatedUnits = await generateCurriculumUnits({
           topicName: name,
