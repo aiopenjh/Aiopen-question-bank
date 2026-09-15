@@ -357,11 +357,11 @@ export function useQuizGeneration({
       // 5단위 단계별(1~6단계, 30단원까지) 세분화된 단계명 산출
       const stageNumber = Math.floor((nextStartIndex - 1) / 5) + 1;
       const stageNames: Record<number, string> = {
-        2: '2단계: 핵심 자료형 & 기본 제어 흐름',
-        3: '3단계: 반복문 제어 & 기초 내장 함수',
-        4: '4단계: 함수 정의 & 모듈/패키지 & 파일 I/O',
-        5: '5단계: 객체지향 OOP & 예외 처리 & 실전 테크닉',
-        6: '6단계: 고급 표준 라이브러리 & 알고리즘 & 종합 프로젝트',
+        2: '2단계: 핵심 기본 개념 & 원리 이해',
+        3: '3단계: 심화 이론 & 세부 유형 분석',
+        4: '4단계: 실무 적용 & 실전 응용 사례',
+        5: '5단계: 빈출 함정 극복 & 심층 추론',
+        6: '6단계: 고난도 복합 융합 & 종합 마스터',
       };
       const nextStageName = stageNames[stageNumber] || `${stageNumber}단계: 실전 심화 연속 과정`;
 
