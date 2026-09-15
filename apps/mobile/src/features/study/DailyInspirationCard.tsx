@@ -113,11 +113,6 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
         <View style={styles.badgeRow}>
           <Text style={styles.badgeIcon}>💌</Text>
           <Text style={styles.badgeTitle}>오늘의 응원 한마디</Text>
-          {apiKey && apiKey.trim().length > 10 && (
-            <View style={styles.aiTag}>
-              <Text style={styles.aiTagText}>AI 실시간</Text>
-            </View>
-          )}
         </View>
         <TouchableOpacity
           onPress={handleRefresh}
@@ -127,9 +122,9 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           {isLoadingAi ? (
-            <ActivityIndicator size="small" color="#f43f5e" />
+            <ActivityIndicator size="small" color="#c2410c" />
           ) : (
-            <Text style={styles.refreshBtnText}>🔄 새로고침</Text>
+            <Text style={styles.refreshBtnText}>🔄</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -174,33 +169,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#9a3412',
   },
-  aiTag: {
-    backgroundColor: '#fff7ed',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#fdba74',
-  },
-  aiTagText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#ea580c',
-  },
   refreshBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#fff7ed',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#fed7aa',
   },
   refreshBtnText: {
-    fontSize: 11,
-    color: '#c2410c',
-    fontWeight: '600',
+    fontSize: 13,
   },
   messageText: {
     fontSize: 13.5,
