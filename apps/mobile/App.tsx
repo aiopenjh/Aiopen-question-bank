@@ -49,7 +49,6 @@ import { Header } from './src/components/common/Header';
 import { UpdateNotificationBanner } from './src/components/common/UpdateNotificationBanner';
 import { AppModalsContainer } from './src/components/modals/AppModalsContainer';
 import { AppAlertModal } from './src/components/modals/AppAlertModal';
-import { LoadingWaitOverlay } from './src/components/modals/LoadingWaitOverlay';
 import { StudyMapScreen } from './src/features/study/StudyMapScreen';
 import { LibraryScreen } from './src/features/library/LibraryScreen';
 import { SettingsScreen } from './src/features/settings/SettingsScreen';
@@ -779,13 +778,6 @@ export default function App() {
               />
             </View>
           </Animated.View>
-
-          {/* AI 출제 및 커리큘럼 생성 대기 전체화면 오버레이 */}
-          <LoadingWaitOverlay
-            status={generatingWaitStatus}
-            isAbsolute={true}
-            onCancel={handleCancelGeneration}
-          />
         </View>
 
         {/* 공통 모달 컨테이너 (8종 모달 일원화) */}
