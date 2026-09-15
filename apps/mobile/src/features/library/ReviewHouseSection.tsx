@@ -131,7 +131,15 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
 
       {/* 3. 과목 선택 가로 칩 바 (전체 맨 앞) */}
       {topics.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reviewTopicScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.reviewTopicScroll}
+          onTouchStart={(e: any) => e.stopPropagation?.()}
+          onTouchMove={(e: any) => e.stopPropagation?.()}
+          onTouchEnd={(e: any) => e.stopPropagation?.()}
+          {...({ 'data-horizontal-scroll': 'true' } as any)}
+        >
           <TouchableOpacity
             style={[styles.reviewTopicChip, activeReviewTopicId === null && styles.reviewTopicChipActive]}
             onPress={() => setActiveReviewTopicId(null)}

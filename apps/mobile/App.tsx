@@ -105,9 +105,40 @@ export default function App() {
   const isSwipingHorizontal = useRef<boolean>(false);
   const isScrollingVertical = useRef<boolean>(false);
 
+  // 내부 가로 스크롤(과목 필터 칩, 복습 칩 등) 터치 감지 헬퍼
+  const isInsideHorizontalScroll = (target: any): boolean => {
+    try {
+      let el = target as HTMLElement | null;
+      while (el && el !== document.body) {
+        if (el.getAttribute?.('data-horizontal-scroll') === 'true') {
+          return true;
+        }
+        if (typeof window !== 'undefined' && window.getComputedStyle) {
+          const style = window.getComputedStyle(el);
+          if (
+            style &&
+            (style.overflowX === 'auto' || style.overflowX === 'scroll') &&
+            el.scrollWidth > el.clientWidth
+          ) {
+            return true;
+          }
+        }
+        el = el.parentElement;
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  };
+
   const handleTouchStart = (e: any) => {
     if (isTransitioning.current) return;
     if (!e.touches || e.touches.length !== 1) return;
+    // 과목/카테고리 칩 등 내부 가로 스크롤 영역 터치 시 책 넘김 제스처 개입 완전 차단!
+    if (Platform.OS === 'web' && e.target && isInsideHorizontalScroll(e.target)) {
+      touchStartX.current = null;
+      return;
+    }
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
     gestureStartPage.current = currentPageRef.current;

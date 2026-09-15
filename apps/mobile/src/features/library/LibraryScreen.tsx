@@ -152,7 +152,15 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
 
         {/* 2. 대분류 카테고리 필터 칩 바 */}
         {categories.length > 1 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoryScroll}
+            onTouchStart={(e: any) => e.stopPropagation?.()}
+            onTouchMove={(e: any) => e.stopPropagation?.()}
+            onTouchEnd={(e: any) => e.stopPropagation?.()}
+            {...({ 'data-horizontal-scroll': 'true' } as any)}
+          >
             {categories.map((cat) => {
               const isActive = selectedCategory === cat;
               return (
