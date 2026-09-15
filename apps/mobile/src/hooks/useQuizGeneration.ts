@@ -7,6 +7,7 @@ import {
 } from '../domain/generator';
 import {
   getQuestions,
+  addQuestions,
   getUnits,
   replaceTopicUnits,
   createUnit,
@@ -169,6 +170,10 @@ export function useQuizGeneration({
             { text: '설정 열기', onPress: onOpenSettings },
           ]);
           return;
+        }
+
+        if (outcome.questions && outcome.questions.length > 0) {
+          await addQuestions(outcome.questions);
         }
 
         const allQ = await getQuestions();
@@ -502,6 +507,10 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
           ]
         );
         return;
+      }
+
+      if (outcome.questions && outcome.questions.length > 0) {
+        await addQuestions(outcome.questions);
       }
 
       const allQ = await getQuestions();

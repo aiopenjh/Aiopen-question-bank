@@ -11,6 +11,7 @@ import {
   getTopics,
   getUnits,
   getQuestions,
+  addQuestions,
   getSourceTextForTopic,
 } from '../data/db';
 import { analyzeUserIntent, generateFactBasedQuestions } from '../domain/generator';
@@ -18,6 +19,7 @@ import { showAlert } from '../utils/alert';
 
 export interface UsePromptGenerationProps {
   topics: Topic[];
+  setTopics: (topics: Topic[]) => void;
   units: Unit[];
   setUnits: (units: Unit[]) => void;
   setSelectedTopicId: (id: string | null) => void;
@@ -31,6 +33,7 @@ export interface UsePromptGenerationProps {
 
 export function usePromptGeneration({
   topics,
+  setTopics,
   units,
   setUnits,
   setSelectedTopicId,
@@ -71,7 +74,8 @@ export function usePromptGeneration({
           targetUnitId = newUnit.id;
           targetUnitTitle = newUnit.title;
 
-          const [, upUnits] = await Promise.all([getTopics(), getUnits()]);
+          const [upTopics, upUnits] = await Promise.all([getTopics(), getUnits()]);
+          setTopics(upTopics);
           setUnits(upUnits);
           setSelectedTopicId(targetTopic.id);
           setSelectedUnitId(newUnit.id);
@@ -124,6 +128,10 @@ export function usePromptGeneration({
           return;
         }
 
+        if (outcome.questions && outcome.questions.length > 0) {
+          await addQuestions(outcome.questions);
+        }
+
         const allQ = await getQuestions();
         setQuestions(allQ);
         startExam(outcome.questions);
@@ -136,6 +144,7 @@ export function usePromptGeneration({
     },
     [
       topics,
+      setTopics,
       units,
       setUnits,
       setSelectedTopicId,

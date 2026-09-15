@@ -315,6 +315,7 @@ export function useAppData(callbacks?: {
     refreshing,
     routine,
     topics,
+    setTopics,
     selectedTopicId,
     setSelectedTopicId,
     selectedUnitId,

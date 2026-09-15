@@ -48,6 +48,7 @@ export default function App() {
     refreshing,
     routine,
     topics,
+    setTopics,
     selectedTopicId,
     setSelectedTopicId,
     selectedUnitId,
@@ -207,6 +208,7 @@ export default function App() {
   // 7. Quick Prompt Generation Hook
   const { handleQuickPromptGenerate } = usePromptGeneration({
     topics,
+    setTopics,
     units,
     setUnits,
     setSelectedTopicId,
