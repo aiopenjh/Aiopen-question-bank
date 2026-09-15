@@ -9,6 +9,7 @@ import {
   Animated,
   PanResponder,
   Platform,
+  Easing,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { showAlert, registerAlertListener, AlertData } from './src/utils/alert';
@@ -80,10 +81,10 @@ export default function App() {
     const targetOffset = -target * containerWidthRef.current;
 
     if (animated) {
-      Animated.spring(translateX, {
+      Animated.timing(translateX, {
         toValue: targetOffset,
-        friction: 9,
-        tension: 50,
+        duration: 380,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: Platform.OS !== 'web',
       }).start();
     } else {
@@ -131,9 +132,9 @@ export default function App() {
       const touch = e.changedTouches ? e.changedTouches[0] : null;
       const endX = touch ? touch.clientX : touchStartX.current;
       const dx = endX - touchStartX.current;
-      if (dx < -35 && currentPageRef.current < 2) {
+      if (dx < -50 && currentPageRef.current < 2) {
         goToPage(currentPageRef.current + 1);
-      } else if (dx > 35 && currentPageRef.current > 0) {
+      } else if (dx > 50 && currentPageRef.current > 0) {
         goToPage(currentPageRef.current - 1);
       } else {
         goToPage(currentPageRef.current);
@@ -150,7 +151,7 @@ export default function App() {
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponderCapture: (_, gestureState) => {
         const { dx, dy } = gestureState;
-        return Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.15;
+        return Math.abs(dx) > 15 && Math.abs(dx) > Math.abs(dy) * 1.25;
       },
       onPanResponderGrant: () => {
         translateX.stopAnimation();
@@ -168,13 +169,13 @@ export default function App() {
       },
       onPanResponderRelease: (_, gestureState) => {
         const { dx, vx } = gestureState;
-        if (dx < -35 || (dx < -15 && vx < -0.25)) {
+        if (dx < -50 || (dx < -25 && vx < -0.35)) {
           if (currentPageRef.current < 2) {
             goToPage(currentPageRef.current + 1);
           } else {
             goToPage(currentPageRef.current);
           }
-        } else if (dx > 35 || (dx > 18 && vx > 0.25)) {
+        } else if (dx > 50 || (dx > 25 && vx > 0.35)) {
           if (currentPageRef.current > 0) {
             goToPage(currentPageRef.current - 1);
           } else {

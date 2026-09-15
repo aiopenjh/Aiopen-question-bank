@@ -26,14 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
         onPress={() => onSelectPage(0)}
         activeOpacity={0.7}
       >
-        <View style={styles.brandTitleRow}>
-          <Text style={styles.appTitle}>Celueste ✨</Text>
-          <View style={styles.pageIndicatorPill}>
-            <Text style={styles.pageIndicatorText}>
-              {currentPage === 0 ? '1/3 메인' : currentPage === 1 ? '2/3 과목자료함' : '3/3 설정'}
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.appTitle}>Celueste ✨</Text>
         <Text style={styles.appSubtitle}>나만의 맞춤형 CBT 학습 엔진</Text>
       </TouchableOpacity>
 
@@ -117,34 +110,16 @@ const styles = StyleSheet.create({
     paddingBottom: 7,
     backgroundColor: '#ffffff',
   },
-  brandTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   appTitle: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: '800',
     color: '#881337',
     letterSpacing: 0.3,
   },
-  pageIndicatorPill: {
-    backgroundColor: '#ffe4e6',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#fda4af',
-  },
-  pageIndicatorText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#be123c',
-  },
   appSubtitle: {
     fontSize: 11,
     color: '#9f1239',
-    marginTop: 1,
+    marginTop: 2,
     fontWeight: '500',
   },
   navRow: {
