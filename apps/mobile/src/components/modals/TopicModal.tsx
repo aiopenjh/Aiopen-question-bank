@@ -8,7 +8,6 @@ import {
   Modal,
   ActivityIndicator,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { LearnerKnowledgeLevel } from '../../contracts/types';
 import { showAlert } from '../../utils/alert';
@@ -43,24 +42,9 @@ const CATEGORY_SUGGESTIONS = [
 export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCreateTopic }) => {
   const [topicName, setTopicName] = useState('');
   const [category, setCategory] = useState('');
-  const [unitMode, setUnitMode] = useState<'custom' | 'ai' | 'none'>('custom');
-  const [customUnitsText, setCustomUnitsText] = useState('');
+  const [autoCurriculum, setAutoCurriculum] = useState(true);
   const [learnerLevel, setLearnerLevel] = useState<LearnerKnowledgeLevel>('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // 템플릿 채우기 헬퍼
-  const handleApplyTemplate = (type: '3step' | '5step') => {
-    const base = topicName.trim() || '과목';
-    if (type === '3step') {
-      setCustomUnitsText(
-        `1단원: ${base} 기초 및 핵심 개념\n2단원: ${base} 실전 응용과 핵심 사례\n3단원: ${base} 총정리 및 실전 문제풀이`
-      );
-    } else {
-      setCustomUnitsText(
-        `1단원: ${base} 개요와 기본 원리\n2단원: ${base} 핵심 이론 심화\n3단원: ${base} 주요 쟁점과 실무 적용\n4단원: ${base} 빈출 유형 및 심층 분석\n5단원: ${base} 실전 모의고사 종합 정리`
-      );
-    }
-  };
 
   async function handleCreate() {
     const trimmedName = topicName.trim();
@@ -71,37 +55,18 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
 
     const finalCategory = category.trim() || '📚 일반';
 
-    let customUnits: string[] | undefined = undefined;
-    if (unitMode === 'custom') {
-      const units = customUnitsText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-
-      if (units.length === 0) {
-        showAlert(
-          '소제목 입력 안내',
-          '직접 입력 모드에서는 최소 1개 이상의 소단원(목차)을 입력해 주시거나, [AI 맞춤 목차] 또는 [과목만 만들기]를 선택해 주세요.'
-        );
-        return;
-      }
-      customUnits = units;
-    }
-
     setIsSubmitting(true);
     try {
       await onCreateTopic(trimmedName, '', {
-        autoCurriculum: unitMode === 'ai',
+        autoCurriculum,
         learnerLevel,
         category: finalCategory,
-        customUnits,
       });
 
       // 초기화 및 닫기
       setTopicName('');
       setCategory('');
-      setCustomUnitsText('');
-      setUnitMode('custom');
+      setAutoCurriculum(true);
       onClose();
     } catch (err: any) {
       showAlert('오류', `과목 생성 실패: ${err.message}`);
@@ -117,23 +82,24 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 10 }}
+            contentContainerStyle={{ paddingBottom: 6 }}
           >
             <Text style={styles.modalTitle}>✨ 새 학습 과목 추가</Text>
             <Text style={styles.promptGuideText}>
-              원하는 모든 분야(법학, 게임개발, 자격증, 취미 등)의 대주제와 소제목을 자유롭게 구성하세요.
+              과목명과 분류를 입력하면, AI가 내용에 부합하는 체계적인 소단원 목차를 자동 생성합니다.
             </Text>
 
             {/* 1. 대주제 (과목명) */}
             <Text style={styles.fieldLabel}>🏷️ 과목 이름 (대주제) *</Text>
             <TextInput
               style={styles.inputField}
-              placeholder="예: 법학개론, 게임개발 기초, 형법총론 등 자유 입력"
+              placeholder="예: 법학개론, 게임개발 기초, 형법총론, 회계원리 등"
               placeholderTextColor="#fda4af"
               value={topicName}
               onChangeText={setTopicName}
               editable={!isSubmitting}
-              returnKeyType="next"
+              returnKeyType="done"
+              onSubmitEditing={handleCreate}
             />
 
             {/* 2. 과목 분류 (카테고리 - 직접 입력 + 빠른 선택 칩) */}
@@ -171,80 +137,30 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
               })}
             </ScrollView>
 
-            {/* 3. 소제목 / 세부 단원 구성 방식 (3가지 모드) */}
-            <Text style={styles.fieldLabel}>📑 소제목(목차/단원) 구성 방식</Text>
-            <View style={styles.modeTabsRow}>
-              <TouchableOpacity
-                style={[styles.modeTabBtn, unitMode === 'custom' && styles.modeTabBtnActive]}
-                onPress={() => setUnitMode('custom')}
-                disabled={isSubmitting}
-              >
-                <Text style={[styles.modeTabText, unitMode === 'custom' && styles.modeTabTextActive]}>
-                  ✍️ 직접 소제목 입력
+            {/* 3. AI 목차 자동 생성 옵션 (방해되는 수동 입력창 제거 및 심플화) */}
+            <TouchableOpacity
+              style={[styles.autoCurriculumCard, autoCurriculum && styles.autoCurriculumCardActive]}
+              onPress={() => setAutoCurriculum(!autoCurriculum)}
+              disabled={isSubmitting}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 18, marginRight: 10 }}>{autoCurriculum ? '⚡' : '⬜'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.autoCurriculumTitle, autoCurriculum && styles.autoCurriculumTitleActive]}>
+                  AI 맞춤 목차 자동 생성 (권장)
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modeTabBtn, unitMode === 'ai' && styles.modeTabBtnActive]}
-                onPress={() => setUnitMode('ai')}
-                disabled={isSubmitting}
-              >
-                <Text style={[styles.modeTabText, unitMode === 'ai' && styles.modeTabTextActive]}>
-                  ⚡ AI 맞춤 추천
+                <Text style={styles.autoCurriculumDesc}>
+                  {autoCurriculum
+                    ? '입력하신 과목명에 맞추어 전문적이고 체계적인 소단원을 AI가 자동 설계합니다.'
+                    : '소단원 없이 대주제만 먼저 등록합니다.'}
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modeTabBtn, unitMode === 'none' && styles.modeTabBtnActive]}
-                onPress={() => setUnitMode('none')}
-                disabled={isSubmitting}
-              >
-                <Text style={[styles.modeTabText, unitMode === 'none' && styles.modeTabTextActive]}>
-                  📁 과목만 먼저 생성
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 모드별 상세 인터페이스 */}
-            {unitMode === 'custom' && (
-              <View style={styles.customUnitContainer}>
-                <View style={styles.customUnitHeaderRow}>
-                  <Text style={styles.customUnitHelperText}>
-                    한 줄에 하나씩 소단원 제목을 입력하세요:
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    <TouchableOpacity
-                      style={styles.templateBtn}
-                      onPress={() => handleApplyTemplate('3step')}
-                    >
-                      <Text style={styles.templateBtnText}>+ 3단원 예시</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.templateBtn}
-                      onPress={() => handleApplyTemplate('5step')}
-                    >
-                      <Text style={styles.templateBtnText}>+ 5단원 예시</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <TextInput
-                  style={styles.customUnitsTextArea}
-                  multiline
-                  numberOfLines={4}
-                  placeholder={`예시:\n1단원: 총칙 및 법의 이념\n2단원: 권리와 의무의 주체\n3단원: 판례 분석 및 실전 연습`}
-                  placeholderTextColor="#fda4af"
-                  value={customUnitsText}
-                  onChangeText={setCustomUnitsText}
-                  editable={!isSubmitting}
-                  textAlignVertical="top"
-                />
               </View>
-            )}
+            </TouchableOpacity>
 
-            {unitMode === 'ai' && (
-              <View style={styles.aiUnitContainer}>
-                <Text style={styles.aiUnitDesc}>
-                  입력하신 과목명에 가장 알맞은 핵심 단원 3~5개를 AI가 자동으로 분석하여 구성합니다.
-                </Text>
-                <Text style={[styles.fieldLabel, { marginTop: 8, marginBottom: 4 }]}>🎯 난이도 수준:</Text>
+            {/* 4. 난이도 수준 선택 */}
+            {autoCurriculum && (
+              <View style={{ marginBottom: 14 }}>
+                <Text style={styles.fieldLabel}>🎯 난이도 수준</Text>
                 <View style={styles.levelRow}>
                   {(
                     [
@@ -272,14 +188,6 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
               </View>
             )}
 
-            {unitMode === 'none' && (
-              <View style={styles.noneUnitContainer}>
-                <Text style={styles.noneUnitDesc}>
-                  소단원 없이 대주제 과목만 등록합니다. 등록 후 과목자료함에서 원하는 단원을 직접 하나씩 추가할 수 있습니다.
-                </Text>
-              </View>
-            )}
-
             {/* 하단 버튼 바 */}
             <View style={styles.actionBtnRow}>
               <TouchableOpacity
@@ -297,7 +205,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
                 {isSubmitting ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <ActivityIndicator color="#ffffff" size="small" />
-                    <Text style={styles.submitBtnText}>과목 등록 중...</Text>
+                    <Text style={styles.submitBtnText}>AI 목차 설계 중...</Text>
                   </View>
                 ) : (
                   <Text style={styles.submitBtnText}>✨ 과목 등록 완료</Text>
@@ -381,106 +289,33 @@ const styles = StyleSheet.create({
     color: '#be123c',
     fontWeight: 'bold',
   },
-  modeTabsRow: {
+  autoCurriculumCard: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: 12,
-  },
-  modeTabBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
     borderWidth: 1.2,
     borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
   },
-  modeTabBtnActive: {
-    borderColor: '#f43f5e',
+  autoCurriculumCardActive: {
     backgroundColor: '#fff1f4',
+    borderColor: '#f43f5e',
   },
-  modeTabText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748b',
-    textAlign: 'center',
-  },
-  modeTabTextActive: {
-    color: '#be123c',
-    fontWeight: 'bold',
-  },
-  customUnitContainer: {
-    backgroundColor: '#fff9fa',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1.2,
-    borderColor: '#fecdd3',
-    marginBottom: 14,
-  },
-  customUnitHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  customUnitHelperText: {
-    fontSize: 11,
-    color: '#9f1239',
-    fontWeight: '600',
-  },
-  templateBtn: {
-    backgroundColor: '#ffe4e6',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-  },
-  templateBtnText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#be123c',
-  },
-  customUnitsTextArea: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1.2,
-    borderColor: '#fda4af',
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 12,
-    color: '#881337',
-    minHeight: 85,
-    lineHeight: 18,
-  },
-  aiUnitContainer: {
-    backgroundColor: '#fff9fa',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1.2,
-    borderColor: '#fecdd3',
-    marginBottom: 14,
-  },
-  aiUnitDesc: {
-    fontSize: 12,
+  autoCurriculumTitle: {
+    fontSize: 13,
+    fontWeight: '700',
     color: '#475569',
-    lineHeight: 17,
+    marginBottom: 2,
   },
-  noneUnitContainer: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1.2,
-    borderColor: '#e2e8f0',
-    marginBottom: 14,
+  autoCurriculumTitleActive: {
+    color: '#881337',
   },
-  noneUnitDesc: {
-    fontSize: 12,
+  autoCurriculumDesc: {
+    fontSize: 11,
     color: '#64748b',
-    lineHeight: 17,
+    lineHeight: 15,
   },
   levelRow: {
     flexDirection: 'row',
