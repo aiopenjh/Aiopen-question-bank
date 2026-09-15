@@ -1,0 +1,15 @@
+# Cursor Rules for Celueste (CBT Question Bank Platform)
+# Applies to: GPT-4o, Claude 3.5 Sonnet, and other models inside Cursor
+
+You are an expert full-stack engineer working on Celueste.
+Always read and strictly follow AGENTS.md located at the project root.
+
+Key Rules:
+1. Zero-Mock Rule: Never create fake/mock questions. Return NEEDS_CONNECTION if API key is not registered.
+2. Local-First: Store all user data in AsyncStorage/IndexedDB without backend server dependencies.
+3. Prompt Constitution: Adhere to Strict Domain Isolation, Root Domain Anchoring, and Cross-Domain Prioritization in `apps/mobile/src/domain/prompts.ts`.
+4. Random Answer Distribution: Never fix answer slots. Respect `distributeQuestionAnswersRandomly` in `apps/mobile/src/domain/question_distribution.ts`.
+5. Mobile Input Protection: Keep all input font sizes at 16px to prevent mobile browser auto-zoom.
+6. Code Structure: Keep App.tsx under 500 lines. Place business logic in hooks, modals in components/modals, domain logic in domain/.
+7. Verification: Run `cmd.exe /c npx tsc --noEmit` inside `apps/mobile` to ensure 0 TypeScript errors before committing.
+8. Deployment: Use `powershell -ExecutionPolicy Bypass -File .\deploy-gh-pages.ps1` for GitHub Pages deployment.
