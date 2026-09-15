@@ -27,6 +27,11 @@ export interface SettingsModalProps {
   onResetAllData: () => void;
   onSaveSettings: () => Promise<void>;
   onOpenUserManual?: () => void;
+  hasUpdate?: boolean;
+  isCheckingUpdate?: boolean;
+  latestVersion?: string;
+  onCheckForUpdate?: () => void;
+  onApplyUpdate?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
@@ -86,6 +91,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
           onOpenRestoreModal={props.onOpenRestoreModal}
           onResetAllData={props.onResetAllData}
           onOpenUserManual={props.onOpenUserManual}
+          hasUpdate={props.hasUpdate}
+          isCheckingUpdate={props.isCheckingUpdate}
+          latestVersion={props.latestVersion}
+          onCheckForUpdate={props.onCheckForUpdate}
+          onApplyUpdate={props.onApplyUpdate}
         />
       </SafeAreaView>
     </Modal>

@@ -6,6 +6,7 @@ import { ApiKeySection } from './ApiKeySection';
 import { AlarmConfigSection } from './AlarmConfigSection';
 import { DailyGoalSection } from './DailyGoalSection';
 import { DataBackupSection } from './DataBackupSection';
+import { AppVersionSection } from './AppVersionSection';
 
 interface SettingsScreenProps {
   apiKey: string;
@@ -20,6 +21,11 @@ interface SettingsScreenProps {
   onOpenRestoreModal: () => void;
   onResetAllData: () => void;
   onOpenUserManual?: () => void;
+  hasUpdate?: boolean;
+  isCheckingUpdate?: boolean;
+  latestVersion?: string;
+  onCheckForUpdate?: () => void;
+  onApplyUpdate?: () => void;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
@@ -35,6 +41,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onOpenRestoreModal,
   onResetAllData,
   onOpenUserManual,
+  hasUpdate = false,
+  isCheckingUpdate = false,
+  latestVersion,
+  onCheckForUpdate,
+  onApplyUpdate,
 }) => {
   return (
     <ScrollView style={styles.tabContent} contentContainerStyle={styles.scrollPadding}>
@@ -80,6 +91,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onOpenRestoreModal={onOpenRestoreModal}
         onResetAllData={onResetAllData}
       />
+
+      {/* 5. 앱 최신 버전 확인 및 1초 원터치 갱신 */}
+      {onCheckForUpdate && onApplyUpdate && (
+        <AppVersionSection
+          hasUpdate={hasUpdate}
+          isChecking={isCheckingUpdate}
+          latestVersion={latestVersion}
+          onCheckForUpdate={onCheckForUpdate}
+          onApplyUpdate={onApplyUpdate}
+        />
+      )}
     </ScrollView>
   );
 };

@@ -32,9 +32,11 @@ import { usePromptGeneration } from './src/hooks/usePromptGeneration';
 import { useSourceManager } from './src/hooks/useSourceManager';
 import { useAppBackup } from './src/hooks/useAppBackup';
 import { useSwipeGesture } from './src/hooks/useSwipeGesture';
+import { useAppUpdate } from './src/hooks/useAppUpdate';
 
 // Clean Modular Components & Feature Screens
 import { Header } from './src/components/common/Header';
+import { UpdateNotificationBanner } from './src/components/common/UpdateNotificationBanner';
 import { AppModalsContainer } from './src/components/modals/AppModalsContainer';
 import { LibraryModal } from './src/components/modals/LibraryModal';
 import { SettingsModal } from './src/components/modals/SettingsModal';
@@ -228,6 +230,9 @@ export default function App() {
     return registerAlertListener((data) => setAppAlert(data));
   }, []);
 
+  // 9. Web PWA Auto-Update Detection
+  const appUpdate = useAppUpdate();
+
   // 9. Push Alarms & Notification Response Listener
   const handleStartExamRef = useRef(handleStartExamWithAutoGenerate);
   useEffect(() => {
@@ -363,6 +368,13 @@ export default function App() {
           onGoHome={handleGoHome}
         />
 
+        {/* 🚀 실시간 새 버전 자동 감지 배너 (1초 갱신) */}
+        <UpdateNotificationBanner
+          hasUpdate={appUpdate.hasUpdate}
+          latestVersion={appUpdate.latestVersion}
+          onApplyUpdate={appUpdate.applyUpdate}
+        />
+
         <View style={styles.mainContent} {...mainSwipeHandlers}>
           <StudyMapScreen
             routine={routine}
@@ -445,6 +457,11 @@ export default function App() {
           onResetAllData={handleResetAllData}
           onSaveSettings={() => handleSaveSettings(() => setIsSettingsOpen(false))}
           onOpenUserManual={() => setIsUserManualOpen(true)}
+          hasUpdate={appUpdate.hasUpdate}
+          isCheckingUpdate={appUpdate.isChecking}
+          latestVersion={appUpdate.latestVersion}
+          onCheckForUpdate={() => appUpdate.checkForUpdate(true)}
+          onApplyUpdate={appUpdate.applyUpdate}
         />
 
         {/* 공통 모달 컨테이너 (8종 모달 일원화) */}
