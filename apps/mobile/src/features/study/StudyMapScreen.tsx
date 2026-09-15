@@ -109,6 +109,10 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
     >
       {/* 화면 위로 당겨서 새로고침 인디케이터 (버튼 없는 자연스러운 제스처) */}
       <PullRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
+
+      {/* 접속할 때마다 바뀌는 오늘의 응원 한마디 (로컬 + AI) */}
+      <DailyInspirationCard apiKey={apiKey} topicName={topicName} />
+
       {/* 1. 즉시 AI 문제 출제 바 (설명문 제거 및 직관적 레이아웃) */}
       {onQuickPromptGenerate && (
         <View style={styles.quickPromptCard}>
@@ -223,9 +227,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </TouchableOpacity>
         )}
       </View>
-
-      {/* 3. 접속할 때마다 바뀌는 오늘의 응원 한마디 (로컬 + AI) */}
-      <DailyInspirationCard apiKey={apiKey} topicName={topicName} />
 
       {/* 4. 건의사항 & 불편한 점 제보 (카카오톡 오픈채팅 직통 연결) */}
       <FeedbackCard />
