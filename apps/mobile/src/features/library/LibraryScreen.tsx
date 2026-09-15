@@ -156,6 +156,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.categoryScroll}
+            contentContainerStyle={{ alignItems: 'flex-start' }}
             onTouchStart={(e: any) => e.stopPropagation?.()}
             onTouchMove={(e: any) => e.stopPropagation?.()}
             onTouchEnd={(e: any) => e.stopPropagation?.()}
