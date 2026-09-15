@@ -101,9 +101,26 @@ export function usePromptGeneration({
         }
 
         const sourceMaterial = await getSourceTextForTopic(targetTopic.id, targetTopic.name);
-        const customContext = sourceMaterial && sourceMaterial.trim().length > 0
-          ? `${prompt}\n\n[학습자가 첨부한 교재/자료 핵심 내용 (★출제 적극 반영 필수★)]:\n${sourceMaterial}`
-          : prompt;
+        const allSavedQuestions = await getQuestions();
+        const existingInTargetUnit = allSavedQuestions.filter(
+          (q) => q.topicId === targetTopic!.id && (q.unitId === targetUnitId || (targetUnitTitle && q.stem.includes(targetUnitTitle)))
+        );
+        const existingSummary = existingInTargetUnit
+          .slice(-15)
+          .map((q) => `• ${q.stem}`)
+          .join('\n');
+
+        const contextParts: string[] = [prompt];
+        if (sourceMaterial && sourceMaterial.trim().length > 0) {
+          contextParts.push(`[학습자가 첨부한 교재/자료 핵심 내용 (★출제 적극 반영 필수★)]:\n${sourceMaterial}`);
+        }
+        if (existingSummary) {
+          contextParts.push(
+            `[이 단원에 이미 출제된 기존 문제 목록 (판박이 복사 재탕 절대 금지 & 개념 범위 확장)]:\n${existingSummary}\n※ 핵심 지침:\n1. 위 기존 문제들과 문장 구조나 지문이 똑같은 판박이 재탕 문항은 절대 출제하지 마십시오.\n2. 특정 대표 개념 하나만 반복하지 말고, 이 단원 내의 다양한 다른 세부 개념, 원리, 공식, 이론들을 골고루 탐색하여 출제하십시오.\n3. 단원의 중요 핵심 개념을 다룰 때 구체적 사례 제시, 긍정/부정 비틀기 등 다른 각도로 꼬아낸 변형 문제는 자연스럽게 허용됩니다.`
+          );
+        }
+
+        const customContext = contextParts.join('\n\n');
 
         const outcome = await generateFactBasedQuestions({
           intent,
@@ -130,7 +147,15 @@ export function usePromptGeneration({
         }
 
         if (outcome.questions && outcome.questions.length > 0) {
-          await addQuestions(outcome.questions);
+          const existingStemSet = new Set(
+            existingInTargetUnit.map((q) => q.stem.replace(/[\s\p{P}]/gu, '').toLowerCase())
+          );
+          const freshQuestions = outcome.questions.filter((q) => {
+            const normalized = q.stem.replace(/[\s\p{P}]/gu, '').toLowerCase();
+            return !existingStemSet.has(normalized);
+          });
+          const questionsToAdd = freshQuestions.length > 0 ? freshQuestions : outcome.questions;
+          await addQuestions(questionsToAdd);
         }
 
         const allQ = await getQuestions();

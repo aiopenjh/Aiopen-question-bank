@@ -145,7 +145,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
               </Text>
             </View>
             <TouchableOpacity style={styles.newTopicBtn} onPress={onOpenTopicModal} activeOpacity={0.8}>
-              <Text style={styles.newTopicBtnText}>+ 새 과목</Text>
+              <Text style={styles.newTopicBtnText}>+ 과목 추가</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -184,10 +184,10 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
             <Text style={{ fontSize: 32, marginBottom: 8 }}>📚</Text>
             <Text style={styles.emptyTitle}>등록된 과목이 없습니다.</Text>
             <Text style={styles.emptyDesc}>
-              [+ 새 과목]을 눌러 공부하고 싶은 주제를 추가하면 체계적인 5단계 목차와 문제집이 자동 구성됩니다.
+              [+ 과목 추가]를 눌러 공부하고 싶은 주제를 추가하면 체계적인 5단계 목차와 문제집이 자동 구성됩니다.
             </Text>
             <TouchableOpacity style={styles.primaryActionButton} onPress={onOpenTopicModal}>
-              <Text style={styles.primaryActionText}>✨ 새 과목 등록하기</Text>
+              <Text style={styles.primaryActionText}>✨ 과목 추가하기</Text>
             </TouchableOpacity>
           </View>
         ) : (

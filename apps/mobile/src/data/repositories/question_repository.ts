@@ -75,6 +75,14 @@ export async function deleteQuestion(questionId: UUID): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(updated));
 }
 
+export async function deleteQuestionsForUnit(topicId: UUID, unitId: UUID, unitTitle?: string): Promise<void> {
+  const questions = await getQuestions();
+  const updated = questions.filter(
+    (q) => !(q.topicId === topicId && (q.unitId === unitId || (unitTitle && q.stem.includes(unitTitle))))
+  );
+  await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(updated));
+}
+
 export async function getCustomNoteQuestionIds(): Promise<string[]> {
   const data = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
   return data ? JSON.parse(data) : [];

@@ -32,7 +32,10 @@ export interface StudyMapScreenProps {
   refreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
 
-  // 자유 주제 즉시 AI 출제 연동
+  // 과목 추가 모달 연동 (난이도 조절 및 커리큘럼 설계)
+  onOpenTopicModal?: (initialName?: string) => void;
+
+  // 자유 주제 즉시 AI 출제 연동 (하위 호환)
   onQuickPromptGenerate?: (prompt: string) => Promise<void> | void;
   isAiGenerating?: boolean;
 
@@ -57,6 +60,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   onGoToScaffolding,
   refreshing = false,
   onRefresh,
+  onOpenTopicModal,
   onQuickPromptGenerate,
   isAiGenerating = false,
   apiKey,
@@ -74,11 +78,16 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   const targetCount = routine?.targetQuestionCount || 3;
   const progressPercent = Math.min(100, Math.round((todayAttemptsCount / targetCount) * 100));
 
-  const handleSendPrompt = () => {
-    if (!customPrompt.trim() || isAiGenerating || !onQuickPromptGenerate) return;
+  const handleAddTopic = () => {
     const p = customPrompt.trim();
-    setCustomPrompt('');
-    onQuickPromptGenerate(p);
+    if (onOpenTopicModal) {
+      onOpenTopicModal(p);
+      setCustomPrompt('');
+    } else if (onQuickPromptGenerate && p) {
+      if (isAiGenerating) return;
+      setCustomPrompt('');
+      onQuickPromptGenerate(p);
+    }
   };
 
   return (
@@ -113,23 +122,23 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
       {/* 접속할 때마다 바뀌는 오늘의 응원 한마디 (로컬 + AI) */}
       <DailyInspirationCard apiKey={apiKey} topicName={topicName} />
 
-      {/* 1. 즉시 AI 문제 출제 바 (설명문 제거 및 직관적 레이아웃) */}
-      {onQuickPromptGenerate && (
+      {/* 1. 공부할 과목 추가 바 (과목 추가 모달과 연동하여 난이도 및 커리큘럼 조절) */}
+      {(onOpenTopicModal || onQuickPromptGenerate) && (
         <View style={styles.quickPromptCard}>
-          <Text style={styles.quickPromptLabel}>⚡ AI 즉시 문제 출제</Text>
+          <Text style={styles.quickPromptLabel}>⚡ 공부할 과목 추가</Text>
           <View style={styles.quickPromptInputRow}>
             <TextInput
               style={styles.quickPromptInput}
-              placeholder="공부할 키워드나 주제 입력 (예: 회계원리, Git)"
+              placeholder="공부할 과목을 입력해주세요"
               placeholderTextColor="#64748b"
               value={customPrompt}
               onChangeText={setCustomPrompt}
-              returnKeyType="send"
-              onSubmitEditing={handleSendPrompt}
+              returnKeyType="done"
+              onSubmitEditing={handleAddTopic}
               onKeyPress={(e: any) => {
                 if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
                   e?.preventDefault?.();
-                  handleSendPrompt();
+                  handleAddTopic();
                 }
               }}
               blurOnSubmit={false}
@@ -137,13 +146,13 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             <TouchableOpacity
               style={[styles.quickPromptSubmitBtn, isAiGenerating && { opacity: 0.6 }]}
               disabled={isAiGenerating}
-              onPress={handleSendPrompt}
+              onPress={handleAddTopic}
               activeOpacity={0.85}
             >
               {isAiGenerating ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.quickPromptSubmitText}>⚡ 출제</Text>
+                <Text style={styles.quickPromptSubmitText}>+ 과목 추가</Text>
               )}
             </TouchableOpacity>
           </View>

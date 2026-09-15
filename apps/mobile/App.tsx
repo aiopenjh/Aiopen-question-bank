@@ -1,15 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StatusBar,
   ActivityIndicator,
   LogBox,
-  Dimensions,
   Animated,
-  PanResponder,
   Platform,
-  Easing,
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { showAlert, registerAlertListener, AlertData } from './src/utils/alert';
@@ -39,10 +37,12 @@ import { appStyles as styles } from './src/styles/appStyles';
 import { useAppData } from './src/hooks/useAppData';
 import { useExamSession } from './src/hooks/useExamSession';
 import { useQuizGeneration } from './src/hooks/useQuizGeneration';
+import { useCurriculumManager } from './src/hooks/useCurriculumManager';
 import { usePromptGeneration } from './src/hooks/usePromptGeneration';
 import { useSourceManager } from './src/hooks/useSourceManager';
 import { useAppBackup } from './src/hooks/useAppBackup';
 import { useAppUpdate } from './src/hooks/useAppUpdate';
+import { useBookPagerGesture } from './src/hooks/useBookPagerGesture';
 
 // Clean Modular Components & Feature Screens
 import { Header } from './src/components/common/Header';
@@ -55,253 +55,18 @@ import { SettingsScreen } from './src/features/settings/SettingsScreen';
 import { ExamSessionScreen } from './src/features/exam/ExamSessionScreen';
 
 export default function App() {
-  // 0. Book Pager State (0: 메인, 1: 과목자료함, 2: 설정)
-  const [currentPage, setCurrentPage] = useState<number>(0);
-  const [containerWidth, setContainerWidth] = useState<number>(() => {
-    return Dimensions.get('window').width || 380;
-  });
-
-  const translateX = useRef(new Animated.Value(0)).current;
-  const currentPageRef = useRef(0);
-  const containerWidthRef = useRef(containerWidth);
-
-  useEffect(() => {
-    currentPageRef.current = currentPage;
-  }, [currentPage]);
-
-  useEffect(() => {
-    containerWidthRef.current = containerWidth;
-  }, [containerWidth]);
-
-  const isTransitioning = useRef<boolean>(false);
-  const gestureStartPage = useRef<number>(0);
-
-  const goToPage = (page: number, animated = true) => {
-    const target = Math.max(0, Math.min(2, page));
-    setCurrentPage(target);
-    currentPageRef.current = target;
-    const targetOffset = -target * containerWidthRef.current;
-
-    if (animated) {
-      isTransitioning.current = true;
-      Animated.timing(translateX, {
-        toValue: targetOffset,
-        duration: 240,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: Platform.OS !== 'web',
-      }).start(() => {
-        isTransitioning.current = false;
-      });
-    } else {
-      translateX.setValue(targetOffset);
-      isTransitioning.current = false;
-    }
-  };
-
-  // 터치 기반 실시간 좌우 스와이프 제스처 컨트롤러 (웹 및 모바일 완전 호환)
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const isSwipingHorizontal = useRef<boolean>(false);
-  const isScrollingVertical = useRef<boolean>(false);
-
-  // 내부 가로 스크롤(과목 필터 칩, 복습 칩 등) 터치 감지 헬퍼
-  const isInsideHorizontalScroll = (target: any): boolean => {
-    try {
-      let el = target as HTMLElement | null;
-      while (el && el !== document.body) {
-        if (el.getAttribute?.('data-horizontal-scroll') === 'true') {
-          return true;
-        }
-        if (typeof window !== 'undefined' && window.getComputedStyle) {
-          const style = window.getComputedStyle(el);
-          if (
-            style &&
-            (style.overflowX === 'auto' || style.overflowX === 'scroll') &&
-            el.scrollWidth > el.clientWidth
-          ) {
-            return true;
-          }
-        }
-        el = el.parentElement;
-      }
-    } catch {
-      // ignore
-    }
-    return false;
-  };
-
-  const handleTouchStart = (e: any) => {
-    if (isTransitioning.current) return;
-    if (!e.touches || e.touches.length !== 1) return;
-    // 과목/카테고리 칩 등 내부 가로 스크롤 영역 터치 시 책 넘김 제스처 개입 완전 차단!
-    if (Platform.OS === 'web' && e.target && isInsideHorizontalScroll(e.target)) {
-      touchStartX.current = null;
-      return;
-    }
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-    gestureStartPage.current = currentPageRef.current;
-    isSwipingHorizontal.current = false;
-    isScrollingVertical.current = false;
-  };
-
-  const handleTouchMove = (e: any) => {
-    if (isTransitioning.current) return;
-    if (touchStartX.current === null || !e.touches || isScrollingVertical.current) return;
-
-    const dx = e.touches[0].clientX - touchStartX.current;
-    const dy = e.touches[0].clientY - touchStartY.current!;
-
-    // 세로 스크롤 우선 보호: 세로 이동 감지 시 수평 스와이프를 완전히 차단하여 내부 스크롤 버벅임 방지
-    if (!isSwipingHorizontal.current) {
-      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
-        isScrollingVertical.current = true;
-        return;
-      }
-      // 명확한 가로 스와이프만 인식 (최소 25px & 가로가 세로의 1.8배 이상)
-      if (Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy) * 1.8) {
-        isSwipingHorizontal.current = true;
-      }
-    }
-
-    if (isSwipingHorizontal.current) {
-      if (e.cancelable) {
-        e.preventDefault?.();
-      }
-      const currentBase = -gestureStartPage.current * containerWidthRef.current;
-      if (gestureStartPage.current === 0 && dx > 0) {
-        translateX.setValue(currentBase + dx * 0.15);
-      } else if (gestureStartPage.current === 2 && dx < 0) {
-        translateX.setValue(currentBase + dx * 0.15);
-      } else {
-        translateX.setValue(currentBase + dx);
-      }
-    }
-  };
-
-  const handleTouchEnd = (e: any) => {
-    if (isSwipingHorizontal.current && touchStartX.current !== null) {
-      const touch = e.changedTouches ? e.changedTouches[0] : null;
-      const endX = touch ? touch.clientX : touchStartX.current;
-      const dx = endX - touchStartX.current;
-      const startPage = gestureStartPage.current;
-
-      // 시작 페이지(startPage) 기준으로 정확히 1페이지만 이동 (과목자료함 건너뛰기 원천 차단)
-      if (dx < -50 && startPage < 2) {
-        goToPage(startPage + 1);
-      } else if (dx > 50 && startPage > 0) {
-        goToPage(startPage - 1);
-      } else {
-        goToPage(startPage);
-      }
-    }
-    touchStartX.current = null;
-    touchStartY.current = null;
-    isSwipingHorizontal.current = false;
-    isScrollingVertical.current = false;
-  };
-
-  // React Native PanResponder (네이티브 모바일 전용 수평 제스처 컨트롤러)
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        if (Platform.OS === 'web' || isTransitioning.current) return false;
-        const { dx, dy } = gestureState;
-        return Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy) * 1.8;
-      },
-      onPanResponderGrant: () => {
-        gestureStartPage.current = currentPageRef.current;
-        translateX.stopAnimation();
-      },
-      onPanResponderMove: (_, gestureState) => {
-        const { dx } = gestureState;
-        const currentBase = -gestureStartPage.current * containerWidthRef.current;
-        if (gestureStartPage.current === 0 && dx > 0) {
-          translateX.setValue(currentBase + dx * 0.15);
-        } else if (gestureStartPage.current === 2 && dx < 0) {
-          translateX.setValue(currentBase + dx * 0.15);
-        } else {
-          translateX.setValue(currentBase + dx);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const { dx, vx } = gestureState;
-        const startPage = gestureStartPage.current;
-        if (dx < -50 || (dx < -25 && vx < -0.35)) {
-          if (startPage < 2) {
-            goToPage(startPage + 1);
-          } else {
-            goToPage(startPage);
-          }
-        } else if (dx > 50 || (dx > 25 && vx > 0.35)) {
-          if (startPage > 0) {
-            goToPage(startPage - 1);
-          } else {
-            goToPage(startPage);
-          }
-        } else {
-          goToPage(startPage);
-        }
-      },
-    })
-  ).current;
-
-  // 데스크톱 / 노트북 트랙패드 수평 스크롤 연동 (500ms 쿨다운 락으로 1페이지씩만 안전 전환)
-  const isWheelLocked = useRef<boolean>(false);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-
-    const onWheel = (e: WheelEvent) => {
-      if (isWheelLocked.current || isTransitioning.current) return;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.8 && Math.abs(e.deltaX) > 35) {
-        isWheelLocked.current = true;
-        const startPage = currentPageRef.current;
-        if (e.deltaX > 35 && startPage < 2) {
-          goToPage(startPage + 1);
-        } else if (e.deltaX < -35 && startPage > 0) {
-          goToPage(startPage - 1);
-        }
-        setTimeout(() => {
-          isWheelLocked.current = false;
-        }, 500);
-      }
-    };
-
-    window.addEventListener('wheel', onWheel, { passive: true });
-    return () => {
-      window.removeEventListener('wheel', onWheel);
-    };
-  }, []);
-
-  // 모바일 브라우저 입력창(input) 터치 시 창 크기 축소/자동 확대 왜곡 전역 차단
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      let meta = document.querySelector('meta[name="viewport"]');
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.setAttribute('name', 'viewport');
-        document.head.appendChild(meta);
-      }
-      meta.setAttribute(
-        'content',
-        'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover'
-      );
-
-      const styleId = 'celueste-prevent-input-zoom';
-      if (!document.getElementById(styleId)) {
-        const styleTag = document.createElement('style');
-        styleTag.id = styleId;
-        styleTag.textContent = `
-          input, textarea, select {
-            font-size: 16px !important;
-          }
-        `;
-        document.head.appendChild(styleTag);
-      }
-    }
-  }, []);
+  // 0. Book Pager Gesture & Navigation Hook ([0: 메인] -> [1: 과목자료함] -> [2: 설정])
+  const {
+    currentPage,
+    containerWidth,
+    translateX,
+    goToPage,
+    panResponder,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    onLayoutContainer,
+  } = useBookPagerGesture(0);
 
   // 1. Core Data Hook
   const {
@@ -349,28 +114,31 @@ export default function App() {
   } = useAppData({
     onAfterTopicCreated: (created, generatedCount) => {
       setTopicModalVisible(false);
-      if (currentPage === 1) {
-        showAlert(
-          '과목 등록 완료',
-          generatedCount > 0
-            ? `[${created.name}] 과목과 ${generatedCount}개 학습 단원이 구성되었습니다.`
-            : `[${created.name}] 과목이 등록되었습니다.`
-        );
-      } else {
-        setUnitSelectTopic(created);
-        setIsUnitSelectModalVisible(true);
-      }
+      // 추가 팝업(단원 선택 모달) 없이, 즉시 과목자료함(Page 1)으로 이동하여 1~5단원 목차를 바로 보여줌!
+      goToPage(1, true);
+      showAlert(
+        '과목 등록 완료',
+        generatedCount > 0
+          ? `[${created.name}] 과목과 1~${generatedCount}단계 목차가 자동 구성되었습니다.\n\n원하시는 단원의 [⚡ 출제 / 풀기]를 눌러 바로 시작하세요!`
+          : `[${created.name}] 과목이 등록되었습니다.`
+      );
     },
   });
 
   // 2. Modals Visibility State
   const [topicModalVisible, setTopicModalVisible] = useState(false);
+  const [initialTopicName, setInitialTopicName] = useState('');
   const [unitModalVisible, setUnitModalVisible] = useState(false);
   const [isTopicSelectModalVisible, setIsTopicSelectModalVisible] = useState(false);
   const [isUnitSelectModalVisible, setIsUnitSelectModalVisible] = useState(false);
   const [unitSelectTopic, setUnitSelectTopic] = useState<Topic | null>(null);
   const [isSourceUploadModalOpen, setIsSourceUploadModalOpen] = useState(false);
   const [isUserManualOpen, setIsUserManualOpen] = useState(false);
+
+  const handleOpenTopicModal = (name?: string) => {
+    setInitialTopicName(name || '');
+    setTopicModalVisible(true);
+  };
 
   // 3. Backup Hook
   const {
@@ -425,11 +193,16 @@ export default function App() {
     },
   });
 
-  // 6. Modular AI Quiz Generation Hook
+  const handleExitExam = useCallback(() => {
+    exitExamSession();
+    // 시험 종료 시 문제 출제/선택을 시작했던 과목보관함(Page 1)으로 확실하고 부드럽게 복귀
+    goToPage(1, false);
+  }, [exitExamSession]);
+
+  // 6. Modular AI Quiz Generation Hook (단원 문제 출제 전담)
   const {
     isGenerating,
     setIsGenerating,
-    isCurriculumGenerating,
     generatingUnitId,
     generatingWaitStatus,
     setGeneratingWaitStatus,
@@ -440,9 +213,7 @@ export default function App() {
     handleSelectQuizCount,
     handleGenerateMoreQuestions,
     handleApplyScaffolding,
-    handleGenerateCurriculumForTopic,
-    handleDeduplicateUnits,
-    handleCancelGeneration,
+    handleCancelGeneration: cancelQuizGeneration,
   } = useQuizGeneration({
     apiKey,
     topics,
@@ -455,15 +226,27 @@ export default function App() {
     startExam,
     onOpenSettings: () => goToPage(2),
     onOpenTopicModal: () => setTopicModalVisible(true),
-    onRefreshData: async () => {
-      const [allQ, upUnits] = await Promise.all([getQuestions(), getUnits()]);
-      setQuestions(allQ);
-      setUnits(upUnits);
-    },
-    setUnits,
     setQuestions,
-    onCloseLibrary: () => goToPage(0),
   });
+
+  // 6-1. Modular Curriculum Manager Hook (5단계/30단계 목차 설계 & 확장 전담)
+  const {
+    isCurriculumGenerating,
+    handleGenerateCurriculumForTopic,
+    handleDeduplicateUnits,
+    cancelCurriculumGeneration,
+  } = useCurriculumManager({
+    units,
+    questions,
+    setUnits,
+    startExam,
+    setGeneratingWaitStatus,
+  });
+
+  const handleCancelGeneration = useCallback(() => {
+    cancelQuizGeneration();
+    cancelCurriculumGeneration();
+  }, [cancelQuizGeneration, cancelCurriculumGeneration]);
 
   // 7. Quick Prompt Generation Hook
   const { handleQuickPromptGenerate } = usePromptGeneration({
@@ -589,20 +372,6 @@ export default function App() {
     );
   }
 
-  // 독립 시험장 (CBT)
-  if (examSessionActive && examQuestions.length > 0) {
-    return (
-      <SafeAreaProvider>
-        <ExamSessionScreen
-          questions={examQuestions}
-          onExitExam={exitExamSession}
-          onCompleteExam={handleCompleteExam}
-        />
-        <AppAlertModal alert={appAlert} onClose={() => setAppAlert(null)} />
-      </SafeAreaProvider>
-    );
-  }
-
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
@@ -639,13 +408,7 @@ export default function App() {
                 : {}),
             },
           ]}
-          onLayout={(e) => {
-            const w = e.nativeEvent.layout.width;
-            if (w > 0 && Math.abs(w - containerWidth) > 1) {
-              setContainerWidth(w);
-              translateX.setValue(-currentPageRef.current * w);
-            }
-          }}
+          onLayout={onLayoutContainer}
           {...(Platform.OS !== 'web' ? panResponder.panHandlers : {})}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -698,6 +461,7 @@ export default function App() {
                 onStartDueReview={handleStartDueReview}
                 onStartIncorrectReview={handleStartIncorrectReview}
                 onGoToScaffolding={handleApplyScaffolding}
+                onOpenTopicModal={handleOpenTopicModal}
                 onQuickPromptGenerate={handleQuickPromptGenerate}
                 isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
                 apiKey={apiKey}
@@ -732,7 +496,7 @@ export default function App() {
                 completions={completions}
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
-                onOpenTopicModal={() => setTopicModalVisible(true)}
+                onOpenTopicModal={() => handleOpenTopicModal('')}
                 onOpenUnitModal={() => setUnitModalVisible(true)}
                 onDeleteTopic={handleDeleteTopic}
                 onToggleUnitCompletion={handleToggleUnitCompletion}
@@ -743,7 +507,6 @@ export default function App() {
                 isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
                 generatingUnitId={generatingUnitId}
                 onStartExamWithQuestions={(qs) => {
-                  goToPage(0, false);
                   startExam(qs);
                 }}
                 onDeleteQuestion={handleDeleteQuestion}
@@ -811,6 +574,7 @@ export default function App() {
         {/* 공통 모달 컨테이너 (8종 모달 일원화) */}
         <AppModalsContainer
           topicModalVisible={topicModalVisible}
+          initialTopicName={initialTopicName}
           onCloseTopicModal={() => setTopicModalVisible(false)}
           onCreateTopic={handleCreateTopic}
           unitModalVisible={unitModalVisible}
@@ -876,6 +640,17 @@ export default function App() {
           onCloseAlert={() => setAppAlert(null)}
         />
       </SafeAreaView>
+
+      {/* 독립 시험장 (CBT) - 메인 화면 unmount 없이 최상위 오버레이로 안전하게 렌더링 */}
+      {examSessionActive && examQuestions.length > 0 && (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 9999, backgroundColor: '#ffffff' }]}>
+          <ExamSessionScreen
+            questions={examQuestions}
+            onExitExam={handleExitExam}
+            onCompleteExam={handleCompleteExam}
+          />
+        </View>
+      )}
     </SafeAreaProvider>
   );
 }

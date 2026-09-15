@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Topic, Unit, QuestionRevision, Profile, UUID } from '../../contracts/types';
+import { Topic, Unit, QuestionRevision, Profile, UUID, LearnerKnowledgeLevel } from '../../contracts/types';
 import { STORAGE_KEYS, generateUUID, getCurrentISOTime } from '../storage_keys';
 
 export async function getTopics(): Promise<Topic[]> {
@@ -34,7 +34,8 @@ export async function getTopics(): Promise<Topic[]> {
 export async function createTopic(
   name: string,
   description: string = '',
-  category: string = '📚 일반'
+  category: string = '📚 일반',
+  learnerLevel: LearnerKnowledgeLevel = 'basic'
 ): Promise<Topic> {
   const profileData = await AsyncStorage.getItem(STORAGE_KEYS.PROFILE);
   const profile: Profile | null = profileData ? JSON.parse(profileData) : null;
@@ -44,6 +45,7 @@ export async function createTopic(
     name: name.trim(),
     description: description.trim(),
     category: category.trim() || '📚 일반',
+    learnerLevel,
     archivedAt: null,
     createdAt: getCurrentISOTime(),
   };

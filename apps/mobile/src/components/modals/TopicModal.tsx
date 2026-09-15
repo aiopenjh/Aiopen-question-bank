@@ -15,6 +15,7 @@ import { showAlert } from '../../utils/alert';
 export interface TopicModalProps {
   visible: boolean;
   onClose: () => void;
+  initialTopicName?: string;
   onCreateTopic: (
     name: string,
     description: string,
@@ -39,12 +40,26 @@ const CATEGORY_SUGGESTIONS = [
   '📚 교양/자격증',
 ];
 
-export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCreateTopic }) => {
-  const [topicName, setTopicName] = useState('');
+export const TopicModal: React.FC<TopicModalProps> = ({
+  visible,
+  onClose,
+  initialTopicName = '',
+  onCreateTopic,
+}) => {
+  const [topicName, setTopicName] = useState(initialTopicName);
   const [category, setCategory] = useState('');
   const [autoCurriculum, setAutoCurriculum] = useState(true);
   const [learnerLevel, setLearnerLevel] = useState<LearnerKnowledgeLevel>('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (visible) {
+      setTopicName(initialTopicName || '');
+      setCategory('');
+      setAutoCurriculum(true);
+      setLearnerLevel('basic');
+    }
+  }, [visible, initialTopicName]);
 
   async function handleCreate() {
     const trimmedName = topicName.trim();
@@ -86,7 +101,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
           >
             <Text style={styles.modalTitle}>✨ 새 학습 과목 추가</Text>
             <Text style={styles.promptGuideText}>
-              과목명과 분류를 입력하면, AI가 내용에 부합하는 체계적인 소단원 목차를 자동 생성합니다.
+              과목명과 난이도를 선택하시면, AI가 체계적인 1~5단계 소단원 목차를 즉시 자동 설계합니다.
             </Text>
 
             {/* 1. 대주제 (과목명) */}
@@ -137,56 +152,34 @@ export const TopicModal: React.FC<TopicModalProps> = ({ visible, onClose, onCrea
               })}
             </ScrollView>
 
-            {/* 3. AI 목차 자동 생성 옵션 (방해되는 수동 입력창 제거 및 심플화) */}
-            <TouchableOpacity
-              style={[styles.autoCurriculumCard, autoCurriculum && styles.autoCurriculumCardActive]}
-              onPress={() => setAutoCurriculum(!autoCurriculum)}
-              disabled={isSubmitting}
-              activeOpacity={0.8}
-            >
-              <Text style={{ fontSize: 18, marginRight: 10 }}>{autoCurriculum ? '⚡' : '⬜'}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.autoCurriculumTitle, autoCurriculum && styles.autoCurriculumTitleActive]}>
-                  AI 맞춤 목차 자동 생성 (권장)
-                </Text>
-                <Text style={styles.autoCurriculumDesc}>
-                  {autoCurriculum
-                    ? '입력하신 과목명에 맞추어 전문적이고 체계적인 소단원을 AI가 자동 설계합니다.'
-                    : '소단원 없이 대주제만 먼저 등록합니다.'}
-                </Text>
+            {/* 3. 난이도 수준 선택 */}
+            <View style={{ marginBottom: 14 }}>
+              <Text style={styles.fieldLabel}>🎯 시작 난이도 수준</Text>
+              <View style={styles.levelRow}>
+                {(
+                  [
+                    { key: 'beginner', label: '🌱 입문' },
+                    { key: 'basic', label: '📘 기본' },
+                    { key: 'advanced', label: '🔥 실전' },
+                    { key: 'master', label: '👑 심화' },
+                  ] as const
+                ).map((item) => {
+                  const isSelected = learnerLevel === item.key;
+                  return (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[styles.levelBtn, isSelected && styles.levelBtnActive]}
+                      onPress={() => setLearnerLevel(item.key)}
+                      disabled={isSubmitting}
+                    >
+                      <Text style={[styles.levelBtnText, isSelected && styles.levelBtnTextActive]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            </TouchableOpacity>
-
-            {/* 4. 난이도 수준 선택 */}
-            {autoCurriculum && (
-              <View style={{ marginBottom: 14 }}>
-                <Text style={styles.fieldLabel}>🎯 난이도 수준</Text>
-                <View style={styles.levelRow}>
-                  {(
-                    [
-                      { key: 'beginner', label: '입문' },
-                      { key: 'basic', label: '기본' },
-                      { key: 'advanced', label: '실전' },
-                      { key: 'master', label: '심화' },
-                    ] as const
-                  ).map((item) => {
-                    const isSelected = learnerLevel === item.key;
-                    return (
-                      <TouchableOpacity
-                        key={item.key}
-                        style={[styles.levelBtn, isSelected && styles.levelBtnActive]}
-                        onPress={() => setLearnerLevel(item.key)}
-                        disabled={isSubmitting}
-                      >
-                        <Text style={[styles.levelBtnText, isSelected && styles.levelBtnTextActive]}>
-                          {item.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
+            </View>
 
             {/* 하단 버튼 바 */}
             <View style={styles.actionBtnRow}>

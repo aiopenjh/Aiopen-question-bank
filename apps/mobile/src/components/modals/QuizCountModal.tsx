@@ -1,25 +1,56 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Modal, TouchableOpacity } from 'react-native';
+import { LearnerKnowledgeLevel } from '../../contracts/types';
+
+export interface QuizCountModalOptions {
+  learnerLevel?: LearnerKnowledgeLevel;
+  shouldReplaceExisting?: boolean;
+}
 
 interface QuizCountModalProps {
   visible: boolean;
   unitTitle?: string;
   topicName?: string;
   existingCount?: number;
+  initialLevel?: LearnerKnowledgeLevel;
   onClose: () => void;
-  onSelectCount: (count: number) => void;
+  onSelectCount: (count: number, options?: QuizCountModalOptions) => void;
   onOpenBackup?: () => void;
 }
+
+const LEVEL_MAP: Record<
+  LearnerKnowledgeLevel,
+  { name: string; icon: string; desc: string }
+> = {
+  beginner: { name: '입문', icon: '🌱', desc: '쉬운 비유와 기초 개념 위주 (초심자용)' },
+  basic: { name: '기본', icon: '📘', desc: '표준 필수 개념 & 핵심 원리 (정규 시험용)' },
+  advanced: { name: '실전', icon: '🔥', desc: '기출 난이도 & 함정 선지 극복 (실전 시험대비)' },
+  master: { name: '심화', icon: '👑', desc: '최고난도 복합 추론 & 킬러 문항 (심화 마스터)' },
+};
 
 export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   visible,
   unitTitle,
   topicName,
   existingCount = 0,
+  initialLevel = 'basic',
   onClose,
   onSelectCount,
   onOpenBackup,
 }) => {
+  const [selectedLevel, setSelectedLevel] = useState<LearnerKnowledgeLevel>(initialLevel || 'basic');
+  const [shouldReplace, setShouldReplace] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedLevel(initialLevel || 'basic');
+      setShouldReplace(false);
+    }
+  }, [visible, initialLevel]);
+
+  const currentLevelInfo = LEVEL_MAP[selectedLevel] || LEVEL_MAP.basic;
+  const isModifiedFromDefault = initialLevel ? selectedLevel !== initialLevel : false;
+
   const options = [
     {
       count: 3,
@@ -32,18 +63,18 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
     },
     {
       count: 5,
-      badge: '🎯 약 15~20초 소요',
+      badge: '🎯 가장 추천 (가장 쾌적하고 안정적)',
       title: '5문제 풀기',
-      desc: '개념 이해 + 기출 함정 선지 + 꼼꼼한 해설지 구성',
+      desc: '개념 이해 + 실전 함정 선지 + 꼼꼼한 해설지 (가장 안정적인 최적 문항 수)',
       color: '#be123c',
       borderColor: '#fb7185',
       bg: '#fff1f2',
     },
     {
       count: 10,
-      badge: '🏆 약 25~35초 (안정적 최대 출제)',
+      badge: '🏆 집중 학습 (생성 시간 다소 소요)',
       title: '10문제 풀기',
-      desc: 'API 지연 없는 최대 문항 출제 (5~10회 누적 시 50~100문제 완성)',
+      desc: '단원 집중 풀이 (문항 수가 많아 AI 응답에 시간이 다소 걸릴 수 있습니다)',
       color: '#9f1239',
       borderColor: '#f43f5e',
       bg: '#fff1f2',
@@ -56,7 +87,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
         <View style={styles.modalCard}>
           <View style={styles.header}>
             <View style={styles.headerTopRow}>
-              <Text style={styles.badge}>📝 실전 출제 문항 수 선택</Text>
+              <Text style={styles.badge}>📝 실전 출제 설정 및 문항 수 선택</Text>
               {existingCount > 0 && (
                 <View style={styles.storedBadge}>
                   <Text style={styles.storedBadgeText}>📚 보관: {existingCount}문항</Text>
@@ -70,6 +101,103 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
               </Text>
             )}
           </View>
+
+          {/* 1. 현재 적용 난이도 고정 표시 카드 */}
+          <View style={styles.currentLevelCard}>
+            <View style={styles.currentLevelTop}>
+              <View style={styles.currentLevelBadge}>
+                <Text style={styles.currentLevelBadgeText}>
+                  {currentLevelInfo.icon} {currentLevelInfo.name} 난이도 적용 중
+                </Text>
+              </View>
+              <Text style={styles.currentLevelOriginTag}>
+                {isModifiedFromDefault ? '✏️ 이번 단원 변경됨' : '📌 과목 기본값 고정'}
+              </Text>
+            </View>
+            <Text style={styles.currentLevelDesc}>
+              {currentLevelInfo.desc}
+            </Text>
+          </View>
+
+          {/* 2. 난이도 변경 선택 영역 (원할 때 눌러서 변경) */}
+          <View style={styles.sectionBlock}>
+            <View style={styles.levelChangeHeader}>
+              <Text style={styles.sectionLabel}>🎯 난이도 변경 (원하실 때만 클릭)</Text>
+              {isModifiedFromDefault && initialLevel && (
+                <TouchableOpacity
+                  onPress={() => setSelectedLevel(initialLevel)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.resetLevelText}>
+                    ↺ 처음 설정({LEVEL_MAP[initialLevel]?.name})으로 복원
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={styles.levelRow}>
+              {(
+                [
+                  { key: 'beginner', label: '🌱 입문' },
+                  { key: 'basic', label: '📘 기본' },
+                  { key: 'advanced', label: '🔥 실전' },
+                  { key: 'master', label: '👑 심화' },
+                ] as const
+              ).map((lvl) => {
+                const isActive = selectedLevel === lvl.key;
+                const isInitial = initialLevel === lvl.key;
+                return (
+                  <TouchableOpacity
+                    key={lvl.key}
+                    style={[
+                      styles.levelChip,
+                      isActive && styles.levelChipActive,
+                    ]}
+                    onPress={() => setSelectedLevel(lvl.key)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.levelChipText, isActive && styles.levelChipTextActive]}>
+                      {lvl.label}
+                    </Text>
+                    {isInitial && (
+                      <View style={styles.initialDot} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* 2. 기존 문제 처리 옵션 (이미 문제가 있을 때만 표시) */}
+          {existingCount > 0 && (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionLabel}>🔄 기존 문제 처리 (보관 중인 {existingCount}문항)</Text>
+              <View style={styles.replaceOptionRow}>
+                <TouchableOpacity
+                  style={[styles.replaceBtn, !shouldReplace && styles.replaceBtnActive]}
+                  onPress={() => setShouldReplace(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.replaceBtnText, !shouldReplace && styles.replaceBtnTextActive]}>
+                    ➕ 유지하고 추가
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.replaceBtn, shouldReplace && styles.replaceBtnDangerActive]}
+                  onPress={() => setShouldReplace(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.replaceBtnText, shouldReplace && styles.replaceBtnDangerTextActive]}>
+                    🧹 지우고 새 난이도로 교체
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {shouldReplace && (
+                <Text style={styles.replaceNoticeText}>
+                  ⚠️ 기존에 풀었던 {existingCount}문항을 비우고, 선택하신 난이도로 완전히 새롭게 교체합니다.
+                </Text>
+              )}
+            </View>
+          )}
 
           {/* 30문제 이상 누적 시 안전 백업 권장 배너 */}
           {existingCount >= 30 && (
@@ -104,7 +232,12 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                   styles.optionCard,
                   { borderColor: opt.borderColor, backgroundColor: opt.bg },
                 ]}
-                onPress={() => onSelectCount(opt.count)}
+                onPress={() =>
+                  onSelectCount(opt.count, {
+                    learnerLevel: selectedLevel,
+                    shouldReplaceExisting: shouldReplace,
+                  })
+                }
                 activeOpacity={0.8}
               >
                 <View style={styles.optionTopRow}>
@@ -126,12 +259,12 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
           <View style={styles.timeNoticeCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <Text style={{ fontSize: 13 }}>💡</Text>
-              <Text style={styles.timeNoticeTitle}>API 안정성 및 50~100문제 누적 안내</Text>
+              <Text style={styles.timeNoticeTitle}>출제 권장 가이드 & 누적 문제은행</Text>
             </View>
             <Text style={styles.timeNoticeText}>
-              • AI API 과부하 및 지연 방지를 위해 1회 최대 10문제씩 가장 쾌적하게 출제됩니다.{'\n'}
-              • 10문제씩 여러 번 출제하셔도 기존 문제와 겹치지 않는 새로운 변형 문제가 생성되어 단원당 50~100문제 이상 안전하게 쌓을 수 있습니다.{'\n'}
-              • 생성된 문제는 스마트폰 개인 DB에 영구 보존됩니다.
+              • 5문제가 가장 안정적이고 쾌적하게 출제되며, 바쁠 땐 3문제, 단원 마스터 시 10문제를 추천합니다.{'\n'}
+              • 여러 번 출제하셔도 단원 내 다양한 개념으로 확장 출제되어 50~100문제 이상 안전하게 쌓을 수 있습니다.{'\n'}
+              • 생성된 문제는 기기 내 개인 DB에 영구 보존됩니다.
             </Text>
           </View>
 
@@ -165,6 +298,137 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 15,
     elevation: 8,
+  },
+  sectionBlock: {
+    marginBottom: 12,
+  },
+  currentLevelCard: {
+    backgroundColor: '#fff1f4',
+    borderWidth: 1.5,
+    borderColor: '#fda4af',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  currentLevelTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  currentLevelBadge: {
+    backgroundColor: '#e11d48',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  currentLevelBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  currentLevelOriginTag: {
+    fontSize: 11,
+    color: '#be123c',
+    fontWeight: '700',
+  },
+  currentLevelDesc: {
+    fontSize: 11,
+    color: '#475569',
+    lineHeight: 15,
+  },
+  levelChangeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  resetLevelText: {
+    fontSize: 11,
+    color: '#e11d48',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  levelRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  levelChip: {
+    flex: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  levelChipActive: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#f43f5e',
+  },
+  initialDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e11d48',
+    marginTop: 2,
+  },
+  levelChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  levelChipTextActive: {
+    color: '#e11d48',
+    fontWeight: '800',
+  },
+  replaceOptionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  replaceBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  replaceBtnActive: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#3b82f6',
+  },
+  replaceBtnDangerActive: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#ef4444',
+  },
+  replaceBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  replaceBtnTextActive: {
+    color: '#2563eb',
+    fontWeight: '800',
+  },
+  replaceBtnDangerTextActive: {
+    color: '#dc2626',
+    fontWeight: '800',
+  },
+  replaceNoticeText: {
+    fontSize: 11,
+    color: '#e11d48',
+    marginTop: 4,
+    fontWeight: '600',
   },
   header: {
     marginBottom: 14,

@@ -149,7 +149,7 @@ export function useAppData(callbacks?: {
     }
   ) {
     const categoryName = options?.category?.trim() || '📚 일반';
-    const created = await createTopic(name, description, categoryName);
+    const created = await createTopic(name, description, categoryName, options?.learnerLevel);
 
     let generatedCount = 0;
     if (options?.customUnits && options.customUnits.length > 0) {

@@ -99,6 +99,7 @@ export interface Topic {
   name: string;
   description: string;
   category?: string; // 대단위/대분류 (예: '💻 IT/개발', '📐 수학', '🌐 언어/어학', '📊 경제/경영', '📚 일반')
+  learnerLevel?: LearnerKnowledgeLevel; // 과목 생성 시 기본 설정된 학습 난이도
   archivedAt: ISODateTimeString | null;
   createdAt: ISODateTimeString;
 }

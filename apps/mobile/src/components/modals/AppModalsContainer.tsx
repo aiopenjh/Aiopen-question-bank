@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, Modal, ActivityIndicator } from 'react-native';
-import { Topic, Unit, QuestionRevision, Source } from '../../contracts/types';
+import { Topic, Unit, QuestionRevision, Source, LearnerKnowledgeLevel } from '../../contracts/types';
 import { AlertData } from '../../utils/alert';
 import { appStyles as styles } from '../../styles/appStyles';
 
@@ -23,6 +23,7 @@ import { LoadingWaitOverlay } from './LoadingWaitOverlay';
 export interface AppModalsContainerProps {
   // 1. TopicModal
   topicModalVisible: boolean;
+  initialTopicName?: string;
   onCloseTopicModal: () => void;
   onCreateTopic: (name: string, description: string, options?: any) => Promise<void>;
 
@@ -47,9 +48,10 @@ export interface AppModalsContainerProps {
     unitId: string;
     unitTitle: string;
     existingCount?: number;
+    initialLevel?: LearnerKnowledgeLevel;
   } | null;
   onCloseQuizCountModal: () => void;
-  onSelectQuizCount: (count: number) => void;
+  onSelectQuizCount: (count: number, options?: any) => void;
   onOpenBackup: () => Promise<void>;
 
   // 5. TopicSelectModal
@@ -104,6 +106,7 @@ export interface AppModalsContainerProps {
 
 export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   topicModalVisible,
+  initialTopicName,
   onCloseTopicModal,
   onCreateTopic,
   unitModalVisible,
@@ -157,6 +160,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
     <>
       <TopicModal
         visible={topicModalVisible}
+        initialTopicName={initialTopicName}
         onClose={onCloseTopicModal}
         onCreateTopic={onCreateTopic}
       />
@@ -181,6 +185,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
         topicName={pendingQuizUnit?.topicName}
         unitTitle={pendingQuizUnit?.unitTitle}
         existingCount={pendingQuizUnit?.existingCount}
+        initialLevel={pendingQuizUnit?.initialLevel}
         onClose={onCloseQuizCountModal}
         onSelectCount={onSelectQuizCount}
         onOpenBackup={onOpenBackup}

@@ -57,6 +57,7 @@ export {
   getQuestions,
   addQuestions,
   deleteQuestion,
+  deleteQuestionsForUnit,
   getCustomNoteQuestionIds,
   toggleCustomNoteQuestion,
   getAttempts,
