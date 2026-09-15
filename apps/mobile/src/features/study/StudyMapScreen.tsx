@@ -10,6 +10,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { RoutineRevision } from '../../contracts/types';
+import { DailyInspirationCard } from './DailyInspirationCard';
+import { FeedbackCard } from './FeedbackCard';
 
 interface StudyMapScreenProps {
   // 통합 학습 현황 & 복습 연동
@@ -30,6 +32,10 @@ interface StudyMapScreenProps {
   // 자유 주제 즉시 AI 출제 연동
   onQuickPromptGenerate?: (prompt: string) => Promise<void> | void;
   isAiGenerating?: boolean;
+
+  // AI 응원 문구 연동
+  apiKey?: string;
+  topicName?: string;
 }
 
 export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
@@ -46,6 +52,8 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   onRefresh,
   onQuickPromptGenerate,
   isAiGenerating = false,
+  apiKey,
+  topicName,
 }) => {
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const targetCount = routine?.targetQuestionCount || 3;
@@ -194,6 +202,12 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </TouchableOpacity>
         )}
       </View>
+
+      {/* 3. 접속할 때마다 바뀌는 오늘의 응원 한마디 (로컬 + AI) */}
+      <DailyInspirationCard apiKey={apiKey} topicName={topicName} />
+
+      {/* 4. 건의사항 & 불편한 점 제보 (카카오톡 오픈채팅 직통 연결) */}
+      <FeedbackCard />
     </ScrollView>
   );
 };

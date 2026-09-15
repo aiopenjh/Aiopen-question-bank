@@ -353,6 +353,8 @@ export default function App() {
             onGoToScaffolding={handleApplyScaffolding}
             onQuickPromptGenerate={handleQuickPromptGenerate}
             isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
+            apiKey={apiKey}
+            topicName={topics.find((t) => t.id === (selectedTopicId || lastStudiedTopicId))?.name}
           />
         </View>
 
