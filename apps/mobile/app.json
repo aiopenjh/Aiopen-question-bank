@@ -4,7 +4,7 @@
     "slug": "celueste",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./MAIN.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
@@ -14,14 +14,14 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "foregroundImage": "./MAIN.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./MAIN.png"
     },
     "experiments": {
       "baseUrl": "/Aiopen-question-bank"
@@ -31,7 +31,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./MAIN.png",
           "color": "#6366F1"
         }
       ]
