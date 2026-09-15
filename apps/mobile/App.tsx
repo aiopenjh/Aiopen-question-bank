@@ -259,6 +259,19 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // 10. 파생 상태 및 메인 화면 좌/우 넘기기(스와이프) 제스처 훅 (조기 리턴 방지 필수)
+  const topicQuestions = selectedTopicId ? questions.filter((q) => q.topicId === selectedTopicId) : questions;
+  const dueQuestions = filterDueReviewQuestions(topicQuestions.length > 0 ? topicQuestions : questions, reviewStates);
+  const todayAttempts = attempts.filter((att) => att.submittedAt.startsWith(getLocalDateString()));
+  const topicIncorrect = selectedTopicId
+    ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
+    : incorrectQuestions;
+
+  const mainSwipeHandlers = useSwipeGesture({
+    onSwipeLeft: () => setIsLibraryOpen(true),
+    onSwipeRight: () => setIsSettingsOpen(true),
+  });
+
   async function handleStartExamWithAutoGenerate() {
     if (topics.length === 0) {
       showAlert('알림', '먼저 학습할 주제(대단원)를 등록해 주세요.', [
@@ -339,20 +352,6 @@ export default function App() {
       </SafeAreaProvider>
     );
   }
-
-  const topicQuestions = selectedTopicId ? questions.filter((q) => q.topicId === selectedTopicId) : questions;
-  const dueQuestions = filterDueReviewQuestions(topicQuestions.length > 0 ? topicQuestions : questions, reviewStates);
-  const todayAttempts = attempts.filter((att) => att.submittedAt.startsWith(getLocalDateString()));
-  const topicIncorrect = selectedTopicId
-    ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
-    : incorrectQuestions;
-
-  // 메인 화면 좌/우 넘기기(스와이프) 제스처
-  // 왼쪽으로 넘기면(←) 과목저장, 오른쪽으로 넘기면(→) 설정창
-  const mainSwipeHandlers = useSwipeGesture({
-    onSwipeLeft: () => setIsLibraryOpen(true),
-    onSwipeRight: () => setIsSettingsOpen(true),
-  });
 
   return (
     <SafeAreaProvider>
