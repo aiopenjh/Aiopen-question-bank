@@ -87,8 +87,8 @@ export default function App() {
       isTransitioning.current = true;
       Animated.timing(translateX, {
         toValue: targetOffset,
-        duration: 380,
-        easing: Easing.out(Easing.cubic),
+        duration: 240,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: Platform.OS !== 'web',
       }).start(() => {
         isTransitioning.current = false;
@@ -135,6 +135,9 @@ export default function App() {
     }
 
     if (isSwipingHorizontal.current) {
+      if (e.cancelable) {
+        e.preventDefault?.();
+      }
       const currentBase = -gestureStartPage.current * containerWidthRef.current;
       if (gestureStartPage.current === 0 && dx > 0) {
         translateX.setValue(currentBase + dx * 0.15);
@@ -566,7 +569,18 @@ export default function App() {
 
         {/* 📖 자연스러운 책 넘김 수평 페이저: [0: 메인] -> [1: 과목자료함] -> [2: 설정] */}
         <View
-          style={[styles.mainContent, { overflow: 'hidden' }]}
+          style={[
+            styles.mainContent,
+            {
+              overflow: 'hidden',
+              ...(Platform.OS === 'web'
+                ? ({
+                    touchAction: 'pan-y',
+                    WebkitTouchCallout: 'none',
+                  } as any)
+                : {}),
+            },
+          ]}
           onLayout={(e) => {
             const w = e.nativeEvent.layout.width;
             if (w > 0 && Math.abs(w - containerWidth) > 1) {
@@ -586,6 +600,14 @@ export default function App() {
               height: '100%',
               flexShrink: 0,
               transform: [{ translateX }],
+              ...(Platform.OS === 'web'
+                ? ({
+                    willChange: 'transform',
+                    transformStyle: 'preserve-3d',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                  } as any)
+                : {}),
             }}
           >
             {/* 1. Page 0: 메인 (맨 왼쪽 고정, 왼쪽으로 더 갈 수 없음) */}
@@ -597,6 +619,13 @@ export default function App() {
                 flexShrink: 0,
                 flexGrow: 0,
                 height: '100%',
+                ...(Platform.OS === 'web'
+                  ? ({
+                      transformStyle: 'preserve-3d',
+                      backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
+                    } as any)
+                  : {}),
               }}
             >
               <StudyMapScreen
@@ -629,6 +658,13 @@ export default function App() {
                 flexShrink: 0,
                 flexGrow: 0,
                 height: '100%',
+                ...(Platform.OS === 'web'
+                  ? ({
+                      transformStyle: 'preserve-3d',
+                      backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
+                    } as any)
+                  : {}),
               }}
             >
               <LibraryScreen
@@ -679,6 +715,13 @@ export default function App() {
                 flexShrink: 0,
                 flexGrow: 0,
                 height: '100%',
+                ...(Platform.OS === 'web'
+                  ? ({
+                      transformStyle: 'preserve-3d',
+                      backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
+                    } as any)
+                  : {}),
               }}
             >
               <SettingsScreen
