@@ -58,11 +58,12 @@ export async function generateFactBasedQuestions(params: {
   ownerId: UUID;
   topicId: UUID;
   topicName?: string;
+  category?: string;
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
 }): Promise<GenerationOutcome> {
-  const { intent, ownerId, topicId, topicName, unitId, unitTitle, customContext } = params;
+  const { intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext } = params;
   const apiKey = await getGeminiApiKey();
 
   // API Key 미연동 시: 가짜 문제를 억지로 내지 않고 솔직한 통로 안내 반환
@@ -82,6 +83,7 @@ export async function generateFactBasedQuestions(params: {
       ownerId,
       topicId,
       topicName,
+      category,
       unitId,
       unitTitle,
       customContext,
@@ -114,6 +116,7 @@ async function generateViaUniversalAiApi(params: {
   ownerId: UUID;
   topicId: UUID;
   topicName?: string;
+  category?: string;
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
@@ -122,7 +125,7 @@ async function generateViaUniversalAiApi(params: {
   questions: QuestionRevision[];
   validations: ValidationRecord[];
 }> {
-  const { apiKey, intent, ownerId, topicId, topicName, unitId, unitTitle, customContext } = params;
+  const { apiKey, intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext } = params;
 
   const specId = generateUUID();
   const spec: LearningSpec = {
@@ -144,6 +147,7 @@ async function generateViaUniversalAiApi(params: {
   const prompt = buildQuestionGenerationPrompt({
     intent,
     resolvedDomain,
+    category,
     unitTitle,
     customContext,
   });

@@ -149,12 +149,13 @@ export function useQuizGeneration({
         }
 
         const customContext = contextParts.length > 0 ? contextParts.join('\n\n') : undefined;
-
+        const currentTopic = topics.find((t) => t.id === topicId);
         const outcome = await generateFactBasedQuestions({
           intent: scoped,
           ownerId: 'owner-default',
           topicId,
           topicName,
+          category: currentTopic?.category,
           unitId,
           unitTitle,
           customContext,
@@ -501,6 +502,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         ownerId: 'owner-default',
         topicId: currentTopic.id,
         topicName: currentTopic.name,
+        category: currentTopic.category,
         unitId: targetUnitId,
         unitTitle: targetUnitTitle,
         customContext,

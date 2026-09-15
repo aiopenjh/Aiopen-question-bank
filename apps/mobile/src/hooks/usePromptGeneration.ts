@@ -110,6 +110,7 @@ export function usePromptGeneration({
           ownerId: 'owner-default',
           topicId: targetTopic.id,
           topicName: targetTopic.name,
+          category: targetTopic.category,
           unitId: targetUnitId,
           unitTitle: targetUnitTitle || intent.domain,
           customContext,

@@ -275,6 +275,34 @@ export default function App() {
     };
   }, []);
 
+  // 모바일 브라우저 입력창(input) 터치 시 창 크기 축소/자동 확대 왜곡 전역 차단
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      let meta = document.querySelector('meta[name="viewport"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', 'viewport');
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute(
+        'content',
+        'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover'
+      );
+
+      const styleId = 'celueste-prevent-input-zoom';
+      if (!document.getElementById(styleId)) {
+        const styleTag = document.createElement('style');
+        styleTag.id = styleId;
+        styleTag.textContent = `
+          input, textarea, select {
+            font-size: 16px !important;
+          }
+        `;
+        document.head.appendChild(styleTag);
+      }
+    }
+  }, []);
+
   // 1. Core Data Hook
   const {
     loading,

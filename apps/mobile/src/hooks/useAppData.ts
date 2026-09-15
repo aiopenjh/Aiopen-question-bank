@@ -169,6 +169,7 @@ export function useAppData(callbacks?: {
         const generatedUnits = await generateCurriculumUnits({
           topicName: name,
           topicDescription: description,
+          category: categoryName,
           learnerLevel: options?.learnerLevel,
         });
 

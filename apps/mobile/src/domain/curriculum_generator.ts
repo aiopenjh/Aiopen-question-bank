@@ -21,6 +21,7 @@ export interface GeneratedUnitItem {
 export async function generateCurriculumUnits(params: {
   topicName: string;
   topicDescription?: string;
+  category?: string;
   learnerLevel?: LearnerKnowledgeLevel;
   knownScope?: string;
   startUnitIndex?: number;
@@ -30,6 +31,7 @@ export async function generateCurriculumUnits(params: {
   const {
     topicName,
     topicDescription,
+    category,
     learnerLevel = 'basic',
     knownScope,
     startUnitIndex = 1,
@@ -44,6 +46,7 @@ export async function generateCurriculumUnits(params: {
       const prompt = buildCurriculumPrompt({
         topicName,
         topicDescription,
+        category,
         learnerLevel,
         knownScope,
         startUnitIndex,

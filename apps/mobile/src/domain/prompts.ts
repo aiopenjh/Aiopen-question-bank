@@ -4,16 +4,17 @@ import { LearnerKnowledgeLevel } from '../contracts/types';
 export function buildQuestionGenerationPrompt(params: {
   intent: ScopedIntent;
   resolvedDomain: string;
+  category?: string;
   unitTitle?: string;
   customContext?: string;
 }): string {
-  const { intent, resolvedDomain, unitTitle, customContext } = params;
+  const { intent, resolvedDomain, category, unitTitle, customContext } = params;
 
   return `당신은 대한민국 최고 권위의 공인 시험 출제위원 및 평가 전문가(Certified Psychometrician)입니다.
 아래 명세에 맞추어 최고 품질의 4지선다형 객관식 시험 문제 ${intent.targetCount}문항을 생성하여 순수 JSON 포맷으로 출력하세요.
 
 [학습 과목 및 출제 범위]
-- 과목/도메인: ${resolvedDomain}
+- 과목/도메인: ${resolvedDomain}${category ? ` / 세부 분류(영역): ${category}` : ''}
 ${unitTitle ? `- 지정 단원(공식 목차): ${unitTitle}` : ''}
 - 학습자 지식 수준: ${intent.levelLabel} (${intent.learnerLevel || 'basic'})
 ${intent.knownScope ? `- 학습자가 밝힌 현재 학습 도달점: "${intent.knownScope}"` : ''}
@@ -22,7 +23,11 @@ ${intent.knownScope ? `- 학습자가 밝힌 현재 학습 도달점: "${intent.
 ${customContext ? `- 참고 자료 및 특별 지침:\n${customContext}` : ''}
 
 [과목 일치 및 교차 분야 혼동 방지 절대 헌법 (CRITICAL - Strict Domain Isolation)]
-1. [지정 과목 100% 한정]: 본 시험 문제는 반드시 지정된 과목 [${resolvedDomain}] 에 100% 국한하여 출제해야 합니다.
+1. [지정 과목 및 세부 영역 일치 헌법 (Cross-Domain Conflict Resolution)]:
+   - 본 시험 문제는 반드시 지정된 과목 [${resolvedDomain}] 및 세부 영역 [${category || resolvedDomain}]에 100% 국한하여 출제해야 합니다.
+   - [상호 모순/충돌 시 우선순위 예외 처리]:
+     * 만약 대주제/과목명('${resolvedDomain}')과 세부 영역/분류('${category}')이 서로 상이하거나 충돌하는 경우(예: 과목명은 '바람의나라', 세부 분류는 '바리스타 기초과정'):
+     * 학습자가 명시적으로 배우고자 지정한 **실제 학습 대상인 '${category || resolvedDomain}'(예: 바리스타 커피 지식 및 에스프레소 추출, 원두 가공, 스팀 밀크 등)**을 최우선 기준으로 채택하여 출제하십시오. 절대 다른 분야의 게임 시스템(캐릭터 생성, 국가 선택, 몬스터 사냥 등)으로 문제를 왜곡해서는 안 됩니다!
 2. [단원명/용어에 의한 타 분야 왜곡 절대 금지]:
    - 단원명(${unitTitle ? `"${unitTitle}"` : '지정 단원'})이나 세부 요구사항에 '기초', '원리', '문법', '구조', '기초과정', '입문' 등의 일반적 어휘가 있더라도, 절대 다른 분야(예: 컴퓨터 프로그래밍 언어, 파이썬, 코딩, 수학 등)로 분야를 혼동하여 출제하지 마십시오.
    - [예시]: 과목이 '토익', '영어', '영단어'인 경우, 단원이 '기초과정'이라도 반드시 토익 빈출 필수 영단어, 어휘 의미, 알맞은 단어 채우기, 품사 구분, 예문 독해 문항이어야 하며, 파이썬(Python)이나 컴퓨터 프로그래밍 코드가 단 한 줄이라도 들어가서는 절대 안 됩니다! 100% [${resolvedDomain}] 과목의 공식 시험 문제입니다.
@@ -60,6 +65,7 @@ ${customContext ? `- 참고 자료 및 특별 지침:\n${customContext}` : ''}
 export function buildCurriculumPrompt(params: {
   topicName: string;
   topicDescription?: string;
+  category?: string;
   learnerLevel?: LearnerKnowledgeLevel;
   knownScope?: string;
   startUnitIndex?: number;
@@ -69,6 +75,7 @@ export function buildCurriculumPrompt(params: {
   const {
     topicName,
     topicDescription,
+    category,
     learnerLevel = 'basic',
     knownScope,
     startUnitIndex = 1,
@@ -89,10 +96,11 @@ export function buildCurriculumPrompt(params: {
   const endPad = String(endIdx).padStart(2, '0');
 
   return `당신은 대한민국 교육부 및 국가공인 평가원 수준의 최고 권위 교육과정 설계 전문가(National Curriculum Architect)입니다.
-학습자가 공부하고자 하는 주제("${topicName}")에 대해, 학계 및 공인 시험(수능, 내신, 국가자격증, 표준 대학 교재 등)에서 공식적으로 사용하는 표준 교육과정에 철저히 기반하여 체계적인 5단계 단원(목차)을 설계하여 순수 JSON 포맷으로 출력하세요.
+학습자가 공부하고자 하는 주제("${topicName}"${category ? ` / 분류: "${category}"` : ''})에 대해, 학계 및 공인 시험(수능, 내신, 국가자격증, 표준 대학 교재 등)에서 공식적으로 사용하는 표준 교육과정에 철저히 기반하여 체계적인 5단계 단원(목차)을 설계하여 순수 JSON 포맷으로 출력하세요.
 
 [학습 주제 및 단계 정보]
 - 과목/주제: ${topicName}
+${category ? `- 과목 분류/영역: ${category}` : ''}
 ${topicDescription ? `- 주제 설명/목표: ${topicDescription}` : ''}
 - 학습자 지식 수준: ${levelMap[learnerLevel]}
 ${knownScope ? `- 학습자가 이미 알고 있는 범위: "${knownScope}"` : ''}
@@ -101,7 +109,11 @@ ${knownScope ? `- 학습자가 이미 알고 있는 범위: "${knownScope}"` : '
 ${existingUnitTitles.length > 0 ? `- 이미 이전 단계에 등록된 단원 목록 (※ 절대 중복 생성 금지, 이 단원들을 마친 후 이어지는 다음 연계 심화 과정으로 설계할 것):\n${existingUnitTitles.map((t) => `  * ${t}`).join('\n')}` : ''}
 
 [절대적 공인 교육과정 설계 헌법 (Universal Fine-Grained Micro-Step Curriculum for All Fields)]
-1. [지정 과목 100% 한정]: 반드시 지정된 [${topicName}] 과목의 공식 표준 교육과정 및 수험/학술 체계에만 국한하여 설계하십시오.
+1. [지정 과목 및 세부 영역 일치 헌법 (Cross-Domain Conflict Resolution)]:
+   - 반드시 지정된 과목 [${topicName}] 및 세부 영역 [${category || topicName}]의 공식 표준 교육과정에 국한하여 목차를 설계하십시오.
+   - [상호 모순/충돌 시 우선순위 예외 처리]:
+     * 만약 과목명('${topicName}')과 분류/영역('${category}')이 서로 다른 분야로 충돌하거나 상이한 경우(예: 과목명은 '바람의나라', 분류는 '바리스타 기초과정'):
+     * 반드시 사용자가 구체적으로 배우고자 밝힌 **실제 학습 대상인 '${category || topicName}'의 전문 교육과정(예: 바리스타 커피 지식)**을 최우선 기준으로 채택하여 목차를 구성하십시오. 엉뚱하게 다른 분야의 일반 시스템(예: 게임 캐릭터 생성 등)으로 덮어씌워서는 절대 안 됩니다!
 2. [단원 번호 연속성 필수 준수]: 각 단원의 제목은 반드시 "${startPad}단원. [공인 단원명]"부터 시작하여 순차적으로 번호를 매겨 "${endPad}단원. [공인 단원명]"까지 총 5개 단원을 출력하십시오.
 3. [전 분야 공통 적용: 촘촘한 마이크로 스텝 설계 (급격한 난이도 비약 및 건너뛰기 절대 금지)]:
    - 본 규칙은 프로그래밍, 수학, 영어, 행정학, 공무원/자격증 시험, 과학, 역사 등 **모든 학문과 수험 분야에 예외 없이 동일하게 적용**됩니다.
