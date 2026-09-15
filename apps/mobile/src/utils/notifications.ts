@@ -7,7 +7,6 @@ const LAST_ALARM_PROMPT_KEY = '@celueste:last_in_app_alarm_prompt';
 
 // Expo Go (Android)에서는 SDK 53부터 푸시 알림 네이티브 모듈이 제외되어
 // 직접 import/호출 시 빨간색 크래시 화면([runtime not ready])을 발생시킵니다.
-// 이를 방지하기 위해 Expo Go 안드로이드 환경에서는 안전하게 모듈 로드를 우회합니다.
 let Notifications: any = null;
 const isExpoGoAndroid = Platform.OS === 'android' && isRunningInExpoGo();
 
@@ -47,10 +46,58 @@ export async function setupNotificationChannel(): Promise<void> {
 }
 
 /**
- * 알림 권한 확인 및 요청
+ * 웹 브라우저 (HTML5 Notification API) 권한 요청 및 확인
+ */
+export async function requestWebNotificationPermission(): Promise<boolean> {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || !('Notification' in window)) {
+    return false;
+  }
+  try {
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission !== 'denied') {
+      const result = await Notification.requestPermission();
+      return result === 'granted';
+    }
+  } catch (err) {
+    console.warn('웹 알림 권한 요청 중 오류:', err);
+  }
+  return false;
+}
+
+/**
+ * 웹 브라우저 시스템 알림 발송
+ */
+export function sendWebNotification(title: string, body: string, onClick?: () => void): void {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || !('Notification' in window)) {
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    try {
+      const n = new Notification(title, {
+        body,
+        icon: '/favicon.ico',
+      });
+      if (onClick) {
+        n.onclick = () => {
+          window.focus();
+          onClick();
+          n.close();
+        };
+      }
+    } catch (err) {
+      console.warn('웹 알림 발송 실패:', err);
+    }
+  }
+}
+
+/**
+ * 통합 알림 권한 확인 및 요청 (모바일 네이티브 + 웹 브라우저 통합)
  */
 export async function requestNotificationPermission(): Promise<boolean> {
-  if (Platform.OS === 'web' || !Notifications) return false;
+  if (Platform.OS === 'web') {
+    return await requestWebNotificationPermission();
+  }
+  if (!Notifications) return false;
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -83,7 +130,7 @@ export interface AlarmConfig {
   morningHour: number; // 8 ~ 11
   eveningEnabled: boolean;
   eveningHour: number; // 19 ~ 21
-  selectedDays?: DayOfWeek[]; // 직접 선택된 요일 목록 (기본: 월, 화, 수, 목, 금)
+  selectedDays?: DayOfWeek[]; // 직접 선택된 요일 목록 (기본: 월~일)
   weekendEnabled?: boolean; // 하위 호환용
 }
 
@@ -130,10 +177,16 @@ export async function saveAlarmConfig(config: AlarmConfig): Promise<void> {
 }
 
 /**
- * 정기 맞춤 알람 스케줄 등록 (사용자가 탭하여 선택한 요일별 알람 등록)
+ * 정기 맞춤 알람 스케줄 등록
  */
 export async function scheduleWeekdayStudyAlarms(customConfig?: AlarmConfig): Promise<void> {
-  if (Platform.OS === 'web' || !Notifications) return;
+  // 웹 브라우저 환경에서는 Web Notification 권한 요청
+  if (Platform.OS === 'web') {
+    await requestWebNotificationPermission();
+    return;
+  }
+
+  if (!Notifications) return;
 
   try {
     await setupNotificationChannel();
@@ -169,7 +222,7 @@ export async function scheduleWeekdayStudyAlarms(customConfig?: AlarmConfig): Pr
       if (!mapping) continue;
       const weekday = mapping.expoWeekday;
 
-      // 1. 오전 알람
+      // 1. 오전 알람 (기본 08:00)
       if (config.morningEnabled) {
         await Notifications.scheduleNotificationAsync({
           content: {
@@ -190,7 +243,7 @@ export async function scheduleWeekdayStudyAlarms(customConfig?: AlarmConfig): Pr
         });
       }
 
-      // 2. 저녁 알람
+      // 2. 저녁 알람 (기본 20:00 / 저녁 8시)
       if (config.eveningEnabled) {
         const displayHour = config.eveningHour > 12 ? config.eveningHour - 12 : config.eveningHour;
         await Notifications.scheduleNotificationAsync({
@@ -245,7 +298,7 @@ export function registerNotificationResponseListener(onStartExam: () => void): (
 }
 
 /**
- * 앱이 켜져 있을 때(포그라운드) 정기 시간(선택된 요일 및 시간) 도래 감지 및 인앱 안내
+ * 실시간 정기 시간 도래 감지 및 인앱 + 웹 알림 발송 (포그라운드 및 인터벌 실행)
  */
 export async function checkInAppScheduledAlarm(onStartExam: (slotLabel: string) => void): Promise<void> {
   const config = await getAlarmConfig();
@@ -265,10 +318,10 @@ export async function checkInAppScheduledAlarm(onStartExam: (slotLabel: string) 
   if (!isTodayActive) return;
 
   const hours = now.getHours();
-  const minutes = now.getMinutes();
 
-  const isMorningSlot = config.morningEnabled && hours === config.morningHour && minutes <= 30;
-  const isEveningSlot = config.eveningEnabled && hours === config.eveningHour && minutes <= 30;
+  // 현재 시간이 설정된 오전 또는 저녁 시간과 일치하는지 확인 (해당 시간대 내 1회 보장)
+  const isMorningSlot = config.morningEnabled && hours === config.morningHour;
+  const isEveningSlot = config.eveningEnabled && hours === config.eveningHour;
 
   if (!isMorningSlot && !isEveningSlot) return;
 
@@ -279,13 +332,58 @@ export async function checkInAppScheduledAlarm(onStartExam: (slotLabel: string) 
 
   const lastPrompt = await AsyncStorage.getItem(LAST_ALARM_PROMPT_KEY);
   if (lastPrompt === slotKey) {
-    return;
+    return; // 오늘 이 시간대에는 이미 알림이 전송됨
   }
 
   await AsyncStorage.setItem(LAST_ALARM_PROMPT_KEY, slotKey);
+
   const displayHour = isMorningSlot
     ? `오전 ${config.morningHour}시`
     : `저녁 ${config.eveningHour > 12 ? config.eveningHour - 12 : config.eveningHour}시`;
+
+  // 1. 웹 시스템 알림 전송 (브라우저가 다른 탭에 있거나 백그라운드일 때 유효)
+  sendWebNotification(
+    `⏰ [Celueste] ${displayHour} 정기 학습 시간입니다!`,
+    '오늘의 실전 문제를 풀고 학습을 이어가 보세요! (클릭하여 시험 시작)',
+    () => onStartExam(displayHour)
+  );
+
+  // 2. 인앱 안내 모달 팝업 콜백 실행
   onStartExam(displayHour);
 }
 
+/**
+ * 테스트용 즉시 알람 발송 함수 (지금 바로 알람 테스트)
+ */
+export async function triggerTestAlarm(onStartExam: (slotLabel: string) => void): Promise<void> {
+  const hasPermission = await requestNotificationPermission();
+  const testLabel = '테스트 알람';
+
+  // 1. 웹 브라우저 시스템 알림
+  sendWebNotification(
+    '🔔 [Celueste] 실시간 알람 테스트',
+    '정기 학습 알람이 성공적으로 설정되었습니다! (클릭하여 즉시 시작)',
+    () => onStartExam(testLabel)
+  );
+
+  // 2. 모바일 로컬 푸시 알림 (네이티브)
+  if (Notifications && Platform.OS !== 'web') {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🔔 [Celueste] 실시간 알람 테스트',
+          body: '정기 학습 알람이 성공적으로 설정되었습니다! 터치하여 바로 시작하세요.',
+          data: { action: 'START_EXAM', timeSlot: 'test' },
+          sound: true,
+          channelId: 'default',
+        },
+        trigger: null, // 즉시 발송
+      });
+    } catch (e) {
+      console.warn('모바일 테스트 알람 발송 실패:', e);
+    }
+  }
+
+  // 3. 인앱 팝업
+  onStartExam(testLabel);
+}

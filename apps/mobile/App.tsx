@@ -284,18 +284,29 @@ export default function App() {
       handleStartExamRef.current?.();
     });
 
-    checkInAppScheduledAlarm((slotLabel) => {
-      showAlert(
-        `⏰ [평일 ${slotLabel}] 정기 학습 시간입니다!`,
-        '오늘의 실전 문제를 풀고 학습을 이어가시겠습니까?',
-        [
-          { text: '나중에', style: 'cancel' },
-          { text: '지금 문제 풀기', onPress: () => handleStartExamRef.current?.() },
-        ]
-      );
-    });
+    const triggerAlarmCheck = () => {
+      checkInAppScheduledAlarm((slotLabel) => {
+        showAlert(
+          `⏰ [${slotLabel}] 정기 학습 시간입니다!`,
+          '오늘의 실전 문제를 풀고 학습을 이어가시겠습니까?',
+          [
+            { text: '나중에', style: 'cancel' },
+            { text: '지금 문제 풀기', onPress: () => handleStartExamRef.current?.() },
+          ]
+        );
+      });
+    };
 
-    return () => unsubscribe();
+    // 앱 마운트 시 즉시 확인
+    triggerAlarmCheck();
+
+    // 앱 실행 중 정기 시간(예: 8시) 도래를 30초마다 실시간 감지!
+    const alarmInterval = setInterval(triggerAlarmCheck, 30000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(alarmInterval);
+    };
   }, []);
 
   // 10. 파생 상태
