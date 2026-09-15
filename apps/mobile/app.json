@@ -23,6 +23,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "experiments": {
+      "baseUrl": "/Aiopen-question-bank"
+    },
     "plugins": [
       "expo-sharing",
       [
