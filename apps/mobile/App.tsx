@@ -440,8 +440,6 @@ export default function App() {
                 completions={completions}
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
-                onGoToMain={() => goToPage(0, true)}
-                onGoToSettings={() => goToPage(2, true)}
                 onOpenTopicModal={() => setTopicModalVisible(true)}
                 onOpenUnitModal={() => setUnitModalVisible(true)}
                 onDeleteTopic={handleDeleteTopic}
@@ -492,8 +490,6 @@ export default function App() {
                 }}
                 onResetAllData={handleResetAllData}
                 onOpenUserManual={() => setIsUserManualOpen(true)}
-                onGoToMain={() => goToPage(0, true)}
-                onGoToLibrary={() => goToPage(1, true)}
                 hasUpdate={appUpdate.hasUpdate}
                 isCheckingUpdate={appUpdate.isChecking}
                 latestVersion={appUpdate.latestVersion}

@@ -37,10 +37,6 @@ export interface LibraryScreenProps {
   refreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
 
-  // 책 넘김 네비게이션 연동
-  onGoToMain?: () => void;
-  onGoToSettings?: () => void;
-
   // Review & Incorrect questions
   incorrectQuestions?: QuestionRevision[];
   reviewStates?: ReviewState[];
@@ -76,8 +72,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   onDeleteQuestion,
   refreshing = false,
   onRefresh,
-  onGoToMain,
-  onGoToSettings,
   incorrectQuestions = [],
   onOpenSettings,
 }) => {
@@ -218,28 +212,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
           onDeleteQuestion={onDeleteQuestion}
           onOpenCustomNotebook={() => setIsCustomNotebookOpen(true)}
         />
-
-        {/* 5. 자연스러운 책 넘김 네비게이션 */}
-        <View style={styles.bookNavRow}>
-          {onGoToMain && (
-            <TouchableOpacity
-              style={styles.bookNavPrevBtn}
-              onPress={onGoToMain}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.bookNavPrevText}>⬅️ 🏠 메인으로 넘기기</Text>
-            </TouchableOpacity>
-          )}
-          {onGoToSettings && (
-            <TouchableOpacity
-              style={styles.bookNavNextBtn}
-              onPress={onGoToSettings}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.bookNavNextText}>⚙️ 설정으로 넘기기 ➔</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </ScrollView>
 
       {/* 나만의 오답노트 전용 창 (조용하고 쾌적한 학습 공간) */}

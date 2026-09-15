@@ -229,26 +229,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
 
       {/* 4. 건의사항 & 불편한 점 제보 (카카오톡 오픈채팅 직통 연결) */}
       <FeedbackCard />
-
-      {/* 5. 자연스러운 책 넘김: 다음 페이지(과목 & 자료함) 이동 카드 */}
-      {onOpenLibrary && (
-        <TouchableOpacity
-          style={styles.bookNextPageCard}
-          onPress={onOpenLibrary}
-          activeOpacity={0.82}
-        >
-          <View style={styles.bookNextPageInner}>
-            <Text style={{ fontSize: 26, marginRight: 12 }}>📖</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.bookNextPageTitle}>다음 페이지: 과목 & 자료함</Text>
-              <Text style={styles.bookNextPageSub}>내 문제집, 커리큘럼, 오답노트 보러가기</Text>
-            </View>
-            <View style={styles.bookNextPageBadge}>
-              <Text style={styles.bookNextPageBadgeText}>넘기기 ➔</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-      )}
     </ScrollView>
   );
 };
@@ -261,48 +241,6 @@ const styles = StyleSheet.create({
   scrollPadding: {
     padding: 18,
     paddingBottom: 40,
-  },
-  bookNextPageCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 14,
-    marginBottom: 10,
-    borderWidth: 1.5,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  bookNextPageInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  bookNextPageTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#881337',
-  },
-  bookNextPageSub: {
-    fontSize: 11.5,
-    color: '#9f1239',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  bookNextPageBadge: {
-    backgroundColor: '#ffe4e6',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#fda4af',
-  },
-  bookNextPageBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#e11d48',
   },
   heroRoutineCard: {
     backgroundColor: '#ffffff',
