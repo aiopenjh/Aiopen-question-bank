@@ -129,20 +129,9 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                 등록된 과목 {topics.length}개 · 총 {questions.length}문항 보관 중
               </Text>
             </View>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              <TouchableOpacity style={styles.newTopicBtn} onPress={onOpenTopicModal} activeOpacity={0.8}>
-                <Text style={styles.newTopicBtnText}>+ 새 과목</Text>
-              </TouchableOpacity>
-              {onOpenSettings && (
-                <TouchableOpacity
-                  style={[styles.newTopicBtn, { backgroundColor: '#fff1f2', borderColor: '#fda4af', borderWidth: 1 }]}
-                  onPress={onOpenSettings}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.newTopicBtnText, { color: '#be123c' }]}>⚙️ 설정</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <TouchableOpacity style={styles.newTopicBtn} onPress={onOpenTopicModal} activeOpacity={0.8}>
+              <Text style={styles.newTopicBtnText}>+ 새 과목</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
