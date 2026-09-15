@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StatusBar, ActivityIndicator, LogBox } from 'react-native';
+import { View, Text, StatusBar, ActivityIndicator, LogBox, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { showAlert, registerAlertListener, AlertData } from './src/utils/alert';
 import {
@@ -31,20 +31,33 @@ import { useQuizGeneration } from './src/hooks/useQuizGeneration';
 import { usePromptGeneration } from './src/hooks/usePromptGeneration';
 import { useSourceManager } from './src/hooks/useSourceManager';
 import { useAppBackup } from './src/hooks/useAppBackup';
-import { useSwipeGesture } from './src/hooks/useSwipeGesture';
 import { useAppUpdate } from './src/hooks/useAppUpdate';
 
 // Clean Modular Components & Feature Screens
 import { Header } from './src/components/common/Header';
 import { UpdateNotificationBanner } from './src/components/common/UpdateNotificationBanner';
 import { AppModalsContainer } from './src/components/modals/AppModalsContainer';
-import { LibraryModal } from './src/components/modals/LibraryModal';
-import { SettingsModal } from './src/components/modals/SettingsModal';
 import { AppAlertModal } from './src/components/modals/AppAlertModal';
+import { LoadingWaitOverlay } from './src/components/modals/LoadingWaitOverlay';
 import { StudyMapScreen } from './src/features/study/StudyMapScreen';
+import { LibraryScreen } from './src/features/library/LibraryScreen';
+import { SettingsScreen } from './src/features/settings/SettingsScreen';
 import { ExamSessionScreen } from './src/features/exam/ExamSessionScreen';
 
 export default function App() {
+  // 0. Book Pager State (0: 메인, 1: 과목자료함, 2: 설정)
+  const [currentPage, setCurrentPage] = useState<number>(0);
+  const pagerRef = useRef<ScrollView>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(() => {
+    return Dimensions.get('window').width || 380;
+  });
+
+  const goToPage = (page: number, animated = true) => {
+    const target = Math.max(0, Math.min(2, page));
+    setCurrentPage(target);
+    pagerRef.current?.scrollTo({ x: target * containerWidth, animated });
+  };
+
   // 1. Core Data Hook
   const {
     loading,
@@ -91,7 +104,7 @@ export default function App() {
   } = useAppData({
     onAfterTopicCreated: (created, generatedCount) => {
       setTopicModalVisible(false);
-      if (isLibraryOpen) {
+      if (currentPage === 1) {
         showAlert(
           '과목 등록 완료',
           generatedCount > 0
@@ -111,8 +124,6 @@ export default function App() {
   const [isTopicSelectModalVisible, setIsTopicSelectModalVisible] = useState(false);
   const [isUnitSelectModalVisible, setIsUnitSelectModalVisible] = useState(false);
   const [unitSelectTopic, setUnitSelectTopic] = useState<Topic | null>(null);
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSourceUploadModalOpen, setIsSourceUploadModalOpen] = useState(false);
   const [isUserManualOpen, setIsUserManualOpen] = useState(false);
 
@@ -197,7 +208,7 @@ export default function App() {
     lastStudiedTopicId,
     incorrectQuestions,
     startExam,
-    onOpenSettings: () => setIsSettingsOpen(true),
+    onOpenSettings: () => goToPage(2),
     onOpenTopicModal: () => setTopicModalVisible(true),
     onRefreshData: async () => {
       const [allQ, upUnits] = await Promise.all([getQuestions(), getUnits()]);
@@ -206,7 +217,7 @@ export default function App() {
     },
     setUnits,
     setQuestions,
-    onCloseLibrary: () => setIsLibraryOpen(false),
+    onCloseLibrary: () => goToPage(0),
   });
 
   // 7. Quick Prompt Generation Hook
@@ -219,7 +230,7 @@ export default function App() {
     setSelectedUnitId,
     setQuestions,
     startExam,
-    onOpenSettings: () => setIsSettingsOpen(true),
+    onOpenSettings: () => goToPage(2),
     setIsGenerating,
     setGeneratingWaitStatus,
   });
@@ -259,18 +270,13 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 10. 파생 상태 및 메인 화면 좌/우 넘기기(스와이프) 제스처 훅 (조기 리턴 방지 필수)
+  // 10. 파생 상태
   const topicQuestions = selectedTopicId ? questions.filter((q) => q.topicId === selectedTopicId) : questions;
   const dueQuestions = filterDueReviewQuestions(topicQuestions.length > 0 ? topicQuestions : questions, reviewStates);
   const todayAttempts = attempts.filter((att) => att.submittedAt.startsWith(getLocalDateString()));
   const topicIncorrect = selectedTopicId
     ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
     : incorrectQuestions;
-
-  const mainSwipeHandlers = useSwipeGesture({
-    onSwipeLeft: () => setIsLibraryOpen(true),
-    onSwipeRight: () => setIsSettingsOpen(true),
-  });
 
   async function handleStartExamWithAutoGenerate() {
     if (topics.length === 0) {
@@ -314,8 +320,7 @@ export default function App() {
 
   // 어플 이름 터치 시 메인(홈) 화면으로 완전 복귀
   const handleGoHome = () => {
-    setIsLibraryOpen(false);
-    setIsSettingsOpen(false);
+    goToPage(0);
     setIsSourceUploadModalOpen(false);
     setIsUserManualOpen(false);
     setTopicModalVisible(false);
@@ -359,109 +364,152 @@ export default function App() {
         <StatusBar barStyle="dark-content" />
 
         <Header
+          currentPage={currentPage}
+          onSelectPage={(p) => goToPage(p, true)}
           hasApiKey={apiKey.length > 8}
           questionCount={questions.length}
-          onOpenLibrary={() => setIsLibraryOpen(true)}
-          onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSourceUpload={() => setIsSourceUploadModalOpen(true)}
           onGoHome={handleGoHome}
         />
 
-        {/* 🚀 실시간 새 버전 자동 감지 배너 (1초 갱신) */}
+        {/* 🚀 실시간 새 버전 자동 감지 배너 (1회 닫기 즉시 영구 해제) */}
         <UpdateNotificationBanner
           hasUpdate={appUpdate.hasUpdate}
           latestVersion={appUpdate.latestVersion}
           onApplyUpdate={appUpdate.applyUpdate}
+          onDismiss={appUpdate.dismissUpdate}
         />
 
-        <View style={styles.mainContent} {...mainSwipeHandlers}>
-          <StudyMapScreen
-            routine={routine}
-            todayAttemptsCount={todayAttempts.length}
-            dueQuestionsCount={dueQuestions.length}
-            incorrectQuestionsCount={topicIncorrect.length}
-            refreshing={refreshing}
-            onRefresh={handlePullRefresh}
-            onStartExam={handleStartExamWithAutoGenerate}
-            onStartMoreQuestions={handleGenerateMoreQuestions}
-            onStartDueReview={handleStartDueReview}
-            onStartIncorrectReview={handleStartIncorrectReview}
-            onGoToScaffolding={handleApplyScaffolding}
-            onQuickPromptGenerate={handleQuickPromptGenerate}
-            isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
-            apiKey={apiKey}
-            topicName={topics.find((t) => t.id === (selectedTopicId || lastStudiedTopicId))?.name}
-            onOpenLibrary={() => setIsLibraryOpen(true)}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+        {/* 📖 자연스러운 책 넘김 수평 페이저: [0: 메인] -> [1: 과목자료함] -> [2: 설정] */}
+        <View
+          style={styles.mainContent}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            if (w > 0 && Math.abs(w - containerWidth) > 1) {
+              setContainerWidth(w);
+            }
+          }}
+        >
+          <ScrollView
+            ref={pagerRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            bounces={false}
+            directionalLockEnabled={true}
+            scrollEventThrottle={16}
+            onMomentumScrollEnd={(e) => {
+              const x = e.nativeEvent.contentOffset.x;
+              const page = Math.round(x / containerWidth);
+              if (page >= 0 && page <= 2 && page !== currentPage) {
+                setCurrentPage(page);
+              }
+            }}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ width: containerWidth * 3 }}
+          >
+            {/* 1. Page 0: 메인 (맨 왼쪽 고정, 왼쪽으로 더 갈 수 없음) */}
+            <View style={{ width: containerWidth, flex: 1 }}>
+              <StudyMapScreen
+                routine={routine}
+                todayAttemptsCount={todayAttempts.length}
+                dueQuestionsCount={dueQuestions.length}
+                incorrectQuestionsCount={topicIncorrect.length}
+                refreshing={refreshing}
+                onRefresh={handlePullRefresh}
+                onStartExam={handleStartExamWithAutoGenerate}
+                onStartMoreQuestions={handleGenerateMoreQuestions}
+                onStartDueReview={handleStartDueReview}
+                onStartIncorrectReview={handleStartIncorrectReview}
+                onGoToScaffolding={handleApplyScaffolding}
+                onQuickPromptGenerate={handleQuickPromptGenerate}
+                isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
+                apiKey={apiKey}
+                topicName={topics.find((t) => t.id === (selectedTopicId || lastStudiedTopicId))?.name}
+                onOpenLibrary={() => goToPage(1, true)}
+                onOpenSettings={() => goToPage(2, true)}
+              />
+            </View>
+
+            {/* 2. Page 1: 과목자료함 (중간 페이지) */}
+            <View style={{ width: containerWidth, flex: 1 }}>
+              <LibraryScreen
+                questions={questions}
+                topics={topics}
+                units={units}
+                completions={completions}
+                refreshing={refreshing}
+                onRefresh={handlePullRefresh}
+                onGoToMain={() => goToPage(0, true)}
+                onGoToSettings={() => goToPage(2, true)}
+                onOpenTopicModal={() => setTopicModalVisible(true)}
+                onOpenUnitModal={() => setUnitModalVisible(true)}
+                onDeleteTopic={handleDeleteTopic}
+                onToggleUnitCompletion={handleToggleUnitCompletion}
+                onDeleteUnit={handleDeleteUnit}
+                onGenerateCurriculumForTopic={handleGenerateCurriculumForTopic}
+                onQuickGenerateForUnit={(tId, tName, uId, uTitle) => handlePromptQuizCount(tId, tName, uId, uTitle)}
+                onDeduplicateUnits={handleDeduplicateUnits}
+                isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
+                generatingUnitId={generatingUnitId}
+                onStartExamWithQuestions={(qs) => {
+                  goToPage(0, false);
+                  startExam(qs);
+                }}
+                onDeleteQuestion={handleDeleteQuestion}
+                sources={sources}
+                sourceTitle={sourceTitle}
+                onChangeSourceTitle={setSourceTitle}
+                sourceText={sourceText}
+                onChangeSourceText={setSourceText}
+                onSaveSource={handleSaveSource}
+                onPickSourceFile={handlePickSourceFile}
+                selectedSourceTopicId={sourceTopicId}
+                onSelectSourceTopicId={setSourceTopicId}
+                onDeleteSource={handleDeleteSource}
+                incorrectQuestions={incorrectQuestions}
+                reviewStates={reviewStates}
+                onOpenSourceModal={() => setIsSourceUploadModalOpen(true)}
+                onOpenSettings={() => goToPage(2, true)}
+              />
+            </View>
+
+            {/* 3. Page 2: 설정 (맨 오른쪽 고정, 마지막 페이지) */}
+            <View style={{ width: containerWidth, flex: 1 }}>
+              <SettingsScreen
+                apiKey={apiKey}
+                onChangeApiKey={setApiKey}
+                onSaveApiKey={handleSaveApiKey}
+                onDeleteApiKey={handleDeleteApiKey}
+                alarmConfig={alarmConfig}
+                onChangeAlarmConfig={handleChangeAlarmConfig}
+                targetQuestionCount={routine?.targetQuestionCount ?? 3}
+                onChangeTargetQuestionCount={handleChangeTargetQuestionCount}
+                onExportBackup={handleExportBackup}
+                onOpenRestoreModal={() => {
+                  setBackupText('');
+                  setBackupModalVisible(true);
+                }}
+                onResetAllData={handleResetAllData}
+                onOpenUserManual={() => setIsUserManualOpen(true)}
+                onGoToMain={() => goToPage(0, true)}
+                onGoToLibrary={() => goToPage(1, true)}
+                hasUpdate={appUpdate.hasUpdate}
+                isCheckingUpdate={appUpdate.isChecking}
+                latestVersion={appUpdate.latestVersion}
+                onCheckForUpdate={() => appUpdate.checkForUpdate(true)}
+                onApplyUpdate={appUpdate.applyUpdate}
+              />
+            </View>
+          </ScrollView>
+
+          {/* AI 출제 및 커리큘럼 생성 대기 전체화면 오버레이 */}
+          <LoadingWaitOverlay
+            status={generatingWaitStatus}
+            isAbsolute={true}
+            onCancel={handleCancelGeneration}
           />
         </View>
-
-        {/* 📚 자료함 (문제 보관함 & 교재) 새창 팝업 모달 */}
-        <LibraryModal
-          visible={isLibraryOpen}
-          onClose={() => setIsLibraryOpen(false)}
-          onOpenSettings={() => { setIsLibraryOpen(false); setIsSettingsOpen(true); }}
-          questions={questions}
-          topics={topics}
-          units={units}
-          completions={completions}
-          refreshing={refreshing}
-          onRefresh={handlePullRefresh}
-          onOpenTopicModal={() => setTopicModalVisible(true)}
-          onOpenUnitModal={() => setUnitModalVisible(true)}
-          onDeleteTopic={handleDeleteTopic}
-          onToggleUnitCompletion={handleToggleUnitCompletion}
-          onDeleteUnit={handleDeleteUnit}
-          onGenerateCurriculumForTopic={handleGenerateCurriculumForTopic}
-          onQuickGenerateForUnit={(tId, tName, uId, uTitle) => handlePromptQuizCount(tId, tName, uId, uTitle)}
-          onDeduplicateUnits={handleDeduplicateUnits}
-          isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
-          generatingUnitId={generatingUnitId}
-          generatingWaitStatus={generatingWaitStatus}
-          onStartExamWithQuestions={(qs) => { setIsLibraryOpen(false); startExam(qs); }}
-          onDeleteQuestion={handleDeleteQuestion}
-          sources={sources}
-          sourceTitle={sourceTitle}
-          onChangeSourceTitle={setSourceTitle}
-          sourceText={sourceText}
-          onChangeSourceText={setSourceText}
-          onSaveSource={handleSaveSource}
-          onPickSourceFile={handlePickSourceFile}
-          selectedSourceTopicId={sourceTopicId}
-          onSelectSourceTopicId={setSourceTopicId}
-          onDeleteSource={handleDeleteSource}
-          incorrectQuestions={incorrectQuestions}
-          reviewStates={reviewStates}
-          onOpenSourceModal={() => setIsSourceUploadModalOpen(true)}
-          onCancelGeneration={handleCancelGeneration}
-        />
-
-        {/* ⚙️ 환경설정 새창 팝업 모달 */}
-        <SettingsModal
-          visible={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-          apiKey={apiKey}
-          onChangeApiKey={setApiKey}
-          onSaveApiKey={handleSaveApiKey}
-          onDeleteApiKey={handleDeleteApiKey}
-          alarmConfig={alarmConfig}
-          onChangeAlarmConfig={handleChangeAlarmConfig}
-          targetQuestionCount={routine?.targetQuestionCount ?? 3}
-          onChangeTargetQuestionCount={handleChangeTargetQuestionCount}
-          onExportBackup={handleExportBackup}
-          onOpenRestoreModal={() => {
-            setBackupText('');
-            setBackupModalVisible(true);
-          }}
-          onResetAllData={handleResetAllData}
-          onSaveSettings={() => handleSaveSettings(() => setIsSettingsOpen(false))}
-          onOpenUserManual={() => setIsUserManualOpen(true)}
-          hasUpdate={appUpdate.hasUpdate}
-          isCheckingUpdate={appUpdate.isChecking}
-          latestVersion={appUpdate.latestVersion}
-          onCheckForUpdate={() => appUpdate.checkForUpdate(true)}
-          onApplyUpdate={appUpdate.applyUpdate}
-        />
 
         {/* 공통 모달 컨테이너 (8종 모달 일원화) */}
         <AppModalsContainer
@@ -490,7 +538,7 @@ export default function App() {
           onCloseTopicSelectModal={() => setIsTopicSelectModalVisible(false)}
           onOpenLibrary={() => {
             setIsTopicSelectModalVisible(false);
-            setIsLibraryOpen(true);
+            goToPage(1);
           }}
           isUnitSelectModalVisible={isUnitSelectModalVisible}
           unitSelectTopic={unitSelectTopic}

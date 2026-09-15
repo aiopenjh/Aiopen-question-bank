@@ -1,68 +1,104 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 
-interface HeaderProps {
+export interface HeaderProps {
+  currentPage: number;
+  onSelectPage: (page: number) => void;
   hasApiKey: boolean;
   questionCount?: number;
-  onOpenLibrary: () => void;
-  onOpenSettings: () => void;
   onOpenSourceUpload?: () => void;
   onGoHome?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  currentPage,
+  onSelectPage,
   hasApiKey,
   questionCount = 0,
-  onOpenLibrary,
-  onOpenSettings,
   onOpenSourceUpload,
   onGoHome,
 }) => {
   return (
     <View style={styles.headerContainer}>
-      {/* 1. 어플 이름 독립 공간 (터치 시 메인 홈으로 복귀) */}
+      {/* 1. 브랜드 헤더 (터치 시 첫 페이지인 메인 홈으로 자연스럽게 복귀) */}
       <TouchableOpacity
         style={styles.brandSection}
-        onPress={onGoHome}
+        onPress={() => onSelectPage(0)}
         activeOpacity={0.7}
       >
-        <Text style={styles.appTitle}>Celueste ✨</Text>
+        <View style={styles.brandTitleRow}>
+          <Text style={styles.appTitle}>Celueste ✨</Text>
+          <View style={styles.pageIndicatorPill}>
+            <Text style={styles.pageIndicatorText}>
+              {currentPage === 0 ? '1/3 메인' : currentPage === 1 ? '2/3 과목자료함' : '3/3 설정'}
+            </Text>
+          </View>
+        </View>
         <Text style={styles.appSubtitle}>나만의 맞춤형 CBT 학습 엔진</Text>
       </TouchableOpacity>
 
-      {/* 2. 과목&자료함, 내자료업로드, 설정 1열 가로 배열 */}
+      {/* 2. 책 목차형 3단 탭 네비게이션: 메인(0) -> 과목자료함(1) -> 설정(2) */}
       <View style={styles.navRow}>
+        {/* [ 🏠 메인 ] */}
         <TouchableOpacity
-          onPress={onOpenLibrary}
-          style={styles.libraryBtn}
+          onPress={() => onSelectPage(0)}
+          style={[styles.navTab, currentPage === 0 && styles.navTabActive]}
           activeOpacity={0.8}
         >
-          <Text style={styles.libraryBtnText} numberOfLines={1}>
-            📚 과목&자료함{questionCount > 0 ? ` (${questionCount})` : ''}
+          <Text
+            style={[styles.navTabText, currentPage === 0 && styles.navTabTextActive]}
+            numberOfLines={1}
+          >
+            🏠 메인
           </Text>
         </TouchableOpacity>
 
-        {onOpenSourceUpload && (
-          <TouchableOpacity
-            onPress={onOpenSourceUpload}
-            style={styles.sourceUploadBtn}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.sourceUploadBtnText} numberOfLines={1}>
-              📁 내자료업로드
-            </Text>
-          </TouchableOpacity>
-        )}
-
+        {/* [ 📚 과목&자료함 ] */}
         <TouchableOpacity
-          onPress={onOpenSettings}
-          style={[styles.settingsBtn, !hasApiKey && styles.settingsBtnAlert]}
+          onPress={() => onSelectPage(1)}
+          style={[styles.navTab, styles.navTabMiddle, currentPage === 1 && styles.navTabActive]}
           activeOpacity={0.8}
         >
-          <Text style={[styles.settingsBtnText, !hasApiKey && styles.settingsBtnTextAlert]} numberOfLines={1}>
+          <Text
+            style={[styles.navTabText, currentPage === 1 && styles.navTabTextActive]}
+            numberOfLines={1}
+          >
+            📚 과목자료함{questionCount > 0 ? ` (${questionCount})` : ''}
+          </Text>
+        </TouchableOpacity>
+
+        {/* [ ⚙️ 설정 ] */}
+        <TouchableOpacity
+          onPress={() => onSelectPage(2)}
+          style={[
+            styles.navTab,
+            currentPage === 2 && styles.navTabActive,
+            !hasApiKey && currentPage !== 2 && styles.navTabAlert,
+          ]}
+          activeOpacity={0.8}
+        >
+          <Text
+            style={[
+              styles.navTabText,
+              currentPage === 2 && styles.navTabTextActive,
+              !hasApiKey && currentPage !== 2 && styles.navTabTextAlert,
+            ]}
+            numberOfLines={1}
+          >
             ⚙️ 설정{!hasApiKey ? ' ⚠️' : ''}
           </Text>
         </TouchableOpacity>
+
+        {/* [ 📁 자료추가 ] 숏컷 버튼 */}
+        {onOpenSourceUpload && (
+          <TouchableOpacity
+            onPress={onOpenSourceUpload}
+            style={styles.uploadShortcutBtn}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.uploadShortcutBtnText}>+자료</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -74,66 +110,61 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#fecdd3',
   },
-  // 1. 어플 이름 독립 공간 (상단 브랜드 영역)
   brandSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 13,
-    paddingBottom: 9,
+    paddingTop: 11,
+    paddingBottom: 7,
     backgroundColor: '#ffffff',
   },
+  brandTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   appTitle: {
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: '800',
     color: '#881337',
     letterSpacing: 0.3,
   },
+  pageIndicatorPill: {
+    backgroundColor: '#ffe4e6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fda4af',
+  },
+  pageIndicatorText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#be123c',
+  },
   appSubtitle: {
     fontSize: 11,
     color: '#9f1239',
-    marginTop: 2,
+    marginTop: 1,
     fontWeight: '500',
   },
-  // 2. 통합 네비게이션 1열 가로 배열 영역
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff7f8',
     borderTopWidth: 1,
     borderTopColor: '#ffe4e6',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 5,
+  },
+  navTab: {
+    flex: 1,
     paddingVertical: 8,
-    gap: 6,
-  },
-  libraryBtn: {
-    flex: 1.25,
-    backgroundColor: '#ffffff',
-    borderWidth: 1.2,
-    borderColor: '#fda4af',
-    paddingVertical: 7.5,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  libraryBtnText: {
-    color: '#be123c',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  sourceUploadBtn: {
-    flex: 1.1,
+    paddingHorizontal: 4,
+    borderRadius: 9,
     backgroundColor: '#ffffff',
     borderWidth: 1.2,
     borderColor: '#fecdd3',
-    paddingVertical: 7.5,
-    paddingHorizontal: 6,
-    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#f43f5e',
@@ -142,36 +173,47 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  sourceUploadBtnText: {
-    color: '#881337',
-    fontSize: 12,
-    fontWeight: '700',
+  navTabMiddle: {
+    flex: 1.3,
   },
-  settingsBtn: {
-    paddingVertical: 7.5,
-    paddingHorizontal: 9,
-    backgroundColor: '#ffffff',
-    borderWidth: 1.2,
-    borderColor: '#fda4af',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+  navTabActive: {
+    backgroundColor: '#f43f5e',
+    borderColor: '#e11d48',
+    shadowColor: '#be123c',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  settingsBtnAlert: {
+  navTabAlert: {
     borderColor: '#f59e0b',
     backgroundColor: '#fffbeb',
   },
-  settingsBtnText: {
-    color: '#be123c',
-    fontSize: 11.5,
-    fontWeight: 'bold',
+  navTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#881337',
   },
-  settingsBtnTextAlert: {
+  navTabTextActive: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  navTabTextAlert: {
     color: '#b45309',
+  },
+  uploadShortcutBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    backgroundColor: '#fff1f2',
+    borderWidth: 1.2,
+    borderColor: '#fda4af',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadShortcutBtnText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#e11d48',
   },
 });

@@ -31,13 +31,25 @@ export const UpdateNotificationBanner: React.FC<UpdateNotificationBannerProps> =
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.applyBtn}
-          onPress={onApplyUpdate}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.applyBtnText}>지금 갱신 ⚡</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity
+            style={styles.applyBtn}
+            onPress={onApplyUpdate}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.applyBtnText}>지금 갱신 ⚡</Text>
+          </TouchableOpacity>
+
+          {onDismiss && (
+            <TouchableOpacity
+              style={styles.dismissBtn}
+              onPress={onDismiss}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.dismissBtnText}>✕ 닫기</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -109,5 +121,18 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '800',
+  },
+  dismissBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dismissBtnText: {
+    color: '#1e40af',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

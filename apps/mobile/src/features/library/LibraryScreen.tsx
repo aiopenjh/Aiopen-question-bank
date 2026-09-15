@@ -12,6 +12,8 @@ import { styles } from './libraryStyles';
 import { TopicFolderCard } from './TopicFolderCard';
 import { ReviewHouseSection } from './ReviewHouseSection';
 import { CustomNotebookModal } from '../../components/modals/CustomNotebookModal';
+import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 
 export interface LibraryScreenProps {
   questions: QuestionRevision[];
@@ -34,6 +36,10 @@ export interface LibraryScreenProps {
   // 당겨서 새로고침 (Pull to Refresh)
   refreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
+
+  // 책 넘김 네비게이션 연동
+  onGoToMain?: () => void;
+  onGoToSettings?: () => void;
 
   // Review & Incorrect questions
   incorrectQuestions?: QuestionRevision[];
@@ -70,12 +76,19 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   onDeleteQuestion,
   refreshing = false,
   onRefresh,
+  onGoToMain,
+  onGoToSettings,
   incorrectQuestions = [],
   onOpenSettings,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const [expandedTopicId, setExpandedTopicId] = useState<string | null>(null);
   const [isCustomNotebookOpen, setIsCustomNotebookOpen] = useState(false);
+
+  const { pullDistance, handleScroll, touchHandlers } = usePullToRefresh({
+    refreshing,
+    onRefresh,
+  });
 
   // 카테고리 목록
   const categories = React.useMemo(() => {
@@ -109,6 +122,9 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
         alwaysBounceVertical={true}
         overScrollMode="always"
         keyboardShouldPersistTaps="handled"
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        {...touchHandlers}
         refreshControl={
           onRefresh ? (
             <RefreshControl
@@ -116,7 +132,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
               onRefresh={onRefresh}
               colors={['#f43f5e', '#be123c']}
               tintColor="#f43f5e"
-              title="학습 데이터 새로고침 중..."
               titleColor="#be123c"
               progressBackgroundColor="#ffffff"
               progressViewOffset={Platform.OS === 'android' ? 20 : 0}
@@ -124,6 +139,8 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
           ) : undefined
         }
       >
+        {/* 화면 위로 당겨서 새로고침 인디케이터 (버튼 없는 자연스러운 제스처) */}
+        <PullRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
         {/* 1. 상단 통계 및 과목 생성 헤더 */}
         <View style={styles.headerCard}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -201,6 +218,28 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
           onDeleteQuestion={onDeleteQuestion}
           onOpenCustomNotebook={() => setIsCustomNotebookOpen(true)}
         />
+
+        {/* 5. 자연스러운 책 넘김 네비게이션 */}
+        <View style={styles.bookNavRow}>
+          {onGoToMain && (
+            <TouchableOpacity
+              style={styles.bookNavPrevBtn}
+              onPress={onGoToMain}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.bookNavPrevText}>⬅️ 🏠 메인으로 넘기기</Text>
+            </TouchableOpacity>
+          )}
+          {onGoToSettings && (
+            <TouchableOpacity
+              style={styles.bookNavNextBtn}
+              onPress={onGoToSettings}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.bookNavNextText}>⚙️ 설정으로 넘기기 ➔</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
 
       {/* 나만의 오답노트 전용 창 (조용하고 쾌적한 학습 공간) */}

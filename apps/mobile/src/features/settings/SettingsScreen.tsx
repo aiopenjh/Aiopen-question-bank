@@ -21,6 +21,8 @@ interface SettingsScreenProps {
   onOpenRestoreModal: () => void;
   onResetAllData: () => void;
   onOpenUserManual?: () => void;
+  onGoToMain?: () => void;
+  onGoToLibrary?: () => void;
   hasUpdate?: boolean;
   isCheckingUpdate?: boolean;
   latestVersion?: string;
@@ -41,6 +43,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onOpenRestoreModal,
   onResetAllData,
   onOpenUserManual,
+  onGoToMain,
+  onGoToLibrary,
   hasUpdate = false,
   isCheckingUpdate = false,
   latestVersion,
@@ -102,6 +106,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           onApplyUpdate={onApplyUpdate}
         />
       )}
+
+      {/* 6. 자연스러운 책 넘김: 이전 페이지(과목자료함) 및 메인 홈 이동 */}
+      <View style={styles.bookNavRow}>
+        {onGoToLibrary && (
+          <TouchableOpacity
+            style={styles.bookNavPrevBtn}
+            onPress={onGoToLibrary}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.bookNavPrevText}>⬅️ 📚 과목자료함으로</Text>
+          </TouchableOpacity>
+        )}
+        {onGoToMain && (
+          <TouchableOpacity
+            style={styles.bookNavNextBtn}
+            onPress={onGoToMain}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.bookNavNextText}>🏠 메인 홈으로 바로가기 ➔</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </ScrollView>
   );
 };

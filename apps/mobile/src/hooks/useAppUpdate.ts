@@ -10,6 +10,7 @@ export interface AppUpdateState {
   latestBuildTime?: string;
   checkForUpdate: (manual?: boolean) => Promise<void>;
   applyUpdate: () => void;
+  dismissUpdate: () => void;
 }
 
 export function useAppUpdate(): AppUpdateState {
@@ -20,6 +21,7 @@ export function useAppUpdate(): AppUpdateState {
   const checkingRef = useRef(false);
 
   const applyUpdate = useCallback(() => {
+    setHasUpdate(false);
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       try {
         if ('caches' in window) {
@@ -30,10 +32,30 @@ export function useAppUpdate(): AppUpdateState {
       } catch (err) {
         console.warn('Cache clear error:', err);
       }
+      // Record dismissal so it doesn't pop up repeatedly during reload
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('@celueste:dismissed_update_build', latestBuildTime || 'applied');
+        }
+      } catch {}
       // Force reload ignoring cache
       window.location.reload();
     }
-  }, []);
+  }, [latestBuildTime]);
+
+  const dismissUpdate = useCallback(() => {
+    setHasUpdate(false);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('@celueste:dismissed_update', latestBuildTime || 'true');
+        }
+        if (typeof localStorage !== 'undefined' && latestBuildTime) {
+          localStorage.setItem('@celueste:dismissed_update_build', latestBuildTime);
+        }
+      } catch {}
+    }
+  }, [latestBuildTime]);
 
   const checkForUpdate = useCallback(async (manual: boolean = false) => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') {
@@ -48,7 +70,6 @@ export function useAppUpdate(): AppUpdateState {
     setIsChecking(true);
 
     try {
-      // Determine relative or absolute path based on GitHub Pages subpath
       const pathname = window.location.pathname;
       const baseUrl = pathname.includes('/Aiopen-question-bank')
         ? '/Aiopen-question-bank'
@@ -75,7 +96,23 @@ export function useAppUpdate(): AppUpdateState {
       const remoteBuildTime = remoteData?.buildTime;
       const remoteVer = remoteData?.version || '새 버전';
 
-      if (remoteBuildTime && remoteBuildTime !== APP_BUILD_INFO.buildTime) {
+      let isDismissed = false;
+      if (!manual) {
+        if (typeof sessionStorage !== 'undefined') {
+          const dismissed = sessionStorage.getItem('@celueste:dismissed_update');
+          if (dismissed && (dismissed === remoteBuildTime || dismissed === 'true')) {
+            isDismissed = true;
+          }
+        }
+        if (typeof localStorage !== 'undefined' && remoteBuildTime) {
+          const dismissedBuild = localStorage.getItem('@celueste:dismissed_update_build');
+          if (dismissedBuild && dismissedBuild === remoteBuildTime) {
+            isDismissed = true;
+          }
+        }
+      }
+
+      if (remoteBuildTime && remoteBuildTime !== APP_BUILD_INFO.buildTime && !isDismissed) {
         setHasUpdate(true);
         setLatestVersion(remoteVer);
         setLatestBuildTime(remoteBuildTime);
@@ -137,5 +174,6 @@ export function useAppUpdate(): AppUpdateState {
     latestBuildTime,
     checkForUpdate,
     applyUpdate,
+    dismissUpdate,
   };
 }

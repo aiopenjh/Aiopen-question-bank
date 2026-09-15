@@ -13,8 +13,10 @@ import {
 import { RoutineRevision } from '../../contracts/types';
 import { DailyInspirationCard } from './DailyInspirationCard';
 import { FeedbackCard } from './FeedbackCard';
+import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 
-interface StudyMapScreenProps {
+export interface StudyMapScreenProps {
   // 통합 학습 현황 & 복습 연동
   routine?: RoutineRevision | null;
   todayAttemptsCount?: number;
@@ -63,17 +65,11 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   onOpenSettings,
 }) => {
   const [customPrompt, setCustomPrompt] = useState<string>('');
-  const [showRefreshSuccess, setShowRefreshSuccess] = useState(false);
-  const prevRefreshingRef = useRef(refreshing);
 
-  useEffect(() => {
-    if (prevRefreshingRef.current && !refreshing) {
-      setShowRefreshSuccess(true);
-      const timer = setTimeout(() => setShowRefreshSuccess(false), 2500);
-      return () => clearTimeout(timer);
-    }
-    prevRefreshingRef.current = refreshing;
-  }, [refreshing]);
+  const { pullDistance, handleScroll, touchHandlers } = usePullToRefresh({
+    refreshing,
+    onRefresh,
+  });
 
   const targetCount = routine?.targetQuestionCount || 3;
   const progressPercent = Math.min(100, Math.round((todayAttemptsCount / targetCount) * 100));
@@ -94,6 +90,9 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
       overScrollMode="always"
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+      {...touchHandlers}
       refreshControl={
         onRefresh ? (
           <RefreshControl
@@ -101,7 +100,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             onRefresh={onRefresh}
             colors={['#f43f5e', '#be123c']}
             tintColor="#f43f5e"
-            title="학습 데이터 새로고침 중..."
             titleColor="#be123c"
             progressBackgroundColor="#ffffff"
             progressViewOffset={Platform.OS === 'android' ? 20 : 0}
@@ -109,31 +107,8 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
         ) : undefined
       }
     >
-      {/* 🔄 당겨서 새로고침 상태 안내 및 터치 새로고침 바 */}
-      {onRefresh && (
-        <TouchableOpacity
-          style={[
-            styles.pullRefreshNoticeBar,
-            showRefreshSuccess && styles.pullRefreshNoticeBarSuccess,
-          ]}
-          onPress={() => onRefresh()}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.pullRefreshNoticeText,
-              showRefreshSuccess && styles.pullRefreshNoticeTextSuccess,
-            ]}
-          >
-            {refreshing
-              ? '⏳ 최신 학습 현황을 불러오는 중...'
-              : showRefreshSuccess
-              ? '✨ 최신 학습 데이터로 새로고침되었습니다!'
-              : '🔄 화면을 아래로 당기거나 터치하여 새로고침'}
-          </Text>
-        </TouchableOpacity>
-      )}
-
+      {/* 화면 위로 당겨서 새로고침 인디케이터 (버튼 없는 자연스러운 제스처) */}
+      <PullRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
       {/* 1. 즉시 AI 문제 출제 바 (설명문 제거 및 직관적 레이아웃) */}
       {onQuickPromptGenerate && (
         <View style={styles.quickPromptCard}>
@@ -255,24 +230,25 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
       {/* 4. 건의사항 & 불편한 점 제보 (카카오톡 오픈채팅 직통 연결) */}
       <FeedbackCard />
 
-      {/* 5. 좌우 넘기기(스와이프) 빠른 화면 이동 가이드 */}
-      <View style={styles.swipeGuideRow}>
+      {/* 5. 자연스러운 책 넘김: 다음 페이지(과목 & 자료함) 이동 카드 */}
+      {onOpenLibrary && (
         <TouchableOpacity
-          style={styles.swipeGuideBtn}
-          onPress={() => onOpenSettings?.()}
-          activeOpacity={0.7}
+          style={styles.bookNextPageCard}
+          onPress={onOpenLibrary}
+          activeOpacity={0.82}
         >
-          <Text style={styles.swipeGuideBtnText}>👉 우측 넘김: [설정]</Text>
+          <View style={styles.bookNextPageInner}>
+            <Text style={{ fontSize: 26, marginRight: 12 }}>📖</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bookNextPageTitle}>다음 페이지: 과목 & 자료함</Text>
+              <Text style={styles.bookNextPageSub}>내 문제집, 커리큘럼, 오답노트 보러가기</Text>
+            </View>
+            <View style={styles.bookNextPageBadge}>
+              <Text style={styles.bookNextPageBadgeText}>넘기기 ➔</Text>
+            </View>
+          </View>
         </TouchableOpacity>
-        <Text style={styles.swipeGuideDivider}>•</Text>
-        <TouchableOpacity
-          style={styles.swipeGuideBtn}
-          onPress={() => onOpenLibrary?.()}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.swipeGuideBtnText}>👈 좌측 넘김: [과목저장]</Text>
-        </TouchableOpacity>
-      </View>
+      )}
     </ScrollView>
   );
 };
@@ -286,62 +262,47 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: 40,
   },
-  swipeGuideRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+  bookNextPageCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
     marginTop: 14,
     marginBottom: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#fecdd3',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  swipeGuideBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+  bookNextPageInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  swipeGuideBtnText: {
-    fontSize: 11.5,
-    fontWeight: '700',
+  bookNextPageTitle: {
+    fontSize: 14,
+    fontWeight: '800',
     color: '#881337',
   },
-  swipeGuideDivider: {
-    color: '#fda4af',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  pullRefreshNoticeBar: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1.2,
-    borderColor: '#fda4af',
-    borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  pullRefreshNoticeBarSuccess: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#10b981',
-  },
-  pullRefreshNoticeText: {
-    color: '#9f1239',
+  bookNextPageSub: {
     fontSize: 11.5,
-    fontWeight: '600',
+    color: '#9f1239',
+    marginTop: 2,
+    fontWeight: '500',
   },
-  pullRefreshNoticeTextSuccess: {
-    color: '#065f46',
-    fontWeight: '700',
+  bookNextPageBadge: {
+    backgroundColor: '#ffe4e6',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#fda4af',
+  },
+  bookNextPageBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#e11d48',
   },
   heroRoutineCard: {
     backgroundColor: '#ffffff',
