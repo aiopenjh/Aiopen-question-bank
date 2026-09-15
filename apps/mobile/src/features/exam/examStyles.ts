@@ -439,17 +439,8 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fecdd3',
   },
-  explanationTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#881337',
-    marginBottom: 4,
-  },
-  explanationText: {
-    fontSize: 13,
-    color: '#1f2937',
-    lineHeight: 20,
-  },
+  explanationTitle: { fontSize: 12, fontWeight: '800', color: '#881337', marginBottom: 4 },
+  explanationText: { fontSize: 13, color: '#1f2937', lineHeight: 20 },
   finishReviewBtn: {
     backgroundColor: '#f43f5e',
     paddingVertical: 14,
@@ -457,11 +448,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
-  finishReviewBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
+  finishReviewBtnText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -471,7 +458,7 @@ export const styles = StyleSheet.create({
   },
   hintModalCard: {
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 420,
     backgroundColor: '#ffffff',
     borderRadius: 18,
     padding: 22,
@@ -483,26 +470,18 @@ export const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  hintModalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#881337',
-  },
+  hintModalTitle: { fontSize: 16, fontWeight: '800', color: '#881337' },
   hintModalContent: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#334155',
-    lineHeight: 20,
-    marginBottom: 18,
+    lineHeight: 22,
+    letterSpacing: -0.2,
   },
   closeHintBtn: {
     backgroundColor: '#f43f5e',
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: 10,
     alignItems: 'center',
   },
-  closeHintBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
+  closeHintBtnText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
 });
