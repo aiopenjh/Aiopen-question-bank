@@ -11,7 +11,7 @@ Copy-Item -Path "c:\AI-powered test generator app\apps\mobile\dist\*" -Destinati
 
 Push-Location $deployDir
 git add -A
-git commit -m "Deploy v1.1.1: Custom categories, streamlined AI curriculum, and Root Domain Anchoring"
+git commit -m "Deploy v1.1.2: Mobile input zoom lock, cross-domain category conflict resolution"
 git push origin gh-pages
 Pop-Location
 
