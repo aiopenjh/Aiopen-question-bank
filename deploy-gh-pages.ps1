@@ -4,7 +4,6 @@ if (-not $rootDir) {
     $rootDir = Get-Location
 }
 
-$deployDir = Join-Path $rootDir "deploy-temp"
 $distDir = Join-Path $rootDir "apps\mobile\dist"
 
 Write-Host "📦 1. Expo 정적 웹 번들 빌드 시작 (apps\mobile)..." -ForegroundColor Cyan
@@ -28,27 +27,20 @@ if (-not (Test-Path $noJekyllPath)) {
     New-Item -ItemType File -Path $noJekyllPath -Force | Out-Null
 }
 
-Write-Host "🚀 2. gh-pages 브랜치 배포 준비..." -ForegroundColor Cyan
-if (Test-Path $deployDir) {
-    Remove-Item -Recurse -Force $deployDir
+Write-Host "🚀 2. gh-pages 브랜치 프로덕션 배포 푸시 중..." -ForegroundColor Cyan
+Push-Location $distDir
+if (Test-Path ".git") {
+    Remove-Item -Recurse -Force ".git"
 }
 
-# 원격 origin/gh-pages 존재 여부 확인
-$hasRemoteGhPages = git ls-remote --heads origin gh-pages
-if ($hasRemoteGhPages) {
-    git worktree add -B gh-pages $deployDir origin/gh-pages
-} else {
-    git worktree add -B gh-pages $deployDir
-}
-
-Get-ChildItem -Path $deployDir -Exclude .git | Remove-Item -Recurse -Force
-Copy-Item -Path "$distDir\*" -Destination $deployDir -Recurse -Force
-
-Push-Location $deployDir
+git init -b gh-pages
+git config user.name "AI CBT Deployer"
+git config user.email "deployer@celueste.local"
 git add -A
-git commit -m "Deploy: Update GitHub Pages build via deploy script" --allow-empty
-git push origin gh-pages -u
+git commit -m "Deploy: Update GitHub Pages build" --allow-empty
+git remote add origin https://github.com/aiopenjh/Aiopen-question-bank.git
+git push origin gh-pages -f
+Remove-Item -Recurse -Force ".git"
 Pop-Location
 
-git worktree remove --force $deployDir
 Write-Host "🎉 DEPLOY_SUCCESS: GitHub Pages 프로덕션 배포가 성공적으로 완료되었습니다!" -ForegroundColor Green
