@@ -35,6 +35,7 @@ export const styles = StyleSheet.create({
   },
   categoryScroll: {
     marginBottom: 14,
+    height: 40,
   },
   categoryChip: {
     paddingHorizontal: 12,
