@@ -5,10 +5,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Modal,
+  Platform,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 import { LearnerKnowledgeLevel } from '../../contracts/types';
 import { showAlert } from '../../utils/alert';
 
@@ -91,9 +92,19 @@ export const TopicModal: React.FC<TopicModalProps> = ({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.modalOverlay}
+        onPress={onClose}
+        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalCard}
+          onPress={(e) => e.stopPropagation?.()}
+          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+        >
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -143,6 +154,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({
                     key={cat}
                     style={[styles.presetChip, isSelected && styles.presetChipActive]}
                     onPress={() => setCategory(cat)}
+                    {...(Platform.OS === 'web' ? ({ onClick: () => setCategory(cat) } as any) : {})}
                   >
                     <Text style={[styles.presetChipText, isSelected && styles.presetChipTextActive]}>
                       {cat}
@@ -170,6 +182,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({
                       key={item.key}
                       style={[styles.levelBtn, isSelected && styles.levelBtnActive]}
                       onPress={() => setLearnerLevel(item.key)}
+                      {...(Platform.OS === 'web' ? ({ onClick: () => setLearnerLevel(item.key) } as any) : {})}
                       disabled={isSubmitting}
                     >
                       <Text style={[styles.levelBtnText, isSelected && styles.levelBtnTextActive]}>
@@ -186,6 +199,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({
               <TouchableOpacity
                 style={[styles.actionBtn, styles.cancelBtn]}
                 onPress={onClose}
+                {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
                 disabled={isSubmitting}
               >
                 <Text style={styles.cancelBtnText}>취소</Text>
@@ -193,6 +207,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({
               <TouchableOpacity
                 style={[styles.actionBtn, styles.submitBtn]}
                 onPress={handleCreate}
+                {...(Platform.OS === 'web' ? ({ onClick: handleCreate } as any) : {})}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -206,8 +221,8 @@ export const TopicModal: React.FC<TopicModalProps> = ({
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };

@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 import { Topic, Unit, QuestionRevision, Source, LearnerKnowledgeLevel } from '../../contracts/types';
 import { AlertData } from '../../utils/alert';
 import { appStyles as styles } from '../../styles/appStyles';

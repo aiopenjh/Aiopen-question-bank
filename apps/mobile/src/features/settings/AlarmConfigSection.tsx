@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { AlarmConfig, DayOfWeek, ALL_DAYS, triggerTestAlarm } from '../../utils/notifications';
-import { showAlert } from '../../utils/alert';
+import { AlarmConfig, DayOfWeek, ALL_DAYS } from '../../utils/notifications';
 import { styles } from './settingsStyles';
 
 export interface AlarmConfigSectionProps {
@@ -196,30 +195,6 @@ export const AlarmConfigSection: React.FC<AlarmConfigSectionProps> = ({
         onToggle={() => updateAlarm({ eveningEnabled: !alarmConfig.eveningEnabled })}
         onChangeHour={(h) => updateAlarm({ eveningHour: h })}
       />
-
-      {/* 5. 지금 바로 알람 테스트 확인 버튼 */}
-      <TouchableOpacity
-        style={{
-          marginTop: 10,
-          paddingVertical: 10,
-          borderRadius: 10,
-          backgroundColor: '#eff6ff',
-          borderWidth: 1,
-          borderColor: '#bfdbfe',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onPress={() => {
-          triggerTestAlarm((label) => {
-            showAlert('🔔 실시간 알람 테스트 성공', `[${label}] 알람 알림이 정상 작동합니다! 스마트폰이나 브라우저 알림 설정을 확인해 주세요.`);
-          });
-        }}
-        activeOpacity={0.8}
-      >
-        <Text style={{ color: '#2563eb', fontSize: 12, fontWeight: '700' }}>
-          🔔 알람 동작 테스트 (지금 바로 확인)
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 };

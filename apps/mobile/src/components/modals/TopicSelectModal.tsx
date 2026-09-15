@@ -3,10 +3,11 @@ import {
   StyleSheet,
   View,
   Text,
-  Modal,
   TouchableOpacity,
   ScrollView,
+  Platform,
 } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 import { Topic, QuestionRevision } from '../../contracts/types';
 
 interface TopicSelectModalProps {
@@ -43,8 +44,18 @@ export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalCard}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.overlay}
+        onPress={onClose}
+        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalCard}
+          onPress={(e) => e.stopPropagation?.()}
+          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+        >
           <View style={styles.header}>
             <Text style={styles.badge}>🎯 오늘의 학습 과목 선택</Text>
             <Text style={styles.title}>어떤 대단원을 학습할까요?</Text>
@@ -66,6 +77,7 @@ export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
                     isLastStudied && styles.topicCardLastStudied,
                   ]}
                   onPress={() => onSelectTopic(t)}
+                  {...(Platform.OS === 'web' ? ({ onClick: () => onSelectTopic(t) } as any) : {})}
                   activeOpacity={0.8}
                 >
                   <View style={styles.topicHeaderRow}>
@@ -95,17 +107,18 @@ export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
               );
             })}
 
-            {/* 5개 초과 시 펼치기/접기 버튼 */}
+            {/* 5개 초과 시 더보기 토글 버튼 */}
             {sortedTopics.length > 5 && (
               <TouchableOpacity
                 style={styles.expandToggleBtn}
-                onPress={() => setShowAll(!showAll)}
-                activeOpacity={0.8}
+                onPress={() => setShowAll((prev) => !prev)}
+                {...(Platform.OS === 'web' ? ({ onClick: () => setShowAll((prev) => !prev) } as any) : {})}
+                activeOpacity={0.7}
               >
                 <Text style={styles.expandToggleBtnText}>
                   {showAll
-                    ? '▲ 상위 5개만 접기'
-                    : `➕ 다른 대단원 더보기 (${remainingCount}개 더 있음) ▼`}
+                    ? '▲ 접기 (상위 5개만 보기)'
+                    : `▼ 나머지 ${remainingCount}개 과목 전체 펼쳐보기`}
                 </Text>
               </TouchableOpacity>
             )}
@@ -115,6 +128,7 @@ export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
               <TouchableOpacity
                 style={styles.libraryNavBtn}
                 onPress={onOpenLibrary}
+                {...(Platform.OS === 'web' ? ({ onClick: onOpenLibrary } as any) : {})}
                 activeOpacity={0.8}
               >
                 <Text style={styles.libraryNavBtnText}>
@@ -124,11 +138,16 @@ export const TopicSelectModal: React.FC<TopicSelectModalProps> = ({
             )}
           </ScrollView>
 
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={onClose}
+            {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+            activeOpacity={0.8}
+          >
             <Text style={styles.closeBtnText}>닫기</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };

@@ -4,9 +4,10 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Modal,
+  Platform,
   ScrollView,
 } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 import { AlertData, AlertButton } from '../../utils/alert';
 
 interface AppAlertModalProps {
@@ -49,8 +50,18 @@ export const AppAlertModal: React.FC<AppAlertModalProps> = ({ alert, onClose }) 
 
   return (
     <Modal visible={true} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.backdrop}
+        onPress={onClose}
+        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.card}
+          onPress={(e) => e.stopPropagation?.()}
+          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+        >
           {/* 상단 뱃지 및 제목 */}
           <View style={styles.headerRow}>
             <View style={styles.iconContainer}>
@@ -93,14 +104,15 @@ export const AppAlertModal: React.FC<AppAlertModalProps> = ({ alert, onClose }) 
                   ]}
                   activeOpacity={0.8}
                   onPress={() => handleButtonPress(btn)}
+                  {...(Platform.OS === 'web' ? ({ onClick: () => handleButtonPress(btn) } as any) : {})}
                 >
                   <Text style={[styles.baseBtnText, textStyle]}>{btn.text || '확인'}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };

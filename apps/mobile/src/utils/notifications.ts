@@ -352,38 +352,3 @@ export async function checkInAppScheduledAlarm(onStartExam: (slotLabel: string) 
   onStartExam(displayHour);
 }
 
-/**
- * 테스트용 즉시 알람 발송 함수 (지금 바로 알람 테스트)
- */
-export async function triggerTestAlarm(onStartExam: (slotLabel: string) => void): Promise<void> {
-  const hasPermission = await requestNotificationPermission();
-  const testLabel = '테스트 알람';
-
-  // 1. 웹 브라우저 시스템 알림
-  sendWebNotification(
-    '🔔 [Celueste] 실시간 알람 테스트',
-    '정기 학습 알람이 성공적으로 설정되었습니다! (클릭하여 즉시 시작)',
-    () => onStartExam(testLabel)
-  );
-
-  // 2. 모바일 로컬 푸시 알림 (네이티브)
-  if (Notifications && Platform.OS !== 'web') {
-    try {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '🔔 [Celueste] 실시간 알람 테스트',
-          body: '정기 학습 알람이 성공적으로 설정되었습니다! 터치하여 바로 시작하세요.',
-          data: { action: 'START_EXAM', timeSlot: 'test' },
-          sound: true,
-          channelId: 'default',
-        },
-        trigger: null, // 즉시 발송
-      });
-    } catch (e) {
-      console.warn('모바일 테스트 알람 발송 실패:', e);
-    }
-  }
-
-  // 3. 인앱 팝업
-  onStartExam(testLabel);
-}

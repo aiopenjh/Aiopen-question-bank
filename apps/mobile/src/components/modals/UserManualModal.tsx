@@ -3,10 +3,11 @@ import {
   StyleSheet,
   View,
   Text,
-  Modal,
   TouchableOpacity,
   ScrollView,
+  Platform,
 } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 
 export interface UserManualModalProps {
   visible: boolean;
@@ -137,8 +138,18 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalCard}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.overlay}
+        onPress={onClose}
+        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalCard}
+          onPress={(e) => e.stopPropagation?.()}
+          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+        >
           {/* 모달 헤더 */}
           <View style={styles.headerRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -148,7 +159,12 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
                 <Text style={styles.subtitle}>궁금한 항목을 터치하면 상세 설명이 펼쳐집니다</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+              activeOpacity={0.7}
+            >
               <Text style={styles.closeBtnText}>← 뒤로</Text>
             </TouchableOpacity>
           </View>
@@ -162,6 +178,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
                   <TouchableOpacity
                     style={styles.menuItemHeader}
                     onPress={() => toggleSection(sec.id)}
+                    {...(Platform.OS === 'web' ? ({ onClick: () => toggleSection(sec.id) } as any) : {})}
                     activeOpacity={0.7}
                   >
                     <View style={styles.menuLeft}>
@@ -186,11 +203,16 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           </ScrollView>
 
           {/* 하단 확인 닫기 버튼 */}
-          <TouchableOpacity style={styles.confirmBtn} onPress={onClose} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.confirmBtn}
+            onPress={onClose}
+            {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+            activeOpacity={0.85}
+          >
             <Text style={styles.confirmBtnText}>닫기</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };

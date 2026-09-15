@@ -3,10 +3,11 @@ import {
   StyleSheet,
   View,
   Text,
-  Modal,
   TouchableOpacity,
   ScrollView,
+  Platform,
 } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 import { Topic, Unit, QuestionRevision } from '../../contracts/types';
 
 export interface UnitSelectModalProps {
@@ -37,8 +38,18 @@ export const UnitSelectModal: React.FC<UnitSelectModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalCard}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.overlay}
+        onPress={onClose}
+        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalCard}
+          onPress={(e) => e.stopPropagation?.()}
+          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+        >
           {/* 헤더 */}
           <View style={styles.header}>
             <Text style={styles.badge}>🎯 실전 출제 영역 선택</Text>
@@ -166,11 +177,16 @@ export const UnitSelectModal: React.FC<UnitSelectModalProps> = ({
           </ScrollView>
 
           {/* 닫기 버튼 */}
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={onClose}
+            {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+            activeOpacity={0.8}
+          >
             <Text style={styles.closeBtnText}>닫기</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };

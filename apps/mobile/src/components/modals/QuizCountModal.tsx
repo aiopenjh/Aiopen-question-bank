@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Modal, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 import { LearnerKnowledgeLevel } from '../../contracts/types';
 
 export interface QuizCountModalOptions {
@@ -83,8 +84,18 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalCard}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.overlay}
+        onPress={onClose}
+        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalCard}
+          onPress={(e) => e.stopPropagation?.()}
+          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+        >
           <View style={styles.header}>
             <View style={styles.headerTopRow}>
               <Text style={styles.badge}>📝 실전 출제 설정 및 문항 수 선택</Text>
@@ -126,6 +137,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
               {isModifiedFromDefault && initialLevel && (
                 <TouchableOpacity
                   onPress={() => setSelectedLevel(initialLevel)}
+                  {...(Platform.OS === 'web' ? ({ onClick: () => setSelectedLevel(initialLevel) } as any) : {})}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.resetLevelText}>
@@ -153,6 +165,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                       isActive && styles.levelChipActive,
                     ]}
                     onPress={() => setSelectedLevel(lvl.key)}
+                    {...(Platform.OS === 'web' ? ({ onClick: () => setSelectedLevel(lvl.key) } as any) : {})}
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.levelChipText, isActive && styles.levelChipTextActive]}>
@@ -175,6 +188,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                 <TouchableOpacity
                   style={[styles.replaceBtn, !shouldReplace && styles.replaceBtnActive]}
                   onPress={() => setShouldReplace(false)}
+                  {...(Platform.OS === 'web' ? ({ onClick: () => setShouldReplace(false) } as any) : {})}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.replaceBtnText, !shouldReplace && styles.replaceBtnTextActive]}>
@@ -184,6 +198,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                 <TouchableOpacity
                   style={[styles.replaceBtn, shouldReplace && styles.replaceBtnDangerActive]}
                   onPress={() => setShouldReplace(true)}
+                  {...(Platform.OS === 'web' ? ({ onClick: () => setShouldReplace(true) } as any) : {})}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.replaceBtnText, shouldReplace && styles.replaceBtnDangerTextActive]}>
@@ -216,6 +231,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                     onClose();
                     onOpenBackup();
                   }}
+                  {...(Platform.OS === 'web' ? ({ onClick: () => { onClose(); onOpenBackup(); } } as any) : {})}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.backupActionBtnText}>💾 지금 데이터 백업 파일 내보내기</Text>
@@ -238,6 +254,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                     shouldReplaceExisting: shouldReplace,
                   })
                 }
+                {...(Platform.OS === 'web' ? ({ onClick: () => onSelectCount(opt.count, { learnerLevel: selectedLevel, shouldReplaceExisting: shouldReplace }) } as any) : {})}
                 activeOpacity={0.8}
               >
                 <View style={styles.optionTopRow}>
@@ -255,7 +272,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
             ))}
           </View>
 
-          {/* 소요 시간 및 대기 안내 카드 */}
+          {/* 💡 누적 문제 출제 권장 안내 */}
           <View style={styles.timeNoticeCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <Text style={{ fontSize: 13 }}>💡</Text>
@@ -268,11 +285,15 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onClose}
+            {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+          >
             <Text style={styles.cancelBtnText}>닫기</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };

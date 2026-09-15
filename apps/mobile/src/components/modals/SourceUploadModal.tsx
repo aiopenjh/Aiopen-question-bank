@@ -3,11 +3,12 @@ import {
   StyleSheet,
   View,
   Text,
-  Modal,
   TouchableOpacity,
   TextInput,
   ScrollView,
+  Platform,
 } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 import { Topic, Source } from '../../contracts/types';
 
 interface SourceUploadModalProps {
@@ -41,8 +42,18 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
 }) => {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalCard}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.overlay}
+        onPress={onClose}
+        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalCard}
+          onPress={(e) => e.stopPropagation?.()}
+          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+        >
           {/* 헤더 */}
           <View style={styles.headerRow}>
             <View>
@@ -51,7 +62,12 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                 파일 첨부 시 AI가 분석하여 해당 과목의 맞춤 문제로 출제합니다
               </Text>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+              activeOpacity={0.7}
+            >
               <Text style={styles.closeBtnText}>← 뒤로</Text>
             </TouchableOpacity>
           </View>
@@ -127,8 +143,8 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
               </View>
             )}
           </ScrollView>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };

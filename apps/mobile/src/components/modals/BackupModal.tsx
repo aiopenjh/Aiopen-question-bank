@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Modal } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Platform } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 
 interface BackupModalProps {
   visible: boolean;
@@ -19,9 +20,19 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   onRestoreFromFile,
 }) => {
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.modalOverlay}
+        onPress={onClose}
+        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalCard}
+          onPress={(e) => e.stopPropagation?.()}
+          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+        >
           <Text style={styles.modalTitle}>🔄 학습 데이터 복원하기</Text>
           <Text style={styles.promptGuideText}>
             이전에 카카오톡이나 파일로 저장해둔 압축 백업 파일(.zip 또는 .json)을 불러오면 자동으로 압축을 풀어 학습 데이터가 1초 만에 복구됩니다.
@@ -32,6 +43,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
             <TouchableOpacity
               style={styles.filePickBtn}
               onPress={onRestoreFromFile}
+              {...(Platform.OS === 'web' ? ({ onClick: onRestoreFromFile } as any) : {})}
               activeOpacity={0.8}
             >
               <Text style={styles.filePickBtnIcon}>📦</Text>
@@ -49,34 +61,34 @@ export const BackupModal: React.FC<BackupModalProps> = ({
             <View style={styles.dividerLine} />
           </View>
 
-          {/* 2. 보조: 텍스트 직접 붙여넣기 입력창 */}
           <TextInput
-            style={[styles.inputField, { height: 110, fontSize: 11 }]}
-            placeholder="여기에 백업 JSON 텍스트를 붙여넣으셔도 됩니다..."
+            style={styles.inputField}
+            placeholder="여기에 백업 JSON 텍스트를 붙여넣으세요..."
             placeholderTextColor="#fda4af"
-            multiline
             value={backupText}
             onChangeText={onChangeBackupText}
-            autoCapitalize="none"
-            autoCorrect={false}
+            multiline
+            numberOfLines={6}
           />
 
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: '#ffe4e6', borderWidth: 1, borderColor: '#fecdd3' }]}
               onPress={onClose}
+              {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
             >
-              <Text style={[styles.actionBtnText, { color: '#be123c' }]}>닫기</Text>
+              <Text style={[styles.actionBtnText, { color: '#be123c' }]}>취소</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: '#f43f5e' }]}
               onPress={onRestore}
+              {...(Platform.OS === 'web' ? ({ onClick: onRestore } as any) : {})}
             >
               <Text style={styles.actionBtnText}>텍스트로 복원</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };

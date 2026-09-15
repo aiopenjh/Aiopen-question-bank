@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Modal } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Platform } from 'react-native';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 import { showAlert } from '../../utils/alert';
 
 interface UnitModalProps {
@@ -31,9 +32,19 @@ export const UnitModal: React.FC<UnitModalProps> = ({ visible, onClose, onCreate
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.modalOverlay}
+        onPress={onClose}
+        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalCard}
+          onPress={(e) => e.stopPropagation?.()}
+          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+        >
           <Text style={styles.modalTitle}>📌 새 단원(목차) 추가</Text>
           <Text style={styles.promptGuideText}>
             교재의 대단원 또는 중단원 제목을 입력하세요.
@@ -59,6 +70,7 @@ export const UnitModal: React.FC<UnitModalProps> = ({ visible, onClose, onCreate
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: '#ffe4e6', borderWidth: 1, borderColor: '#fecdd3' }]}
               onPress={onClose}
+              {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
               disabled={isSubmitting}
             >
               <Text style={[styles.actionBtnText, { color: '#be123c' }]}>취소</Text>
@@ -66,13 +78,14 @@ export const UnitModal: React.FC<UnitModalProps> = ({ visible, onClose, onCreate
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: '#f43f5e' }]}
               onPress={handleCreate}
+              {...(Platform.OS === 'web' ? ({ onClick: handleCreate } as any) : {})}
               disabled={isSubmitting}
             >
               <Text style={styles.actionBtnText}>{isSubmitting ? '추가 중...' : '단원 추가'}</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };
