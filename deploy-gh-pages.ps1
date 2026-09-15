@@ -11,7 +11,7 @@ Copy-Item -Path "c:\AI-powered test generator app\apps\mobile\dist\*" -Destinati
 
 Push-Location $deployDir
 git add -A
-git commit -m "Deploy v1.0.8: Gentle book turn transition speed and clean header without 1/3 pill"
+git commit -m "Deploy v1.1.0: Smooth vertical scroll and rock-solid single-step book swipe"
 git push origin gh-pages
 Pop-Location
 

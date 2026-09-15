@@ -74,6 +74,9 @@ export default function App() {
     containerWidthRef.current = containerWidth;
   }, [containerWidth]);
 
+  const isTransitioning = useRef<boolean>(false);
+  const gestureStartPage = useRef<number>(0);
+
   const goToPage = (page: number, animated = true) => {
     const target = Math.max(0, Math.min(2, page));
     setCurrentPage(target);
@@ -81,14 +84,18 @@ export default function App() {
     const targetOffset = -target * containerWidthRef.current;
 
     if (animated) {
+      isTransitioning.current = true;
       Animated.timing(translateX, {
         toValue: targetOffset,
         duration: 380,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: Platform.OS !== 'web',
-      }).start();
+      }).start(() => {
+        isTransitioning.current = false;
+      });
     } else {
       translateX.setValue(targetOffset);
+      isTransitioning.current = false;
     }
   };
 
@@ -96,31 +103,43 @@ export default function App() {
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const isSwipingHorizontal = useRef<boolean>(false);
+  const isScrollingVertical = useRef<boolean>(false);
 
   const handleTouchStart = (e: any) => {
+    if (isTransitioning.current) return;
     if (!e.touches || e.touches.length !== 1) return;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    gestureStartPage.current = currentPageRef.current;
     isSwipingHorizontal.current = false;
+    isScrollingVertical.current = false;
   };
 
   const handleTouchMove = (e: any) => {
-    if (touchStartX.current === null || !e.touches) return;
+    if (isTransitioning.current) return;
+    if (touchStartX.current === null || !e.touches || isScrollingVertical.current) return;
+
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current!;
 
+    // 세로 스크롤 우선 보호: 세로 이동 감지 시 수평 스와이프를 완전히 차단하여 내부 스크롤 버벅임 방지
     if (!isSwipingHorizontal.current) {
-      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+        isScrollingVertical.current = true;
+        return;
+      }
+      // 명확한 가로 스와이프만 인식 (최소 25px & 가로가 세로의 1.8배 이상)
+      if (Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy) * 1.8) {
         isSwipingHorizontal.current = true;
       }
     }
 
     if (isSwipingHorizontal.current) {
-      const currentBase = -currentPageRef.current * containerWidthRef.current;
-      if (currentPageRef.current === 0 && dx > 0) {
-        translateX.setValue(currentBase + dx * 0.18);
-      } else if (currentPageRef.current === 2 && dx < 0) {
-        translateX.setValue(currentBase + dx * 0.18);
+      const currentBase = -gestureStartPage.current * containerWidthRef.current;
+      if (gestureStartPage.current === 0 && dx > 0) {
+        translateX.setValue(currentBase + dx * 0.15);
+      } else if (gestureStartPage.current === 2 && dx < 0) {
+        translateX.setValue(currentBase + dx * 0.15);
       } else {
         translateX.setValue(currentBase + dx);
       }
@@ -132,87 +151,94 @@ export default function App() {
       const touch = e.changedTouches ? e.changedTouches[0] : null;
       const endX = touch ? touch.clientX : touchStartX.current;
       const dx = endX - touchStartX.current;
-      if (dx < -50 && currentPageRef.current < 2) {
-        goToPage(currentPageRef.current + 1);
-      } else if (dx > 50 && currentPageRef.current > 0) {
-        goToPage(currentPageRef.current - 1);
+      const startPage = gestureStartPage.current;
+
+      // 시작 페이지(startPage) 기준으로 정확히 1페이지만 이동 (과목자료함 건너뛰기 원천 차단)
+      if (dx < -50 && startPage < 2) {
+        goToPage(startPage + 1);
+      } else if (dx > 50 && startPage > 0) {
+        goToPage(startPage - 1);
       } else {
-        goToPage(currentPageRef.current);
+        goToPage(startPage);
       }
     }
     touchStartX.current = null;
     touchStartY.current = null;
     isSwipingHorizontal.current = false;
+    isScrollingVertical.current = false;
   };
 
-  // React Native PanResponder (제스처 캡처 단계에서 수평 스와이프 우선 가로채기)
+  // React Native PanResponder (네이티브 모바일 전용 수평 제스처 컨트롤러)
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (Platform.OS === 'web' || isTransitioning.current) return false;
         const { dx, dy } = gestureState;
-        return Math.abs(dx) > 15 && Math.abs(dx) > Math.abs(dy) * 1.25;
+        return Math.abs(dx) > 25 && Math.abs(dx) > Math.abs(dy) * 1.8;
       },
       onPanResponderGrant: () => {
+        gestureStartPage.current = currentPageRef.current;
         translateX.stopAnimation();
       },
       onPanResponderMove: (_, gestureState) => {
         const { dx } = gestureState;
-        const currentBase = -currentPageRef.current * containerWidthRef.current;
-        if (currentPageRef.current === 0 && dx > 0) {
-          translateX.setValue(currentBase + dx * 0.18);
-        } else if (currentPageRef.current === 2 && dx < 0) {
-          translateX.setValue(currentBase + dx * 0.18);
+        const currentBase = -gestureStartPage.current * containerWidthRef.current;
+        if (gestureStartPage.current === 0 && dx > 0) {
+          translateX.setValue(currentBase + dx * 0.15);
+        } else if (gestureStartPage.current === 2 && dx < 0) {
+          translateX.setValue(currentBase + dx * 0.15);
         } else {
           translateX.setValue(currentBase + dx);
         }
       },
       onPanResponderRelease: (_, gestureState) => {
         const { dx, vx } = gestureState;
+        const startPage = gestureStartPage.current;
         if (dx < -50 || (dx < -25 && vx < -0.35)) {
-          if (currentPageRef.current < 2) {
-            goToPage(currentPageRef.current + 1);
+          if (startPage < 2) {
+            goToPage(startPage + 1);
           } else {
-            goToPage(currentPageRef.current);
+            goToPage(startPage);
           }
         } else if (dx > 50 || (dx > 25 && vx > 0.35)) {
-          if (currentPageRef.current > 0) {
-            goToPage(currentPageRef.current - 1);
+          if (startPage > 0) {
+            goToPage(startPage - 1);
           } else {
-            goToPage(currentPageRef.current);
+            goToPage(startPage);
           }
         } else {
-          goToPage(currentPageRef.current);
+          goToPage(startPage);
         }
       },
     })
   ).current;
 
-  // 데스크톱 / 노트북 트랙패드 수평 스크롤 연동
+  // 데스크톱 / 노트북 트랙패드 수평 스크롤 연동 (500ms 쿨다운 락으로 1페이지씩만 안전 전환)
+  const isWheelLocked = useRef<boolean>(false);
+
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    let accumulatedDeltaX = 0;
-    let wheelTimer: any = null;
 
     const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 15) {
-        accumulatedDeltaX += e.deltaX;
-        clearTimeout(wheelTimer);
-        wheelTimer = setTimeout(() => {
-          if (accumulatedDeltaX > 35 && currentPageRef.current < 2) {
-            goToPage(currentPageRef.current + 1);
-          } else if (accumulatedDeltaX < -35 && currentPageRef.current > 0) {
-            goToPage(currentPageRef.current - 1);
-          }
-          accumulatedDeltaX = 0;
-        }, 50);
+      if (isWheelLocked.current || isTransitioning.current) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.8 && Math.abs(e.deltaX) > 35) {
+        isWheelLocked.current = true;
+        const startPage = currentPageRef.current;
+        if (e.deltaX > 35 && startPage < 2) {
+          goToPage(startPage + 1);
+        } else if (e.deltaX < -35 && startPage > 0) {
+          goToPage(startPage - 1);
+        }
+        setTimeout(() => {
+          isWheelLocked.current = false;
+        }, 500);
       }
     };
 
     window.addEventListener('wheel', onWheel, { passive: true });
     return () => {
       window.removeEventListener('wheel', onWheel);
-      clearTimeout(wheelTimer);
     };
   }, []);
 
@@ -545,10 +571,10 @@ export default function App() {
             const w = e.nativeEvent.layout.width;
             if (w > 0 && Math.abs(w - containerWidth) > 1) {
               setContainerWidth(w);
-              translateX.setValue(-currentPage * w);
+              translateX.setValue(-currentPageRef.current * w);
             }
           }}
-          {...panResponder.panHandlers}
+          {...(Platform.OS !== 'web' ? panResponder.panHandlers : {})}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -557,12 +583,22 @@ export default function App() {
             style={{
               flexDirection: 'row',
               width: containerWidth * 3,
-              flex: 1,
+              height: '100%',
+              flexShrink: 0,
               transform: [{ translateX }],
             }}
           >
             {/* 1. Page 0: 메인 (맨 왼쪽 고정, 왼쪽으로 더 갈 수 없음) */}
-            <View style={{ width: containerWidth, flex: 1 }}>
+            <View
+              style={{
+                width: containerWidth,
+                minWidth: containerWidth,
+                maxWidth: containerWidth,
+                flexShrink: 0,
+                flexGrow: 0,
+                height: '100%',
+              }}
+            >
               <StudyMapScreen
                 routine={routine}
                 todayAttemptsCount={todayAttempts.length}
@@ -585,7 +621,16 @@ export default function App() {
             </View>
 
             {/* 2. Page 1: 과목자료함 (중간 페이지) */}
-            <View style={{ width: containerWidth, flex: 1 }}>
+            <View
+              style={{
+                width: containerWidth,
+                minWidth: containerWidth,
+                maxWidth: containerWidth,
+                flexShrink: 0,
+                flexGrow: 0,
+                height: '100%',
+              }}
+            >
               <LibraryScreen
                 questions={questions}
                 topics={topics}
@@ -626,7 +671,16 @@ export default function App() {
             </View>
 
             {/* 3. Page 2: 설정 (맨 오른쪽 고정, 마지막 페이지) */}
-            <View style={{ width: containerWidth, flex: 1 }}>
+            <View
+              style={{
+                width: containerWidth,
+                minWidth: containerWidth,
+                maxWidth: containerWidth,
+                flexShrink: 0,
+                flexGrow: 0,
+                height: '100%',
+              }}
+            >
               <SettingsScreen
                 apiKey={apiKey}
                 onChangeApiKey={setApiKey}
