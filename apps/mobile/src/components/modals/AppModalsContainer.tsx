@@ -18,6 +18,7 @@ import { UnitSelectModal } from './UnitSelectModal';
 import { SourceUploadModal } from './SourceUploadModal';
 import { UserManualModal } from './UserManualModal';
 import { AppAlertModal } from './AppAlertModal';
+import { LoadingWaitOverlay } from './LoadingWaitOverlay';
 
 export interface AppModalsContainerProps {
   // 1. TopicModal
@@ -227,44 +228,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
       {/* AI 문제 출제 대기 안내 모달 */}
       {generatingWaitStatus?.active && (
         <Modal visible transparent animationType="fade">
-          <View style={styles.loadingWaitOverlay}>
-            <View style={styles.loadingWaitCard}>
-              <ActivityIndicator size="large" color="#f43f5e" style={{ marginBottom: 14 }} />
-              <Text style={styles.loadingWaitTitle}>
-                {generatingWaitStatus.count === 3
-                  ? '⚡ 3문제 빠른 출제 중...'
-                  : generatingWaitStatus.count === 5
-                  ? '🎯 5문제 정밀 출제 중...'
-                  : '🏆 10문제 마스터 시험지 생성 중...'}
-              </Text>
-              {generatingWaitStatus.title ? (
-                <Text style={styles.loadingWaitSubtitle} numberOfLines={1}>
-                  학습 범위: {generatingWaitStatus.title}
-                </Text>
-              ) : null}
-              <Text style={styles.loadingWaitMessage}>
-                {generatingWaitStatus.message}
-              </Text>
-
-              <View style={styles.loadingWaitNoteBox}>
-                <Text style={styles.loadingWaitNoteText}>
-                  {generatingWaitStatus.count === 3
-                    ? '⚡ 약 10초 내외 생성 후 바로 시험장으로 연결됩니다.'
-                    : generatingWaitStatus.count === 5
-                    ? '🎯 5문제는 정밀 해설 구성을 위해 약 15~20초 소요됩니다.'
-                    : '🏆 10문제는 심층 오답 분석 작성을 위해 약 25~35초 소요됩니다.'}
-                </Text>
-                <Text
-                  style={[
-                    styles.loadingWaitNoteText,
-                    { color: '#be123c', marginTop: 4, fontWeight: 'bold' },
-                  ]}
-                >
-                  ※ 생성된 문제는 스마트폰 로컬 DB에 안전하게 보존되어 누적됩니다.
-                </Text>
-              </View>
-            </View>
-          </View>
+          <LoadingWaitOverlay status={generatingWaitStatus} />
         </Modal>
       )}
 

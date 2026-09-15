@@ -364,10 +364,7 @@ export default function App() {
         <LibraryModal
           visible={isLibraryOpen}
           onClose={() => setIsLibraryOpen(false)}
-          onOpenSettings={() => {
-            setIsLibraryOpen(false);
-            setIsSettingsOpen(true);
-          }}
+          onOpenSettings={() => { setIsLibraryOpen(false); setIsSettingsOpen(true); }}
           questions={questions}
           topics={topics}
           units={units}
@@ -384,10 +381,8 @@ export default function App() {
           onDeduplicateUnits={handleDeduplicateUnits}
           isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
           generatingUnitId={generatingUnitId}
-          onStartExamWithQuestions={(qs) => {
-            setIsLibraryOpen(false);
-            startExam(qs);
-          }}
+          generatingWaitStatus={generatingWaitStatus}
+          onStartExamWithQuestions={(qs) => { setIsLibraryOpen(false); startExam(qs); }}
           onDeleteQuestion={handleDeleteQuestion}
           sources={sources}
           sourceTitle={sourceTitle}

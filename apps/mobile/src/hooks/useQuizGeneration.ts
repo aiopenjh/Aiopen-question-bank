@@ -221,6 +221,12 @@ export function useQuizGeneration({
       } = options || {};
 
       setIsCurriculumGenerating(true);
+      setGeneratingWaitStatus({
+        active: true,
+        count: 0,
+        title: `${topicName} 5단계 목차`,
+        message: '✨ AI가 공인 표준 교육과정에 기반한 5단계 목차를 설계 중입니다 (약 5~10초 소요)...',
+      });
       try {
         const generatedUnits = await generateCurriculumUnits({
           topicName,
@@ -263,6 +269,7 @@ export function useQuizGeneration({
         showAlert('오류', `AI 커리큘럼 생성 실패: ${err?.message || '알 수 없는 오류'}`);
       } finally {
         setIsCurriculumGenerating(false);
+        setGeneratingWaitStatus(null);
       }
     },
     [setUnits]

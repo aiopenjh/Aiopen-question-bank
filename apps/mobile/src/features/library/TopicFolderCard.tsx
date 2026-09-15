@@ -80,11 +80,27 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
           {/* 조작 버튼 바 */}
           <View style={styles.topicActionRow}>
             <TouchableOpacity
-              style={styles.actionPillBtn}
-              onPress={() => onGenerateCurriculumForTopic(topic.id, topic.name)}
+              style={[
+                styles.actionPillBtn,
+                isAiGenerating && { opacity: 0.7, backgroundColor: '#ffe4e6', borderColor: '#f43f5e' },
+              ]}
+              onPress={() => {
+                if (isAiGenerating) return;
+                onGenerateCurriculumForTopic(topic.id, topic.name);
+              }}
               disabled={isAiGenerating}
+              activeOpacity={0.7}
             >
-              <Text style={styles.actionPillText}>✨ AI 5단계 목차 생성</Text>
+              {isAiGenerating ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <ActivityIndicator size="small" color="#e11d48" />
+                  <Text style={[styles.actionPillText, { color: '#e11d48', fontWeight: 'bold' }]}>
+                    ⏳ 목차 설계 중...
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.actionPillText}>✨ AI 5단계 목차 생성</Text>
+              )}
             </TouchableOpacity>
             {hasDuplicates && onDeduplicateUnits && (
               <TouchableOpacity

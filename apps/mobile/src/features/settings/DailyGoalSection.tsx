@@ -22,17 +22,17 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
     setInputText(cleaned);
     const parsed = parseInt(cleaned, 10);
     if (!isNaN(parsed) && parsed > 0) {
-      onChangeTargetCount(Math.min(100, Math.max(1, parsed)));
+      onChangeTargetCount(Math.min(10, Math.max(1, parsed)));
     }
   };
 
   const handleStep = (delta: number) => {
-    const next = Math.min(100, Math.max(1, targetCount + delta));
+    const next = Math.min(10, Math.max(1, targetCount + delta));
     setInputText(String(next));
     onChangeTargetCount(next);
   };
 
-  const PRESETS = [3, 5, 10, 15, 20];
+  const PRESETS = [3, 5, 7, 10];
 
   return (
     <View style={styles.card}>
@@ -40,7 +40,7 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
         <View style={{ flex: 1, paddingRight: 8 }}>
           <Text style={styles.cardSectionTitle}>🎯 일일 학습 목표 설정</Text>
           <Text style={styles.alarmSubGuide}>
-            메인 홈 화면의 일일 달성률 기준이 되는 하루 목표 문제 수를 설정합니다.
+            메인 홈 화면의 일일 달성률 기준이 되는 하루 목표 문제 수(1~10문항)를 설정합니다.
           </Text>
         </View>
         <View style={styles.alarmActiveBadge}>
@@ -67,19 +67,19 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
             value={inputText}
             onChangeText={handleCommitNumber}
             keyboardType="number-pad"
-            maxLength={3}
+            maxLength={2}
             selectTextOnFocus
           />
           <Text style={styles.goalInputSuffix}>문항 / 일</Text>
         </View>
 
         <TouchableOpacity
-          style={[styles.stepperArrowBtn, targetCount >= 100 && styles.stepperArrowBtnDisabled]}
+          style={[styles.stepperArrowBtn, targetCount >= 10 && styles.stepperArrowBtnDisabled]}
           onPress={() => handleStep(1)}
-          disabled={targetCount >= 100}
+          disabled={targetCount >= 10}
           activeOpacity={0.7}
         >
-          <Text style={[styles.stepperArrowText, targetCount >= 100 && styles.stepperArrowTextDisabled]}>
+          <Text style={[styles.stepperArrowText, targetCount >= 10 && styles.stepperArrowTextDisabled]}>
             ▶
           </Text>
         </TouchableOpacity>

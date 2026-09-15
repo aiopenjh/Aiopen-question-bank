@@ -13,6 +13,8 @@ import {
   Source,
   ReviewState,
 } from '../../contracts/types';
+import { GeneratingWaitStatus } from '../../hooks/useQuizGeneration';
+import { LoadingWaitOverlay } from './LoadingWaitOverlay';
 import { LibraryScreen } from '../../features/library/LibraryScreen';
 import { appStyles as styles } from '../../styles/appStyles';
 
@@ -54,6 +56,7 @@ export interface LibraryModalProps {
   onDeleteSource: (sourceId: string) => Promise<void>;
   incorrectQuestions: QuestionRevision[];
   reviewStates: ReviewState[];
+  generatingWaitStatus?: GeneratingWaitStatus | null;
   onOpenSourceModal: () => void;
   onOpenSettings?: () => void;
 }
@@ -113,6 +116,7 @@ export const LibraryModal: React.FC<LibraryModalProps> = (props) => {
           reviewStates={props.reviewStates}
           onOpenSourceModal={props.onOpenSourceModal}
         />
+        <LoadingWaitOverlay status={props.generatingWaitStatus || null} isAbsolute />
       </SafeAreaView>
     </Modal>
   );
