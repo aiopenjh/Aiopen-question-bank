@@ -71,24 +71,13 @@ export const LibraryModal: React.FC<LibraryModalProps> = (props) => {
             <Text style={{ fontSize: 20 }}>📚</Text>
             <Text style={styles.fullModalTitle}>학습 과목 & 문제 자료함</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {props.onOpenSettings && (
-              <TouchableOpacity
-                style={styles.fullModalCloseBtn}
-                onPress={props.onOpenSettings}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.fullModalCloseBtnText}>⚙️ 설정</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.fullModalSaveBtn}
-              onPress={props.onClose}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.fullModalSaveBtnText}>💾 닫기</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.fullModalSaveBtn}
+            onPress={props.onClose}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.fullModalSaveBtnText}>💾 저장</Text>
+          </TouchableOpacity>
         </View>
         <LibraryScreen
           questions={props.questions}
