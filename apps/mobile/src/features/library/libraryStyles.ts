@@ -45,6 +45,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fecdd3',
     marginRight: 6,
+    alignSelf: 'flex-start',
   },
   categoryChipActive: {
     backgroundColor: '#ffe4e6',
