@@ -35,8 +35,11 @@ apps/*/node_modules/
 apps/*/.expo/
 dist/
 apps/*/dist/
+dist-review/
+apps/*/dist-review/
 web-build/
 apps/*/web-build/
+.build-tools/
 expo-env.d.ts
 apps/*/expo-env.d.ts
 *.tsbuildinfo

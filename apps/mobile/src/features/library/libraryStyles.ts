@@ -948,6 +948,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 8,
+    flexShrink: 0,
   },
   openCustomNoteBtnText: {
     color: '#ffffff',

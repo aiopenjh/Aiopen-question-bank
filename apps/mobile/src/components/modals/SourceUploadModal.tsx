@@ -15,6 +15,7 @@ interface SourceUploadModalProps {
   topics: Topic[];
   sources: Source[];
   sourceTitle: string;
+  sourceText?: string;
   selectedSourceTopicId: string | null;
   onSelectSourceTopicId: (topicId: string | null) => void;
   onChangeSourceTitle: (title: string) => void;
@@ -29,6 +30,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
   topics,
   sources,
   sourceTitle,
+  sourceText,
   selectedSourceTopicId,
   onSelectSourceTopicId,
   onChangeSourceTitle,
@@ -55,65 +57,36 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
           </View>
 
           <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
-            {/* ⚠️ 파일 업로드 시 주의사항 */}
-            <View style={styles.cautionBox}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <Text style={{ fontSize: 13 }}>⚠️</Text>
-                <Text style={styles.cautionTitle}>파일 업로드 시 주의사항</Text>
-              </View>
-              <Text style={styles.cautionText}>
-                • <Text style={{ fontWeight: 'bold' }}>PDF, TXT 파일</Text>은 단일 파일 또는 ZIP 압축으로 바로 첨부 가능합니다.{'\n'}
-                • <Text style={{ fontWeight: 'bold', color: '#be123c' }}>한글 문서(.hwp)</Text>는 AI가 직접 읽을 수 없으므로, 반드시 <Text style={{ fontWeight: 'bold', color: '#9f1239' }}>[PDF 또는 TXT 파일로 변환]</Text>하여 첨부 바랍니다.{'\n'}
-                • 파일을 첨부하시면 제목이 자동 입력되므로 일일이 타이핑하실 필요가 없습니다.
-              </Text>
-            </View>
-
-            {/* 1단계: 적용할 학습 과목(대단원) 선택 */}
-            <Text style={styles.stepLabel}>1️⃣ 적용할 학습 과목(대단원) 선택</Text>
-            {topics.length === 0 ? (
-              <Text style={styles.emptyHint}>※ 먼저 상단에서 학습 과목을 생성해 주세요.</Text>
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.topicChipScroll}>
-                {topics.map((t) => {
-                  const isSelected = selectedSourceTopicId === t.id;
-                  return (
-                    <TouchableOpacity
-                      key={t.id}
-                      style={[styles.topicChip, isSelected && styles.topicChipSelected]}
-                      onPress={() => onSelectSourceTopicId(isSelected ? null : t.id)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.topicChipText, isSelected && styles.topicChipTextSelected]}>
-                        {isSelected ? '✓ ' : ''}{t.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
+            {/* 1단계: 학습 과목(대단원) 이름 직접 입력 */}
+            <Text style={styles.stepLabel}>1️⃣ 학습 과목(대단원) 이름</Text>
+            <TextInput
+              style={styles.inputField}
+              placeholder="과목 또는 대단원명을 직접 입력하세요 (예: 정보처리기사, 한국사...)"
+              placeholderTextColor="#94a3b8"
+              value={sourceTitle}
+              onChangeText={(text) => {
+                onChangeSourceTitle(text);
+                const matched = topics.find((t) => t.name.trim().toLowerCase() === text.trim().toLowerCase());
+                onSelectSourceTopicId(matched ? matched.id : null);
+              }}
+            />
 
             {/* 2단계: 파일 첨부 버튼 (PDF, TXT, ZIP) */}
-            <Text style={[styles.stepLabel, { marginTop: 14 }]}>2️⃣ 교재 파일 첨부</Text>
+            <Text style={[styles.stepLabel, { marginTop: 12 }]}>2️⃣ 교재 파일 첨부</Text>
             <TouchableOpacity style={styles.uploadBtn} onPress={onPickSourceFile} activeOpacity={0.8}>
               <Text style={styles.uploadBtnIcon}>📁</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.uploadBtnTitle}>교재 / 문제집 파일 선택하기</Text>
-                <Text style={styles.uploadBtnSub}>PDF, TXT, ZIP 파일 지원 (한글 문서는 변환 후 첨부)</Text>
+                <Text style={styles.uploadBtnSub}>
+                  {sourceText
+                    ? '✅ 파일 내용 준비 완료 (터치하여 변경)'
+                    : 'PDF, TXT, ZIP 파일 지원 (한글 문서는 변환 후 첨부)'}
+                </Text>
               </View>
               <View style={styles.uploadTag}>
-                <Text style={styles.uploadTagText}>파일 탐색</Text>
+                <Text style={styles.uploadTagText}>{sourceText ? '변경' : '파일 탐색'}</Text>
               </View>
             </TouchableOpacity>
-
-            {/* 3단계: 등록할 자료 제목만 입력 (요약내용 제거) */}
-            <Text style={[styles.stepLabel, { marginTop: 14 }]}>3️⃣ 등록할 자료 제목</Text>
-            <TextInput
-              style={styles.inputField}
-              placeholder="파일을 선택하면 제목이 자동 입력됩니다 (직접 수정 가능)"
-              placeholderTextColor="#94a3b8"
-              value={sourceTitle}
-              onChangeText={onChangeSourceTitle}
-            />
 
             {/* 등록 버튼 */}
             <TouchableOpacity
@@ -128,7 +101,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
               disabled={!sourceTitle.trim()}
               activeOpacity={0.8}
             >
-              <Text style={styles.saveBtnText}>💾 선택한 과목에 교재 등록하기</Text>
+              <Text style={styles.saveBtnText}>💾 교재 자료 등록하기</Text>
             </TouchableOpacity>
 
             {/* 등록된 교재 자료 목록 */}
@@ -205,59 +178,11 @@ const styles = StyleSheet.create({
   scrollArea: {
     maxHeight: 520,
   },
-  cautionBox: {
-    backgroundColor: '#fff1f4',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-  },
-  cautionTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#881337',
-  },
-  cautionText: {
-    fontSize: 11,
-    color: '#9f1239',
-    lineHeight: 16,
-  },
   stepLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: '#334155',
     marginBottom: 6,
-  },
-  emptyHint: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginBottom: 8,
-  },
-  topicChipScroll: {
-    marginBottom: 6,
-  },
-  topicChip: {
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    marginRight: 6,
-  },
-  topicChipSelected: {
-    backgroundColor: '#f43f5e',
-    borderColor: '#f43f5e',
-  },
-  topicChipText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  topicChipTextSelected: {
-    color: '#ffffff',
-    fontWeight: '700',
   },
   uploadBtn: {
     flexDirection: 'row',

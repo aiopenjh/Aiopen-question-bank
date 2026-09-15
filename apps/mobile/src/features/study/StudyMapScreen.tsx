@@ -23,9 +23,6 @@ interface StudyMapScreenProps {
   onStartIncorrectReview?: () => void;
   onGoToScaffolding?: () => void;
 
-  // 내자료업로드 새페이지 연결
-  onOpenSourceUpload?: () => void;
-
   // 당겨서 새로고침 (Pull to Refresh)
   refreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
@@ -45,7 +42,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   onStartDueReview,
   onStartIncorrectReview,
   onGoToScaffolding,
-  onOpenSourceUpload,
   refreshing = false,
   onRefresh,
   onQuickPromptGenerate,
@@ -66,6 +62,10 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
     <ScrollView
       style={styles.tabContent}
       contentContainerStyle={styles.scrollPadding}
+      bounces={true}
+      alwaysBounceVertical={true}
+      overScrollMode="always"
+      showsVerticalScrollIndicator={false}
       refreshControl={
         onRefresh ? (
           <RefreshControl
@@ -73,27 +73,51 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             onRefresh={onRefresh}
             colors={['#f43f5e', '#be123c']}
             tintColor="#f43f5e"
+            title="학습 데이터 새로고침 중..."
+            titleColor="#be123c"
           />
         ) : undefined
       }
     >
-      {/* 0. 내자료업로드 새페이지(모달) 연결 링크 바 (슬림 & 콤팩트) */}
-      {onOpenSourceUpload && (
-        <TouchableOpacity
-          style={styles.sourceUploadCompactBar}
-          onPress={onOpenSourceUpload}
-          activeOpacity={0.8}
-        >
-          <View style={styles.sourceUploadCompactLeft}>
-            <Text style={styles.sourceUploadCompactIcon}>📁</Text>
-            <Text style={styles.sourceUploadCompactTitle}>내자료업로드</Text>
-            <Text style={styles.sourceUploadCompactSub}>(PDF · TXT · ZIP 교재 첨부)</Text>
+
+      {/* 1. 즉시 AI 문제 출제 바 (설명문 제거 및 직관적 레이아웃) */}
+      {onQuickPromptGenerate && (
+        <View style={styles.quickPromptCard}>
+          <Text style={styles.quickPromptLabel}>⚡ AI 즉시 문제 출제</Text>
+          <View style={styles.quickPromptInputRow}>
+            <TextInput
+              style={styles.quickPromptInput}
+              placeholder="공부할 키워드나 주제 입력 (예: 회계원리, Git)"
+              placeholderTextColor="#64748b"
+              value={customPrompt}
+              onChangeText={setCustomPrompt}
+              returnKeyType="send"
+              onSubmitEditing={handleSendPrompt}
+              onKeyPress={(e: any) => {
+                if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
+                  e?.preventDefault?.();
+                  handleSendPrompt();
+                }
+              }}
+              blurOnSubmit={false}
+            />
+            <TouchableOpacity
+              style={[styles.quickPromptSubmitBtn, isAiGenerating && { opacity: 0.6 }]}
+              disabled={isAiGenerating}
+              onPress={handleSendPrompt}
+              activeOpacity={0.85}
+            >
+              {isAiGenerating ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.quickPromptSubmitText}>⚡ 출제</Text>
+              )}
+            </TouchableOpacity>
           </View>
-          <Text style={styles.sourceUploadCompactArrow}>열기 ➔</Text>
-        </TouchableOpacity>
+        </View>
       )}
 
-      {/* 1. 큼직하고 시원한 오늘의 학습 현황 카드 (Hero Card) */}
+      {/* 2. 큼직하고 시원한 오늘의 학습 현황 카드 (Hero Card) */}
       <View style={styles.heroRoutineCard}>
         <View style={styles.routineHeaderRow}>
           <View>
@@ -170,46 +194,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </TouchableOpacity>
         )}
       </View>
-
-      {/* 2. 즉시 AI 문제 출제 바 (자유 주제) */}
-      {onQuickPromptGenerate && (
-        <View style={styles.quickPromptCard}>
-          <Text style={styles.quickPromptLabel}>✨ 원하는 개념 즉시 출제</Text>
-          <Text style={styles.quickPromptGuide}>
-            공부하고 싶은 개념이나 키워드를 입력하면 AI가 맞춤형 CBT 문제를 즉시 출제합니다.
-          </Text>
-          <View style={styles.quickPromptInputRow}>
-            <TextInput
-              style={styles.quickPromptInput}
-              placeholder="예: Git cherry-pick 원리, 미적분 기초, 회계원리..."
-              placeholderTextColor="#64748b"
-              value={customPrompt}
-              onChangeText={setCustomPrompt}
-              returnKeyType="send"
-              onSubmitEditing={handleSendPrompt}
-              onKeyPress={(e: any) => {
-                if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
-                  e?.preventDefault?.();
-                  handleSendPrompt();
-                }
-              }}
-              blurOnSubmit={false}
-            />
-            <TouchableOpacity
-              style={[styles.quickPromptSubmitBtn, isAiGenerating && { opacity: 0.6 }]}
-              disabled={isAiGenerating}
-              onPress={handleSendPrompt}
-              activeOpacity={0.85}
-            >
-              {isAiGenerating ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.quickPromptSubmitText}>⚡ 출제</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </ScrollView>
   );
 };
@@ -222,45 +206,6 @@ const styles = StyleSheet.create({
   scrollPadding: {
     padding: 18,
     paddingBottom: 40,
-  },
-  sourceUploadCompactBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    paddingVertical: 7,
-    paddingHorizontal: 13,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  sourceUploadCompactLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sourceUploadCompactIcon: {
-    fontSize: 14,
-  },
-  sourceUploadCompactTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#881337',
-  },
-  sourceUploadCompactSub: {
-    fontSize: 11,
-    color: '#9f1239',
-  },
-  sourceUploadCompactArrow: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#e11d48',
   },
   heroRoutineCard: {
     backgroundColor: '#ffffff',
@@ -407,27 +352,29 @@ const styles = StyleSheet.create({
   },
   quickPromptCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#fecdd3',
     shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
     elevation: 2,
   },
   quickPromptLabel: {
-    fontSize: 15,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#881337',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   quickPromptGuide: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
-    marginBottom: 12,
-    lineHeight: 17,
+    marginBottom: 8,
+    lineHeight: 15,
   },
   quickPromptInputRow: {
     flexDirection: 'row',
@@ -437,25 +384,25 @@ const styles = StyleSheet.create({
   quickPromptInput: {
     flex: 1,
     backgroundColor: '#fff5f7',
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#fecdd3',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     color: '#1f2937',
-    fontSize: 14,
+    fontSize: 13,
   },
   quickPromptSubmitBtn: {
     backgroundColor: '#f43f5e',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickPromptSubmitText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
   },
 });

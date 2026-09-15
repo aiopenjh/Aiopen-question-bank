@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { showAlert } from '../../utils/alert';
 import { styles } from './settingsStyles';
@@ -16,28 +16,33 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
   onSaveApiKey,
   onDeleteApiKey,
 }) => {
-  const [inputKey, setInputKey] = useState(apiKey);
+  const [newKeyInput, setNewKeyInput] = useState('');
   const [isEditingKey, setIsEditingKey] = useState(false);
-  const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setInputKey(apiKey);
-  }, [apiKey]);
 
   const isRegistered = apiKey.trim().length > 8;
 
+  const getProviderName = () => {
+    const k = apiKey.trim();
+    if (k.startsWith('AIzaSy')) return 'Google Gemini (최신 3.5 자동 연동)';
+    if (k.startsWith('sk-ant-')) return 'Anthropic Claude';
+    if (k.startsWith('sk-')) return 'OpenAI GPT';
+    return '범용 AI 출제 엔진';
+  };
+
   async function handlePressSave() {
-    const trimmed = inputKey.trim();
+    const trimmed = newKeyInput.trim();
     if (!trimmed) {
-      showAlert('알림', '저장할 API Key를 입력해 주세요.');
+      showAlert('알림', '등록할 새로운 API Key를 붙여넣어 주세요.');
       return;
     }
     setSaving(true);
     try {
       onChangeApiKey(trimmed);
       await onSaveApiKey(trimmed);
+      setNewKeyInput('');
       setIsEditingKey(false);
+      showAlert('보안 등록 완료', '새로운 API Key가 안전하게 암호화 보관되었습니다.\n\n(보안을 위해 원문은 화면에 일절 노출되지 않습니다)');
     } catch (err: any) {
       showAlert('오류', `저장 중 오류 발생: ${err?.message || '알 수 없는 오류'}`);
     } finally {
@@ -47,46 +52,37 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
 
   async function handlePressDelete() {
     if (!onDeleteApiKey) return;
-    showAlert('키 삭제 확인', '등록된 API Key를 완전히 삭제하시겠습니까?', [
+    showAlert('키 삭제 확인', '등록된 API Key를 완전히 파기하시겠습니까?\n\n삭제 시 새로운 문제를 생성하려면 다시 키를 등록하셔야 합니다.', [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제하기',
         style: 'destructive',
         onPress: async () => {
           await onDeleteApiKey();
-          setInputKey('');
-          setIsEditingKey(true);
+          setNewKeyInput('');
+          setIsEditingKey(false);
+          showAlert('삭제 완료', '등록된 API Key가 안전하게 파기되었습니다.');
         },
       },
     ]);
   }
 
   return (
-    <View style={styles.card}>
-      <View style={styles.cardHeaderRow}>
-        <Text style={styles.cardSectionTitle}>🔑 AI 출제 공급자 연결</Text>
-        <View style={isRegistered ? styles.connectedBadge : styles.disconnectedBadge}>
-          <Text style={isRegistered ? styles.connectedBadgeText : styles.disconnectedBadgeText}>
-            {isRegistered ? '🟢 연동 완료' : '⚪ 미연동'}
-          </Text>
-        </View>
-      </View>
-
+    <View style={[styles.card, { paddingVertical: 12, paddingHorizontal: 14 }]}>
       {isRegistered && !isEditingKey ? (
-        <View style={styles.savedKeyBanner}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Text style={{ fontSize: 16 }}>🔒</Text>
-              <Text style={styles.savedKeyTitle}>API Key 암호화 저장됨</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontSize: 14 }}>🔒</Text>
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#881337' }}>
+                AI 키 안전 보관 중
+              </Text>
+              <View style={[styles.connectedBadge, { paddingVertical: 2, paddingHorizontal: 6 }]}>
+                <Text style={[styles.connectedBadgeText, { fontSize: 10 }]}>연동됨</Text>
+              </View>
             </View>
-            <Text style={styles.savedKeySubText}>
-              {apiKey.trim().startsWith('AIzaSy')
-                ? 'Google Gemini 키가 등록되어 있습니다. (최신 3.5 우선 자동 통신)'
-                : apiKey.trim().startsWith('sk-ant-')
-                ? 'Anthropic Claude 키가 등록되어 있습니다.'
-                : apiKey.trim().startsWith('sk-')
-                ? 'OpenAI GPT 키가 등록되어 있습니다.'
-                : 'API Key가 안전하게 보관되어 있습니다.'}
+            <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+              {getProviderName()} · 원문 영구 은닉
             </Text>
           </View>
 
@@ -94,78 +90,70 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
             <TouchableOpacity
               style={styles.keyActionSmallBtn}
               onPress={() => {
-                setInputKey(apiKey);
+                setNewKeyInput('');
                 setIsEditingKey(true);
               }}
+              activeOpacity={0.8}
             >
-              <Text style={styles.keyActionSmallBtnText}>✏️ 변경</Text>
+              <Text style={styles.keyActionSmallBtnText}>🔄 교체</Text>
             </TouchableOpacity>
             {onDeleteApiKey && (
               <TouchableOpacity
-                style={[styles.keyActionSmallBtn, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444' }]}
+                style={[
+                  styles.keyActionSmallBtn,
+                  { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: '#fca5a5' },
+                ]}
                 onPress={handlePressDelete}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.keyActionSmallBtnText, { color: '#fca5a5' }]}>🗑️ 삭제</Text>
+                <Text style={[styles.keyActionSmallBtnText, { color: '#ef4444' }]}>🗑️</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
       ) : (
-        <View style={{ marginTop: 2 }}>
-          <Text style={styles.promptGuideText}>
-            사용하실 AI API 키를 입력 후 [저장하기]를 눌러주세요. (최신 3.5 모델이 자동 적용됩니다)
-          </Text>
+        <View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#881337' }}>
+              🔑 {isRegistered ? '새 API Key로 교체' : 'AI API Key 등록'}
+            </Text>
+            {isRegistered && (
+              <TouchableOpacity
+                onPress={() => setIsEditingKey(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={{ fontSize: 11, color: '#64748b' }}>취소 ✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-          <View style={styles.keyInputRow}>
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
             <TextInput
-              style={styles.keyInputField}
-              placeholder="API Key 입력 (예: AIzaSy...)"
-              placeholderTextColor="#64748b"
-              value={inputKey}
-              onChangeText={(text) => {
-                setInputKey(text);
-                onChangeApiKey(text);
-              }}
+              style={[styles.keyInputField, { flex: 1, paddingVertical: 7, fontSize: 12, marginBottom: 0 }]}
+              placeholder="새로운 API Key 붙여넣기"
+              placeholderTextColor="#94a3b8"
+              value={newKeyInput}
+              onChangeText={setNewKeyInput}
               autoCapitalize="none"
-              secureTextEntry={!isKeyVisible}
+              secureTextEntry={true}
               autoCorrect={false}
             />
             <TouchableOpacity
-              style={styles.eyeBtn}
-              onPress={() => setIsKeyVisible(!isKeyVisible)}
-            >
-              <Text style={styles.eyeBtnText}>{isKeyVisible ? '🔒 숨김' : '👁️ 보기'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-            <TouchableOpacity
-              style={[styles.primaryActionButton, { flex: 1 }]}
+              style={[
+                styles.primaryActionButton,
+                { paddingVertical: 9, paddingHorizontal: 14, marginTop: 0, borderRadius: 10 },
+                !newKeyInput.trim() && { opacity: 0.6 },
+              ]}
               onPress={handlePressSave}
-              disabled={saving}
+              disabled={saving || !newKeyInput.trim()}
+              activeOpacity={0.85}
             >
               {saving ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.primaryActionText}>🔒 안전하게 저장하기</Text>
+                <Text style={[styles.primaryActionText, { fontSize: 12 }]}>저장</Text>
               )}
             </TouchableOpacity>
-
-            {isRegistered && (
-              <TouchableOpacity
-                style={[
-                  styles.primaryActionButton,
-                  { backgroundColor: '#ffe4e6', borderWidth: 1, borderColor: '#fecdd3', flex: 0.4 },
-                ]}
-                onPress={() => {
-                  setInputKey(apiKey);
-                  setIsEditingKey(false);
-                }}
-                disabled={saving}
-              >
-                <Text style={[styles.primaryActionText, { color: '#be123c' }]}>취소</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
       )}

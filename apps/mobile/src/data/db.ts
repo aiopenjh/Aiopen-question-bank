@@ -7,56 +7,80 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Profile,
+  RoutineRevision,
   Topic,
-  Source,
-  SourceRevision,
-  SourceChunk,
   Unit,
   QuestionRevision,
-  Attempt,
-  ReviewState,
-  RoutineRevision,
-  ManualCompletion,
-  UUID,
-  ISODateTimeString,
 } from '../contracts/types';
 import { getLocalDateString } from '../domain/routine';
+import { saveLastStudiedTopicId } from './repositories/topic_unit_repository';
+import {
+  getEncryptedApiKey,
+  saveEncryptedApiKey,
+  deleteEncryptedApiKey,
+} from '../integrations/secure_storage';
 
-const STORAGE_KEYS = {
-  DB_VERSION: '@cogniquest:db_version',
-  PROFILE: '@cogniquest:profile',
-  ROUTINE: '@cogniquest:routine',
-  TOPICS: '@cogniquest:topics',
-  SOURCES: '@cogniquest:sources',
-  SOURCE_REVISIONS: '@cogniquest:source_revisions',
-  SOURCE_CHUNKS: '@cogniquest:source_chunks',
-  UNITS: '@cogniquest:units',
-  LEARNING_SPECS: '@cogniquest:learning_specs',
-  QUESTIONS: '@cogniquest:questions',
-  SESSIONS: '@cogniquest:sessions',
-  SESSION_ITEMS: '@cogniquest:session_items',
-  ATTEMPTS: '@cogniquest:attempts',
-  REVIEW_STATES: '@cogniquest:review_states',
-  MANUAL_COMPLETIONS: '@cogniquest:manual_completions',
-  API_KEY: '@cogniquest:gemini_api_key',
-  PREFERRED_MODEL: '@cogniquest:preferred_ai_model',
-  LAST_STUDIED_TOPIC: '@cogniquest:last_studied_topic',
-  CUSTOM_NOTE_QUESTIONS: '@cogniquest:custom_note_questions',
-};
+// 1. 스토리지 키 및 공통 식별자 유틸리티 re-export
+export {
+  STORAGE_KEYS,
+  CURRENT_DB_VERSION,
+  generateUUID,
+  getCurrentISOTime,
+} from './storage_keys';
 
-const CURRENT_DB_VERSION = 2;
+import {
+  STORAGE_KEYS,
+  CURRENT_DB_VERSION,
+  generateUUID,
+  getCurrentISOTime,
+} from './storage_keys';
 
-export function generateUUID(): UUID {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
+// 2. 도메인별 리포지토리 함수 및 인터페이스 100% 하위 호환 re-export
+export {
+  getTopics,
+  createTopic,
+  addTopic,
+  deleteTopic,
+  getUnits,
+  createUnit,
+  deleteUnit,
+  replaceTopicUnits,
+  deduplicateTopicUnits,
+  getLastStudiedTopicId,
+  saveLastStudiedTopicId,
+} from './repositories/topic_unit_repository';
 
-export function getCurrentISOTime(): ISODateTimeString {
-  return new Date().toISOString();
-}
+export {
+  getManualCompletions,
+  toggleUnitCompletion,
+  markUnitAsCompleted,
+  getQuestions,
+  addQuestions,
+  deleteQuestion,
+  getCustomNoteQuestionIds,
+  toggleCustomNoteQuestion,
+  getAttempts,
+  saveAttempt,
+  getReviewStates,
+  saveReviewState,
+  getIncorrectQuestions,
+} from './repositories/question_repository';
+
+export {
+  getSources,
+  addSource,
+  deleteSource,
+  getSourceChunks,
+  getSourceTextForTopic,
+} from './repositories/source_repository';
+
+export {
+  AppBackupPayload,
+  exportBackupJSON,
+  restoreBackupJSON,
+} from './repositories/backup_repository';
+
+export { getEncryptedApiKey, saveEncryptedApiKey, deleteEncryptedApiKey };
 
 /**
  * 초기 시드 데이터 및 마이그레이션 실행
@@ -93,31 +117,155 @@ async function runMigrationClean(): Promise<void> {
     const initialRoutine: RoutineRevision = {
       id: generateUUID(),
       ownerId: profileId,
-      preset: 'mon_wed_fri',
-      activeDays: [1, 3, 5], // 월, 수, 금
+      preset: 'daily',
+      activeDays: [1, 2, 3, 4, 5, 6, 0], // 월~일 전 요일
       preferredTime: '09:00',
       timezone: 'Asia/Seoul',
-      targetQuestionCount: 3,
+      targetQuestionCount: 3, // 기본 일일 3문제
       effectiveDate: getLocalDateString(),
     };
     await AsyncStorage.setItem(STORAGE_KEYS.ROUTINE, JSON.stringify(initialRoutine));
   }
 
-  // 3. 하드코딩된 특정 과목(파이썬, 회계 등) 강제 주입 제거
-  // 기존 토픽이 없으면 사용자가 직접 등록할 수 있도록 빈 목록으로 정돈
-  const existingTopics = await AsyncStorage.getItem(STORAGE_KEYS.TOPICS);
-  if (!existingTopics) {
-    await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify([]));
-  }
+  // 3. 기본 탑재 과목: Python 비동기 프로그래밍 (신규 배포 기본 과목)
+  const existingTopicsRaw = await AsyncStorage.getItem(STORAGE_KEYS.TOPICS);
+  const existingTopics: Topic[] = existingTopicsRaw ? JSON.parse(existingTopicsRaw) : [];
 
-  const existingUnits = await AsyncStorage.getItem(STORAGE_KEYS.UNITS);
-  if (!existingUnits) {
-    await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify([]));
-  }
+  const hasAsyncTopic = existingTopics.some((t) => t.id === 'topic-python-async' || t.name.includes('Python 비동기'));
 
-  const existingQuestions = await AsyncStorage.getItem(STORAGE_KEYS.QUESTIONS);
-  if (!existingQuestions) {
-    await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify([]));
+  if (!hasAsyncTopic) {
+    const defaultTopicId = 'topic-python-async';
+    const defaultTopic: Topic = {
+      id: defaultTopicId,
+      ownerId: profileId,
+      name: 'Python 비동기 프로그래밍',
+      category: '💻 IT/개발',
+      description: 'asyncio, 코루틴, 이벤트 루프, Task 동시성 제어 등 파이썬 비동기 핵심',
+      archivedAt: null,
+      createdAt: getCurrentISOTime(),
+    };
+
+    const defaultUnits: Unit[] = [
+      {
+        id: 'unit-py-async-1',
+        topicId: defaultTopicId,
+        parentId: null,
+        title: '1단계: 동기(Sync) vs 비동기(Async) 및 Event Loop 구조',
+        depth: 1,
+        orderIndex: 0,
+        createdAt: getCurrentISOTime(),
+      },
+      {
+        id: 'unit-py-async-2',
+        topicId: defaultTopicId,
+        parentId: null,
+        title: '2단계: async def 코루틴 선언과 await 제어권 양보 원리',
+        depth: 1,
+        orderIndex: 1,
+        createdAt: getCurrentISOTime(),
+      },
+      {
+        id: 'unit-py-async-3',
+        topicId: defaultTopicId,
+        parentId: null,
+        title: '3단계: asyncio.create_task()를 활용한 Task 스케줄링',
+        depth: 1,
+        orderIndex: 2,
+        createdAt: getCurrentISOTime(),
+      },
+      {
+        id: 'unit-py-async-4',
+        topicId: defaultTopicId,
+        parentId: null,
+        title: '4단계: asyncio.gather()와 asyncio.wait() 다중 병렬 처리',
+        depth: 1,
+        orderIndex: 3,
+        createdAt: getCurrentISOTime(),
+      },
+      {
+        id: 'unit-py-async-5',
+        topicId: defaultTopicId,
+        parentId: null,
+        title: '5단계: 비동기 I/O(aiohttp)와 Semaphore 동시성 제어',
+        depth: 1,
+        orderIndex: 4,
+        createdAt: getCurrentISOTime(),
+      },
+    ];
+
+    const defaultQuestions: QuestionRevision[] = [
+      {
+        id: 'q-py-async-1',
+        questionId: 'q-py-async-1',
+        revision: 1,
+        specId: 'spec-default',
+        topicId: defaultTopicId,
+        unitId: 'unit-py-async-1',
+        stem: 'Python의 비동기 프로그래밍 모듈인 asyncio에서 이벤트 루프(Event Loop)의 핵심 동작 원리로 가장 알맞은 것은?',
+        options: [
+          { id: 'opt-1-1', text: '각 코루틴마다 별도의 OS 스레드를 생성하여 멀티스레딩으로 실행한다.', isDistractor: true },
+          { id: 'opt-1-2', text: '단일 스레드에서 대기 중인 코루틴을 순환하며, I/O 대기 시 제어권을 다른 태스크로 전환한다.', isDistractor: false },
+          { id: 'opt-1-3', text: 'GIL(Global Interpreter Lock)을 완전히 우회하여 CPython 멀티코어 병렬 연산을 수행한다.', isDistractor: true },
+          { id: 'opt-1-4', text: '코루틴 내의 모든 동기 블로킹 함수 호출을 자동으로 논블로킹으로 변환한다.', isDistractor: true },
+        ],
+        answerOptionId: 'opt-1-2',
+        explanation: 'asyncio의 이벤트 루프는 단일 스레드 기반의 협동적 멀티태스킹(Cooperative Multitasking) 구조로 동작합니다. 코루틴이 await를 만나 I/O 대기 상태가 되면 제어권을 이벤트 루프로 양보하여 다른 작업을 처리함으로써 고효율 동시성을 구현합니다.',
+        deepReasoningHint: '많은 초보자가 비동기를 멀티스레드로 오해하지만, asyncio는 단일 스레드에서 이벤트 루프가 작업 제어권을 번갈아가며 스케줄링하는 방식입니다.',
+        status: 'ready_personal',
+        createdAt: getCurrentISOTime(),
+      },
+      {
+        id: 'q-py-async-2',
+        questionId: 'q-py-async-2',
+        revision: 1,
+        specId: 'spec-default',
+        topicId: defaultTopicId,
+        unitId: 'unit-py-async-2',
+        stem: "다음 중 Python에서 'async def'로 정의된 코루틴 함수를 올바르게 실행하는 방법이 아닌 것은?",
+        options: [
+          { id: 'opt-2-1', text: '다른 코루틴 함수 내부에서 await 키워드를 붙여 호출한다.', isDistractor: true },
+          { id: 'opt-2-2', text: '최상위 진입점에서 asyncio.run() 함수에 전달하여 실행한다.', isDistractor: true },
+          { id: 'opt-2-3', text: 'asyncio.create_task()에 전달하여 태스크로 등록 및 스케줄링한다.', isDistractor: true },
+          { id: 'opt-2-4', text: '일반 동기 함수 안에서 my_coroutine()으로 직접 호출하여 반환값을 즉시 얻는다.', isDistractor: false },
+        ],
+        answerOptionId: 'opt-2-4',
+        explanation: 'async def 함수를 일반 함수처럼 직접 호출하면 내부 코드가 실행되지 않고 단지 실행 가능한 <coroutine object>만 반환됩니다. 이를 실제로 구동하려면 await, asyncio.run(), 또는 asyncio.create_task()를 거쳐야 합니다.',
+        deepReasoningHint: '코루틴 함수를 호출만 하고 await를 빼먹으면 RuntimeWarning: coroutine was never awaited 경고가 발생하며 코드가 실행되지 않습니다.',
+        status: 'ready_personal',
+        createdAt: getCurrentISOTime(),
+      },
+      {
+        id: 'q-py-async-3',
+        questionId: 'q-py-async-3',
+        revision: 1,
+        specId: 'spec-default',
+        topicId: defaultTopicId,
+        unitId: 'unit-py-async-4',
+        stem: '여러 개의 비동기 코루틴 작업을 동시에 실행하고, 그 모든 결과를 하나의 순서화된 리스트로 수집할 때 사용하는 표준 함수는?',
+        options: [
+          { id: 'opt-3-1', text: 'asyncio.gather()', isDistractor: false },
+          { id: 'opt-3-2', text: 'asyncio.sleep()', isDistractor: true },
+          { id: 'opt-3-3', text: 'asyncio.to_thread()', isDistractor: true },
+          { id: 'opt-3-4', text: 'asyncio.get_event_loop()', isDistractor: true },
+        ],
+        answerOptionId: 'opt-3-1',
+        explanation: 'asyncio.gather(*coros_or_futures)는 여러 비동기 코루틴을 이벤트 루프에 동시에 띄우고, 모든 작업이 완료될 때까지 기다려 각 작업의 반환값을 호출 순서대로 리스트에 담아 반환합니다.',
+        deepReasoningHint: '동시 다발적인 네트워크 요청이나 비동기 작업들의 결과를 한꺼번에 모아 처리할 때 가장 널리 쓰이는 표준 패턴입니다.',
+        status: 'ready_personal',
+        createdAt: getCurrentISOTime(),
+      },
+    ];
+
+    const existingUnitsRaw = await AsyncStorage.getItem(STORAGE_KEYS.UNITS);
+    const existingUnits: Unit[] = existingUnitsRaw ? JSON.parse(existingUnitsRaw) : [];
+
+    const existingQuestionsRaw = await AsyncStorage.getItem(STORAGE_KEYS.QUESTIONS);
+    const existingQuestions: QuestionRevision[] = existingQuestionsRaw ? JSON.parse(existingQuestionsRaw) : [];
+
+    await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify([...existingTopics, defaultTopic]));
+    await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify([...existingUnits, ...defaultUnits]));
+    await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify([...existingQuestions, ...defaultQuestions]));
+    await saveLastStudiedTopicId(defaultTopicId);
   }
 
   // 기타 보조 컬렉션 초기화
@@ -132,7 +280,7 @@ async function runMigrationClean(): Promise<void> {
 }
 
 // -------------------------------------------------------------
-// Database Accessors & Methods
+// Database Accessors & Core Methods
 // -------------------------------------------------------------
 
 export async function getProfile(): Promise<Profile | null> {
@@ -149,238 +297,10 @@ export async function saveRoutine(routine: RoutineRevision): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.ROUTINE, JSON.stringify(routine));
 }
 
-export async function getTopics(): Promise<Topic[]> {
-  const data = await AsyncStorage.getItem(STORAGE_KEYS.TOPICS);
-  if (!data) return [];
-  const list: Topic[] = JSON.parse(data);
-  // 기존 토픽 카테고리 마이그레이션 보정
-  return list.map((t) => {
-    if (!t.category) {
-      const lower = t.name.toLowerCase();
-      if (lower.includes('git') || lower.includes('개발') || lower.includes('코딩') || lower.includes('파이썬')) {
-        t.category = '💻 IT/개발';
-      } else if (lower.includes('수학') || lower.includes('함수') || lower.includes('미적')) {
-        t.category = '📐 수학';
-      } else if (lower.includes('영어') || lower.includes('토익') || lower.includes('언어') || lower.includes('어학')) {
-        t.category = '🌐 언어/어학';
-      } else if (lower.includes('경제') || lower.includes('경영') || lower.includes('주식')) {
-        t.category = '📊 경제/경영';
-      } else {
-        t.category = '📚 일반';
-      }
-    }
-    return t;
-  });
-}
-
-export async function createTopic(
-  name: string,
-  description: string = '',
-  category: string = '📚 일반'
-): Promise<Topic> {
-  const profile = await getProfile();
-  const newTopic: Topic = {
-    id: generateUUID(),
-    ownerId: profile?.id || generateUUID(),
-    name: name.trim(),
-    description: description.trim(),
-    category: category.trim() || '📚 일반',
-    archivedAt: null,
-    createdAt: getCurrentISOTime(),
-  };
-  const topics = await getTopics();
-  topics.push(newTopic);
-  await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(topics));
-  return newTopic;
-}
-
-export async function addTopic(topic: Topic): Promise<void> {
-  const topics = await getTopics();
-  topics.push(topic);
-  await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(topics));
-}
-
-export async function deleteTopic(topicId: UUID): Promise<void> {
-  const topics = await getTopics();
-  const updatedTopics = topics.filter((t) => t.id !== topicId);
-  await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(updatedTopics));
-
-  // 연관 단원 및 문제도 정리
-  const units = await getUnits();
-  const updatedUnits = units.filter((u) => u.topicId !== topicId);
-  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(updatedUnits));
-
-  const questions = await getQuestions();
-  const updatedQuestions = questions.filter((q) => q.topicId !== topicId);
-  await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(updatedQuestions));
-}
-
-export async function getUnits(topicId?: UUID): Promise<Unit[]> {
-  const data = await AsyncStorage.getItem(STORAGE_KEYS.UNITS);
-  const units: Unit[] = data ? JSON.parse(data) : [];
-  return topicId ? units.filter((u) => u.topicId === topicId) : units;
-}
-
-export async function createUnit(params: {
-  topicId: UUID;
-  title: string;
-  depth?: 1 | 2 | 3;
-  parentId?: UUID | null;
-}): Promise<Unit> {
-  const units = await getUnits();
-  const topicUnits = units.filter((u) => u.topicId === params.topicId);
-  const newUnit: Unit = {
-    id: generateUUID(),
-    topicId: params.topicId,
-    parentId: params.parentId || null,
-    depth: params.depth || 1,
-    title: params.title.trim(),
-    orderIndex: topicUnits.length + 1,
-    createdAt: getCurrentISOTime(),
-  };
-  units.push(newUnit);
-  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(units));
-  return newUnit;
-}
-
-export async function deleteUnit(unitId: UUID): Promise<void> {
-  const units = await getUnits();
-  const updatedUnits = units.filter((u) => u.id !== unitId && u.parentId !== unitId);
-  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(updatedUnits));
-}
-
-export async function replaceTopicUnits(
-  topicId: UUID,
-  newUnits: { title: string; depth?: 1 | 2 | 3 }[]
-): Promise<Unit[]> {
-  const allUnits = await getUnits();
-  const otherUnits = allUnits.filter((u) => u.topicId !== topicId);
-  const createdList: Unit[] = newUnits.map((u, idx) => ({
-    id: generateUUID(),
-    topicId,
-    parentId: null,
-    depth: u.depth || 1,
-    title: u.title.trim(),
-    orderIndex: idx + 1,
-    createdAt: getCurrentISOTime(),
-  }));
-  const updated = [...otherUnits, ...createdList];
-  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(updated));
-  return createdList;
-}
-
-export async function deduplicateTopicUnits(topicId: UUID): Promise<Unit[]> {
-  const allUnits = await getUnits();
-  const topicUnits = allUnits.filter((u) => u.topicId === topicId);
-  const otherUnits = allUnits.filter((u) => u.topicId !== topicId);
-
-  const seenTitles = new Set<string>();
-  const uniqueTopicUnits: Unit[] = [];
-
-  for (const u of topicUnits) {
-    const trimmedTitle = u.title.trim();
-    if (!seenTitles.has(trimmedTitle)) {
-      seenTitles.add(trimmedTitle);
-      uniqueTopicUnits.push({
-        ...u,
-        orderIndex: uniqueTopicUnits.length + 1,
-      });
-    }
-  }
-
-  const updated = [...otherUnits, ...uniqueTopicUnits];
-  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(updated));
-  return uniqueTopicUnits;
-}
-
-export async function getManualCompletions(): Promise<ManualCompletion[]> {
-  const data = await AsyncStorage.getItem(STORAGE_KEYS.MANUAL_COMPLETIONS);
-  return data ? JSON.parse(data) : [];
-}
-
-export async function toggleUnitCompletion(unitId: UUID, ownerId: UUID): Promise<boolean> {
-  const list = await getManualCompletions();
-  const existingIndex = list.findIndex((c) => c.unitId === unitId);
-  let newStatus = true;
-
-  if (existingIndex >= 0) {
-    newStatus = !list[existingIndex].completed;
-    list[existingIndex].completed = newStatus;
-    list[existingIndex].changedAt = getCurrentISOTime();
-  } else {
-    list.push({
-      ownerId,
-      unitId,
-      completed: true,
-      changedAt: getCurrentISOTime(),
-    });
-  }
-
-  await AsyncStorage.setItem(STORAGE_KEYS.MANUAL_COMPLETIONS, JSON.stringify(list));
-  return newStatus;
-}
-
-export async function markUnitAsCompleted(unitId: UUID, ownerId: UUID = 'owner-default'): Promise<void> {
-  const list = await getManualCompletions();
-  const existing = list.find((c) => c.unitId === unitId);
-  if (existing) {
-    existing.completed = true;
-    existing.changedAt = getCurrentISOTime();
-  } else {
-    list.push({
-      ownerId,
-      unitId,
-      completed: true,
-      changedAt: getCurrentISOTime(),
-    });
-  }
-  await AsyncStorage.setItem(STORAGE_KEYS.MANUAL_COMPLETIONS, JSON.stringify(list));
-}
-
-export async function getQuestions(topicId?: UUID): Promise<QuestionRevision[]> {
-  const data = await AsyncStorage.getItem(STORAGE_KEYS.QUESTIONS);
-  const questions: QuestionRevision[] = data ? JSON.parse(data) : [];
-  return topicId ? questions.filter((q) => q.topicId === topicId) : questions;
-}
-
-export async function addQuestions(newQuestions: QuestionRevision[]): Promise<void> {
-  const questions = await getQuestions();
-  questions.push(...newQuestions);
-  await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(questions));
-}
-
-export async function deleteQuestion(questionId: UUID): Promise<void> {
-  const questions = await getQuestions();
-  const updated = questions.filter((q) => q.id !== questionId);
-  await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(updated));
-}
-
-export async function getCustomNoteQuestionIds(): Promise<string[]> {
-  const data = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
-  return data ? JSON.parse(data) : [];
-}
-
-export async function toggleCustomNoteQuestion(questionId: UUID): Promise<boolean> {
-  const list = await getCustomNoteQuestionIds();
-  const set = new Set(list);
-  let isSaved = false;
-  if (set.has(questionId)) {
-    set.delete(questionId);
-    isSaved = false;
-  } else {
-    set.add(questionId);
-    isSaved = true;
-  }
-  await AsyncStorage.setItem(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS, JSON.stringify(Array.from(set)));
-  return isSaved;
-}
-
 export async function clearAllData(): Promise<void> {
   await AsyncStorage.clear();
   await initializeDatabase();
 }
-
-import { getEncryptedApiKey, saveEncryptedApiKey, deleteEncryptedApiKey } from '../integrations/secure_storage';
 
 export async function getGeminiApiKey(): Promise<string | null> {
   return await getEncryptedApiKey();
@@ -400,185 +320,4 @@ export async function getPreferredAiModel(): Promise<string> {
 
 export async function savePreferredAiModel(model: string): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.PREFERRED_MODEL, model.trim());
-}
-
-export { getEncryptedApiKey, saveEncryptedApiKey, deleteEncryptedApiKey };
-
-export async function getAttempts(): Promise<Attempt[]> {
-  const data = await AsyncStorage.getItem(STORAGE_KEYS.ATTEMPTS);
-  return data ? JSON.parse(data) : [];
-}
-
-export async function saveAttempt(attempt: Attempt): Promise<void> {
-  const attempts = await getAttempts();
-  // 멱등 제출 방어 (submissionKey 유일)
-  if (attempts.some((a) => a.submissionKey === attempt.submissionKey)) {
-    return;
-  }
-  attempts.push(attempt);
-  await AsyncStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(attempts));
-}
-
-export async function getReviewStates(): Promise<ReviewState[]> {
-  const data = await AsyncStorage.getItem(STORAGE_KEYS.REVIEW_STATES);
-  return data ? JSON.parse(data) : [];
-}
-
-export async function saveReviewState(reviewState: ReviewState): Promise<void> {
-  const list = await getReviewStates();
-  const idx = list.findIndex((r) => r.questionRevisionId === reviewState.questionRevisionId);
-  if (idx >= 0) {
-    list[idx] = reviewState;
-  } else {
-    list.push(reviewState);
-  }
-  await AsyncStorage.setItem(STORAGE_KEYS.REVIEW_STATES, JSON.stringify(list));
-}
-
-/**
- * 오답 문제 목록 추출 (가장 최근 시도가 오답인 문제들)
- */
-export async function getIncorrectQuestions(): Promise<QuestionRevision[]> {
-  const [questions, attempts] = await Promise.all([getQuestions(), getAttempts()]);
-  const incorrectQIds = new Set<string>();
-
-  // 문제별 최근 attempt 확인
-  for (const q of questions) {
-    const qAttempts = attempts.filter((a) => a.submissionKey.includes(q.id));
-    if (qAttempts.length > 0) {
-      // 가장 최근 시도
-      const latest = qAttempts[qAttempts.length - 1];
-      if (!latest.isCorrect) {
-        incorrectQIds.add(q.id);
-      }
-    }
-  }
-
-  return questions.filter((q) => incorrectQIds.has(q.id));
-}
-
-// -------------------------------------------------------------
-// Backup & Restore Engine (R11, T14 준수)
-// -------------------------------------------------------------
-
-export interface AppBackupPayload {
-  version: number;
-  exportedAt: string;
-  profile: Profile | null;
-  routine: RoutineRevision | null;
-  topics: Topic[];
-  units: Unit[];
-  questions: QuestionRevision[];
-  attempts: Attempt[];
-  reviewStates: ReviewState[];
-  manualCompletions: ManualCompletion[];
-}
-
-/**
- * 전체 로컬 데이터 JSON 백업 추출
- */
-export async function exportBackupJSON(): Promise<string> {
-  const [profile, routine, topics, units, questions, attempts, reviewStates, manualCompletions] =
-    await Promise.all([
-      getProfile(),
-      getRoutine(),
-      getTopics(),
-      getUnits(),
-      getQuestions(),
-      getAttempts(),
-      getReviewStates(),
-      getManualCompletions(),
-    ]);
-
-  const payload: AppBackupPayload = {
-    version: CURRENT_DB_VERSION,
-    exportedAt: getCurrentISOTime(),
-    profile,
-    routine,
-    topics,
-    units,
-    questions,
-    attempts,
-    reviewStates,
-    manualCompletions,
-  };
-
-  return JSON.stringify(payload, null, 2);
-}
-
-/**
- * 백업 JSON 데이터 유효성 검사 및 안전 복원 (손상 시 원본 유지)
- */
-export async function restoreBackupJSON(jsonString: string): Promise<{ success: boolean; message: string }> {
-  try {
-    const parsed = JSON.parse(jsonString);
-
-    // 필수 필드 및 스키마 구조 검증
-    if (!parsed.version || !Array.isArray(parsed.topics) || !Array.isArray(parsed.questions)) {
-      return { success: false, message: '백업 파일 형식이 올바르지 않거나 손상되었습니다. 원본 데이터가 안전하게 유지됩니다.' };
-    }
-
-    // 원자적 복원 (모든 검증 통과 시 저장)
-    if (parsed.profile) await AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(parsed.profile));
-    if (parsed.routine) await AsyncStorage.setItem(STORAGE_KEYS.ROUTINE, JSON.stringify(parsed.routine));
-    await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(parsed.topics));
-    if (Array.isArray(parsed.units)) await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(parsed.units));
-    await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(parsed.questions));
-    if (Array.isArray(parsed.attempts)) await AsyncStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(parsed.attempts));
-    if (Array.isArray(parsed.reviewStates)) await AsyncStorage.setItem(STORAGE_KEYS.REVIEW_STATES, JSON.stringify(parsed.reviewStates));
-    if (Array.isArray(parsed.manualCompletions)) await AsyncStorage.setItem(STORAGE_KEYS.MANUAL_COMPLETIONS, JSON.stringify(parsed.manualCompletions));
-
-    return { success: true, message: '성공적으로 백업 데이터가 복원되었습니다.' };
-  } catch (err: any) {
-    return { success: false, message: `복원 중 구문 오류가 발생했습니다: ${err.message}` };
-  }
-}
-
-export async function getSources(): Promise<Source[]> {
-  const data = await AsyncStorage.getItem(STORAGE_KEYS.SOURCES);
-  return data ? JSON.parse(data) : [];
-}
-
-export async function addSource(source: Source, revision: SourceRevision, chunks: SourceChunk[]): Promise<void> {
-  const sources = await getSources();
-  sources.unshift(source);
-  await AsyncStorage.setItem(STORAGE_KEYS.SOURCES, JSON.stringify(sources));
-
-  const revsData = await AsyncStorage.getItem(STORAGE_KEYS.SOURCE_REVISIONS);
-  const revs: SourceRevision[] = revsData ? JSON.parse(revsData) : [];
-  revs.unshift(revision);
-  await AsyncStorage.setItem(STORAGE_KEYS.SOURCE_REVISIONS, JSON.stringify(revs));
-
-  const chunksData = await AsyncStorage.getItem(STORAGE_KEYS.SOURCE_CHUNKS);
-  const existingChunks: SourceChunk[] = chunksData ? JSON.parse(chunksData) : [];
-  existingChunks.push(...chunks);
-  await AsyncStorage.setItem(STORAGE_KEYS.SOURCE_CHUNKS, JSON.stringify(existingChunks));
-}
-
-export async function deleteSource(sourceId: string): Promise<void> {
-  const sources = await getSources();
-  const filtered = sources.filter((s) => s.id !== sourceId);
-  await AsyncStorage.setItem(STORAGE_KEYS.SOURCES, JSON.stringify(filtered));
-}
-
-export async function getSourceChunks(revisionId?: UUID): Promise<SourceChunk[]> {
-  const chunksData = await AsyncStorage.getItem(STORAGE_KEYS.SOURCE_CHUNKS);
-  const existingChunks: SourceChunk[] = chunksData ? JSON.parse(chunksData) : [];
-  return revisionId ? existingChunks.filter((c) => c.revisionId === revisionId) : existingChunks;
-}
-
-export async function getLastStudiedTopicId(): Promise<string | null> {
-  try {
-    return await AsyncStorage.getItem(STORAGE_KEYS.LAST_STUDIED_TOPIC);
-  } catch (err) {
-    return null;
-  }
-}
-
-export async function saveLastStudiedTopicId(topicId: string): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEYS.LAST_STUDIED_TOPIC, topicId);
-  } catch (err) {
-    console.error('Failed to save last studied topic id:', err);
-  }
 }

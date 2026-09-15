@@ -1,12 +1,96 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { AlarmConfig } from '../../utils/notifications';
+import { AlarmConfig, DayOfWeek, ALL_DAYS } from '../../utils/notifications';
 import { styles } from './settingsStyles';
 
 export interface AlarmConfigSectionProps {
   alarmConfig: AlarmConfig;
   onChangeAlarmConfig?: (config: AlarmConfig) => void;
 }
+
+interface AlarmTimeSlotRowProps {
+  icon: string;
+  title: string;
+  subText: string;
+  enabled: boolean;
+  hour: number;
+  minHour: number;
+  maxHour: number;
+  periodLabel: string;
+  onToggle: () => void;
+  onChangeHour: (h: number) => void;
+}
+
+const AlarmTimeSlotRow: React.FC<AlarmTimeSlotRowProps> = ({
+  icon,
+  title,
+  subText,
+  enabled,
+  hour,
+  minHour,
+  maxHour,
+  periodLabel,
+  onToggle,
+  onChangeHour,
+}) => {
+  const displayHourText = hour > 12 ? `${periodLabel} ${hour - 12}시` : `${periodLabel} ${hour}시`;
+  const timeFormatted = `${String(hour).padStart(2, '0')}:00`;
+
+  return (
+    <View style={[styles.alarmItemBlock, !enabled && styles.alarmItemBlockDisabled]}>
+      <View style={styles.alarmItemTopRow}>
+        <View style={styles.alarmItemLeft}>
+          <Text style={{ fontSize: 18 }}>{icon}</Text>
+          <View>
+            <Text style={[styles.alarmItemTitle, !enabled && { color: '#94a3b8' }]}>{title}</Text>
+            <Text style={styles.alarmItemSubText}>{subText}</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.alarmToggleBtn, enabled ? styles.alarmToggleOn : styles.alarmToggleOff]}
+          onPress={onToggle}
+          activeOpacity={0.8}
+        >
+          <Text style={enabled ? styles.alarmToggleTextOn : styles.alarmToggleTextOff}>
+            {enabled ? '🔔 활성화' : '🔕 끔'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.alarmControlRow, !enabled && styles.alarmControlRowDisabled]}>
+        <TouchableOpacity
+          style={[styles.stepperArrowBtn, (!enabled || hour <= minHour) && styles.stepperArrowBtnDisabled]}
+          onPress={() => {
+            if (hour > minHour) onChangeHour(hour - 1);
+          }}
+          disabled={!enabled || hour <= minHour}
+        >
+          <Text style={[styles.stepperArrowText, (!enabled || hour <= minHour) && styles.stepperArrowTextDisabled]}>
+            ◀
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.timeDisplayCenter}>
+          <Text style={[styles.timeDisplayText, !enabled && { color: '#94a3b8' }]}>{timeFormatted}</Text>
+          <Text style={[styles.timeDisplaySub, !enabled && { color: '#cbd5e1' }]}>{displayHourText}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.stepperArrowBtn, (!enabled || hour >= maxHour) && styles.stepperArrowBtnDisabled]}
+          onPress={() => {
+            if (hour < maxHour) onChangeHour(hour + 1);
+          }}
+          disabled={!enabled || hour >= maxHour}
+        >
+          <Text style={[styles.stepperArrowText, (!enabled || hour >= maxHour) && styles.stepperArrowTextDisabled]}>
+            ▶
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 export const AlarmConfigSection: React.FC<AlarmConfigSectionProps> = ({
   alarmConfig,
@@ -18,185 +102,99 @@ export const AlarmConfigSection: React.FC<AlarmConfigSectionProps> = ({
     }
   }
 
+  const selectedDays: DayOfWeek[] =
+    alarmConfig.selectedDays && alarmConfig.selectedDays.length > 0
+      ? alarmConfig.selectedDays
+      : alarmConfig.weekendEnabled
+      ? ALL_DAYS
+      : ['월', '화', '수', '목', '금'];
+
+  function toggleDay(day: DayOfWeek) {
+    const isSelected = selectedDays.includes(day);
+    const nextDays = isSelected
+      ? selectedDays.filter((d) => d !== day)
+      : [...selectedDays, day];
+
+    // 요일 순서대로 정렬 (월~일)
+    nextDays.sort((a, b) => ALL_DAYS.indexOf(a) - ALL_DAYS.indexOf(b));
+
+    updateAlarm({
+      selectedDays: nextDays,
+      weekendEnabled: nextDays.includes('토') || nextDays.includes('일'),
+    });
+  }
+
+  const getBadgeText = () => {
+    if (selectedDays.length === 0) return '🔕 알람 꺼짐';
+    if (selectedDays.length === 7) return '🔔 매일(월~일)';
+    const isStandardWeekday =
+      selectedDays.length === 5 &&
+      ['월', '화', '수', '목', '금'].every((d) => selectedDays.includes(d as DayOfWeek));
+    if (isStandardWeekday) return '🔔 평일(월~금)';
+    return `🔔 ${selectedDays.join('·')} 선택됨`;
+  };
+
   return (
     <View style={styles.card}>
+      {/* 1. 카드 헤더 */}
       <View style={styles.alarmCardHeader}>
         <View style={{ flex: 1, paddingRight: 8 }}>
-          <Text style={styles.cardSectionTitle}>⏰ 평일 정기 학습 알람</Text>
+          <Text style={styles.cardSectionTitle}>⏰ 정기 학습 알람</Text>
           <Text style={styles.alarmSubGuide}>
-            평일(월~금) 원하는 시간대를 직접 선택하고 켜거나 끌 수 있습니다.
+            원하는 요일을 탭하여 자유롭게 알람 요일을 설정하세요.
           </Text>
         </View>
         <View style={styles.alarmActiveBadge}>
-          <Text style={styles.alarmActiveBadgeText}>🔔 월~금 알람</Text>
+          <Text style={styles.alarmActiveBadgeText}>{getBadgeText()}</Text>
         </View>
       </View>
 
-      {/* 1. 오전 알람 (범위: 8시 ~ 11시, 기본 8시) */}
-      <View style={[styles.alarmItemBlock, !alarmConfig.morningEnabled && styles.alarmItemBlockDisabled]}>
-        <View style={styles.alarmItemTopRow}>
-          <View style={styles.alarmItemLeft}>
-            <Text style={{ fontSize: 18 }}>🌅</Text>
-            <View>
-              <Text style={[styles.alarmItemTitle, !alarmConfig.morningEnabled && { color: '#94a3b8' }]}>
-                오전 알람
+      {/* 2. 월~일 7개 요일 직접 선택 버튼 (깔끔한 한 줄 배치) */}
+      <View style={styles.dayChipsContainer}>
+        {ALL_DAYS.map((day) => {
+          const isSelected = selectedDays.includes(day);
+          return (
+            <TouchableOpacity
+              key={day}
+              style={[styles.dayChipBtn, isSelected ? styles.dayChipBtnActive : styles.dayChipBtnInactive]}
+              onPress={() => toggleDay(day)}
+              activeOpacity={0.7}
+            >
+              <Text style={isSelected ? styles.dayChipBtnTextActive : styles.dayChipBtnTextInactive}>
+                {day}
               </Text>
-              <Text style={styles.alarmItemSubText}>선택 가능: 08:00 ~ 11:00</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.alarmToggleBtn,
-              alarmConfig.morningEnabled ? styles.alarmToggleOn : styles.alarmToggleOff,
-            ]}
-            onPress={() => updateAlarm({ morningEnabled: !alarmConfig.morningEnabled })}
-            activeOpacity={0.8}
-          >
-            <Text style={alarmConfig.morningEnabled ? styles.alarmToggleTextOn : styles.alarmToggleTextOff}>
-              {alarmConfig.morningEnabled ? '🔔 활성화' : '🔕 끔'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.alarmControlRow, !alarmConfig.morningEnabled && styles.alarmControlRowDisabled]}>
-          <TouchableOpacity
-            style={[
-              styles.stepperArrowBtn,
-              (!alarmConfig.morningEnabled || alarmConfig.morningHour <= 8) && styles.stepperArrowBtnDisabled,
-            ]}
-            onPress={() => {
-              if (alarmConfig.morningHour > 8) {
-                updateAlarm({ morningHour: alarmConfig.morningHour - 1 });
-              }
-            }}
-            disabled={!alarmConfig.morningEnabled || alarmConfig.morningHour <= 8}
-          >
-            <Text
-              style={[
-                styles.stepperArrowText,
-                (!alarmConfig.morningEnabled || alarmConfig.morningHour <= 8) && styles.stepperArrowTextDisabled,
-              ]}
-            >
-              ◀
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.timeDisplayCenter}>
-            <Text style={[styles.timeDisplayText, !alarmConfig.morningEnabled && { color: '#94a3b8' }]}>
-              {String(alarmConfig.morningHour).padStart(2, '0')}:00
-            </Text>
-            <Text style={[styles.timeDisplaySub, !alarmConfig.morningEnabled && { color: '#cbd5e1' }]}>
-              오전 {alarmConfig.morningHour}시
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.stepperArrowBtn,
-              (!alarmConfig.morningEnabled || alarmConfig.morningHour >= 11) && styles.stepperArrowBtnDisabled,
-            ]}
-            onPress={() => {
-              if (alarmConfig.morningHour < 11) {
-                updateAlarm({ morningHour: alarmConfig.morningHour + 1 });
-              }
-            }}
-            disabled={!alarmConfig.morningEnabled || alarmConfig.morningHour >= 11}
-          >
-            <Text
-              style={[
-                styles.stepperArrowText,
-                (!alarmConfig.morningEnabled || alarmConfig.morningHour >= 11) && styles.stepperArrowTextDisabled,
-              ]}
-            >
-              ▶
-            </Text>
-          </TouchableOpacity>
-        </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {/* 2. 저녁 알람 (범위: 19시 ~ 21시, 기본 20시) */}
-      <View style={[styles.alarmItemBlock, !alarmConfig.eveningEnabled && styles.alarmItemBlockDisabled]}>
-        <View style={styles.alarmItemTopRow}>
-          <View style={styles.alarmItemLeft}>
-            <Text style={{ fontSize: 18 }}>🌙</Text>
-            <View>
-              <Text style={[styles.alarmItemTitle, !alarmConfig.eveningEnabled && { color: '#94a3b8' }]}>
-                저녁 알람
-              </Text>
-              <Text style={styles.alarmItemSubText}>선택 가능: 19:00 ~ 21:00</Text>
-            </View>
-          </View>
+      {/* 3. 오전 알람 */}
+      <AlarmTimeSlotRow
+        icon="🌅"
+        title="오전 알람"
+        subText="선택 가능: 08:00 ~ 11:00"
+        enabled={alarmConfig.morningEnabled}
+        hour={alarmConfig.morningHour}
+        minHour={8}
+        maxHour={11}
+        periodLabel="오전"
+        onToggle={() => updateAlarm({ morningEnabled: !alarmConfig.morningEnabled })}
+        onChangeHour={(h) => updateAlarm({ morningHour: h })}
+      />
 
-          <TouchableOpacity
-            style={[
-              styles.alarmToggleBtn,
-              alarmConfig.eveningEnabled ? styles.alarmToggleOn : styles.alarmToggleOff,
-            ]}
-            onPress={() => updateAlarm({ eveningEnabled: !alarmConfig.eveningEnabled })}
-            activeOpacity={0.8}
-          >
-            <Text style={alarmConfig.eveningEnabled ? styles.alarmToggleTextOn : styles.alarmToggleTextOff}>
-              {alarmConfig.eveningEnabled ? '🔔 활성화' : '🔕 끔'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.alarmControlRow, !alarmConfig.eveningEnabled && styles.alarmControlRowDisabled]}>
-          <TouchableOpacity
-            style={[
-              styles.stepperArrowBtn,
-              (!alarmConfig.eveningEnabled || alarmConfig.eveningHour <= 19) && styles.stepperArrowBtnDisabled,
-            ]}
-            onPress={() => {
-              if (alarmConfig.eveningHour > 19) {
-                updateAlarm({ eveningHour: alarmConfig.eveningHour - 1 });
-              }
-            }}
-            disabled={!alarmConfig.eveningEnabled || alarmConfig.eveningHour <= 19}
-          >
-            <Text
-              style={[
-                styles.stepperArrowText,
-                (!alarmConfig.eveningEnabled || alarmConfig.eveningHour <= 19) && styles.stepperArrowTextDisabled,
-              ]}
-            >
-              ◀
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.timeDisplayCenter}>
-            <Text style={[styles.timeDisplayText, !alarmConfig.eveningEnabled && { color: '#94a3b8' }]}>
-              {alarmConfig.eveningHour}:00
-            </Text>
-            <Text style={[styles.timeDisplaySub, !alarmConfig.eveningEnabled && { color: '#cbd5e1' }]}>
-              저녁 {alarmConfig.eveningHour > 12 ? alarmConfig.eveningHour - 12 : alarmConfig.eveningHour}시
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.stepperArrowBtn,
-              (!alarmConfig.eveningEnabled || alarmConfig.eveningHour >= 21) && styles.stepperArrowBtnDisabled,
-            ]}
-            onPress={() => {
-              if (alarmConfig.eveningHour < 21) {
-                updateAlarm({ eveningHour: alarmConfig.eveningHour + 1 });
-              }
-            }}
-            disabled={!alarmConfig.eveningEnabled || alarmConfig.eveningHour >= 21}
-          >
-            <Text
-              style={[
-                styles.stepperArrowText,
-                (!alarmConfig.eveningEnabled || alarmConfig.eveningHour >= 21) && styles.stepperArrowTextDisabled,
-              ]}
-            >
-              ▶
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* 4. 저녁 알람 */}
+      <AlarmTimeSlotRow
+        icon="🌙"
+        title="저녁 알람"
+        subText="선택 가능: 19:00 ~ 21:00"
+        enabled={alarmConfig.eveningEnabled}
+        hour={alarmConfig.eveningHour}
+        minHour={19}
+        maxHour={21}
+        periodLabel="저녁"
+        onToggle={() => updateAlarm({ eveningEnabled: !alarmConfig.eveningEnabled })}
+        onChangeHour={(h) => updateAlarm({ eveningHour: h })}
+      />
     </View>
   );
 };

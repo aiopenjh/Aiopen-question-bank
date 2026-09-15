@@ -12,6 +12,7 @@ import {
   createUnit,
   deduplicateTopicUnits,
   generateUUID,
+  getSourceTextForTopic,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
 
@@ -114,6 +115,9 @@ export function useQuizGeneration({
           }
         );
 
+        // 학습자가 업로드한 교재/자료 텍스트 조회
+        const sourceMaterial = await getSourceTextForTopic(topicId, topicName);
+
         // 이 단원에 이미 저장된 문제 파악 -> 중복 방지 및 50~100문제 누적 출제 컨텍스트 전달
         const existingInUnit = questions.filter(
           (q) => q.topicId === topicId && (q.unitId === unitId || q.stem.includes(unitTitle))
@@ -123,9 +127,19 @@ export function useQuizGeneration({
           .map((q) => `• ${q.stem}`)
           .join('\n');
 
-        const customContext = existingSummary
-          ? `[이 단원에 이미 출제되어 보관 중인 기존 문제 목록 (중복 출제 엄격 금지)]:\n${existingSummary}\n※ 학습자가 이 단원에서 50~100문제 이상 대량의 문제은행을 영구 누적 보존할 수 있도록, 위 기존 문제와 겹치지 않는 새로운 발문과 개념 범위를 확장하여 독창적으로 출제해 주세요.`
-          : undefined;
+        const contextParts: string[] = [];
+        if (sourceMaterial && sourceMaterial.trim().length > 0) {
+          contextParts.push(
+            `[학습자가 직접 첨부한 교재/자료 핵심 내용 (★최우선 반영 필수★)]:\n${sourceMaterial}\n※ 반드시 학습자가 첨부한 위 교재 내용과 핵심 개념을 직접 활용하여 시험 문제를 정밀 출제해 주십시오.`
+          );
+        }
+        if (existingSummary) {
+          contextParts.push(
+            `[이 단원에 이미 출제되어 보관 중인 기존 문제 목록 (중복 출제 엄격 금지)]:\n${existingSummary}\n※ 학습자가 이 단원에서 50~100문제 이상 대량의 문제은행을 영구 누적 보존할 수 있도록, 위 기존 문제와 겹치지 않는 새로운 발문과 개념 범위를 확장하여 독창적으로 출제해 주세요.`
+          );
+        }
+
+        const customContext = contextParts.length > 0 ? contextParts.join('\n\n') : undefined;
 
         const outcome = await generateFactBasedQuestions({
           intent: scoped,
@@ -444,6 +458,11 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
           targetCount: 3,
         }
       );
+
+      const sourceMaterial = await getSourceTextForTopic(currentTopic.id, currentTopic.name);
+      const customContext = sourceMaterial && sourceMaterial.trim().length > 0
+        ? `[학습자가 직접 첨부한 교재/자료 핵심 내용 (★최우선 반영 필수★)]:\n${sourceMaterial}\n※ 반드시 학습자가 첨부한 위 교재 내용과 핵심 개념을 직접 활용하여 시험 문제를 정밀 출제해 주십시오.`
+        : undefined;
 
       const outcome = await generateFactBasedQuestions({
         intent: scoped,

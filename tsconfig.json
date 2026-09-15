@@ -1,0 +1,14 @@
+{
+  "extends": "./apps/mobile/node_modules/expo/tsconfig.base.json",
+  "compilerOptions": {
+    "strict": true,
+    "moduleResolution": "bundler",
+    "customConditions": ["react-native"]
+  },
+  "include": [
+    "apps/mobile/**/*"
+  ],
+  "exclude": [
+    "apps/mobile/node_modules"
+  ]
+}

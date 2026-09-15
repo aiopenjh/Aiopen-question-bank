@@ -95,10 +95,13 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={[styles.actionPillBtn, { borderColor: '#ef4444' }]}
+              style={[styles.actionPillBtn, { borderColor: '#fca5a5', backgroundColor: '#fff1f2' }]}
               onPress={() => onDeleteTopic(topic.id, topic.name)}
+              activeOpacity={0.8}
             >
-              <Text style={[styles.actionPillText, { color: '#ef4444' }]}>삭제</Text>
+              <Text style={[styles.actionPillText, { color: '#e11d48', fontWeight: 'bold' }]}>
+                🗑️ 과목 전체 삭제
+              </Text>
             </TouchableOpacity>
           </View>
 

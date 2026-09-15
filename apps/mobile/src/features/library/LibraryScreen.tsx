@@ -9,7 +9,6 @@ import {
 import { Source, QuestionRevision, Topic, Unit, ManualCompletion, ReviewState } from '../../contracts/types';
 import { styles } from './libraryStyles';
 import { TopicFolderCard } from './TopicFolderCard';
-import { UnassignedQuestionsCard } from './UnassignedQuestionsCard';
 import { ReviewHouseSection } from './ReviewHouseSection';
 import { CustomNotebookModal } from '../../components/modals/CustomNotebookModal';
 
@@ -51,6 +50,7 @@ export interface LibraryScreenProps {
   onPickSourceFile?: () => Promise<void>;
   selectedSourceTopicId?: string | null;
   onSelectSourceTopicId?: (topicId: string | null) => void;
+  onOpenSettings?: () => void;
 }
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({
@@ -70,6 +70,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   refreshing = false,
   onRefresh,
   incorrectQuestions = [],
+  onOpenSettings,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const [expandedTopicId, setExpandedTopicId] = useState<string | null>(null);
@@ -94,11 +95,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   // 등록된 토픽 ID 세트
   const topicIdSet = React.useMemo(() => new Set(topics.map((t) => t.id)), [topics]);
 
-  // 자유 출제 및 기타 문제 (등록된 과목에 속하지 않는 문제들)
-  const unassignedQuestions = React.useMemo(() => {
-    return questions.filter((q) => !q.topicId || !topicIdSet.has(q.topicId));
-  }, [questions, topicIdSet]);
-
   const handleUnitPress = (topic: Topic, unit: Unit) => {
     onQuickGenerateForUnit(topic.id, topic.name, unit.id, unit.title);
   };
@@ -108,6 +104,9 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
       <ScrollView
         style={styles.tabContent}
         contentContainerStyle={styles.scrollPadding}
+        bounces={true}
+        alwaysBounceVertical={true}
+        overScrollMode="always"
         refreshControl={
           onRefresh ? (
             <RefreshControl
@@ -115,6 +114,8 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
               onRefresh={onRefresh}
               colors={['#f43f5e', '#be123c']}
               tintColor="#f43f5e"
+              title="학습 데이터 새로고침 중..."
+              titleColor="#be123c"
             />
           ) : undefined
         }
@@ -129,9 +130,18 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
               </Text>
             </View>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              <TouchableOpacity style={styles.newTopicBtn} onPress={onOpenTopicModal}>
+              <TouchableOpacity style={styles.newTopicBtn} onPress={onOpenTopicModal} activeOpacity={0.8}>
                 <Text style={styles.newTopicBtnText}>+ 새 과목</Text>
               </TouchableOpacity>
+              {onOpenSettings && (
+                <TouchableOpacity
+                  style={[styles.newTopicBtn, { backgroundColor: '#fff1f2', borderColor: '#fda4af', borderWidth: 1 }]}
+                  onPress={onOpenSettings}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.newTopicBtnText, { color: '#be123c' }]}>⚙️ 설정</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -189,14 +199,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
           ))
         )}
 
-        {/* 4. 자유 출제 / 기타 문제집 */}
-        <UnassignedQuestionsCard
-          questions={unassignedQuestions}
-          onStartExamWithQuestions={onStartExamWithQuestions}
-          onDeleteQuestion={onDeleteQuestion}
-        />
-
-        {/* 5. 문제은행 보관실 섹션 (오답노트 전용 창 열기 + 전체 보관 문제 검토) */}
+        {/* 4. 오답노트 섹션 (오답노트 전용 창 열기 + 전체 보관 문제 검토) */}
         <ReviewHouseSection
           questions={questions}
           topics={topics}

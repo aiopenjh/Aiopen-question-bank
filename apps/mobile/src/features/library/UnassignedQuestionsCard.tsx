@@ -30,7 +30,7 @@ export const UnassignedQuestionsCard: React.FC<UnassignedQuestionsCardProps> = (
             <Text style={styles.topicHouseTitle}>자유 프롬프트 출제 문제집</Text>
           </View>
           <Text style={styles.topicHouseSub}>
-            원하는 개념 즉시 출제로 생성된 문제 {questions.length}문항
+            AI 즉시 문제 출제로 생성된 문제 {questions.length}문항
           </Text>
         </View>
 

@@ -99,19 +99,6 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
       }
     }
 
-    const assignedIds = new Set(currentTopicUnits.map((u) => u.id));
-    const unassignedInTopic = topicQuestions.filter(
-      (q) => !q.unitId || (!assignedIds.has(q.unitId) && !currentTopicUnits.some((u) => q.stem.includes(u.title)))
-    );
-    if (unassignedInTopic.length > 0) {
-      groups.push({
-        unitId: 'unassigned',
-        unitTitle: '기타 / 직접 출제 문제',
-        questions: unassignedInTopic,
-        incorrectCount: unassignedInTopic.filter((q) => incorrectIdSet.has(q.id)).length,
-      });
-    }
-
     return groups;
   }, [currentTopicUnits, topicQuestions, incorrectIdSet, currentTopicId, topicMap]);
 
@@ -133,9 +120,9 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
         onPress={onOpenCustomNotebook}
         activeOpacity={0.8}
       >
-        <View>
-          <Text style={styles.openCustomNoteTitle}>⭐ 나만의 오답노트 열기 ({customNoteIds.size}문항 보관 중)</Text>
-          <Text style={styles.openCustomNoteSub}>독립된 공간에서 조용하게 집중 복습하기</Text>
+        <View style={{ flex: 1, paddingRight: 8 }}>
+          <Text style={styles.openCustomNoteTitle}>⭐ 나만의 오답노트 열기 ({customNoteIds.size}문항)</Text>
+          <Text style={styles.openCustomNoteSub} numberOfLines={1}>독립된 공간에서 조용하게 집중 복습하기</Text>
         </View>
         <View style={styles.openCustomNoteBtn}>
           <Text style={styles.openCustomNoteBtnText}>입장하기 ➔</Text>
