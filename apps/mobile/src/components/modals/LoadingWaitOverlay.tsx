@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { appStyles as styles } from '../../styles/appStyles';
+import { StateIllustration } from '../common/StateIllustration';
+import { colors } from '../../styles/designTokens';
 
 export interface LoadingWaitOverlayProps {
   status: {
@@ -29,6 +31,9 @@ export const LoadingWaitOverlay: React.FC<LoadingWaitOverlayProps> = ({
 
   return (
     <View
+      accessibilityRole="progressbar"
+      accessibilityLabel="AI 맞춤 학습 콘텐츠를 생성하는 중입니다"
+      accessibilityLiveRegion="polite"
       style={[
         styles.loadingWaitOverlay,
         isAbsolute && {
@@ -43,7 +48,7 @@ export const LoadingWaitOverlay: React.FC<LoadingWaitOverlayProps> = ({
       ]}
     >
       <View style={styles.loadingWaitCard}>
-        <ActivityIndicator size="large" color="#f43f5e" style={{ marginBottom: 14 }} />
+        <StateIllustration kind="aiGenerating" width={108} style={styles.loadingWaitIllustration} />
 
         {/* 1. 통일된 제목 */}
         <Text style={styles.loadingWaitTitle}>
@@ -57,9 +62,10 @@ export const LoadingWaitOverlay: React.FC<LoadingWaitOverlayProps> = ({
         ) : null}
 
         {/* 2. 시간 초 카운트다운 없는 편안한 안내 문구 통일 */}
-        <Text style={styles.loadingWaitMessage}>
-          잠시만 기다려 주세요 ✨
-        </Text>
+        <View style={styles.loadingWaitProgressRow}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.loadingWaitMessage}>잠시만 기다려 주세요</Text>
+        </View>
 
         <View style={styles.loadingWaitNoteBox}>
           <Text style={styles.loadingWaitNoteText}>

@@ -1,16 +1,15 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isRunningInExpoGo } from 'expo';
+import { STORAGE_KEYS } from '../data/storage_keys';
 
 const ALARM_SETTINGS_KEY = '@celueste:alarm_enabled';
 const LAST_ALARM_PROMPT_KEY = '@celueste:last_in_app_alarm_prompt';
 
-// Expo Go (Android)에서는 SDK 53부터 푸시 알림 네이티브 모듈이 제외되어
-// 직접 import/호출 시 빨간색 크래시 화면([runtime not ready])을 발생시킵니다.
+// Android Expo Go에서도 로컬 예약 알림은 지원된다.
+// SDK 53 이후 제한되는 기능은 원격 푸시 알림이며 이 앱은 로컬 알림만 사용한다.
 let Notifications: any = null;
-const isExpoGoAndroid = Platform.OS === 'android' && isRunningInExpoGo();
 
-if (!isExpoGoAndroid && Platform.OS !== 'web') {
+if (Platform.OS !== 'web') {
   try {
     Notifications = require('expo-notifications');
     Notifications.setNotificationHandler({
@@ -143,11 +142,9 @@ export const DEFAULT_ALARM_CONFIG: AlarmConfig = {
   weekendEnabled: true,
 };
 
-const ALARM_CONFIG_KEY = '@celueste:alarm_config_v2';
-
 export async function getAlarmConfig(): Promise<AlarmConfig> {
   try {
-    const raw = await AsyncStorage.getItem(ALARM_CONFIG_KEY);
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.ALARM_CONFIG);
     if (!raw) return DEFAULT_ALARM_CONFIG;
     const parsed = JSON.parse(raw);
 
@@ -172,7 +169,7 @@ export async function getAlarmConfig(): Promise<AlarmConfig> {
 }
 
 export async function saveAlarmConfig(config: AlarmConfig): Promise<void> {
-  await AsyncStorage.setItem(ALARM_CONFIG_KEY, JSON.stringify(config));
+  await AsyncStorage.setItem(STORAGE_KEYS.ALARM_CONFIG, JSON.stringify(config));
   await scheduleWeekdayStudyAlarms(config);
 }
 
@@ -227,8 +224,8 @@ export async function scheduleWeekdayStudyAlarms(customConfig?: AlarmConfig): Pr
         await Notifications.scheduleNotificationAsync({
           content: {
             title: `🌸 [Celueste] ${dayName}요일 오전 ${config.morningHour}시 문제 풀이 시간!`,
-            body: '오늘의 실전 문제를 풀고 활기찬 하루를 시작해 보세요! (터치하여 바로 시작)',
-            data: { action: 'START_EXAM', timeSlot: 'morning' },
+            body: '오늘 복습 일정을 확인하고 학습을 시작해 보세요! (터치하여 바로 시작)',
+            data: { action: 'START_STUDY', timeSlot: 'morning' },
             sound: true,
             channelId: 'default',
           } as any,
@@ -249,8 +246,8 @@ export async function scheduleWeekdayStudyAlarms(customConfig?: AlarmConfig): Pr
         await Notifications.scheduleNotificationAsync({
           content: {
             title: `🌙 [Celueste] ${dayName}요일 저녁 ${displayHour}시 집중 복습 시간!`,
-            body: '오늘 하루의 학습 목표를 채우고 복습해 보세요! (터치하여 바로 시작)',
-            data: { action: 'START_EXAM', timeSlot: 'evening' },
+            body: '오늘 복습 일정부터 차분하게 마무리해 보세요! (터치하여 바로 시작)',
+            data: { action: 'START_STUDY', timeSlot: 'evening' },
             sound: true,
             channelId: 'default',
           } as any,
@@ -287,7 +284,7 @@ export function registerNotificationResponseListener(onStartExam: () => void): (
 
   const subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
     const data = response.notification.request.content.data;
-    if (data?.action === 'START_EXAM') {
+    if (data?.action === 'START_STUDY' || data?.action === 'START_EXAM') {
       onStartExam();
     }
   });
@@ -344,11 +341,10 @@ export async function checkInAppScheduledAlarm(onStartExam: (slotLabel: string) 
   // 1. 웹 시스템 알림 전송 (브라우저가 다른 탭에 있거나 백그라운드일 때 유효)
   sendWebNotification(
     `⏰ [Celueste] ${displayHour} 정기 학습 시간입니다!`,
-    '오늘의 실전 문제를 풀고 학습을 이어가 보세요! (클릭하여 시험 시작)',
+    '오늘 복습 일정을 확인하고 학습을 이어가 보세요! (클릭하여 시작)',
     () => onStartExam(displayHour)
   );
 
   // 2. 인앱 안내 모달 팝업 콜백 실행
   onStartExam(displayHour);
 }
-

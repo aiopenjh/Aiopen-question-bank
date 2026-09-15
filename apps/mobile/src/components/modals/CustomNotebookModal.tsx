@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Modal,
   View,
   Text,
   ScrollView,
@@ -12,13 +11,13 @@ import { QuestionRevision, Topic } from '../../contracts/types';
 import { getCustomNoteQuestionIds, toggleCustomNoteQuestion } from '../../data/db';
 import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { styles } from './customNotebookStyles';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 
 export interface CustomNotebookModalProps {
   visible: boolean;
   onClose: () => void;
   questions: QuestionRevision[];
   topics: Topic[];
-  onDeleteQuestion?: (questionId: string) => Promise<void>;
   onCustomNoteChanged?: () => void;
 }
 
@@ -27,7 +26,6 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
   onClose,
   questions,
   topics,
-  onDeleteQuestion,
   onCustomNoteChanged,
 }) => {
   const [customNoteIds, setCustomNoteIds] = useState<Set<string>>(new Set());
@@ -84,7 +82,7 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
     }
   };
 
-  // 나만의 오답노트에 등록된 전체 문제들
+  // 사용자가 직접 저장한 문제만 나만의 오답노트에 표시
   const allSavedQuestions = useMemo(() => {
     return questions.filter((q) => customNoteIds.has(q.id));
   }, [questions, customNoteIds]);
@@ -111,7 +109,7 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
             </View>
             <Text style={styles.headerTitle}>나만의 오답노트</Text>
             <Text style={styles.headerSub}>
-              내가 기억하기로 체크한 {allSavedQuestions.length}문항을 조용히 복습합니다.
+              직접 골라 저장한 {allSavedQuestions.length}문항을 내 방식대로 복습합니다.
             </Text>
           </View>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
@@ -184,7 +182,7 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
               const topicName = q.topicId ? topicMap.get(q.topicId) : '자유 문제';
 
               return (
-                <View key={q.id} style={styles.questionCard}>
+                <View key={`${q.id}-${idx}`} style={styles.questionCard}>
                   {/* 카드 헤더 */}
                   <View style={styles.cardHeaderRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
@@ -198,7 +196,9 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
                       onPress={() => handleToggle(q.id)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.unbookmarkBtnText}>⭐ 저장됨 (해제)</Text>
+                      <Text style={styles.unbookmarkBtnText}>
+                        오답노트에서 빼기
+                      </Text>
                     </TouchableOpacity>
                   </View>
 

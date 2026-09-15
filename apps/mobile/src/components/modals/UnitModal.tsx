@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { showAlert } from '../../utils/alert';
+import { colors } from '../../styles/designTokens';
 
 interface UnitModalProps {
   visible: boolean;
@@ -37,13 +38,11 @@ export const UnitModal: React.FC<UnitModalProps> = ({ visible, onClose, onCreate
         activeOpacity={1}
         style={styles.modalOverlay}
         onPress={onClose}
-        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
       >
         <TouchableOpacity
           activeOpacity={1}
           style={styles.modalCard}
           onPress={(e) => e.stopPropagation?.()}
-          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
         >
           <Text style={styles.modalTitle}>📌 새 단원(목차) 추가</Text>
           <Text style={styles.promptGuideText}>
@@ -68,17 +67,15 @@ export const UnitModal: React.FC<UnitModalProps> = ({ visible, onClose, onCreate
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#ffe4e6', borderWidth: 1, borderColor: '#fecdd3' }]}
+              style={[styles.actionBtn, { backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border }]}
               onPress={onClose}
-              {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
               disabled={isSubmitting}
             >
-              <Text style={[styles.actionBtnText, { color: '#be123c' }]}>취소</Text>
+              <Text style={[styles.actionBtnText, { color: colors.primaryPressed }]}>취소</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#f43f5e' }]}
+              style={[styles.actionBtn, { backgroundColor: colors.primaryPressed }]}
               onPress={handleCreate}
-              {...(Platform.OS === 'web' ? ({ onClick: handleCreate } as any) : {})}
               disabled={isSubmitting}
             >
               <Text style={styles.actionBtnText}>{isSubmitting ? '추가 중...' : '단원 추가'}</Text>
@@ -93,7 +90,7 @@ export const UnitModal: React.FC<UnitModalProps> = ({ visible, onClose, onCreate
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(64, 48, 56, 0.44)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -105,8 +102,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 22,
     borderWidth: 1.5,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
+    borderColor: colors.border,
+    shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -115,24 +112,24 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#881337',
+    color: colors.ink,
     marginBottom: 8,
   },
   promptGuideText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.inkMuted,
     lineHeight: 18,
     marginBottom: 14,
   },
   inputField: {
-    backgroundColor: '#fff5f7',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    color: '#1f2937',
+    color: colors.ink,
     fontSize: 16,
     borderWidth: 1.2,
-    borderColor: '#fecdd3',
+    borderColor: colors.border,
     marginBottom: 14,
   },
   actionBtn: {

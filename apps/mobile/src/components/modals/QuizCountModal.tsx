@@ -1,7 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
-import { UniversalModal as Modal } from '../common/UniversalModal';
+import React, { useEffect, useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { LearnerKnowledgeLevel } from '../../contracts/types';
+import { colors, radius, shadows, spacing } from '../../styles/designTokens';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 
 export interface QuizCountModalOptions {
   learnerLevel?: LearnerKnowledgeLevel;
@@ -19,15 +27,18 @@ interface QuizCountModalProps {
   onOpenBackup?: () => void;
 }
 
-const LEVEL_MAP: Record<
-  LearnerKnowledgeLevel,
-  { name: string; icon: string; desc: string }
-> = {
-  beginner: { name: '입문', icon: '🌱', desc: '쉬운 비유와 기초 개념 위주 (초심자용)' },
-  basic: { name: '기본', icon: '📘', desc: '표준 필수 개념 & 핵심 원리 (정규 시험용)' },
-  advanced: { name: '실전', icon: '🔥', desc: '기출 난이도 & 함정 선지 극복 (실전 시험대비)' },
-  master: { name: '심화', icon: '👑', desc: '최고난도 복합 추론 & 킬러 문항 (심화 마스터)' },
-};
+const LEVEL_OPTIONS = [
+  { key: 'beginner', icon: '🌱', name: '입문', desc: '기초 개념' },
+  { key: 'basic', icon: '📘', name: '기본', desc: '필수 원리' },
+  { key: 'advanced', icon: '🔥', name: '실전', desc: '응용·함정' },
+  { key: 'master', icon: '👑', name: '심화', desc: '복합 추론' },
+] as const;
+
+const COUNT_OPTIONS = [
+  { count: 3, title: '3문제', meta: '빠른 확인', description: '핵심 개념을 짧게 점검해요.', recommended: false },
+  { count: 5, title: '5문제', meta: '추천', description: '개념과 응용을 균형 있게 풀어요.', recommended: true },
+  { count: 10, title: '10문제', meta: '집중 학습', description: '단원을 충분히 연습해요.', recommended: false },
+] as const;
 
 export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   visible,
@@ -39,8 +50,8 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   onSelectCount,
   onOpenBackup,
 }) => {
-  const [selectedLevel, setSelectedLevel] = useState<LearnerKnowledgeLevel>(initialLevel || 'basic');
-  const [shouldReplace, setShouldReplace] = useState<boolean>(false);
+  const [selectedLevel, setSelectedLevel] = useState<LearnerKnowledgeLevel>(initialLevel);
+  const [shouldReplace, setShouldReplace] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -49,251 +60,167 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
     }
   }, [visible, initialLevel]);
 
-  const currentLevelInfo = LEVEL_MAP[selectedLevel] || LEVEL_MAP.basic;
-  const isModifiedFromDefault = initialLevel ? selectedLevel !== initialLevel : false;
-
-  const options = [
-    {
-      count: 3,
-      badge: '⚡ 약 10초 (빠른 출제)',
-      title: '3문제 풀기',
-      desc: '핵심 개념 위주의 신속한 마이크로러닝 (즉시 생성)',
-      color: '#e11d48',
-      borderColor: '#fda4af',
-      bg: '#fff1f2',
-    },
-    {
-      count: 5,
-      badge: '🎯 가장 추천 (가장 쾌적하고 안정적)',
-      title: '5문제 풀기',
-      desc: '개념 이해 + 실전 함정 선지 + 꼼꼼한 해설지 (가장 안정적인 최적 문항 수)',
-      color: '#be123c',
-      borderColor: '#fb7185',
-      bg: '#fff1f2',
-    },
-    {
-      count: 10,
-      badge: '🏆 집중 학습 (생성 시간 다소 소요)',
-      title: '10문제 풀기',
-      desc: '단원 집중 풀이 (문항 수가 많아 AI 응답에 시간이 다소 걸릴 수 있습니다)',
-      color: '#9f1239',
-      borderColor: '#f43f5e',
-      bg: '#fff1f2',
-    },
-  ];
+  const selectedLevelInfo = LEVEL_OPTIONS.find((item) => item.key === selectedLevel)!;
+  const isModifiedFromDefault = selectedLevel !== initialLevel;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity
-        activeOpacity={1}
-        style={styles.overlay}
-        onPress={onClose}
-        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.modalCard}
-          onPress={(e) => e.stopPropagation?.()}
-          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
-        >
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.card} onPress={(event) => event.stopPropagation?.()}>
           <View style={styles.header}>
-            <View style={styles.headerTopRow}>
-              <Text style={styles.badge}>📝 실전 출제 설정 및 문항 수 선택</Text>
-              {existingCount > 0 && (
-                <View style={styles.storedBadge}>
-                  <Text style={styles.storedBadgeText}>📚 보관: {existingCount}문항</Text>
-                </View>
-              )}
+            <View style={styles.headerCopy}>
+              <Text style={styles.eyebrow}>QUIZ SETUP</Text>
+              <Text style={styles.title}>이번에는 얼마나 풀까요?</Text>
+              {unitTitle ? (
+                <Text style={styles.subtitle} numberOfLines={2}>
+                  {topicName ? `${topicName} · ` : ''}{unitTitle}
+                </Text>
+              ) : null}
             </View>
-            <Text style={styles.title}>몇 문제를 출제해 드릴까요?</Text>
-            {unitTitle && (
-              <Text style={styles.subtitle} numberOfLines={1}>
-                {topicName ? `[${topicName}] ` : ''}{unitTitle}
-              </Text>
-            )}
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="출제 설정 닫기"
+              style={styles.closeButton}
+              onPress={onClose}
+            >
+              <Text style={styles.closeButtonText}>×</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* 1. 현재 적용 난이도 고정 표시 카드 */}
-          <View style={styles.currentLevelCard}>
-            <View style={styles.currentLevelTop}>
-              <View style={styles.currentLevelBadge}>
-                <Text style={styles.currentLevelBadgeText}>
-                  {currentLevelInfo.icon} {currentLevelInfo.name} 난이도 적용 중
+          <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.currentLevelRow}>
+              <View style={styles.levelMark}>
+                <Text style={styles.levelMarkText}>{selectedLevelInfo.icon}</Text>
+              </View>
+              <View style={styles.currentLevelCopy}>
+                <Text style={styles.currentLevelLabel}>현재 난이도</Text>
+                <Text style={styles.currentLevelValue}>
+                  {selectedLevelInfo.name} · {selectedLevelInfo.desc}
                 </Text>
               </View>
-              <Text style={styles.currentLevelOriginTag}>
-                {isModifiedFromDefault ? '✏️ 이번 단원 변경됨' : '📌 과목 기본값 고정'}
+              <Text style={styles.originTag}>
+                {isModifiedFromDefault ? '이번만 변경' : '과목 기본값'}
               </Text>
             </View>
-            <Text style={styles.currentLevelDesc}>
-              {currentLevelInfo.desc}
-            </Text>
-          </View>
 
-          {/* 2. 난이도 변경 선택 영역 (원할 때 눌러서 변경) */}
-          <View style={styles.sectionBlock}>
-            <View style={styles.levelChangeHeader}>
-              <Text style={styles.sectionLabel}>🎯 난이도 변경 (원하실 때만 클릭)</Text>
-              {isModifiedFromDefault && initialLevel && (
-                <TouchableOpacity
-                  onPress={() => setSelectedLevel(initialLevel)}
-                  {...(Platform.OS === 'web' ? ({ onClick: () => setSelectedLevel(initialLevel) } as any) : {})}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.resetLevelText}>
-                    ↺ 처음 설정({LEVEL_MAP[initialLevel]?.name})으로 복원
-                  </Text>
+            <View style={styles.sectionHeadingRow}>
+              <Text style={styles.sectionTitle}>난이도</Text>
+              {isModifiedFromDefault ? (
+                <TouchableOpacity onPress={() => setSelectedLevel(initialLevel)}>
+                  <Text style={styles.resetText}>기본값으로</Text>
                 </TouchableOpacity>
+              ) : (
+                <Text style={styles.sectionHint}>필요할 때만 바꾸세요</Text>
               )}
             </View>
             <View style={styles.levelRow}>
-              {(
-                [
-                  { key: 'beginner', label: '🌱 입문' },
-                  { key: 'basic', label: '📘 기본' },
-                  { key: 'advanced', label: '🔥 실전' },
-                  { key: 'master', label: '👑 심화' },
-                ] as const
-              ).map((lvl) => {
-                const isActive = selectedLevel === lvl.key;
-                const isInitial = initialLevel === lvl.key;
+              {LEVEL_OPTIONS.map((item) => {
+                const active = selectedLevel === item.key;
                 return (
                   <TouchableOpacity
-                    key={lvl.key}
-                    style={[
-                      styles.levelChip,
-                      isActive && styles.levelChipActive,
-                    ]}
-                    onPress={() => setSelectedLevel(lvl.key)}
-                    {...(Platform.OS === 'web' ? ({ onClick: () => setSelectedLevel(lvl.key) } as any) : {})}
-                    activeOpacity={0.8}
+                    key={item.key}
+                    style={[styles.levelChip, active && styles.levelChipActive]}
+                    onPress={() => setSelectedLevel(item.key)}
                   >
-                    <Text style={[styles.levelChipText, isActive && styles.levelChipTextActive]}>
-                      {lvl.label}
+                    <Text style={styles.levelChipIcon}>{item.icon}</Text>
+                    <Text style={[styles.levelChipText, active && styles.levelChipTextActive]}>
+                      {item.name}
                     </Text>
-                    {isInitial && (
-                      <View style={styles.initialDot} />
-                    )}
                   </TouchableOpacity>
                 );
               })}
             </View>
-          </View>
 
-          {/* 2. 기존 문제 처리 옵션 (이미 문제가 있을 때만 표시) */}
-          {existingCount > 0 && (
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionLabel}>🔄 기존 문제 처리 (보관 중인 {existingCount}문항)</Text>
-              <View style={styles.replaceOptionRow}>
-                <TouchableOpacity
-                  style={[styles.replaceBtn, !shouldReplace && styles.replaceBtnActive]}
-                  onPress={() => setShouldReplace(false)}
-                  {...(Platform.OS === 'web' ? ({ onClick: () => setShouldReplace(false) } as any) : {})}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.replaceBtnText, !shouldReplace && styles.replaceBtnTextActive]}>
-                    ➕ 유지하고 추가
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.replaceBtn, shouldReplace && styles.replaceBtnDangerActive]}
-                  onPress={() => setShouldReplace(true)}
-                  {...(Platform.OS === 'web' ? ({ onClick: () => setShouldReplace(true) } as any) : {})}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.replaceBtnText, shouldReplace && styles.replaceBtnDangerTextActive]}>
-                    🧹 지우고 새 난이도로 교체
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              {shouldReplace && (
-                <Text style={styles.replaceNoticeText}>
-                  ⚠️ 기존에 풀었던 {existingCount}문항을 비우고, 선택하신 난이도로 완전히 새롭게 교체합니다.
-                </Text>
-              )}
-            </View>
-          )}
-
-          {/* 30문제 이상 누적 시 안전 백업 권장 배너 */}
-          {existingCount >= 30 && (
-            <View style={styles.backupRecommendBox}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <Text style={{ fontSize: 13 }}>🛡️</Text>
-                <Text style={styles.backupRecommendTitle}>데이터 안전 백업 권장 (누적 {existingCount}문항)</Text>
-              </View>
-              <Text style={styles.backupRecommendText}>
-                단원에 소중한 문제가 많이 누적되었습니다! 스마트폰 캐시 정리나 기기 변경에 대비해 지금 백업해두세요.
-              </Text>
-              {onOpenBackup && (
-                <TouchableOpacity
-                  style={styles.backupActionBtn}
-                  onPress={() => {
-                    onClose();
-                    onOpenBackup();
-                  }}
-                  {...(Platform.OS === 'web' ? ({ onClick: () => { onClose(); onOpenBackup(); } } as any) : {})}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.backupActionBtnText}>💾 지금 데이터 백업 파일 내보내기</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          <View style={styles.optionsContainer}>
-            {options.map((opt) => (
-              <TouchableOpacity
-                key={opt.count}
-                style={[
-                  styles.optionCard,
-                  { borderColor: opt.borderColor, backgroundColor: opt.bg },
-                ]}
-                onPress={() =>
-                  onSelectCount(opt.count, {
-                    learnerLevel: selectedLevel,
-                    shouldReplaceExisting: shouldReplace,
-                  })
-                }
-                {...(Platform.OS === 'web' ? ({ onClick: () => onSelectCount(opt.count, { learnerLevel: selectedLevel, shouldReplaceExisting: shouldReplace }) } as any) : {})}
-                activeOpacity={0.8}
-              >
-                <View style={styles.optionTopRow}>
-                  <Text style={[styles.optionTitle, { color: opt.color }]}>
-                    {opt.title}
-                  </Text>
-                  <View style={[styles.optionBadge, { backgroundColor: opt.borderColor }]}>
-                    <Text style={[styles.optionBadgeText, { color: opt.color }]}>
-                      {opt.badge}
-                    </Text>
-                  </View>
+            {existingCount > 0 ? (
+              <View style={styles.existingSection}>
+                <View style={styles.sectionHeadingRow}>
+                  <Text style={styles.sectionTitle}>기존 {existingCount}문제</Text>
+                  <Text style={styles.sectionHint}>처리 방식</Text>
                 </View>
-                <Text style={styles.optionDesc}>{opt.desc}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                <View style={styles.replaceRow}>
+                  <TouchableOpacity
+                    style={[styles.replaceButton, !shouldReplace && styles.replaceButtonActive]}
+                    onPress={() => setShouldReplace(false)}
+                  >
+                    <Text style={[styles.replaceText, !shouldReplace && styles.replaceTextActive]}>
+                      유지하고 추가
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.replaceButton, shouldReplace && styles.replaceButtonDanger]}
+                    onPress={() => setShouldReplace(true)}
+                  >
+                    <Text style={[styles.replaceText, shouldReplace && styles.replaceTextDanger]}>
+                      지우고 교체
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {shouldReplace ? (
+                  <Text style={styles.replaceWarning}>
+                    기존 문제를 비운 뒤 선택한 난이도로 새로 만듭니다.
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
 
-          {/* 💡 누적 문제 출제 권장 안내 */}
-          <View style={styles.timeNoticeCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Text style={{ fontSize: 13 }}>💡</Text>
-              <Text style={styles.timeNoticeTitle}>출제 권장 가이드 & 누적 문제은행</Text>
+            <Text style={[styles.sectionTitle, styles.countSectionTitle]}>문항 수</Text>
+            <View style={styles.countList}>
+              {COUNT_OPTIONS.map((item) => (
+                <TouchableOpacity
+                  key={item.count}
+                  style={[styles.countCard, item.recommended && styles.countCardRecommended]}
+                  onPress={() =>
+                    onSelectCount(item.count, {
+                      learnerLevel: selectedLevel,
+                      shouldReplaceExisting: shouldReplace,
+                    })
+                  }
+                  activeOpacity={0.82}
+                >
+                  <View style={styles.countNumberBox}>
+                    <Text style={styles.countNumber}>{item.count}</Text>
+                  </View>
+                  <View style={styles.countCopy}>
+                    <View style={styles.countTitleRow}>
+                      <Text style={styles.countTitle}>{item.title}</Text>
+                      <View style={[styles.countMeta, item.recommended && styles.countMetaRecommended]}>
+                        <Text style={[styles.countMetaText, item.recommended && styles.countMetaTextRecommended]}>
+                          {item.meta}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.countDescription}>{item.description}</Text>
+                  </View>
+                  <Text style={styles.countArrow}>›</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-            <Text style={styles.timeNoticeText}>
-              • 5문제가 가장 안정적이고 쾌적하게 출제되며, 바쁠 땐 3문제, 단원 마스터 시 10문제를 추천합니다.{'\n'}
-              • 여러 번 출제하셔도 단원 내 다양한 개념으로 확장 출제되어 50~100문제 이상 안전하게 쌓을 수 있습니다.{'\n'}
-              • 생성된 문제는 기기 내 개인 DB에 영구 보존됩니다.
-            </Text>
-          </View>
 
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={onClose}
-            {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
-          >
-            <Text style={styles.cancelBtnText}>닫기</Text>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </TouchableOpacity>
+            {existingCount >= 30 && onOpenBackup ? (
+              <TouchableOpacity
+                style={styles.backupNotice}
+                onPress={() => {
+                  onClose();
+                  onOpenBackup();
+                }}
+              >
+                <Text style={styles.backupNoticeIcon}>🛡️</Text>
+                <View style={styles.backupNoticeCopy}>
+                  <Text style={styles.backupNoticeTitle}>문제가 많이 쌓였어요</Text>
+                  <Text style={styles.backupNoticeText}>기기 변경에 대비해 백업 파일을 만들어 두세요.</Text>
+                </View>
+                <Text style={styles.backupNoticeAction}>백업</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <Text style={styles.privacyNote}>생성된 문제는 이 기기의 개인 문제은행에만 보관됩니다.</Text>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 };
@@ -301,79 +228,132 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(64, 48, 56, 0.44)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.lg,
   },
-  modalCard: {
+  card: {
     width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 22,
-    borderWidth: 1.5,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    elevation: 8,
+    maxWidth: 440,
+    maxHeight: '90%',
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.soft,
   },
-  sectionBlock: {
-    marginBottom: 12,
-  },
-  currentLevelCard: {
-    backgroundColor: '#fff1f4',
-    borderWidth: 1.5,
-    borderColor: '#fda4af',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 12,
-  },
-  currentLevelTop: {
+  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: spacing.xl,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerCopy: {
+    flex: 1,
+    paddingRight: spacing.md,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+    marginBottom: spacing.xs,
+  },
+  title: {
+    color: colors.ink,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    color: colors.inkMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: spacing.xs,
+  },
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
-    marginBottom: 4,
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
   },
-  currentLevelBadge: {
-    backgroundColor: '#e11d48',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+  closeButtonText: {
+    color: colors.inkMuted,
+    fontSize: 24,
+    lineHeight: 25,
   },
-  currentLevelBadgeText: {
-    color: '#ffffff',
+  scrollArea: {
+    flexShrink: 1,
+  },
+  scrollContent: {
+    padding: spacing.xl,
+  },
+  currentLevelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    marginBottom: spacing.lg,
+  },
+  levelMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+    marginRight: spacing.sm,
+  },
+  levelMarkText: {
+    fontSize: 15,
+  },
+  currentLevelCopy: {
+    flex: 1,
+  },
+  currentLevelLabel: {
+    color: colors.inkMuted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  currentLevelValue: {
+    color: colors.ink,
     fontSize: 12,
     fontWeight: '800',
+    marginTop: 2,
   },
-  currentLevelOriginTag: {
-    fontSize: 11,
-    color: '#be123c',
+  originTag: {
+    color: colors.primaryPressed,
+    fontSize: 10,
     fontWeight: '700',
+    marginLeft: spacing.sm,
   },
-  currentLevelDesc: {
-    fontSize: 11,
-    color: '#475569',
-    lineHeight: 15,
-  },
-  levelChangeHeader: {
+  sectionHeadingRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
   },
-  resetLevelText: {
-    fontSize: 11,
-    color: '#e11d48',
-    fontWeight: '700',
-    textDecorationLine: 'underline',
+  sectionTitle: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '800',
   },
-  sectionLabel: {
-    fontSize: 12,
+  sectionHint: {
+    color: colors.inkMuted,
+    fontSize: 10,
+  },
+  resetText: {
+    color: colors.primaryPressed,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
   },
   levelRow: {
     flexDirection: 'row',
@@ -381,206 +361,186 @@ const styles = StyleSheet.create({
   },
   levelChip: {
     flex: 1,
-    paddingVertical: 7,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   levelChipActive: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#f43f5e',
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
-  initialDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#e11d48',
-    marginTop: 2,
+  levelChipIcon: {
+    fontSize: 14,
+    marginBottom: 2,
   },
   levelChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748b',
+    color: colors.inkMuted,
+    fontSize: 11,
+    fontWeight: '700',
   },
   levelChipTextActive: {
-    color: '#e11d48',
+    color: colors.primaryPressed,
     fontWeight: '800',
   },
-  replaceOptionRow: {
-    flexDirection: 'row',
-    gap: 8,
+  existingSection: {
+    marginTop: spacing.lg,
   },
-  replaceBtn: {
+  replaceRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  replaceButton: {
     flex: 1,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  replaceBtnActive: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
-  },
-  replaceBtnDangerActive: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#ef4444',
-  },
-  replaceBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  replaceBtnTextActive: {
-    color: '#2563eb',
-    fontWeight: '800',
-  },
-  replaceBtnDangerTextActive: {
-    color: '#dc2626',
-    fontWeight: '800',
-  },
-  replaceNoticeText: {
-    fontSize: 11,
-    color: '#e11d48',
-    marginTop: 4,
-    fontWeight: '600',
-  },
-  header: {
-    marginBottom: 14,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  badge: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#e11d48',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  storedBadge: {
-    backgroundColor: '#ffe4e6',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: '#f43f5e',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
   },
-  storedBadgeText: {
+  replaceButtonActive: {
+    borderColor: '#C9E1D9',
+    backgroundColor: colors.mintSoft,
+  },
+  replaceButtonDanger: {
+    borderColor: '#E6C7CD',
+    backgroundColor: '#FAECEE',
+  },
+  replaceText: {
+    color: colors.inkMuted,
     fontSize: 11,
     fontWeight: '700',
-    color: '#be123c',
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#881337',
-    marginBottom: 4,
+  replaceTextActive: {
+    color: colors.mint,
   },
-  subtitle: {
-    fontSize: 12,
-    color: '#64748b',
+  replaceTextDanger: {
+    color: colors.danger,
   },
-  backupRecommendBox: {
-    backgroundColor: '#f0fdf4',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-  },
-  backupRecommendTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#166534',
-  },
-  backupRecommendText: {
-    fontSize: 11,
-    color: '#15803d',
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  backupActionBtn: {
-    backgroundColor: '#16a34a',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  backupActionBtnText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  optionsContainer: {
-    gap: 9,
-    marginBottom: 12,
-  },
-  optionCard: {
-    borderWidth: 1.5,
-    borderRadius: 12,
-    padding: 13,
-  },
-  optionTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  optionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  optionBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  optionBadgeText: {
+  replaceWarning: {
+    color: colors.danger,
     fontSize: 10,
+    lineHeight: 15,
+    marginTop: spacing.sm,
+  },
+  countSectionTitle: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  countList: {
+    gap: spacing.sm,
+  },
+  countCard: {
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  countCardRecommended: {
+    borderColor: '#DFC2CB',
+    backgroundColor: '#FFFBFC',
+  },
+  countNumberBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+    marginRight: spacing.md,
+  },
+  countNumber: {
+    color: colors.primaryPressed,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  countCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  countTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  countTitle: {
+    color: colors.ink,
+    fontSize: 13,
     fontWeight: '800',
   },
-  optionDesc: {
-    fontSize: 11.5,
-    color: '#475569',
-    lineHeight: 15,
+  countMeta: {
+    marginLeft: spacing.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
   },
-  timeNoticeCard: {
-    backgroundColor: '#fff1f4',
-    borderRadius: 10,
-    padding: 11,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
+  countMetaRecommended: {
+    backgroundColor: colors.primarySoft,
   },
-  timeNoticeTitle: {
-    fontSize: 11.5,
-    fontWeight: 'bold',
-    color: '#881337',
-  },
-  timeNoticeText: {
-    fontSize: 10.5,
-    color: '#9f1239',
-    lineHeight: 15,
-  },
-  cancelBtn: {
-    paddingVertical: 11,
-    alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
-  },
-  cancelBtnText: {
-    color: '#64748b',
-    fontSize: 13,
+  countMetaText: {
+    color: colors.inkMuted,
+    fontSize: 9,
     fontWeight: '700',
+  },
+  countMetaTextRecommended: {
+    color: colors.primaryPressed,
+  },
+  countDescription: {
+    color: colors.inkMuted,
+    fontSize: 10.5,
+    lineHeight: 15,
+    marginTop: 3,
+  },
+  countArrow: {
+    color: colors.primary,
+    fontSize: 22,
+    marginLeft: spacing.sm,
+  },
+  backupNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.mintSoft,
+  },
+  backupNoticeIcon: {
+    fontSize: 16,
+    marginRight: spacing.sm,
+  },
+  backupNoticeCopy: {
+    flex: 1,
+  },
+  backupNoticeTitle: {
+    color: colors.mint,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  backupNoticeText: {
+    color: colors.inkMuted,
+    fontSize: 9.5,
+    marginTop: 2,
+  },
+  backupNoticeAction: {
+    color: colors.mint,
+    fontSize: 11,
+    fontWeight: '800',
+    marginLeft: spacing.sm,
+  },
+  privacyNote: {
+    color: colors.inkMuted,
+    fontSize: 10,
+    lineHeight: 15,
+    textAlign: 'center',
+    marginTop: spacing.lg,
   },
 });

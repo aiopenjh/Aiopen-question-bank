@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { colors, radius, spacing } from '../../styles/designTokens';
 
 interface DailyInspirationCardProps {
   apiKey?: string;
@@ -76,10 +77,13 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
       } 조건: 한국어로 친절하고 격려하는 톤, 어울리는 이모지 포함, 50자 이내, 따옴표나 군더더기 없이 본문 한 문장만 출력.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key,
+          },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
@@ -132,8 +136,8 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
     <View style={styles.cardContainer}>
       <View style={styles.cardHeader}>
         <View style={styles.badgeRow}>
-          <Text style={styles.badgeIcon}>💌</Text>
-          <Text style={styles.badgeTitle}>오늘의 응원 한마디</Text>
+          <Text style={styles.badgeIcon}>✦</Text>
+          <Text style={styles.badgeTitle}>오늘의 문장</Text>
         </View>
         <TouchableOpacity
           onPress={handleRefresh}
@@ -143,15 +147,15 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           {isLoadingAi ? (
-            <ActivityIndicator size="small" color="#c2410c" />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={styles.refreshBtnText}>🔄</Text>
+            <Text style={styles.refreshBtnText}>↻</Text>
           )}
         </TouchableOpacity>
       </View>
 
       <Text style={styles.messageText}>
-        "{currentMessage || '오늘도 당신의 꿈을 향해 힘차게 나아가세요! 🌟'}"
+        {currentMessage || '오늘도 당신의 꿈을 향해 힘차게 나아가세요! 🌟'}
       </Text>
     </View>
   );
@@ -159,54 +163,48 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 14,
-    borderWidth: 1.2,
-    borderColor: '#fed7aa',
-    shadowColor: '#ea580c',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    backgroundColor: colors.goldSoft,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: spacing.xs,
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.sm,
   },
   badgeIcon: {
-    fontSize: 16,
+    color: colors.gold,
+    fontSize: 14,
   },
   badgeTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#9a3412',
+    color: colors.ink,
   },
   refreshBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#fff7ed',
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.7)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#fed7aa',
   },
   refreshBtnText: {
-    fontSize: 13,
+    color: colors.gold,
+    fontSize: 17,
   },
   messageText: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#431407',
-    lineHeight: 21,
+    color: colors.ink,
+    lineHeight: 20,
   },
 });

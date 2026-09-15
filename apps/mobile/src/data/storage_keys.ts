@@ -25,6 +25,7 @@ export const STORAGE_KEYS = {
   PREFERRED_MODEL: '@cogniquest:preferred_ai_model',
   LAST_STUDIED_TOPIC: '@cogniquest:last_studied_topic',
   CUSTOM_NOTE_QUESTIONS: '@cogniquest:custom_note_questions',
+  ALARM_CONFIG: '@celueste:alarm_config_v2',
 };
 
 export const CURRENT_DB_VERSION = 3;

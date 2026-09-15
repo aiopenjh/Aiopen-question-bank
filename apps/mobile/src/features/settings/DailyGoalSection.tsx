@@ -38,7 +38,7 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
     <View style={styles.card}>
       <View style={styles.cardHeaderRow}>
         <View style={{ flex: 1, paddingRight: 8 }}>
-          <Text style={styles.cardSectionTitle}>🎯 일일 학습 목표 설정</Text>
+          <Text style={styles.cardSectionTitle}>일일 학습 목표 설정</Text>
           <Text style={styles.alarmSubGuide}>
             메인 홈 화면의 일일 달성률 기준이 되는 하루 목표 문제 수(1~10문항)를 설정합니다.
           </Text>

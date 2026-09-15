@@ -134,6 +134,7 @@ export default function App() {
   const [unitSelectTopic, setUnitSelectTopic] = useState<Topic | null>(null);
   const [isSourceUploadModalOpen, setIsSourceUploadModalOpen] = useState(false);
   const [isUserManualOpen, setIsUserManualOpen] = useState(false);
+  const [openCustomNotebookRequest, setOpenCustomNotebookRequest] = useState(0);
 
   const handleOpenTopicModal = (name?: string) => {
     setInitialTopicName(name || '');
@@ -273,25 +274,25 @@ export default function App() {
   const appUpdate = useAppUpdate();
 
   // 9. Push Alarms & Notification Response Listener
-  const handleStartExamRef = useRef(handleStartExamWithAutoGenerate);
+  const handleScheduledStudyRef = useRef(handleStartScheduledStudy);
   useEffect(() => {
-    handleStartExamRef.current = handleStartExamWithAutoGenerate;
+    handleScheduledStudyRef.current = handleStartScheduledStudy;
   });
 
   useEffect(() => {
     scheduleWeekdayStudyAlarms();
     const unsubscribe = registerNotificationResponseListener(() => {
-      handleStartExamRef.current?.();
+      handleScheduledStudyRef.current?.();
     });
 
     const triggerAlarmCheck = () => {
       checkInAppScheduledAlarm((slotLabel) => {
         showAlert(
           `⏰ [${slotLabel}] 정기 학습 시간입니다!`,
-          '오늘의 실전 문제를 풀고 학습을 이어가시겠습니까?',
+          '오늘 복습 일정을 먼저 확인하고 학습을 이어가시겠습니까?',
           [
             { text: '나중에', style: 'cancel' },
-            { text: '지금 문제 풀기', onPress: () => handleStartExamRef.current?.() },
+            { text: '학습 시작', onPress: () => handleScheduledStudyRef.current?.() },
           ]
         );
       });
@@ -310,12 +311,8 @@ export default function App() {
   }, []);
 
   // 10. 파생 상태
-  const topicQuestions = selectedTopicId ? questions.filter((q) => q.topicId === selectedTopicId) : questions;
-  const dueQuestions = filterDueReviewQuestions(topicQuestions.length > 0 ? topicQuestions : questions, reviewStates);
+  const dueQuestions = filterDueReviewQuestions(questions, reviewStates);
   const todayAttempts = attempts.filter((att) => att.submittedAt.startsWith(getLocalDateString()));
-  const topicIncorrect = selectedTopicId
-    ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
-    : incorrectQuestions;
 
   async function handleStartExamWithAutoGenerate() {
     if (topics.length === 0) {
@@ -348,13 +345,22 @@ export default function App() {
     startExam(dueQuestions);
   };
 
-  const handleStartIncorrectReview = async () => {
-    const incorrect = await getIncorrectQuestions();
-    if (incorrect.length === 0) {
-      showAlert('오답 없음', '오답노트에 등록된 문제가 없습니다!');
+  function handleStartScheduledStudy() {
+    if (dueQuestions.length > 0) {
+      startExam(dueQuestions);
       return;
     }
-    startExam(incorrect);
+    handleStartExamWithAutoGenerate();
+  }
+
+  const handleOpenCustomNotebook = () => {
+    setOpenCustomNotebookRequest((request) => request + 1);
+    goToPage(1, true);
+  };
+
+  const handleReinforceIncorrectConcepts = async () => {
+    exitExamSession();
+    await handleApplyScaffolding();
   };
 
   // 어플 이름 터치 시 메인(홈) 화면으로 완전 복귀
@@ -392,7 +398,6 @@ export default function App() {
           currentPage={currentPage}
           onSelectPage={(p) => goToPage(p, true)}
           hasApiKey={apiKey.length > 8}
-          questionCount={questions.length}
           onOpenSourceUpload={() => setIsSourceUploadModalOpen(true)}
           onGoHome={handleGoHome}
         />
@@ -464,14 +469,12 @@ export default function App() {
                 routine={routine}
                 todayAttemptsCount={todayAttempts.length}
                 dueQuestionsCount={dueQuestions.length}
-                incorrectQuestionsCount={topicIncorrect.length}
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
                 onStartExam={handleStartExamWithAutoGenerate}
                 onStartMoreQuestions={handleGenerateMoreQuestions}
                 onStartDueReview={handleStartDueReview}
-                onStartIncorrectReview={handleStartIncorrectReview}
-                onGoToScaffolding={handleApplyScaffolding}
+                onOpenCustomNotebook={handleOpenCustomNotebook}
                 onOpenTopicModal={handleOpenTopicModal}
                 onQuickPromptGenerate={handleQuickPromptGenerate}
                 isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
@@ -535,6 +538,7 @@ export default function App() {
                 reviewStates={reviewStates}
                 onOpenSourceModal={() => setIsSourceUploadModalOpen(true)}
                 onOpenSettings={() => goToPage(2, true)}
+                openCustomNotebookRequest={openCustomNotebookRequest}
               />
             </View>
 
@@ -647,8 +651,6 @@ export default function App() {
           onCloseUserManual={() => setIsUserManualOpen(false)}
           generatingWaitStatus={generatingWaitStatus}
           onCancelGeneration={handleCancelGeneration}
-          appAlert={appAlert}
-          onCloseAlert={() => setAppAlert(null)}
         />
       </SafeAreaView>
 
@@ -659,9 +661,13 @@ export default function App() {
             questions={examQuestions}
             onExitExam={handleExitExam}
             onCompleteExam={handleCompleteExam}
+            onReinforceIncorrectConcepts={handleReinforceIncorrectConcepts}
           />
         </View>
       )}
+
+      {/* 모든 화면과 시험장보다 위에서 동작하는 전역 확인 팝업 */}
+      <AppAlertModal alert={appAlert} onClose={() => setAppAlert(null)} />
     </SafeAreaProvider>
   );
 }

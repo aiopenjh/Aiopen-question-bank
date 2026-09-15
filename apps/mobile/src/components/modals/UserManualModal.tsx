@@ -5,9 +5,9 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { UniversalModal as Modal } from '../common/UniversalModal';
+import { colors } from '../../styles/designTokens';
 
 export interface UserManualModalProps {
   visible: boolean;
@@ -142,13 +142,11 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
         activeOpacity={1}
         style={styles.overlay}
         onPress={onClose}
-        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
       >
         <TouchableOpacity
           activeOpacity={1}
           style={styles.modalCard}
           onPress={(e) => e.stopPropagation?.()}
-          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
         >
           {/* 모달 헤더 */}
           <View style={styles.headerRow}>
@@ -162,7 +160,6 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <TouchableOpacity
               style={styles.closeBtn}
               onPress={onClose}
-              {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
               activeOpacity={0.7}
             >
               <Text style={styles.closeBtnText}>← 뒤로</Text>
@@ -178,7 +175,6 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
                   <TouchableOpacity
                     style={styles.menuItemHeader}
                     onPress={() => toggleSection(sec.id)}
-                    {...(Platform.OS === 'web' ? ({ onClick: () => toggleSection(sec.id) } as any) : {})}
                     activeOpacity={0.7}
                   >
                     <View style={styles.menuLeft}>
@@ -206,7 +202,6 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           <TouchableOpacity
             style={styles.confirmBtn}
             onPress={onClose}
-            {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
             activeOpacity={0.85}
           >
             <Text style={styles.confirmBtnText}>닫기</Text>
@@ -220,7 +215,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(64, 48, 56, 0.44)',
     justifyContent: 'flex-end',
   },
   modalCard: {
@@ -231,7 +226,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 28,
     borderTopWidth: 2,
-    borderColor: '#fda4af',
+    borderColor: colors.border,
   },
   headerRow: {
     flexDirection: 'row',
@@ -242,11 +237,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#881337',
+    color: colors.ink,
   },
   subtitle: {
     fontSize: 11.5,
-    color: '#9f1239',
+    color: colors.inkMuted,
     marginTop: 2,
   },
   closeBtn: {
@@ -266,13 +261,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#fecdd3',
+    borderColor: colors.border,
     marginBottom: 10,
     overflow: 'hidden',
   },
   menuItemCardExpanded: {
-    borderColor: '#f43f5e',
-    backgroundColor: '#fffbfe',
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceMuted,
   },
   menuItemHeader: {
     flexDirection: 'row',
@@ -310,7 +305,7 @@ const styles = StyleSheet.create({
     borderColor: '#fda4af',
   },
   arrowBadgeExpanded: {
-    backgroundColor: '#f43f5e',
+    backgroundColor: colors.primaryPressed,
     borderColor: '#f43f5e',
   },
   arrowText: {
@@ -356,7 +351,7 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   confirmBtn: {
-    backgroundColor: '#f43f5e',
+    backgroundColor: colors.primaryPressed,
     borderRadius: 12,
     paddingVertical: 13,
     alignItems: 'center',

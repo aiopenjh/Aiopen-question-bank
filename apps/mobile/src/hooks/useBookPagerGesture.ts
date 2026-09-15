@@ -44,6 +44,14 @@ export function useBookPagerGesture(initialPage: number = 0): UseBookPagerGestur
   const isTransitioning = useRef<boolean>(false);
   const gestureStartPage = useRef<number>(0);
 
+  // 개발 중 Fast Refresh나 브라우저 폭 변경으로 React 상태와 Animated 값이
+  // 서로 어긋나더라도 선택된 페이지의 정확한 위치로 다시 맞춘다.
+  useEffect(() => {
+    if (!isTransitioning.current) {
+      translateX.setValue(-currentPage * containerWidth);
+    }
+  }, [containerWidth, currentPage, translateX]);
+
   const goToPage = useCallback((page: number, animated = true) => {
     const target = Math.max(0, Math.min(2, page));
     setCurrentPage(target);

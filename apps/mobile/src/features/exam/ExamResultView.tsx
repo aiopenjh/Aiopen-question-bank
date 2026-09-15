@@ -2,21 +2,25 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { QuestionRevision } from '../../contracts/types';
 import { styles } from './examStyles';
+import { StateIllustration } from '../../components/common/StateIllustration';
 
 export interface ExamResultViewProps {
   questions: QuestionRevision[];
   userAnswers: Record<number, string>;
   onExitExam: () => void;
+  onReinforceIncorrectConcepts?: () => Promise<void> | void;
 }
 
 export const ExamResultView: React.FC<ExamResultViewProps> = ({
   questions,
   userAnswers,
   onExitExam,
+  onReinforceIncorrectConcepts,
 }) => {
   const correctCount = questions.filter(
     (item, idx) => userAnswers[idx] === item.answerOptionId
   ).length;
+  const incorrectCount = questions.length - correctCount;
   const scorePercent = Math.round((correctCount / questions.length) * 100);
 
   return (
@@ -24,7 +28,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
       {/* 종합 성적 요약 카드 */}
       <View style={styles.reportScoreCard}>
         <View style={styles.reportScoreHeader}>
-          <Text style={{ fontSize: 32 }}>{scorePercent >= 80 ? '🏆' : scorePercent >= 60 ? '🌿' : '🐣'}</Text>
+          <StateIllustration kind="reviewComplete" width={82} />
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.reportScoreTitle}>
               {scorePercent === 100
@@ -50,7 +54,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
         const chosenOpt = item.options.find((o) => o.id === chosenId);
 
         return (
-          <View key={item.id} style={styles.reviewItemCard}>
+          <View key={`${item.id}-${qIdx}`} style={styles.reviewItemCard}>
             {/* 문항 헤더 */}
             <View style={styles.reviewItemHeader}>
               <Text style={styles.reviewItemNumber}>문제 {qIdx + 1}번</Text>
@@ -70,15 +74,15 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                 const isTheAnswer = opt.id === item.answerOptionId;
                 const isMyChoice = opt.id === chosenId;
 
-                let rowStyle = styles.reviewOptionRow;
-                if (isTheAnswer) {
-                  rowStyle = { ...rowStyle, ...styles.reviewOptionRowCorrect };
-                } else if (isMyChoice && !isTheAnswer) {
-                  rowStyle = { ...rowStyle, ...styles.reviewOptionRowWrong };
-                }
-
                 return (
-                  <View key={opt.id} style={rowStyle}>
+                  <View
+                    key={opt.id}
+                    style={[
+                      styles.reviewOptionRow,
+                      isTheAnswer && styles.reviewOptionRowCorrect,
+                      isMyChoice && !isTheAnswer && styles.reviewOptionRowWrong,
+                    ]}
+                  >
                     <View style={styles.reviewOptionTop}>
                       <Text style={styles.reviewOptionIndex}>{oIdx + 1}.</Text>
                       <Text style={[styles.reviewOptionText, isTheAnswer && styles.reviewOptionTextCorrect]}>
@@ -134,6 +138,17 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
           </View>
         );
       })}
+
+      {incorrectCount > 0 && onReinforceIncorrectConcepts ? (
+        <TouchableOpacity
+          style={styles.reinforceConceptBtn}
+          onPress={onReinforceIncorrectConcepts}
+          activeOpacity={0.82}
+        >
+          <Text style={styles.reinforceConceptBtnTitle}>틀린 {incorrectCount}문항 개념 보강</Text>
+          <Text style={styles.reinforceConceptBtnText}>틀린 문제를 다시 풀며 핵심 개념을 확인합니다.</Text>
+        </TouchableOpacity>
+      ) : null}
 
       {/* 완료 버튼 */}
       <TouchableOpacity style={styles.finishReviewBtn} onPress={onExitExam}>

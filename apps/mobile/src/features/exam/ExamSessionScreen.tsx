@@ -14,12 +14,14 @@ interface ExamSessionScreenProps {
   onCompleteExam: (
     results: Array<{ question: QuestionRevision; selectedOptionId: string; isCorrect: boolean }>
   ) => Promise<void>;
+  onReinforceIncorrectConcepts?: () => Promise<void> | void;
 }
 
 export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   questions,
   onExitExam,
   onCompleteExam,
+  onReinforceIncorrectConcepts,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
@@ -152,6 +154,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
           questions={questions}
           userAnswers={userAnswers}
           onExitExam={onExitExam}
+          onReinforceIncorrectConcepts={onReinforceIncorrectConcepts}
         />
       )}
 

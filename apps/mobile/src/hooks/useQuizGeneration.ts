@@ -199,17 +199,6 @@ export function useQuizGeneration({
             // 사용자의 선택: 기존 문제를 비우고, 선택한 새 난이도 문제로 완전 교체!
             await deleteQuestionsForUnit(topicId, unitId, unitTitle);
             await addQuestions(outcome.questions);
-          } else {
-            // 기본: 기존 문제를 보존하고 누적 보관 (100% 완전 일치 판박이 복사본만 정밀 필터링)
-            const existingStemSet = new Set(
-              existingInUnit.map((q) => q.stem.replace(/[\s\p{P}]/gu, '').toLowerCase())
-            );
-            const freshQuestions = outcome.questions.filter((q) => {
-              const normalized = q.stem.replace(/[\s\p{P}]/gu, '').toLowerCase();
-              return !existingStemSet.has(normalized);
-            });
-            const questionsToAdd = freshQuestions.length > 0 ? freshQuestions : outcome.questions;
-            await addQuestions(questionsToAdd);
           }
         }
 
@@ -373,19 +362,6 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
           { text: '설정 열기', onPress: onOpenSettings },
         ]);
         return;
-      }
-
-      if (outcome.questions && outcome.questions.length > 0) {
-        // 기존 지문과 100% 완전 일치하는 판박이 복사본 필터링 (변형된 문제는 정상 허용)
-        const existingStemSet = new Set(
-          existingInTargetUnit.map((q) => q.stem.replace(/[\s\p{P}]/gu, '').toLowerCase())
-        );
-        const freshQuestions = outcome.questions.filter((q) => {
-          const normalized = q.stem.replace(/[\s\p{P}]/gu, '').toLowerCase();
-          return !existingStemSet.has(normalized);
-        });
-        const questionsToAdd = freshQuestions.length > 0 ? freshQuestions : outcome.questions;
-        await addQuestions(questionsToAdd);
       }
 
       const allQ = await getQuestions();

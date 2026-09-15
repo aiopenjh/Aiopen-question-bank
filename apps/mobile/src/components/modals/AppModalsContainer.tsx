@@ -7,7 +7,6 @@ import React from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { Topic, Unit, QuestionRevision, Source, LearnerKnowledgeLevel } from '../../contracts/types';
-import { AlertData } from '../../utils/alert';
 import { appStyles as styles } from '../../styles/appStyles';
 
 import { TopicModal } from './TopicModal';
@@ -18,7 +17,6 @@ import { TopicSelectModal } from './TopicSelectModal';
 import { UnitSelectModal } from './UnitSelectModal';
 import { SourceUploadModal } from './SourceUploadModal';
 import { UserManualModal } from './UserManualModal';
-import { AppAlertModal } from './AppAlertModal';
 import { LoadingWaitOverlay } from './LoadingWaitOverlay';
 
 export interface AppModalsContainerProps {
@@ -100,9 +98,6 @@ export interface AppModalsContainerProps {
   } | null;
   onCancelGeneration?: () => void;
 
-  // 9. AppAlertModal
-  appAlert: AlertData | null;
-  onCloseAlert: () => void;
 }
 
 export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
@@ -154,8 +149,6 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   onCloseUserManual,
   generatingWaitStatus,
   onCancelGeneration,
-  appAlert,
-  onCloseAlert,
 }) => {
   return (
     <>
@@ -240,8 +233,6 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
         </Modal>
       )}
 
-      {/* Global In-App Alert Modal */}
-      <AppAlertModal alert={appAlert} onClose={onCloseAlert} />
     </>
   );
 };

@@ -40,9 +40,9 @@ const AlarmTimeSlotRow: React.FC<AlarmTimeSlotRowProps> = ({
     <View style={[styles.alarmItemBlock, !enabled && styles.alarmItemBlockDisabled]}>
       <View style={styles.alarmItemTopRow}>
         <View style={styles.alarmItemLeft}>
-          <Text style={{ fontSize: 18 }}>{icon}</Text>
+          <Text style={styles.alarmPeriodMarker}>{icon}</Text>
           <View>
-            <Text style={[styles.alarmItemTitle, !enabled && { color: '#94a3b8' }]}>{title}</Text>
+            <Text style={[styles.alarmItemTitle, !enabled && styles.disabledText]}>{title}</Text>
             <Text style={styles.alarmItemSubText}>{subText}</Text>
           </View>
         </View>
@@ -53,7 +53,7 @@ const AlarmTimeSlotRow: React.FC<AlarmTimeSlotRowProps> = ({
           activeOpacity={0.8}
         >
           <Text style={enabled ? styles.alarmToggleTextOn : styles.alarmToggleTextOff}>
-            {enabled ? '🔔 활성화' : '🔕 끔'}
+            {enabled ? '활성화' : '끔'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -72,8 +72,8 @@ const AlarmTimeSlotRow: React.FC<AlarmTimeSlotRowProps> = ({
         </TouchableOpacity>
 
         <View style={styles.timeDisplayCenter}>
-          <Text style={[styles.timeDisplayText, !enabled && { color: '#94a3b8' }]}>{timeFormatted}</Text>
-          <Text style={[styles.timeDisplaySub, !enabled && { color: '#cbd5e1' }]}>{displayHourText}</Text>
+          <Text style={[styles.timeDisplayText, !enabled && styles.disabledText]}>{timeFormatted}</Text>
+          <Text style={[styles.timeDisplaySub, !enabled && styles.disabledText]}>{displayHourText}</Text>
         </View>
 
         <TouchableOpacity
@@ -125,13 +125,13 @@ export const AlarmConfigSection: React.FC<AlarmConfigSectionProps> = ({
   }
 
   const getBadgeText = () => {
-    if (selectedDays.length === 0) return '🔕 알람 꺼짐';
-    if (selectedDays.length === 7) return '🔔 매일(월~일)';
+    if (selectedDays.length === 0) return '알람 꺼짐';
+    if (selectedDays.length === 7) return '매일(월~일)';
     const isStandardWeekday =
       selectedDays.length === 5 &&
       ['월', '화', '수', '목', '금'].every((d) => selectedDays.includes(d as DayOfWeek));
-    if (isStandardWeekday) return '🔔 평일(월~금)';
-    return `🔔 ${selectedDays.join('·')} 선택됨`;
+    if (isStandardWeekday) return '평일(월~금)';
+    return `${selectedDays.join('·')} 선택됨`;
   };
 
   return (
@@ -139,7 +139,7 @@ export const AlarmConfigSection: React.FC<AlarmConfigSectionProps> = ({
       {/* 1. 카드 헤더 */}
       <View style={styles.alarmCardHeader}>
         <View style={{ flex: 1, paddingRight: 8 }}>
-          <Text style={styles.cardSectionTitle}>⏰ 정기 학습 알람</Text>
+          <Text style={styles.cardSectionTitle}>정기 학습 알람</Text>
           <Text style={styles.alarmSubGuide}>
             원하는 요일을 탭하여 자유롭게 알람 요일을 설정하세요.
           </Text>
@@ -170,7 +170,7 @@ export const AlarmConfigSection: React.FC<AlarmConfigSectionProps> = ({
 
       {/* 3. 오전 알람 */}
       <AlarmTimeSlotRow
-        icon="🌅"
+        icon="AM"
         title="오전 알람"
         subText="선택 가능: 08:00 ~ 11:00"
         enabled={alarmConfig.morningEnabled}
@@ -184,7 +184,7 @@ export const AlarmConfigSection: React.FC<AlarmConfigSectionProps> = ({
 
       {/* 4. 저녁 알람 */}
       <AlarmTimeSlotRow
-        icon="🌙"
+        icon="PM"
         title="저녁 알람"
         subText="선택 가능: 19:00 ~ 21:00"
         enabled={alarmConfig.eveningEnabled}

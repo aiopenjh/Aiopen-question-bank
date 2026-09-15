@@ -4,11 +4,11 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { AlertData, AlertButton } from '../../utils/alert';
+import { colors, radius, shadows, spacing } from '../../styles/designTokens';
 
 interface AppAlertModalProps {
   alert: AlertData | null;
@@ -50,18 +50,8 @@ export const AppAlertModal: React.FC<AppAlertModalProps> = ({ alert, onClose }) 
 
   return (
     <Modal visible={true} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity
-        activeOpacity={1}
-        style={styles.backdrop}
-        onPress={onClose}
-        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.card}
-          onPress={(e) => e.stopPropagation?.()}
-          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
-        >
+      <View style={styles.backdrop}>
+        <View style={styles.card}>
           {/* 상단 뱃지 및 제목 */}
           <View style={styles.headerRow}>
             <View style={styles.iconContainer}>
@@ -83,16 +73,16 @@ export const AppAlertModal: React.FC<AppAlertModalProps> = ({ alert, onClose }) 
               const isCancel = btn.style === 'cancel';
               const isDestructive = btn.style === 'destructive';
 
-              let btnStyle = styles.defaultBtn;
-              let textStyle = styles.defaultBtnText;
-
-              if (isCancel) {
-                btnStyle = styles.cancelBtn;
-                textStyle = styles.cancelBtnText;
-              } else if (isDestructive) {
-                btnStyle = styles.destructiveBtn;
-                textStyle = styles.destructiveBtnText;
-              }
+              const btnStyle = isCancel
+                ? styles.cancelBtn
+                : isDestructive
+                  ? styles.destructiveBtn
+                  : styles.defaultBtn;
+              const textStyle = isCancel
+                ? styles.cancelBtnText
+                : isDestructive
+                  ? styles.destructiveBtnText
+                  : styles.defaultBtnText;
 
               return (
                 <TouchableOpacity
@@ -104,15 +94,14 @@ export const AppAlertModal: React.FC<AppAlertModalProps> = ({ alert, onClose }) 
                   ]}
                   activeOpacity={0.8}
                   onPress={() => handleButtonPress(btn)}
-                  {...(Platform.OS === 'web' ? ({ onClick: () => handleButtonPress(btn) } as any) : {})}
                 >
                   <Text style={[styles.baseBtnText, textStyle]}>{btn.text || '확인'}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 };
@@ -120,25 +109,21 @@ export const AppAlertModal: React.FC<AppAlertModalProps> = ({ alert, onClose }) 
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+    backgroundColor: 'rgba(64, 48, 56, 0.44)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: spacing.xl,
     zIndex: 99999,
   },
   card: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 22,
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    padding: spacing.xl,
     borderWidth: 1,
-    borderColor: '#334155',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 10,
+    borderColor: colors.border,
+    ...shadows.soft,
   },
   headerRow: {
     flexDirection: 'row',
@@ -150,9 +135,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -163,7 +148,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: colors.ink,
     letterSpacing: -0.3,
   },
   messageScroll: {
@@ -176,7 +161,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#cbd5e1',
+    color: colors.inkMuted,
     letterSpacing: -0.2,
   },
   buttonsContainer: {
@@ -189,7 +174,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   baseBtn: {
-    borderRadius: 12,
+    borderRadius: radius.md,
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
@@ -200,19 +185,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   defaultBtn: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: colors.primaryPressed,
   },
   defaultBtnText: {
     color: '#ffffff',
   },
   cancelBtn: {
-    backgroundColor: '#334155',
+    backgroundColor: colors.primarySoft,
   },
   cancelBtnText: {
-    color: '#94a3b8',
+    color: colors.primaryPressed,
   },
   destructiveBtn: {
-    backgroundColor: '#dc2626',
+    backgroundColor: colors.danger,
   },
   destructiveBtnText: {
     color: '#ffffff',

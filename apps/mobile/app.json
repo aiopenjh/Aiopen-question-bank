@@ -4,7 +4,7 @@
     "slug": "celueste",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./MAIN.png",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
@@ -13,15 +13,13 @@
       "package": "com.celueste.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./MAIN.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#F8F6F3",
+        "foregroundImage": "./assets/android-icon-foreground-v2.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./MAIN.png"
+      "favicon": "./assets/app-icon.png"
     },
     "experiments": {
       "baseUrl": "/Aiopen-question-bank"
@@ -34,7 +32,8 @@
           "icon": "./MAIN.png",
           "color": "#6366F1"
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

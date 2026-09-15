@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { Topic, Source } from '../../contracts/types';
+import { colors } from '../../styles/designTokens';
 
 interface SourceUploadModalProps {
   visible: boolean;
@@ -46,13 +46,11 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
         activeOpacity={1}
         style={styles.overlay}
         onPress={onClose}
-        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
       >
         <TouchableOpacity
           activeOpacity={1}
           style={styles.modalCard}
           onPress={(e) => e.stopPropagation?.()}
-          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
         >
           {/* 헤더 */}
           <View style={styles.headerRow}>
@@ -65,7 +63,6 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
             <TouchableOpacity
               style={styles.closeBtn}
               onPress={onClose}
-              {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
               activeOpacity={0.7}
             >
               <Text style={styles.closeBtnText}>← 뒤로</Text>
@@ -152,7 +149,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(64, 48, 56, 0.44)',
     justifyContent: 'flex-end',
   },
   modalCard: {
@@ -163,7 +160,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 30,
     borderTopWidth: 2,
-    borderColor: '#fda4af',
+    borderColor: colors.border,
   },
   headerRow: {
     flexDirection: 'row',
@@ -174,22 +171,22 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#881337',
+    color: colors.ink,
     marginBottom: 4,
   },
   modalSubtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.inkMuted,
   },
   closeBtn: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceMuted,
   },
   closeBtnText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#64748b',
+    color: colors.inkMuted,
   },
   scrollArea: {
     maxHeight: 520,
@@ -197,15 +194,15 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.ink,
     marginBottom: 6,
   },
   uploadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff5f7',
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1.5,
-    borderColor: '#f43f5e',
+    borderColor: colors.primary,
     borderRadius: 12,
     padding: 13,
     marginBottom: 6,
@@ -217,12 +214,12 @@ const styles = StyleSheet.create({
   uploadBtnTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#881337',
+    color: colors.ink,
     marginBottom: 2,
   },
   uploadBtnSub: {
     fontSize: 10.5,
-    color: '#64748b',
+    color: colors.inkMuted,
   },
   uploadTag: {
     backgroundColor: '#ffe4e6',
@@ -242,12 +239,12 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 13,
-    color: '#1e293b',
+    fontSize: 16,
+    color: colors.ink,
     marginBottom: 14,
   },
   saveBtn: {
-    backgroundColor: '#f43f5e',
+    backgroundColor: colors.primaryPressed,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',

@@ -11,7 +11,6 @@ import {
   getTopics,
   getUnits,
   getQuestions,
-  addQuestions,
   getSourceTextForTopic,
 } from '../data/db';
 import { analyzeUserIntent, generateFactBasedQuestions } from '../domain/generator';
@@ -144,18 +143,6 @@ export function usePromptGeneration({
         if (outcome.status === 'FAILED') {
           showAlert('출제 실패', outcome.message);
           return;
-        }
-
-        if (outcome.questions && outcome.questions.length > 0) {
-          const existingStemSet = new Set(
-            existingInTargetUnit.map((q) => q.stem.replace(/[\s\p{P}]/gu, '').toLowerCase())
-          );
-          const freshQuestions = outcome.questions.filter((q) => {
-            const normalized = q.stem.replace(/[\s\p{P}]/gu, '').toLowerCase();
-            return !existingStemSet.has(normalized);
-          });
-          const questionsToAdd = freshQuestions.length > 0 ? freshQuestions : outcome.questions;
-          await addQuestions(questionsToAdd);
         }
 
         const allQ = await getQuestions();

@@ -1,14 +1,15 @@
 import React from 'react';
 import {
+  Pressable,
+  ScrollView,
   StyleSheet,
-  View,
   Text,
   TouchableOpacity,
-  ScrollView,
-  Platform,
+  View,
 } from 'react-native';
+import { QuestionRevision, Topic, Unit } from '../../contracts/types';
+import { colors, radius, shadows, spacing } from '../../styles/designTokens';
 import { UniversalModal as Modal } from '../common/UniversalModal';
-import { Topic, Unit, QuestionRevision } from '../../contracts/types';
 
 export interface UnitSelectModalProps {
   visible: boolean;
@@ -33,160 +34,129 @@ export const UnitSelectModal: React.FC<UnitSelectModalProps> = ({
 }) => {
   if (!topic) return null;
 
-  const topicUnits = units.filter((u) => u.topicId === topic.id);
-  const topicQuestions = questions.filter((q) => q.topicId === topic.id);
+  const topicUnits = units.filter((unit) => unit.topicId === topic.id);
+  const topicQuestions = questions.filter((question) => question.topicId === topic.id);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity
-        activeOpacity={1}
-        style={styles.overlay}
-        onPress={onClose}
-        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.modalCard}
-          onPress={(e) => e.stopPropagation?.()}
-          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
-        >
-          {/* 헤더 */}
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.card} onPress={(event) => event.stopPropagation?.()}>
           <View style={styles.header}>
-            <Text style={styles.badge}>🎯 실전 출제 영역 선택</Text>
-            <Text style={styles.title}>어느 영역 문제를 생성해드릴까요?</Text>
-            <Text style={styles.subtitle} numberOfLines={1}>
-              [{topic.name}] 학습할 세부 단원을 선택해 주세요.
-            </Text>
+            <View style={styles.headerCopy}>
+              <Text style={styles.eyebrow}>CHOOSE A UNIT</Text>
+              <Text style={styles.title}>어느 단원을 공부할까요?</Text>
+              <Text style={styles.subtitle} numberOfLines={2}>{topic.name}</Text>
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="단원 선택 닫기"
+              style={styles.closeButton}
+              onPress={onClose}
+            >
+              <Text style={styles.closeButtonText}>×</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* 기존 문제가 이미 있는 경우 빠른 풀기 옵션 배너 */}
-          {topicQuestions.length > 0 && onStartExamWithExistingQuestions && (
-            <TouchableOpacity
-              style={styles.existingFastCard}
-              onPress={() => onStartExamWithExistingQuestions(topicQuestions)}
-              activeOpacity={0.8}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.existingFastTitle}>💡 기존 보유 문제 바로 풀기</Text>
-                <Text style={styles.existingFastSubtitle}>
-                  새로 생성하지 않고 이미 저장된 {topicQuestions.length}문항을 즉시 풉니다.
-                </Text>
-              </View>
-              <View style={styles.existingFastBtn}>
-                <Text style={styles.existingFastBtnText}>바로 풀기 ➔</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {topicQuestions.length > 0 && onStartExamWithExistingQuestions ? (
+              <TouchableOpacity
+                style={styles.savedQuizCard}
+                onPress={() => onStartExamWithExistingQuestions(topicQuestions)}
+              >
+                <View style={styles.savedQuizMark}>
+                  <Text style={styles.savedQuizMarkText}>✓</Text>
+                </View>
+                <View style={styles.savedQuizCopy}>
+                  <Text style={styles.savedQuizTitle}>저장된 문제 바로 풀기</Text>
+                  <Text style={styles.savedQuizText}>새로 만들지 않고 {topicQuestions.length}문항을 시작합니다.</Text>
+                </View>
+                <Text style={styles.savedQuizArrow}>›</Text>
+              </TouchableOpacity>
+            ) : null}
 
-          <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
-            {/* 1. 전체 종합 출제 카드 */}
             <TouchableOpacity
               style={styles.overviewCard}
               onPress={() => onSelectTopicOverviewForGeneration(topic)}
-              activeOpacity={0.8}
             >
-              <View style={styles.overviewContent}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ fontSize: 16 }}>🌟</Text>
-                  <Text style={styles.overviewTitle}>전체 영역 핵심 종합 출제</Text>
+              <View style={styles.overviewMark}>
+                <Text style={styles.overviewMarkText}>✦</Text>
+              </View>
+              <View style={styles.overviewCopy}>
+                <View style={styles.overviewTitleRow}>
+                  <Text style={styles.overviewTitle}>전체 단원 종합</Text>
+                  <View style={styles.overviewBadge}>
+                    <Text style={styles.overviewBadgeText}>모의 학습</Text>
+                  </View>
                 </View>
-                <Text style={styles.overviewSubtitle}>
-                  모든 단원의 핵심 개념을 종합하여 실전 모의고사로 출제합니다.
-                </Text>
+                <Text style={styles.overviewText}>여러 단원의 핵심 개념을 섞어서 출제합니다.</Text>
               </View>
-              <View style={styles.overviewBtn}>
-                <Text style={styles.overviewBtnText}>종합 출제 ➔</Text>
-              </View>
+              <Text style={styles.overviewArrow}>›</Text>
             </TouchableOpacity>
 
-            {/* 구분선 */}
-            {topicUnits.length > 0 && (
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>세부 단원(영역)별 출제</Text>
-                <View style={styles.dividerLine} />
+            {topicUnits.length > 0 ? (
+              <View style={styles.sectionHeadingRow}>
+                <Text style={styles.sectionTitle}>단원별 학습</Text>
+                <Text style={styles.sectionCount}>{topicUnits.length}개 단원</Text>
               </View>
-            )}
+            ) : null}
 
-            {/* 2. 세부 단원 리스트 */}
-            {topicUnits.map((u, idx) => {
-              const unitQuestions = questions.filter((q) => q.unitId === u.id);
-              const hasExisting = unitQuestions.length > 0;
+            {topicUnits.map((unit, index) => {
+              const unitQuestions = questions.filter((question) => question.unitId === unit.id);
+              const hasSavedQuestions = unitQuestions.length > 0;
 
               return (
-                <View key={u.id} style={styles.unitCard}>
-                  <View style={styles.unitInfoRow}>
-                    <View style={styles.unitIndexBadge}>
-                      <Text style={styles.unitIndexText}>{String(idx + 1).padStart(2, '0')}</Text>
+                <View key={unit.id} style={styles.unitCard}>
+                  <View style={styles.unitTopRow}>
+                    <View style={styles.unitIndex}>
+                      <Text style={styles.unitIndexText}>{String(index + 1).padStart(2, '0')}</Text>
                     </View>
-                    <View style={{ flex: 1, paddingRight: 6 }}>
-                      <Text style={styles.unitTitle} numberOfLines={2}>
-                        {u.title}
+                    <View style={styles.unitCopy}>
+                      <Text style={styles.unitTitle} numberOfLines={3}>{unit.title}</Text>
+                      <Text style={styles.unitMeta}>
+                        {hasSavedQuestions ? `저장된 문제 ${unitQuestions.length}문항` : '아직 만든 문제가 없어요'}
                       </Text>
-                      <View style={styles.unitMetaRow}>
-                        {hasExisting ? (
-                          <Text style={styles.unitMetaExisting}>
-                            📚 보유: {unitQuestions.length}문항
-                          </Text>
-                        ) : (
-                          <Text style={styles.unitMetaNew}>✨ 신규 문제 생성 대기</Text>
-                        )}
-                      </View>
                     </View>
                   </View>
-
-                  {/* 단원 액션 버튼 그룹 */}
-                  <View style={styles.unitActionRow}>
-                    {hasExisting && onStartExamWithExistingQuestions && (
+                  <View style={styles.unitActions}>
+                    {hasSavedQuestions && onStartExamWithExistingQuestions ? (
                       <TouchableOpacity
-                        style={styles.unitSolveExistingBtn}
+                        style={[styles.unitActionButton, styles.solveButton]}
                         onPress={() => onStartExamWithExistingQuestions(unitQuestions)}
-                        activeOpacity={0.8}
                       >
-                        <Text style={styles.unitSolveExistingText}>
-                          📝 기존 {unitQuestions.length}문제 풀기
-                        </Text>
+                        <Text style={styles.solveButtonText}>기존 문제 풀기</Text>
                       </TouchableOpacity>
-                    )}
+                    ) : null}
                     <TouchableOpacity
-                      style={styles.unitGenerateBtn}
-                      onPress={() => onSelectUnitForGeneration(topic, u)}
-                      activeOpacity={0.8}
+                      style={[styles.unitActionButton, styles.generateButton]}
+                      onPress={() => onSelectUnitForGeneration(topic, unit)}
                     >
-                      <Text style={styles.unitGenerateBtnText}>⚡ AI 문제 생성</Text>
+                      <Text style={styles.generateButtonText}>새 문제 만들기  ›</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               );
             })}
 
-            {topicUnits.length === 0 && (
+            {topicUnits.length === 0 ? (
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>등록된 세부 단원이 없습니다.</Text>
+                <Text style={styles.emptyIcon}>🌱</Text>
+                <Text style={styles.emptyTitle}>등록된 단원이 없습니다</Text>
+                <Text style={styles.emptyText}>우선 과목 전체 범위에서 핵심 문제를 만들 수 있어요.</Text>
                 <TouchableOpacity
-                  style={styles.emptyGenerateBtn}
+                  style={styles.emptyButton}
                   onPress={() => onSelectTopicOverviewForGeneration(topic)}
-                  activeOpacity={0.8}
                 >
-                  <Text style={styles.emptyGenerateBtnText}>
-                    ⚡ [{topic.name}] 핵심 종합 문제 출제하기
-                  </Text>
+                  <Text style={styles.emptyButtonText}>종합 문제 만들기</Text>
                 </TouchableOpacity>
               </View>
-            )}
+            ) : null}
           </ScrollView>
-
-          {/* 닫기 버튼 */}
-          <TouchableOpacity
-            style={styles.closeBtn}
-            onPress={onClose}
-            {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.closeBtnText}>닫기</Text>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 };
@@ -194,248 +164,297 @@ export const UnitSelectModal: React.FC<UnitSelectModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(64, 48, 56, 0.44)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.lg,
   },
-  modalCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
+  card: {
     width: '100%',
-    maxHeight: '85%',
-    padding: 22,
-    borderWidth: 1.5,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    elevation: 8,
+    maxWidth: 460,
+    maxHeight: '90%',
+    overflow: 'hidden',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    ...shadows.soft,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: spacing.xl,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  badge: {
-    color: '#e11d48',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  headerCopy: {
+    flex: 1,
+    paddingRight: spacing.md,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+    marginBottom: spacing.xs,
   },
   title: {
-    color: '#881337',
-    fontSize: 19,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    textAlign: 'center',
+    color: colors.ink,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   subtitle: {
-    color: '#64748b',
-    fontSize: 13,
-    textAlign: 'center',
+    color: colors.inkMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: spacing.xs,
   },
-  existingFastCard: {
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
+  },
+  closeButtonText: {
+    color: colors.inkMuted,
+    fontSize: 24,
+    lineHeight: 25,
+  },
+  list: {
+    flexShrink: 1,
+  },
+  listContent: {
+    padding: spacing.xl,
+  },
+  savedQuizCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#ecfdf5',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.mintSoft,
   },
-  existingFastTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#065f46',
+  savedQuizMark: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D8EAE3',
+    marginRight: spacing.sm,
   },
-  existingFastSubtitle: {
-    fontSize: 11,
-    color: '#047857',
+  savedQuizMarkText: {
+    color: colors.mint,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  savedQuizCopy: {
+    flex: 1,
+  },
+  savedQuizTitle: {
+    color: colors.mint,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  savedQuizText: {
+    color: colors.inkMuted,
+    fontSize: 10,
+    lineHeight: 15,
     marginTop: 2,
   },
-  existingFastBtn: {
-    backgroundColor: '#059669',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginLeft: 8,
-  },
-  existingFastBtnText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  listContainer: {
-    marginBottom: 12,
+  savedQuizArrow: {
+    color: colors.mint,
+    fontSize: 20,
+    marginLeft: spacing.sm,
   },
   overviewCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff1f2',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#f43f5e',
-    marginBottom: 10,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#DED7ED',
+    backgroundColor: colors.lavenderSoft,
   },
-  overviewContent: {
+  overviewMark: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E4DDF0',
+    marginRight: spacing.sm,
+  },
+  overviewMarkText: {
+    color: colors.lavender,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  overviewCopy: {
     flex: 1,
-    paddingRight: 8,
+  },
+  overviewTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   overviewTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#be123c',
-  },
-  overviewSubtitle: {
-    fontSize: 11,
-    color: '#9f1239',
-    marginTop: 3,
-    lineHeight: 15,
-  },
-  overviewBtn: {
-    backgroundColor: '#e11d48',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  overviewBtnText: {
-    color: '#ffffff',
+    color: colors.ink,
     fontSize: 12,
-    fontWeight: 'bold',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 10,
-    gap: 8,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#fecdd3',
-  },
-  dividerText: {
-    fontSize: 11,
-    color: '#94a3b8',
-    fontWeight: '600',
-  },
-  unitCard: {
-    backgroundColor: '#fff5f7',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-  },
-  unitInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 8,
-  },
-  unitIndexBadge: {
-    backgroundColor: '#ffe4e6',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-  },
-  unitIndexText: {
-    color: '#be123c',
-    fontSize: 11,
     fontWeight: '800',
   },
-  unitTitle: {
-    fontSize: 13.5,
+  overviewBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+  },
+  overviewBadgeText: {
+    color: colors.lavender,
+    fontSize: 9,
     fontWeight: '700',
-    color: '#1f2937',
-    lineHeight: 18,
   },
-  unitMetaRow: {
-    marginTop: 3,
+  overviewText: {
+    color: colors.inkMuted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 2,
   },
-  unitMetaExisting: {
-    fontSize: 11,
-    color: '#059669',
-    fontWeight: '600',
+  overviewArrow: {
+    color: colors.lavender,
+    fontSize: 20,
+    marginLeft: spacing.sm,
   },
-  unitMetaNew: {
-    fontSize: 11,
-    color: '#e11d48',
-    fontWeight: '500',
+  sectionHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
   },
-  unitActionRow: {
+  sectionTitle: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  sectionCount: {
+    color: colors.inkMuted,
+    fontSize: 10,
+  },
+  unitCard: {
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+  },
+  unitTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  unitIndex: {
+    minWidth: 30,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 7,
+    backgroundColor: colors.primarySoft,
+    marginRight: spacing.sm,
+  },
+  unitIndexText: {
+    color: colors.primaryPressed,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  unitCopy: {
+    flex: 1,
+  },
+  unitTitle: {
+    color: colors.ink,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  unitMeta: {
+    color: colors.inkMuted,
+    fontSize: 10,
+    marginTop: spacing.xs,
+  },
+  unitActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  unitActionButton: {
+    minHeight: 34,
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
   },
-  unitSolveExistingBtn: {
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 8,
+  solveButton: {
+    backgroundColor: colors.mintSoft,
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: '#C9E1D9',
   },
-  unitSolveExistingText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
+  solveButtonText: {
+    color: colors.mint,
+    fontSize: 10.5,
+    fontWeight: '800',
   },
-  unitGenerateBtn: {
-    backgroundColor: '#f43f5e',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+  generateButton: {
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: '#DFC2CB',
   },
-  unitGenerateBtnText: {
-    fontSize: 11.5,
-    fontWeight: 'bold',
-    color: '#ffffff',
+  generateButtonText: {
+    color: colors.primaryPressed,
+    fontSize: 10.5,
+    fontWeight: '800',
   },
   emptyCard: {
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff5f7',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
+    padding: spacing.xxl,
+    marginTop: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+  },
+  emptyIcon: {
+    fontSize: 26,
+    marginBottom: spacing.sm,
+  },
+  emptyTitle: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '800',
   },
   emptyText: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 10,
+    color: colors.inkMuted,
+    fontSize: 10.5,
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
-  emptyGenerateBtn: {
-    backgroundColor: '#f43f5e',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  emptyGenerateBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  closeBtn: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 10,
-    paddingVertical: 10,
+  emptyButton: {
+    minHeight: 38,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primaryPressed,
   },
-  closeBtnText: {
-    color: '#475569',
-    fontSize: 13,
-    fontWeight: 'bold',
+  emptyButtonText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '800',
   },
 });

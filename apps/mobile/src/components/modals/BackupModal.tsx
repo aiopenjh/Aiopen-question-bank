@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { UniversalModal as Modal } from '../common/UniversalModal';
+import { colors } from '../../styles/designTokens';
 
 interface BackupModalProps {
   visible: boolean;
@@ -25,17 +26,15 @@ export const BackupModal: React.FC<BackupModalProps> = ({
         activeOpacity={1}
         style={styles.modalOverlay}
         onPress={onClose}
-        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
       >
         <TouchableOpacity
           activeOpacity={1}
           style={styles.modalCard}
           onPress={(e) => e.stopPropagation?.()}
-          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
         >
           <Text style={styles.modalTitle}>🔄 학습 데이터 복원하기</Text>
           <Text style={styles.promptGuideText}>
-            이전에 카카오톡이나 파일로 저장해둔 압축 백업 파일(.zip 또는 .json)을 불러오면 자동으로 압축을 풀어 학습 데이터가 1초 만에 복구됩니다.
+            저장해 둔 백업 파일(.zip 또는 .json)을 선택하면 먼저 무결성을 확인한 뒤 학습 데이터를 복원합니다. 현재 기기의 API 키는 변경하지 않습니다.
           </Text>
 
           {/* 1. 원클릭 파일 선택 버튼 (가장 추천) */}
@@ -43,13 +42,12 @@ export const BackupModal: React.FC<BackupModalProps> = ({
             <TouchableOpacity
               style={styles.filePickBtn}
               onPress={onRestoreFromFile}
-              {...(Platform.OS === 'web' ? ({ onClick: onRestoreFromFile } as any) : {})}
               activeOpacity={0.8}
             >
               <Text style={styles.filePickBtnIcon}>📦</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.filePickBtnTitle}>압축 백업 파일(.zip / .json) 선택 복원</Text>
-                <Text style={styles.filePickBtnSub}>자동 압축 해제 및 1초 원클릭 데이터 복구</Text>
+                <Text style={styles.filePickBtnSub}>자동 압축 해제 · 검증 후 전체 학습 데이터 복구</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -73,16 +71,14 @@ export const BackupModal: React.FC<BackupModalProps> = ({
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#ffe4e6', borderWidth: 1, borderColor: '#fecdd3' }]}
+              style={[styles.actionBtn, { backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border }]}
               onPress={onClose}
-              {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
             >
-              <Text style={[styles.actionBtnText, { color: '#be123c' }]}>취소</Text>
+              <Text style={[styles.actionBtnText, { color: colors.primaryPressed }]}>취소</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#f43f5e' }]}
+              style={[styles.actionBtn, { backgroundColor: colors.primaryPressed }]}
               onPress={onRestore}
-              {...(Platform.OS === 'web' ? ({ onClick: onRestore } as any) : {})}
             >
               <Text style={styles.actionBtnText}>텍스트로 복원</Text>
             </TouchableOpacity>
@@ -96,7 +92,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(64, 48, 56, 0.44)',
     justifyContent: 'center',
     padding: 20,
   },
@@ -105,8 +101,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 22,
     borderWidth: 1,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
+    borderColor: colors.border,
+    shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
@@ -115,21 +111,21 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#881337',
+    color: colors.ink,
     marginBottom: 6,
   },
   promptGuideText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.inkMuted,
     marginBottom: 14,
     lineHeight: 18,
   },
   filePickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff1f4',
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1.5,
-    borderColor: '#fb7185',
+    borderColor: colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 14,
@@ -142,12 +138,12 @@ const styles = StyleSheet.create({
   filePickBtnTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#9f1239',
+    color: colors.ink,
     marginBottom: 2,
   },
   filePickBtnSub: {
     fontSize: 11,
-    color: '#e11d48',
+    color: colors.primaryPressed,
   },
   dividerRow: {
     flexDirection: 'row',
@@ -158,7 +154,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#fecdd3',
+    backgroundColor: colors.border,
   },
   dividerText: {
     fontSize: 11,
@@ -166,13 +162,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   inputField: {
-    backgroundColor: '#fffafb',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#1f2937',
+    color: colors.ink,
+    fontSize: 16,
     borderWidth: 1,
-    borderColor: '#fecdd3',
+    borderColor: colors.border,
     marginBottom: 10,
   },
   actionBtn: {

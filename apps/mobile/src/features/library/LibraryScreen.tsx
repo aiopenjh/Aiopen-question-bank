@@ -13,6 +13,7 @@ import { TopicFolderCard } from './TopicFolderCard';
 import { ReviewHouseSection } from './ReviewHouseSection';
 import { CustomNotebookModal } from '../../components/modals/CustomNotebookModal';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
+import { StateIllustration } from '../../components/common/StateIllustration';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 
 export interface LibraryScreenProps {
@@ -54,6 +55,7 @@ export interface LibraryScreenProps {
   selectedSourceTopicId?: string | null;
   onSelectSourceTopicId?: (topicId: string | null) => void;
   onOpenSettings?: () => void;
+  openCustomNotebookRequest?: number;
 }
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({
@@ -74,10 +76,18 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   onRefresh,
   incorrectQuestions = [],
   onOpenSettings,
+  openCustomNotebookRequest = 0,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const [expandedTopicId, setExpandedTopicId] = useState<string | null>(null);
   const [isCustomNotebookOpen, setIsCustomNotebookOpen] = useState(false);
+  const [customNotebookRevision, setCustomNotebookRevision] = useState(0);
+
+  React.useEffect(() => {
+    if (openCustomNotebookRequest > 0) {
+      setIsCustomNotebookOpen(true);
+    }
+  }, [openCustomNotebookRequest]);
 
   const { pullDistance, handleScroll, touchHandlers } = usePullToRefresh({
     refreshing,
@@ -99,9 +109,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
     if (selectedCategory === '전체') return topics;
     return topics.filter((t) => (t.category || '📚 일반') === selectedCategory);
   }, [topics, selectedCategory]);
-
-  // 등록된 토픽 ID 세트
-  const topicIdSet = React.useMemo(() => new Set(topics.map((t) => t.id)), [topics]);
 
   const handleUnitPress = (topic: Topic, unit: Unit) => {
     onQuickGenerateForUnit(topic.id, topic.name, unit.id, unit.title);
@@ -135,92 +142,108 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
       >
         {/* 화면 위로 당겨서 새로고침 인디케이터 (버튼 없는 자연스러운 제스처) */}
         <PullRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
-        {/* 1. 상단 통계 및 과목 생성 헤더 */}
+        {/* 자료함 요약 */}
         <View style={styles.headerCard}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View>
-              <Text style={styles.headerTitle}>📁 내 학습 과목 & 문제 보관함</Text>
-              <Text style={styles.headerSubtitle}>
-                등록된 과목 {topics.length}개 · 총 {questions.length}문항 보관 중
-              </Text>
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerCopy}>
+              <Text style={styles.headerEyebrow}>MY LIBRARY</Text>
+              <Text style={styles.headerTitle}>학습 자료함</Text>
+              <Text style={styles.headerSubtitle}>과목을 만들고, 출제한 문제를 한곳에서 관리하세요.</Text>
             </View>
             <TouchableOpacity style={styles.newTopicBtn} onPress={onOpenTopicModal} activeOpacity={0.8}>
               <Text style={styles.newTopicBtnText}>+ 과목 추가</Text>
             </TouchableOpacity>
           </View>
+
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{topics.length}</Text>
+              <Text style={styles.summaryLabel}>과목</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{units.length}</Text>
+              <Text style={styles.summaryLabel}>단원</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{questions.length}</Text>
+              <Text style={styles.summaryLabel}>보관 문제</Text>
+            </View>
+          </View>
         </View>
 
-        {/* 2. 대분류 카테고리 필터 칩 바 */}
-        {categories.length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.categoryScroll}
-            contentContainerStyle={{ alignItems: 'flex-start' }}
-            onTouchStart={(e: any) => e.stopPropagation?.()}
-            onTouchMove={(e: any) => e.stopPropagation?.()}
-            onTouchEnd={(e: any) => e.stopPropagation?.()}
-            {...({ 'data-horizontal-scroll': 'true' } as any)}
-          >
-            {categories.map((cat) => {
-              const isActive = selectedCategory === cat;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.categoryChip, isActive && styles.categoryChipActive]}
-                  onPress={() => setSelectedCategory(cat)}
-                >
-                  <Text style={[styles.categoryChipText, isActive && styles.categoryChipTextActive]}>
-                    {cat}
-                  </Text>
+        <View>
+            <View style={styles.sectionHeadingRow}>
+              <View style={styles.sectionHeadingCopy}>
+                <Text style={styles.sectionTitle}>과목과 목차</Text>
+                <Text style={styles.sectionDescription}>과목을 열어 단원별로 문제를 만들거나 시험을 시작하세요.</Text>
+              </View>
+            </View>
+
+            {categories.length > 1 && (
+              <View style={styles.categoryWrap}>
+                {categories.map((cat) => {
+                  const isActive = selectedCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[styles.categoryChip, isActive && styles.categoryChipActive]}
+                      onPress={() => setSelectedCategory(cat)}
+                    >
+                      <Text style={[styles.categoryChipText, isActive && styles.categoryChipTextActive]}>
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {filteredTopics.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <StateIllustration kind="emptyLibrary" width={132} style={styles.emptyIllustration} />
+                <Text style={styles.emptyTitle}>첫 과목을 준비해 보세요</Text>
+                <Text style={styles.emptyDesc}>
+                  공부할 과목을 등록하면 목차를 구성하고 단원별 문제를 만들 수 있습니다.
+                </Text>
+                <TouchableOpacity style={styles.primaryActionButton} onPress={onOpenTopicModal}>
+                  <Text style={styles.primaryActionText}>과목 추가하기</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
+              </View>
+            ) : (
+              filteredTopics.map((topic) => (
+                <TopicFolderCard
+                  key={topic.id}
+                  topic={topic}
+                  units={units}
+                  questions={questions}
+                  isExpanded={expandedTopicId === topic.id}
+                  onToggleExpand={() => setExpandedTopicId(expandedTopicId === topic.id ? null : topic.id)}
+                  onStartExamWithQuestions={onStartExamWithQuestions}
+                  onGenerateCurriculumForTopic={onGenerateCurriculumForTopic}
+                  onDeduplicateUnits={onDeduplicateUnits}
+                  onDeleteTopic={onDeleteTopic}
+                  onDeleteUnit={onDeleteUnit}
+                  onUnitPress={handleUnitPress}
+                  isAiGenerating={isAiGenerating}
+                  generatingUnitId={generatingUnitId}
+                />
+              ))
+            )}
+        </View>
 
-        {/* 3. 과목별 문제집 (폴더 카드 리스트) */}
-        {filteredTopics.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={{ fontSize: 32, marginBottom: 8 }}>📚</Text>
-            <Text style={styles.emptyTitle}>등록된 과목이 없습니다.</Text>
-            <Text style={styles.emptyDesc}>
-              [+ 과목 추가]를 눌러 공부하고 싶은 주제를 추가하면 체계적인 5단계 목차와 문제집이 자동 구성됩니다.
-            </Text>
-            <TouchableOpacity style={styles.primaryActionButton} onPress={onOpenTopicModal}>
-              <Text style={styles.primaryActionText}>✨ 과목 추가하기</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          filteredTopics.map((topic) => (
-            <TopicFolderCard
-              key={topic.id}
-              topic={topic}
-              units={units}
-              questions={questions}
-              isExpanded={expandedTopicId === topic.id}
-              onToggleExpand={() => setExpandedTopicId(expandedTopicId === topic.id ? null : topic.id)}
-              onStartExamWithQuestions={onStartExamWithQuestions}
-              onGenerateCurriculumForTopic={onGenerateCurriculumForTopic}
-              onDeduplicateUnits={onDeduplicateUnits}
-              onDeleteTopic={onDeleteTopic}
-              onDeleteUnit={onDeleteUnit}
-              onUnitPress={handleUnitPress}
-              isAiGenerating={isAiGenerating}
-              generatingUnitId={generatingUnitId}
-            />
-          ))
-        )}
-
-        {/* 4. 오답노트 섹션 (오답노트 전용 창 열기 + 전체 보관 문제 검토) */}
-        <ReviewHouseSection
-          questions={questions}
-          topics={topics}
-          units={units}
-          incorrectQuestions={incorrectQuestions}
-          onDeleteQuestion={onDeleteQuestion}
-          onOpenCustomNotebook={() => setIsCustomNotebookOpen(true)}
-        />
+        <View style={styles.questionBankSection}>
+          <ReviewHouseSection
+            mode="bank"
+            questions={questions}
+            topics={topics}
+            units={units}
+            incorrectQuestions={incorrectQuestions}
+            onDeleteQuestion={onDeleteQuestion}
+            refreshCustomNotesRequest={customNotebookRevision}
+          />
+        </View>
       </ScrollView>
 
       {/* 나만의 오답노트 전용 창 (조용하고 쾌적한 학습 공간) */}
@@ -229,7 +252,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
         onClose={() => setIsCustomNotebookOpen(false)}
         questions={questions}
         topics={topics}
-        onDeleteQuestion={onDeleteQuestion}
+        onCustomNoteChanged={() => setCustomNotebookRevision((revision) => revision + 1)}
       />
     </>
   );

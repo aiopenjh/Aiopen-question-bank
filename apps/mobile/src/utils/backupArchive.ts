@@ -44,6 +44,7 @@ export function base64ToU8(base64: string): Uint8Array {
 import {
   generateExamSheetHtml,
   generateAnswerSheetHtml,
+  generateWrongNoteHtml,
   generateExamSheetTxt,
 } from './examSheetExport';
 
@@ -58,12 +59,22 @@ export function compressBackupToZip(jsonString: string): Uint8Array {
   let topics: any[] = [];
   let units: any[] = [];
   let questions: any[] = [];
+  let attempts: any[] = [];
+  let reviewStates: any[] = [];
+  let customNoteQuestionIds: string[] = [];
+  let backupVersion = 1;
+  let exportedAt = new Date().toISOString();
 
   try {
     const parsed = JSON.parse(jsonString);
     topics = parsed.topics || [];
     units = parsed.units || [];
     questions = parsed.questions || [];
+    attempts = parsed.attempts || [];
+    reviewStates = parsed.reviewStates || [];
+    customNoteQuestionIds = parsed.customNoteQuestionIds || [];
+    backupVersion = Number.isInteger(parsed.version) ? parsed.version : 1;
+    exportedAt = typeof parsed.exportedAt === 'string' ? parsed.exportedAt : exportedAt;
   } catch {
     // JSON 파싱 실패 시 원본만 패키징
   }
@@ -72,15 +83,45 @@ export function compressBackupToZip(jsonString: string): Uint8Array {
     'backup_data.json': strToU8(jsonString),
   };
 
+  zipEntries['manifest.json'] = strToU8(
+    JSON.stringify(
+      {
+        format: 'celueste-portable-backup',
+        version: backupVersion,
+        exportedAt,
+        counts: {
+          topics: topics.length,
+          units: units.length,
+          questions: questions.length,
+          reviewItems: reviewStates.length,
+          customNoteItems: customNoteQuestionIds.length,
+        },
+        excludedSecrets: ['apiKey'],
+      },
+      null,
+      2
+    )
+  );
+
   // 문제 데이터가 보관되어 있는 경우: 인쇄/PDF용 실전 시험지와 해설지, 텍스트본 생성하여 함께 압축
   if (questions.length > 0) {
     const examHtml = generateExamSheetHtml(topics, units, questions, dateStr);
     const answerHtml = generateAnswerSheetHtml(topics, units, questions, dateStr);
+    const wrongNoteHtml = generateWrongNoteHtml(
+      topics,
+      units,
+      questions,
+      attempts,
+      reviewStates,
+      customNoteQuestionIds,
+      dateStr
+    );
     const examTxt = generateExamSheetTxt(topics, units, questions, dateStr);
 
-    zipEntries['1. [시험지] 인쇄 및 PDF 저장용.html'] = strToU8(examHtml);
-    zipEntries['2. [정답지] 정답 및 해설집.html'] = strToU8(answerHtml);
-    zipEntries['3. [텍스트] 문제집_한글워드용.txt'] = strToU8(examTxt);
+    zipEntries['인쇄용/1. 전체 문제지.html'] = strToU8(examHtml);
+    zipEntries['인쇄용/2. 정답과 해설.html'] = strToU8(answerHtml);
+    zipEntries['인쇄용/3. 나만의 오답노트.html'] = strToU8(wrongNoteHtml);
+    zipEntries['기타/문제집 편집용.txt'] = strToU8(examTxt);
   }
 
   const topicSummary = topics.map((t: any) => t.name).join(', ') || '전체';
@@ -91,21 +132,26 @@ export function compressBackupToZip(jsonString: string): Uint8Array {
 보관 문항수: 총 ${questions.length}문항 (과목: ${topicSummary})
 
 [ 📂 내부 파일 안내 및 활용법 ]
-1. "1. [시험지] 인쇄 및 PDF 저장용.html"
+1. "인쇄용/1. 전체 문제지.html"
    - 컴퓨터에서 더블클릭하면 크롬/엣지 브라우저에서 실제 시험지 양식으로 열립니다.
    - 키보드의 'Ctrl + P'를 누르시면 A4 용지로 바로 인쇄하거나 [PDF로 저장]할 수 있습니다!
    - 정답과 해설이 가려져 있어 실제 시험처럼 종이에 풀어볼 수 있습니다.
 
-2. "2. [정답지] 정답 및 해설집.html"
+2. "인쇄용/2. 정답과 해설.html"
    - 빠른 정답 확인표 및 각 문항별 심층 해설이 깔끔하게 정리되어 있습니다.
    - 역시 'Ctrl + P'로 해설집 PDF 저장 및 인쇄가 가능합니다.
 
-3. "3. [텍스트] 문제집_한글워드용.txt"
-   - 한글(HWP)이나 MS Word에 그대로 복사해서 나만의 시험지로 편집할 수 있습니다.
+3. "인쇄용/3. 나만의 오답노트.html"
+   - 사용자가 직접 저장한 문제만 모아 손필기 공간과 재복습 체크란을 제공합니다.
 
-4. "backup_data.json"
+4. "기타/문제집 편집용.txt"
+   - 필요할 때만 한글(HWP)이나 MS Word에서 편집하는 보조 파일입니다.
+
+5. "backup_data.json"
    - Celueste 앱의 원본 데이터베이스입니다.
    - 이 ZIP 파일 자체를 앱의 [설정 ➔ 복원]에서 선택하시면 1초 만에 스마트폰 앱으로 복원됩니다.
+
+※ API 키는 보안상 이 백업에 포함되지 않습니다. 새 기기에서는 직접 다시 등록해 주세요.
 ========================================================================`;
 
   zipEntries['README.txt'] = strToU8(readmeText);
@@ -153,10 +199,31 @@ function extractJsonFromZipU8(zipBytes: Uint8Array): string {
     return strFromU8(unzipped['backup_data.json']);
   }
 
-  // 2. .json 확장자를 가진 임의의 파일 탐색
+  // 2. 폴더 안에 보관된 backup_data.json 탐색
+  const nestedBackupName = Object.keys(unzipped).find((filename) =>
+    filename.replace(/\\/g, '/').endsWith('/backup_data.json')
+  );
+  if (nestedBackupName) {
+    return strFromU8(unzipped[nestedBackupName]);
+  }
+
+  // 3. 구버전 호환: 실제 백업 스키마를 가진 .json만 탐색
   for (const filename of Object.keys(unzipped)) {
     if (filename.toLowerCase().endsWith('.json')) {
-      return strFromU8(unzipped[filename]);
+      const candidate = strFromU8(unzipped[filename]);
+      try {
+        const parsed = JSON.parse(candidate);
+        if (
+          parsed &&
+          Number.isInteger(parsed.version) &&
+          Array.isArray(parsed.topics) &&
+          Array.isArray(parsed.questions)
+        ) {
+          return candidate;
+        }
+      } catch {
+        // manifest 등 복원 데이터가 아닌 JSON은 건너뛴다.
+      }
     }
   }
 

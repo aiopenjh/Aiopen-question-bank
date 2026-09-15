@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
   StyleSheet,
-  View,
   Text,
   TextInput,
   TouchableOpacity,
-  Platform,
-  ActivityIndicator,
-  ScrollView,
+  useWindowDimensions,
+  View,
 } from 'react-native';
-import { UniversalModal as Modal } from '../common/UniversalModal';
 import { LearnerKnowledgeLevel } from '../../contracts/types';
+import { colors, radius, shadows, spacing } from '../../styles/designTokens';
 import { showAlert } from '../../utils/alert';
+import { UniversalModal as Modal } from '../common/UniversalModal';
 
 export interface TopicModalProps {
   visible: boolean;
@@ -29,17 +31,23 @@ export interface TopicModalProps {
   ) => Promise<void>;
 }
 
-// 자유 선택 및 빠른 입력을 돕는 광범위한 카테고리 예시 칩들
 const CATEGORY_SUGGESTIONS = [
-  '⚖️ 법학/행정',
-  '🎮 게임/개발',
-  '💼 비즈니스/경영',
-  '🌐 언어/어학',
-  '📐 자연과학/수학',
-  '🏥 의학/보건',
-  '🎨 문화/예술',
-  '📚 교양/자격증',
-];
+  { icon: '⚖️', label: '법학·행정', value: '법학/행정' },
+  { icon: '🎮', label: 'IT·개발', value: 'IT/개발' },
+  { icon: '💼', label: '경영·경제', value: '비즈니스/경영' },
+  { icon: '🌐', label: '언어·어학', value: '언어/어학' },
+  { icon: '📐', label: '수학·과학', value: '자연과학/수학' },
+  { icon: '🩺', label: '의학·보건', value: '의학/보건' },
+  { icon: '🎨', label: '문화·예술', value: '문화/예술' },
+  { icon: '📚', label: '교양·자격', value: '교양/자격증' },
+] as const;
+
+const LEVEL_OPTIONS = [
+  { key: 'beginner', icon: '🌱', label: '입문', description: '처음 배우는 단계' },
+  { key: 'basic', icon: '📘', label: '기본', description: '핵심 개념 중심' },
+  { key: 'advanced', icon: '🔥', label: '실전', description: '응용 문제 중심' },
+  { key: 'master', icon: '👑', label: '심화', description: '고난도·세부 개념' },
+] as const;
 
 export const TopicModal: React.FC<TopicModalProps> = ({
   visible,
@@ -47,9 +55,10 @@ export const TopicModal: React.FC<TopicModalProps> = ({
   initialTopicName = '',
   onCreateTopic,
 }) => {
+  const { width } = useWindowDimensions();
+  const isCompact = width < 390;
   const [topicName, setTopicName] = useState(initialTopicName);
   const [category, setCategory] = useState('');
-  const [autoCurriculum, setAutoCurriculum] = useState(true);
   const [learnerLevel, setLearnerLevel] = useState<LearnerKnowledgeLevel>('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,7 +66,6 @@ export const TopicModal: React.FC<TopicModalProps> = ({
     if (visible) {
       setTopicName(initialTopicName || '');
       setCategory('');
-      setAutoCurriculum(true);
       setLearnerLevel('basic');
     }
   }, [visible, initialTopicName]);
@@ -65,27 +73,22 @@ export const TopicModal: React.FC<TopicModalProps> = ({
   async function handleCreate() {
     const trimmedName = topicName.trim();
     if (!trimmedName) {
-      showAlert('알림', '학습할 과목 이름(대주제)을 입력해 주세요.');
+      showAlert('알림', '학습할 과목 이름을 입력해 주세요.');
       return;
     }
-
-    const finalCategory = category.trim() || '📚 일반';
 
     setIsSubmitting(true);
     try {
       await onCreateTopic(trimmedName, '', {
-        autoCurriculum,
+        autoCurriculum: true,
         learnerLevel,
-        category: finalCategory,
+        category: category.trim() || '일반',
       });
-
-      // 초기화 및 닫기
       setTopicName('');
       setCategory('');
-      setAutoCurriculum(true);
       onClose();
     } catch (err: any) {
-      showAlert('오류', `과목 생성 실패: ${err.message}`);
+      showAlert('오류', `과목 생성 실패: ${err?.message || '알 수 없는 오류'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -93,300 +96,425 @@ export const TopicModal: React.FC<TopicModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity
-        activeOpacity={1}
-        style={styles.modalOverlay}
-        onPress={onClose}
-        {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.modalCard}
-          onPress={(e) => e.stopPropagation?.()}
-          {...(Platform.OS === 'web' ? ({ onClick: (e: any) => e.stopPropagation?.() } as any) : {})}
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable
+          style={[styles.card, isCompact && styles.cardCompact]}
+          onPress={(event) => event.stopPropagation?.()}
         >
+          <View style={styles.header}>
+            <View style={styles.headerCopy}>
+              <Text style={styles.eyebrow}>NEW STUDY</Text>
+              <Text style={styles.title}>새 학습 과목</Text>
+              <Text style={styles.guide}>
+                이름과 시작 수준을 정하면 AI가 단계별 목차를 설계해요.
+              </Text>
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="과목 추가 닫기"
+              style={styles.closeButton}
+              onPress={onClose}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.closeButtonText}>×</Text>
+            </TouchableOpacity>
+          </View>
+
           <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 6 }}
           >
-            <Text style={styles.modalTitle}>✨ 새 학습 과목 추가</Text>
-            <Text style={styles.promptGuideText}>
-              과목명과 난이도를 선택하시면, AI가 체계적인 1~5단계 소단원 목차를 즉시 자동 설계합니다.
-            </Text>
-
-            {/* 1. 대주제 (과목명) */}
-            <Text style={styles.fieldLabel}>🏷️ 과목 이름 (대주제) *</Text>
+            <Text style={styles.fieldLabel}>과목 이름</Text>
             <TextInput
-              style={styles.inputField}
-              placeholder="예: 법학개론, 게임개발 기초, 형법총론, 회계원리 등"
-              placeholderTextColor="#fda4af"
+              style={styles.input}
+              placeholder="예: 수학, 한국사, Python 비동기 프로그래밍"
+              placeholderTextColor="#A9959C"
               value={topicName}
               onChangeText={setTopicName}
               editable={!isSubmitting}
-              returnKeyType="done"
-              onSubmitEditing={handleCreate}
+              returnKeyType="next"
             />
 
-            {/* 2. 과목 분류 (카테고리 - 직접 입력 + 빠른 선택 칩) */}
-            <Text style={styles.fieldLabel}>📂 과목 분류 (카테고리)</Text>
+            <View style={styles.fieldHeadingRow}>
+              <Text style={styles.fieldLabel}>과목 분류</Text>
+              <Text style={styles.optionalText}>선택 사항</Text>
+            </View>
             <TextInput
-              style={[styles.inputField, { marginBottom: 8 }]}
-              placeholder="직접 입력 (예: 법학, 게임개발, 회계, 자격증 등)"
-              placeholderTextColor="#fda4af"
+              style={styles.input}
+              placeholder="직접 입력하거나 아래에서 선택"
+              placeholderTextColor="#A9959C"
               value={category}
               onChangeText={setCategory}
               editable={!isSubmitting}
+              returnKeyType="done"
             />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginBottom: 14 }}
-              onTouchStart={(e: any) => e.stopPropagation?.()}
-              onTouchMove={(e: any) => e.stopPropagation?.()}
-              onTouchEnd={(e: any) => e.stopPropagation?.()}
-              {...({ 'data-horizontal-scroll': 'true' } as any)}
-            >
-              {CATEGORY_SUGGESTIONS.map((cat) => {
-                const isSelected = category === cat;
+            <View style={styles.categoryGrid}>
+              {CATEGORY_SUGGESTIONS.map((item) => {
+                const isSelected = category === item.value;
                 return (
                   <TouchableOpacity
-                    key={cat}
-                    style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                    onPress={() => setCategory(cat)}
-                    {...(Platform.OS === 'web' ? ({ onClick: () => setCategory(cat) } as any) : {})}
+                    key={item.value}
+                    style={[
+                      styles.categoryChip,
+                      isCompact && styles.categoryChipCompact,
+                      isSelected && styles.categoryChipSelected,
+                    ]}
+                    onPress={() => setCategory(item.value)}
+                    disabled={isSubmitting}
                   >
-                    <Text style={[styles.presetChipText, isSelected && styles.presetChipTextActive]}>
-                      {cat}
+                    <Text style={styles.categoryIcon}>{item.icon}</Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.categoryText, isSelected && styles.categoryTextSelected]}
+                    >
+                      {item.label}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
-            </ScrollView>
+            </View>
 
-            {/* 3. 난이도 수준 선택 */}
-            <View style={{ marginBottom: 14 }}>
-              <Text style={styles.fieldLabel}>🎯 시작 난이도 수준</Text>
-              <View style={styles.levelRow}>
-                {(
-                  [
-                    { key: 'beginner', label: '🌱 입문' },
-                    { key: 'basic', label: '📘 기본' },
-                    { key: 'advanced', label: '🔥 실전' },
-                    { key: 'master', label: '👑 심화' },
-                  ] as const
-                ).map((item) => {
-                  const isSelected = learnerLevel === item.key;
-                  return (
-                    <TouchableOpacity
-                      key={item.key}
-                      style={[styles.levelBtn, isSelected && styles.levelBtnActive]}
-                      onPress={() => setLearnerLevel(item.key)}
-                      {...(Platform.OS === 'web' ? ({ onClick: () => setLearnerLevel(item.key) } as any) : {})}
-                      disabled={isSubmitting}
-                    >
-                      <Text style={[styles.levelBtnText, isSelected && styles.levelBtnTextActive]}>
+            <Text style={[styles.fieldLabel, styles.levelLabel]}>시작 난이도</Text>
+            <View style={styles.levelGrid}>
+              {LEVEL_OPTIONS.map((item) => {
+                const isSelected = learnerLevel === item.key;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[styles.levelCard, isSelected && styles.levelCardSelected]}
+                    onPress={() => setLearnerLevel(item.key)}
+                    disabled={isSubmitting}
+                  >
+                    <Text style={styles.levelIcon}>{item.icon}</Text>
+                    <View style={styles.levelCopy}>
+                      <Text style={[styles.levelTitle, isSelected && styles.levelTitleSelected]}>
                         {item.label}
                       </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.levelDescription,
+                          isSelected && styles.levelDescriptionSelected,
+                        ]}
+                      >
+                        {item.description}
+                      </Text>
+                    </View>
+                    <View style={[styles.radio, isSelected && styles.radioSelected]}>
+                      {isSelected ? <View style={styles.radioDot} /> : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* 하단 버튼 바 */}
-            <View style={styles.actionBtnRow}>
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.cancelBtn]}
-                onPress={onClose}
-                {...(Platform.OS === 'web' ? ({ onClick: onClose } as any) : {})}
-                disabled={isSubmitting}
-              >
-                <Text style={styles.cancelBtnText}>취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.submitBtn]}
-                onPress={handleCreate}
-                {...(Platform.OS === 'web' ? ({ onClick: handleCreate } as any) : {})}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <ActivityIndicator color="#ffffff" size="small" />
-                    <Text style={styles.submitBtnText}>AI 목차 설계 중...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.submitBtnText}>✨ 과목 등록 완료</Text>
-                )}
-              </TouchableOpacity>
+            <View style={styles.aiNote}>
+              <Text style={styles.aiNoteIcon}>✦</Text>
+              <Text style={styles.aiNoteText}>
+                등록 후 선택한 난이도를 기준으로 1~5단계 목차를 자동 생성합니다.
+              </Text>
             </View>
           </ScrollView>
-        </TouchableOpacity>
-      </TouchableOpacity>
+
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.cancelButton]}
+              onPress={onClose}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.cancelButtonText}>취소</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.submitButton]}
+              onPress={handleCreate}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <View style={styles.submittingRow}>
+                  <ActivityIndicator color={colors.white} size="small" />
+                  <Text style={styles.submitButtonText}>목차 설계 중</Text>
+                </View>
+              ) : (
+                <Text style={styles.submitButtonText}>과목 만들기</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(64, 48, 56, 0.44)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: spacing.lg,
   },
-  modalCard: {
+  card: {
     width: '100%',
-    maxWidth: 480,
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
+    maxWidth: 460,
     maxHeight: '92%',
-    borderWidth: 1.5,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    elevation: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.soft,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#881337',
-    marginBottom: 4,
+  cardCompact: {
+    borderRadius: radius.lg,
   },
-  promptGuideText: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    backgroundColor: '#FFF9FB',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerCopy: {
+    flex: 1,
+    paddingRight: spacing.md,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    marginBottom: spacing.xs,
+  },
+  title: {
+    color: colors.ink,
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  guide: {
+    color: colors.inkMuted,
     fontSize: 12,
-    color: '#64748b',
-    lineHeight: 17,
-    marginBottom: 14,
+    lineHeight: 18,
+    marginTop: spacing.xs,
+  },
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+  },
+  closeButtonText: {
+    color: colors.primaryPressed,
+    fontSize: 24,
+    lineHeight: 25,
+    fontWeight: '400',
+  },
+  scrollArea: {
+    flexShrink: 1,
+  },
+  scrollContent: {
+    padding: spacing.xl,
+    paddingBottom: spacing.lg,
+  },
+  fieldHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#881337',
-    marginBottom: 6,
-  },
-  inputField: {
-    backgroundColor: '#fff5f7',
-    borderWidth: 1.2,
-    borderColor: '#fecdd3',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#881337',
-    marginBottom: 12,
-  },
-  presetChip: {
-    backgroundColor: '#fff5f7',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-    marginRight: 6,
-  },
-  presetChipActive: {
-    borderColor: '#f43f5e',
-    backgroundColor: '#ffe4e6',
-  },
-  presetChipText: {
-    color: '#64748b',
-    fontSize: 12,
-  },
-  presetChipTextActive: {
-    color: '#be123c',
-    fontWeight: 'bold',
-  },
-  autoCurriculumCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderWidth: 1.2,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
-  },
-  autoCurriculumCardActive: {
-    backgroundColor: '#fff1f4',
-    borderColor: '#f43f5e',
-  },
-  autoCurriculumTitle: {
+    color: colors.ink,
     fontSize: 13,
     fontWeight: '700',
-    color: '#475569',
-    marginBottom: 2,
+    marginBottom: spacing.sm,
   },
-  autoCurriculumTitleActive: {
-    color: '#881337',
-  },
-  autoCurriculumDesc: {
+  optionalText: {
+    color: colors.inkMuted,
     fontSize: 11,
-    color: '#64748b',
-    lineHeight: 15,
+    marginBottom: spacing.sm,
   },
-  levelRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  levelBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    borderRadius: 8,
+  input: {
+    minHeight: 46,
+    backgroundColor: '#FFFBFC',
     borderWidth: 1,
-    borderColor: '#fecdd3',
-    backgroundColor: '#fff5f7',
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: colors.ink,
+    marginBottom: spacing.md,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  categoryChip: {
+    width: '47%',
+    minWidth: 86,
+    flexGrow: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  levelBtnActive: {
-    backgroundColor: '#f43f5e',
-    borderColor: '#f43f5e',
+  categoryChipCompact: {
+    width: '47%',
   },
-  levelBtnText: {
-    color: '#be123c',
-    fontSize: 12,
+  categoryChipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  categoryIcon: {
+    fontSize: 13,
+    marginRight: 5,
+  },
+  categoryText: {
+    color: colors.inkMuted,
+    fontSize: 11,
     fontWeight: '600',
   },
-  levelBtnTextActive: {
-    color: '#ffffff',
-    fontWeight: 'bold',
+  categoryTextSelected: {
+    color: colors.primaryPressed,
+    fontWeight: '800',
   },
-  actionBtnRow: {
+  levelLabel: {
+    marginTop: spacing.lg,
+  },
+  levelGrid: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  actionBtn: {
+  levelCard: {
+    width: '47%',
+    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 58,
+    paddingHorizontal: 10,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  levelCardSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  levelIcon: {
+    fontSize: 16,
+    marginRight: spacing.sm,
+  },
+  levelCopy: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
+    minWidth: 0,
+  },
+  levelTitle: {
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  levelTitleSelected: {
+    color: colors.primaryPressed,
+  },
+  levelDescription: {
+    color: colors.inkMuted,
+    fontSize: 9,
+    marginTop: 2,
+  },
+  levelDescriptionSelected: {
+    color: colors.primary,
+  },
+  radio: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#CDBFC4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  radioSelected: {
+    borderColor: colors.primary,
+  },
+  radioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  aiNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.lavenderSoft,
+  },
+  aiNoteIcon: {
+    color: colors.lavender,
+    fontSize: 14,
+    fontWeight: '800',
+    marginRight: spacing.sm,
+  },
+  aiNoteText: {
+    flex: 1,
+    color: '#655A82',
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: '#FFFDFE',
+  },
+  actionButton: {
+    minHeight: 46,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelBtn: {
-    backgroundColor: '#ffe4e6',
-    borderWidth: 1,
-    borderColor: '#fecdd3',
+  cancelButton: {
+    width: 94,
+    backgroundColor: colors.primarySoft,
   },
-  cancelBtnText: {
-    color: '#be123c',
+  cancelButtonText: {
+    color: colors.primaryPressed,
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
-  submitBtn: {
-    backgroundColor: '#f43f5e',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+  submitButton: {
+    flex: 1,
+    backgroundColor: colors.primaryPressed,
+    ...shadows.action,
   },
-  submitBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: 'bold',
+  submitButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  submittingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
 });

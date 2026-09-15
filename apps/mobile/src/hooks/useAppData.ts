@@ -277,8 +277,8 @@ export function useAppData(callbacks?: {
     await saveEncryptedApiKey(targetKey);
     setApiKey(targetKey);
     showAlert(
-      '🔒 보안 암호화 저장 완료',
-      'API Key가 안전하게 보관되었습니다.\n이제 AI 맞춤 문제 출제를 바로 이용하실 수 있습니다!'
+      '🔒 보안 저장 완료',
+      'API Key가 이 기기의 보안 저장소에 암호화되어 보관되었습니다.'
     );
   }
 
@@ -322,7 +322,10 @@ export function useAppData(callbacks?: {
       if (routine) {
         await saveRoutine(routine);
       }
-      showAlert('저장 완료', '설정 사항, 일일 목표 문항 수, 알람 스케줄이 안전하게 저장되었습니다.');
+      showAlert(
+        '저장 완료',
+        '설정 사항, 일일 목표 문항 수, 알람 스케줄이 안전하게 저장되었습니다.'
+      );
       onSuccess?.();
     } catch (err: any) {
       showAlert('오류', `저장 중 오류 발생: ${err?.message || '알 수 없는 오류'}`);

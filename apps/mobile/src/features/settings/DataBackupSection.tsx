@@ -19,9 +19,9 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
       <View style={styles.compactCard}>
         <View style={styles.compactCardHeader}>
           <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.compactCardTitle}>🛡️ 데이터 백업 & 인쇄용 문제집</Text>
+            <Text style={styles.compactCardTitle}>데이터 백업 & 인쇄용 문제집</Text>
             <Text style={styles.compactCardSubtitle}>
-              초경량 ZIP 백업 (A4 인쇄/PDF 시험지 및 정답지 자동 동봉)
+              API 키 제외 전체 백업 · A4 문제지, 해설지, 오답노트 동봉
             </Text>
           </View>
           <View style={styles.compactBtnGroup}>
@@ -30,31 +30,31 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
               onPress={onExportBackup}
               activeOpacity={0.7}
             >
-              <Text style={styles.miniBtnPrimaryText}>💾 백업/출력</Text>
+              <Text style={styles.miniBtnPrimaryText}>백업/출력</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.miniBtnSecondary}
               onPress={onOpenRestoreModal}
               activeOpacity={0.7}
             >
-              <Text style={styles.miniBtnSecondaryText}>🔄 복원</Text>
+              <Text style={styles.miniBtnSecondaryText}>복원</Text>
             </TouchableOpacity>
           </View>
         </View>
       </View>
 
       {/* ⚠️ 데이터 클린 초기화 */}
-      <View style={[styles.compactCard, { backgroundColor: '#fffafb', borderColor: '#ffe4e6' }]}>
+      <View style={[styles.compactCard, styles.resetCard]}>
         <View style={styles.compactCardHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.compactCardTitle, { fontSize: 13, color: '#94a3b8' }]}>전체 데이터 초기화</Text>
+            <Text style={[styles.compactCardTitle, styles.resetTitle]}>전체 데이터 초기화</Text>
           </View>
           <TouchableOpacity
             style={styles.miniResetBtn}
             onPress={onResetAllData}
             activeOpacity={0.7}
           >
-            <Text style={styles.miniResetBtnText}>🗑️ 초기화</Text>
+            <Text style={styles.miniResetBtnText}>초기화</Text>
           </TouchableOpacity>
         </View>
       </View>

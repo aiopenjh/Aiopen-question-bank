@@ -38,11 +38,10 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
     }
     setSaving(true);
     try {
-      onChangeApiKey(trimmed);
       await onSaveApiKey(trimmed);
+      onChangeApiKey(trimmed);
       setNewKeyInput('');
       setIsEditingKey(false);
-      showAlert('보안 등록 완료', '새로운 API Key가 안전하게 암호화 보관되었습니다.\n\n(보안을 위해 원문은 화면에 일절 노출되지 않습니다)');
     } catch (err: any) {
       showAlert('오류', `저장 중 오류 발생: ${err?.message || '알 수 없는 오류'}`);
     } finally {
@@ -61,32 +60,28 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
           await onDeleteApiKey();
           setNewKeyInput('');
           setIsEditingKey(false);
-          showAlert('삭제 완료', '등록된 API Key가 안전하게 파기되었습니다.');
         },
       },
     ]);
   }
 
   return (
-    <View style={[styles.card, { paddingVertical: 12, paddingHorizontal: 14 }]}>
+    <View style={styles.card}>
       {isRegistered && !isEditingKey ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{ fontSize: 14 }}>🔒</Text>
-              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#881337' }}>
-                AI 키 안전 보관 중
-              </Text>
-              <View style={[styles.connectedBadge, { paddingVertical: 2, paddingHorizontal: 6 }]}>
-                <Text style={[styles.connectedBadgeText, { fontSize: 10 }]}>연동됨</Text>
+        <View style={styles.apiSummaryRow}>
+          <View style={styles.apiSummaryCopy}>
+            <View style={styles.apiTitleRow}>
+              <Text style={styles.apiTitle}>AI 키 연결됨</Text>
+              <View style={styles.connectedBadge}>
+                <Text style={styles.connectedBadgeText}>연동됨</Text>
               </View>
             </View>
-            <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-              {getProviderName()} · 원문 영구 은닉
+            <Text style={styles.apiProviderText}>
+              {getProviderName()} · 화면에 키를 표시하지 않음
             </Text>
           </View>
 
-          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <View style={styles.apiActions}>
             <TouchableOpacity
               style={styles.keyActionSmallBtn}
               onPress={() => {
@@ -95,41 +90,41 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.keyActionSmallBtnText}>🔄 교체</Text>
+              <Text style={styles.keyActionSmallBtnText}>교체</Text>
             </TouchableOpacity>
             {onDeleteApiKey && (
               <TouchableOpacity
                 style={[
                   styles.keyActionSmallBtn,
-                  { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: '#fca5a5' },
+                  styles.dangerActionButton,
                 ]}
                 onPress={handlePressDelete}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.keyActionSmallBtnText, { color: '#ef4444' }]}>🗑️</Text>
+                <Text style={[styles.keyActionSmallBtnText, styles.dangerActionText]}>삭제</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
       ) : (
         <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#881337' }}>
-              🔑 {isRegistered ? '새 API Key로 교체' : 'AI API Key 등록'}
+          <View style={styles.apiEditHeader}>
+            <Text style={styles.apiTitle}>
+              {isRegistered ? '새 API Key로 교체' : 'AI API Key 등록'}
             </Text>
             {isRegistered && (
               <TouchableOpacity
                 onPress={() => setIsEditingKey(false)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={{ fontSize: 11, color: '#64748b' }}>취소 ✕</Text>
+                <Text style={styles.apiCancelText}>취소</Text>
               </TouchableOpacity>
             )}
           </View>
 
-          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <View style={styles.apiInputRow}>
             <TextInput
-              style={[styles.keyInputField, { flex: 1, paddingVertical: 7, fontSize: 12, marginBottom: 0 }]}
+              style={styles.keyInputField}
               placeholder="새로운 API Key 붙여넣기"
               placeholderTextColor="#94a3b8"
               value={newKeyInput}
@@ -141,7 +136,7 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
             <TouchableOpacity
               style={[
                 styles.primaryActionButton,
-                { paddingVertical: 9, paddingHorizontal: 14, marginTop: 0, borderRadius: 10 },
+                styles.apiSaveButton,
                 !newKeyInput.trim() && { opacity: 0.6 },
               ]}
               onPress={handlePressSave}
@@ -151,7 +146,7 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
               {saving ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={[styles.primaryActionText, { fontSize: 12 }]}>저장</Text>
+                <Text style={styles.primaryActionText}>저장</Text>
               )}
             </TouchableOpacity>
           </View>

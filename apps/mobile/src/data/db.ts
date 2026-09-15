@@ -299,6 +299,7 @@ export async function saveRoutine(routine: RoutineRevision): Promise<void> {
 }
 
 export async function clearAllData(): Promise<void> {
+  await deleteEncryptedApiKey();
   await AsyncStorage.clear();
   await initializeDatabase();
 }

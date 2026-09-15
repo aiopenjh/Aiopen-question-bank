@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Topic, Unit, QuestionRevision } from '../../contracts/types';
 import { styles } from './libraryStyles';
+import { colors } from '../../styles/designTokens';
 
 export interface TopicFolderCardProps {
   topic: Topic;
@@ -48,7 +49,7 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
             <Text style={styles.topicHouseTitle}>{topic.name}</Text>
           </View>
           <Text style={styles.topicHouseSub}>
-            단원 {topicUnits.length}개 · 보관된 문제 {topicQuestions.length}문항
+            단원 {topicUnits.length}개 · 문제 {topicQuestions.length}문항
           </Text>
         </View>
 
@@ -57,7 +58,7 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
           onPress={onToggleExpand}
         >
           <Text style={styles.toggleAccordionText}>
-            {isExpanded ? '접기 ▲' : '열기 ▼'}
+            {isExpanded ? '접기  ▲' : '목차 보기  ▼'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -69,7 +70,7 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
           onPress={() => onStartExamWithQuestions(topicQuestions)}
         >
           <Text style={styles.topicExamBtnText}>
-            🚀 [{topic.name}] 전체 {topicQuestions.length}문제 CBT 시험 응시
+            전체 {topicQuestions.length}문제 CBT 시작
           </Text>
         </TouchableOpacity>
       )}
@@ -82,7 +83,12 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
             <TouchableOpacity
               style={[
                 styles.actionPillBtn,
-                isAiGenerating && { opacity: 0.7, backgroundColor: '#ffe4e6', borderColor: '#f43f5e' },
+                styles.curriculumActionPill,
+                isAiGenerating && {
+                  opacity: 0.7,
+                  backgroundColor: colors.primarySoft,
+                  borderColor: colors.primary,
+                },
               ]}
               onPress={() => {
                 if (isAiGenerating) return;
@@ -93,32 +99,23 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
             >
               {isAiGenerating ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <ActivityIndicator size="small" color="#e11d48" />
-                  <Text style={[styles.actionPillText, { color: '#e11d48', fontWeight: 'bold' }]}>
-                    ⏳ 목차 설계 중...
+                  <ActivityIndicator size="small" color={colors.primaryPressed} />
+                  <Text style={styles.actionPillTextActive}>
+                    목차 설계 중...
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.actionPillText}>✨ AI 5단계 목차 생성</Text>
+                <Text style={styles.actionPillText}>AI 5단계 목차 만들기</Text>
               )}
             </TouchableOpacity>
             {hasDuplicates && onDeduplicateUnits && (
               <TouchableOpacity
-                style={[styles.actionPillBtn, { borderColor: '#ef4444' }]}
+                style={[styles.actionPillBtn, styles.secondaryDangerPill]}
                 onPress={() => onDeduplicateUnits(topic.id)}
               >
-                <Text style={[styles.actionPillText, { color: '#fca5a5' }]}>🧹 중복 정리</Text>
+                <Text style={styles.actionPillText}>중복 정리</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={[styles.actionPillBtn, { borderColor: '#fca5a5', backgroundColor: '#fff1f2' }]}
-              onPress={() => onDeleteTopic(topic.id, topic.name)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.actionPillText, { color: '#e11d48', fontWeight: 'bold' }]}>
-                🗑️ 과목 전체 삭제
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* 단원 목록 */}
@@ -126,7 +123,7 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
             <View style={styles.emptyUnitCard}>
               <Text style={styles.emptyUnitTitle}>등록된 단원이 없습니다.</Text>
               <Text style={styles.emptyUnitDesc}>
-                [✨ AI 5단계 목차 생성]을 누르시면 공인 표준 5단계 목차가 자동 설계됩니다.
+                AI 목차 만들기를 누르면 5단계 학습 목차가 구성됩니다.
               </Text>
             </View>
           ) : (
@@ -162,7 +159,7 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
                   {/* 하단: 보관 문항 수 + 우측 [출제/풀기] 버튼 */}
                   <View style={styles.unitFooterRow}>
                     <Text style={styles.unitQuestionCountText}>
-                      {unitQuestions.length > 0 ? `📚 보관된 문제: ${unitQuestions.length}문항` : '⚡ 출제 대기'}
+                      {unitQuestions.length > 0 ? `보관 문제 ${unitQuestions.length}문항` : '출제 대기'}
                     </Text>
 
                     <TouchableOpacity
@@ -174,7 +171,7 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
                       {isThisUnitGenerating ? (
                         <ActivityIndicator size="small" color="#ffffff" />
                       ) : (
-                        <Text style={styles.unitQuizBtnText}>⚡ 출제 / 풀기</Text>
+                        <Text style={styles.unitQuizBtnText}>출제 / 풀기</Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -182,6 +179,16 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
               );
             })
           )}
+
+          <View style={styles.topicManagementRow}>
+            <TouchableOpacity
+              style={styles.topicDeleteLink}
+              onPress={() => onDeleteTopic(topic.id, topic.name)}
+              activeOpacity={0.72}
+            >
+              <Text style={styles.topicDeleteLinkText}>과목 관리 · 삭제</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </View>

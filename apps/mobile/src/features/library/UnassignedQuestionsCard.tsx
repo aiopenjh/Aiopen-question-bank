@@ -58,7 +58,7 @@ export const UnassignedQuestionsCard: React.FC<UnassignedQuestionsCardProps> = (
           {questions.map((q, qIdx) => {
             const isDetailOpen = expandedQuestionDetailId === q.id;
             return (
-              <View key={q.id} style={styles.questionItemCard}>
+              <View key={`${q.id}-${qIdx}`} style={styles.questionItemCard}>
                 <View style={styles.questionItemHeader}>
                   <Text style={styles.questionItemNumber}>Q{qIdx + 1}.</Text>
                   <Text style={styles.questionItemStem} numberOfLines={isDetailOpen ? undefined : 2}>

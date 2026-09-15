@@ -48,8 +48,7 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
       }),
     });
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Claude 3.5 통신 실패 (${res.status}): ${errText}`);
+      throw new Error(`Claude 3.5 통신 실패 (${res.status})`);
     }
     const data = await res.json();
     const rawText = data.content?.[0]?.text;
@@ -73,8 +72,7 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
       }),
     });
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`OpenAI GPT-4o 통신 실패 (${res.status}): ${errText}`);
+      throw new Error(`OpenAI GPT-4o 통신 실패 (${res.status})`);
     }
     const data = await res.json();
     const rawText = data.choices?.[0]?.message?.content;
@@ -107,7 +105,7 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
 
     let timeoutTimer: any = null;
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(trimmedKey)}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
       if (controller) {
         // 통신 시간 만료(25초 초과) 시 자동 중단 후 다음 가용 모델로 자동 전환
@@ -139,9 +137,9 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
         // 만약 등록된 후보 모델들이 모두 404인 경우, 구글 API 모델 목록 엔드포인트를 동적 질의하여 가용 모델 자동 발견
         if (i === candidateModels.length - 1) {
           try {
-            const listRes = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(trimmedKey)}`
-            );
+            const listRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+              headers: { 'x-goog-api-key': trimmedKey },
+            });
             if (listRes.ok) {
               const listData = await listRes.json();
               const activeGoogleModels: string[] = (listData.models || [])
@@ -162,21 +160,19 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
 
       // 구글 AI 서버 일시적 과부하 (503 High Demand), 게이트웨이 오류(502/504), 할당량(429) 자동 전환
       if (res.status === 503 || res.status === 502 || res.status === 504 || res.status === 500 || res.status === 429) {
-        const errBody = await res.text();
-        lastError = new Error(`Gemini 모델 [${model}] 서버 일시 혼잡 (${res.status}): ${errBody}`);
+        lastError = new Error(`Gemini 모델 [${model}] 서버 일시 혼잡 (${res.status})`);
         console.warn(`Gemini 모델 [${model}] 서버 혼잡 (${res.status}) -> 다음 가용 모델 자동 전환`);
         continue;
       }
 
       if (!res.ok) {
-        const errorText = await res.text();
         if (res.status === 400) {
           throw new Error(`등록된 API 키가 유효하지 않습니다 (Google 400 오류). Google AI Studio(https://aistudio.google.com)에서 발급받은 정식 API 키(보통 AIzaSy...로 시작)인지 확인해 주세요.`);
         }
         if (res.status === 403) {
           throw new Error(`Google AI 접근 권한 거부 (403): API 키의 권한이나 활성화 상태를 확인해 주세요.`);
         }
-        throw new Error(`Gemini API 통신 실패 (${res.status}): ${errorText}`);
+        throw new Error(`Gemini API 통신 실패 (${res.status})`);
       }
 
       const data = await res.json();

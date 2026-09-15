@@ -1,9 +1,10 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../styles/designTokens';
 
 export const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fafaf9',
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -69,8 +70,8 @@ export const styles = StyleSheet.create({
     borderColor: '#e7e5e4',
   },
   topicChipActive: {
-    backgroundColor: '#0f766e',
-    borderColor: '#0f766e',
+    backgroundColor: colors.primaryPressed,
+    borderColor: colors.primaryPressed,
   },
   topicChipText: {
     fontSize: 12,

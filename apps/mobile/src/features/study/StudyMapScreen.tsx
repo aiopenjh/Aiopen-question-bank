@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,19 +14,19 @@ import { RoutineRevision } from '../../contracts/types';
 import { DailyInspirationCard } from './DailyInspirationCard';
 import { FeedbackCard } from './FeedbackCard';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
+import { StateIllustration } from '../../components/common/StateIllustration';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
+import { colors, radius, shadows, spacing } from '../../styles/designTokens';
 
 export interface StudyMapScreenProps {
   // 통합 학습 현황 & 복습 연동
   routine?: RoutineRevision | null;
   todayAttemptsCount?: number;
   dueQuestionsCount?: number;
-  incorrectQuestionsCount?: number;
   onStartExam?: () => void;
   onStartMoreQuestions?: () => void;
   onStartDueReview?: () => void;
-  onStartIncorrectReview?: () => void;
-  onGoToScaffolding?: () => void;
+  onOpenCustomNotebook?: () => void;
 
   // 당겨서 새로고침 (Pull to Refresh)
   refreshing?: boolean;
@@ -52,12 +52,10 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   routine = null,
   todayAttemptsCount = 0,
   dueQuestionsCount = 0,
-  incorrectQuestionsCount = 0,
   onStartExam,
   onStartMoreQuestions,
   onStartDueReview,
-  onStartIncorrectReview,
-  onGoToScaffolding,
+  onOpenCustomNotebook,
   refreshing = false,
   onRefresh,
   onOpenTopicModal,
@@ -119,18 +117,119 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
       {/* 화면 위로 당겨서 새로고침 인디케이터 (버튼 없는 자연스러운 제스처) */}
       <PullRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
 
-      {/* 접속할 때마다 바뀌는 오늘의 응원 한마디 (로컬 + AI) */}
+      {/* 오늘 해야 할 학습에 초점을 맞춘 홈 Hero */}
+      <View style={styles.heroRoutineCard}>
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroEyebrow}>TODAY'S STUDY</Text>
+            <Text style={styles.heroTitle} numberOfLines={2}>
+              {topicName || '나만의 학습 루틴'}
+            </Text>
+            <View style={styles.heroStatusRow}>
+              <View style={styles.routineStatusBadge}>
+                <Text style={styles.routineStatusBadgeText}>
+                  {progressPercent >= 100
+                    ? '오늘 목표 완료'
+                    : todayAttemptsCount > 0
+                    ? '학습 진행 중'
+                    : '학습 준비 완료'}
+                </Text>
+              </View>
+            </View>
+          </View>
+          <StateIllustration kind="home" width={116} style={styles.heroIllustration} />
+        </View>
+
+        <View style={styles.metricRow}>
+          <Text style={[styles.progressPercent, progressPercent >= 100 && styles.progressPercentComplete]}>
+            {progressPercent}%
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={styles.metricCurrentNumber}>{todayAttemptsCount}</Text>
+            <Text style={styles.metricTargetNumber}> / {targetCount}문항</Text>
+          </View>
+        </View>
+
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+        </View>
+
+        {onStartExam && (
+          <TouchableOpacity
+            style={styles.primaryActionButton}
+            onPress={onStartExam}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryActionText}>
+              {todayAttemptsCount > 0 ? '이어서 학습하기' : '오늘 학습 시작'}
+            </Text>
+            <Text style={styles.primaryActionArrow}>→</Text>
+          </TouchableOpacity>
+        )}
+
+        {progressPercent >= 100 && (onStartMoreQuestions || onStartExam) && (
+          <TouchableOpacity
+            style={styles.extraPracticeBtn}
+            onPress={onStartMoreQuestions || onStartExam}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.extraPracticeBtnText}>
+              같은 범위에서 문제 더 풀기
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.quickActionRow}>
+        <TouchableOpacity
+          style={styles.quickActionCard}
+          onPress={onStartDueReview}
+          disabled={!onStartDueReview}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.quickActionIcon, { color: colors.lavender }]}>◷</Text>
+          <Text style={styles.quickActionTitle}>복습 예정</Text>
+          <Text style={styles.quickActionValue}>{dueQuestionsCount}문항</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.quickActionCard, styles.notebookQuickActionCard]}
+          onPress={onOpenCustomNotebook}
+          disabled={!onOpenCustomNotebook}
+          activeOpacity={0.8}
+        >
+          <StateIllustration
+            kind="reviewComplete"
+            width={48}
+            style={styles.notebookQuickActionCharacter}
+          />
+          <Text style={styles.quickActionTitle}>나만의 오답노트</Text>
+          <Text style={styles.quickActionValue}>열기</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickActionCard}
+          onPress={onOpenLibrary}
+          disabled={!onOpenLibrary}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.quickActionIcon, { color: colors.mint }]}>▣</Text>
+          <Text style={styles.quickActionTitle}>과목 자료함</Text>
+          <Text style={styles.quickActionValue}>열기</Text>
+        </TouchableOpacity>
+      </View>
+
       <DailyInspirationCard apiKey={apiKey} topicName={topicName} />
 
-      {/* 1. 공부할 과목 추가 바 (과목 추가 모달과 연동하여 난이도 및 커리큘럼 조절) */}
       {(onOpenTopicModal || onQuickPromptGenerate) && (
         <View style={styles.quickPromptCard}>
-          <Text style={styles.quickPromptLabel}>⚡ 공부할 과목 추가</Text>
+          <View style={styles.secondarySectionHeader}>
+            <Text style={styles.quickPromptLabel}>새 과목 시작</Text>
+            <Text style={styles.secondarySectionHint}>관심 분야를 새 학습 과정으로 만들어요</Text>
+          </View>
           <View style={styles.quickPromptInputRow}>
             <TextInput
               style={styles.quickPromptInput}
-              placeholder="공부할 과목을 입력해주세요"
-              placeholderTextColor="#64748b"
+              placeholder="공부할 과목을 입력하세요"
+              placeholderTextColor={colors.inkMuted}
               value={customPrompt}
               onChangeText={setCustomPrompt}
               returnKeyType="done"
@@ -150,94 +249,15 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
               activeOpacity={0.85}
             >
               {isAiGenerating ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <Text style={styles.quickPromptSubmitText}>+ 과목 추가</Text>
+                <Text style={styles.quickPromptSubmitText}>추가</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* 2. 큼직하고 시원한 오늘의 학습 현황 카드 (Hero Card) */}
-      <View style={styles.heroRoutineCard}>
-        <View style={styles.routineHeaderRow}>
-          <View>
-            <Text style={styles.cardSectionTitle}>📊 오늘의 학습 현황</Text>
-            <Text style={styles.routinePresetText}>
-              일일 목표 {targetCount}문항 풀이
-            </Text>
-          </View>
-          <View style={styles.routineStatusBadge}>
-            <Text style={styles.routineStatusBadgeText}>
-              {progressPercent >= 100
-                ? '🎉 오늘 목표 달성'
-                : todayAttemptsCount > 0
-                ? '🔥 열공 진행 중'
-                : '🎯 학습 대기'}
-            </Text>
-          </View>
-        </View>
-
-        {/* 대형 문항 달성 지표 & 목표 완료 뱃지 */}
-        <View style={styles.metricRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-            <Text style={styles.metricCurrentNumber}>{todayAttemptsCount}</Text>
-            <Text style={styles.metricTargetNumber}> / {targetCount} 문항 완료</Text>
-          </View>
-          <View style={[styles.percentBadge, progressPercent >= 100 && styles.percentBadgeCompleted]}>
-            <Text style={[styles.percentBadgeText, progressPercent >= 100 && styles.percentBadgeTextCompleted]}>
-              {progressPercent >= 100 ? '🎉 목표 완료' : `${progressPercent}% 달성`}
-            </Text>
-          </View>
-        </View>
-
-        {/* 굵고 시원한 프로그레스 바 */}
-        <View style={styles.progressBarBackground}>
-          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-        </View>
-
-        {/* 메인 학습목표 문제 풀기 버튼 */}
-        {onStartExam && (
-          <TouchableOpacity
-            style={styles.primaryActionButton}
-            onPress={onStartExam}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryActionText}>
-              🚀 오늘의 학습목표 문제 풀기
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* 목표 달성 후 추가 연습을 원하는 경우의 추가 버튼 (동일 개념 범위 신규 출제) */}
-        {progressPercent >= 100 && (onStartMoreQuestions || onStartExam) && (
-          <TouchableOpacity
-            style={styles.extraPracticeBtn}
-            onPress={onStartMoreQuestions || onStartExam}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.extraPracticeBtnText}>
-              ⚡ 문제 더 풀어보기 (같은 범위 새 문제 출제)
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* 오답 개념 집중 보충 학습 (틀린 문제 재풀이 및 핵심 개념 고정 학습) */}
-        {incorrectQuestionsCount > 0 && onGoToScaffolding && (
-          <TouchableOpacity
-            style={styles.scaffoldingBtn}
-            onPress={onGoToScaffolding}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.scaffoldingBtnText}>
-              💡 틀린 문제 다시 풀기 & 개념 복습 ({incorrectQuestionsCount}개) ➔
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* 4. 건의사항 & 불편한 점 제보 (카카오톡 오픈채팅 직통 연결) */}
       <FeedbackCard />
     </ScrollView>
   );
@@ -246,208 +266,231 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
 const styles = StyleSheet.create({
   tabContent: {
     flex: 1,
-    backgroundColor: '#fff1f4',
+    backgroundColor: colors.canvas,
   },
   scrollPadding: {
-    padding: 18,
+    padding: spacing.lg,
     paddingBottom: 40,
   },
   heroRoutineCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 22,
-    marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    padding: spacing.xl,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.soft,
   },
-  routineHeaderRow: {
+  heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+    minHeight: 94,
+    marginBottom: spacing.sm,
   },
-  cardSectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#881337',
+  heroCopy: {
+    flex: 1,
+    zIndex: 1,
   },
-  routinePresetText: {
-    fontSize: 12,
-    color: '#9f1239',
-    marginTop: 3,
+  heroEyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    color: colors.primary,
+  },
+  heroTitle: {
+    marginTop: spacing.xs,
+    color: colors.ink,
+    fontSize: 21,
+    lineHeight: 27,
+    fontWeight: '800',
+    ...(Platform.OS === 'web' ? ({ wordBreak: 'keep-all' } as any) : {}),
+  },
+  heroStatusRow: {
+    flexDirection: 'row',
+    marginTop: spacing.sm,
+  },
+  heroIllustration: {
+    marginRight: -12,
+    marginTop: -6,
   },
   routineStatusBadge: {
-    backgroundColor: '#ffe4e6',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#fda4af',
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
   },
   routineStatusBadgeText: {
-    color: '#be123c',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: colors.primaryPressed,
+    fontSize: 11,
+    fontWeight: '700',
   },
   metricRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'baseline',
+    marginBottom: spacing.sm,
   },
   metricCurrentNumber: {
-    fontSize: 38,
+    fontSize: 36,
     fontWeight: '900',
-    color: '#881337',
+    color: colors.ink,
   },
   metricTargetNumber: {
-    fontSize: 15,
-    color: '#9f1239',
+    fontSize: 14,
+    color: colors.inkMuted,
     marginLeft: 4,
     fontWeight: '600',
   },
-  percentBadge: {
-    backgroundColor: '#ffe4e6',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#fda4af',
-  },
-  percentBadgeCompleted: {
-    backgroundColor: '#dcfce7',
-    borderColor: '#86efac',
-  },
-  percentBadgeText: {
-    color: '#e11d48',
+  progressPercent: {
+    color: colors.primary,
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
-  percentBadgeTextCompleted: {
-    color: '#15803d',
+  progressPercentComplete: {
+    color: colors.mint,
   },
   progressBarBackground: {
-    height: 12,
-    backgroundColor: '#fce7f3',
-    borderRadius: 6,
+    height: 8,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.pill,
     overflow: 'hidden',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#fbcfe8',
+    marginBottom: spacing.lg,
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#f43f5e',
-    borderRadius: 6,
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
   },
   primaryActionButton: {
-    backgroundColor: '#f43f5e',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    backgroundColor: colors.primaryPressed,
+    borderRadius: radius.md,
+    paddingVertical: 15,
+    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    justifyContent: 'space-between',
+    ...shadows.action,
+  },
+  primaryActionArrow: {
+    color: colors.white,
+    fontSize: 19,
+    fontWeight: '500',
   },
   extraPracticeBtn: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#fb7185',
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginTop: spacing.sm,
   },
   extraPracticeBtnText: {
-    color: '#e11d48',
+    color: colors.primaryPressed,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   primaryActionText: {
-    color: '#ffffff',
+    color: colors.white,
     fontSize: 15,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
-  scaffoldingBtn: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#fda4af',
+  quickActionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  quickActionCard: {
+    flex: 1,
+    minHeight: 108,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
   },
-  scaffoldingBtnText: {
-    color: '#be123c',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  quickPromptCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+  notebookQuickActionCard: {
+    backgroundColor: colors.primarySoft,
+    borderColor: '#DFC2CB',
+    shadowColor: colors.primaryPressed,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 2,
   },
-  quickPromptLabel: {
+  notebookQuickActionCharacter: {
+    marginTop: -7,
+    marginBottom: -1,
+  },
+  quickActionIcon: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: spacing.xs,
+  },
+  quickActionTitle: {
+    color: colors.ink,
     fontSize: 12,
     fontWeight: '700',
-    color: '#881337',
-    marginBottom: 6,
+    textAlign: 'center',
   },
-  quickPromptGuide: {
+  quickActionValue: {
+    color: colors.inkMuted,
     fontSize: 11,
-    color: '#64748b',
-    marginBottom: 8,
-    lineHeight: 15,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  quickPromptCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickPromptLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  secondarySectionHeader: {
+    marginBottom: spacing.md,
+  },
+  secondarySectionHint: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    marginTop: 3,
   },
   quickPromptInputRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     alignItems: 'center',
   },
   quickPromptInput: {
     flex: 1,
-    backgroundColor: '#fff5f7',
-    borderRadius: 8,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: '#fecdd3',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    color: '#1f2937',
-    fontSize: 13,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    color: colors.ink,
+    fontSize: 16,
   },
   quickPromptSubmitBtn: {
-    backgroundColor: '#f43f5e',
-    borderRadius: 8,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
+    backgroundColor: colors.primaryPressed,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickPromptSubmitText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: 'bold',
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

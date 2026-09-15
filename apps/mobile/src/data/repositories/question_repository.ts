@@ -65,8 +65,31 @@ export async function getQuestions(topicId?: UUID): Promise<QuestionRevision[]> 
 
 export async function addQuestions(newQuestions: QuestionRevision[]): Promise<void> {
   const questions = await getQuestions();
-  questions.push(...newQuestions);
-  await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(questions));
+  const knownIds = new Set(questions.map((question) => question.id));
+  const knownStems = new Set(
+    questions.map(
+      (question) =>
+        `${question.topicId}|${question.unitId || ''}|${normalizeQuestionStem(question.stem)}`
+    )
+  );
+
+  const uniqueQuestions = newQuestions.filter((question) => {
+    const stemKey = `${question.topicId}|${question.unitId || ''}|${normalizeQuestionStem(question.stem)}`;
+    if (knownIds.has(question.id) || knownStems.has(stemKey)) return false;
+    knownIds.add(question.id);
+    knownStems.add(stemKey);
+    return true;
+  });
+
+  if (uniqueQuestions.length === 0) return;
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.QUESTIONS,
+    JSON.stringify([...questions, ...uniqueQuestions])
+  );
+}
+
+function normalizeQuestionStem(stem: string): string {
+  return stem.replace(/[\s\p{P}]/gu, '').toLowerCase();
 }
 
 export async function deleteQuestion(questionId: UUID): Promise<void> {
