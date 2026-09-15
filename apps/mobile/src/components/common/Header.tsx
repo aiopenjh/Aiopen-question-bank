@@ -24,55 +24,39 @@ export const Header: React.FC<HeaderProps> = ({
         <Text style={styles.appSubtitle}>나만의 맞춤형 CBT 학습 엔진</Text>
       </View>
 
-      {/* 2. 과목자료함, 설정 및 내자료업로드 통합 네비게이션 영역 */}
-      <View style={styles.navContainer}>
-        {/* 상단 행: 과목 & 자료함 + 설정 */}
-        <View style={styles.navTopRow}>
-          <TouchableOpacity
-            onPress={onOpenLibrary}
-            style={styles.libraryBtn}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.libraryBtnText}>
-              📚 과목 & 자료함{questionCount > 0 ? ` (${questionCount})` : ''}
-            </Text>
-          </TouchableOpacity>
+      {/* 2. 과목&자료함, 내자료업로드, 설정 1열 가로 배열 */}
+      <View style={styles.navRow}>
+        <TouchableOpacity
+          onPress={onOpenLibrary}
+          style={styles.libraryBtn}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.libraryBtnText} numberOfLines={1}>
+            📚 과목&자료함{questionCount > 0 ? ` (${questionCount})` : ''}
+          </Text>
+        </TouchableOpacity>
 
-          <View style={styles.navRightGroup}>
-            {!hasApiKey && (
-              <TouchableOpacity
-                onPress={onOpenSettings}
-                style={styles.statusPillWarning}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.statusPillText}>⚠️ AI 연결</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={onOpenSettings}
-              style={styles.settingsBtn}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.settingsBtnText}>⚙️ 설정</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 하단 행: 과목자료함과 설정 바로 아래 같은 배열의 내자료업로드 링크 */}
         {onOpenSourceUpload && (
           <TouchableOpacity
             onPress={onOpenSourceUpload}
-            style={styles.sourceUploadLinkBtn}
+            style={styles.sourceUploadBtn}
             activeOpacity={0.8}
           >
-            <View style={styles.sourceUploadLeft}>
-              <Text style={styles.sourceUploadIcon}>📁</Text>
-              <Text style={styles.sourceUploadTitle}>내자료업로드</Text>
-              <Text style={styles.sourceUploadSub}>(PDF · TXT · ZIP 교재 첨부)</Text>
-            </View>
-            <Text style={styles.sourceUploadArrow}>열기 ➔</Text>
+            <Text style={styles.sourceUploadBtnText} numberOfLines={1}>
+              📁 내자료업로드
+            </Text>
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity
+          onPress={onOpenSettings}
+          style={[styles.settingsBtn, !hasApiKey && styles.settingsBtnAlert]}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.settingsBtnText, !hasApiKey && styles.settingsBtnTextAlert]} numberOfLines={1}>
+            ⚙️ 설정{!hasApiKey ? ' ⚠️' : ''}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -104,32 +88,27 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
-  // 2. 통합 네비게이션 영역
-  navContainer: {
+  // 2. 통합 네비게이션 1열 가로 배열 영역
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff7f8',
     borderTopWidth: 1,
     borderTopColor: '#ffe4e6',
-    paddingHorizontal: 14,
-    paddingTop: 9,
-    paddingBottom: 9,
-    gap: 8,
-  },
-  navTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
   },
   libraryBtn: {
-    flex: 1,
+    flex: 1.25,
     backgroundColor: '#ffffff',
     borderWidth: 1.2,
     borderColor: '#fda4af',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: 7.5,
+    paddingHorizontal: 6,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
     shadowColor: '#f43f5e',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -138,21 +117,37 @@ const styles = StyleSheet.create({
   },
   libraryBtnText: {
     color: '#be123c',
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: 'bold',
   },
-  navRightGroup: {
-    flexDirection: 'row',
+  sourceUploadBtn: {
+    flex: 1.1,
+    backgroundColor: '#ffffff',
+    borderWidth: 1.2,
+    borderColor: '#fecdd3',
+    paddingVertical: 7.5,
+    paddingHorizontal: 6,
+    borderRadius: 10,
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  sourceUploadBtnText: {
+    color: '#881337',
+    fontSize: 12,
+    fontWeight: '700',
   },
   settingsBtn: {
+    paddingVertical: 7.5,
+    paddingHorizontal: 9,
     backgroundColor: '#ffffff',
     borderWidth: 1.2,
     borderColor: '#fda4af',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#f43f5e',
@@ -161,61 +156,16 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  settingsBtnAlert: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
+  },
   settingsBtnText: {
     color: '#be123c',
-    fontSize: 12.5,
-    fontWeight: 'bold',
-  },
-  statusPillWarning: {
-    backgroundColor: '#fffbeb',
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#f59e0b',
-  },
-  statusPillText: {
-    color: '#b45309',
-    fontSize: 10.5,
-    fontWeight: 'bold',
-  },
-  // 과목자료함 & 설정 아래 같은 배열의 내자료업로드 링크 바
-  sourceUploadLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 13,
-    borderWidth: 1.2,
-    borderColor: '#fecdd3',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  sourceUploadLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sourceUploadIcon: {
-    fontSize: 14,
-  },
-  sourceUploadTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#881337',
-  },
-  sourceUploadSub: {
-    fontSize: 11,
-    color: '#9f1239',
-  },
-  sourceUploadArrow: {
     fontSize: 11.5,
-    fontWeight: '700',
-    color: '#e11d48',
+    fontWeight: 'bold',
+  },
+  settingsBtnTextAlert: {
+    color: '#b45309',
   },
 });
