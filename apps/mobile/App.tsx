@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StatusBar, ActivityIndicator, LogBox, ScrollView, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StatusBar,
+  ActivityIndicator,
+  LogBox,
+  Dimensions,
+  Animated,
+  PanResponder,
+  Platform,
+} from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { showAlert, registerAlertListener, AlertData } from './src/utils/alert';
 import {
@@ -47,16 +57,163 @@ import { ExamSessionScreen } from './src/features/exam/ExamSessionScreen';
 export default function App() {
   // 0. Book Pager State (0: 메인, 1: 과목자료함, 2: 설정)
   const [currentPage, setCurrentPage] = useState<number>(0);
-  const pagerRef = useRef<ScrollView>(null);
   const [containerWidth, setContainerWidth] = useState<number>(() => {
     return Dimensions.get('window').width || 380;
   });
 
+  const translateX = useRef(new Animated.Value(0)).current;
+  const currentPageRef = useRef(0);
+  const containerWidthRef = useRef(containerWidth);
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
+  useEffect(() => {
+    containerWidthRef.current = containerWidth;
+  }, [containerWidth]);
+
   const goToPage = (page: number, animated = true) => {
     const target = Math.max(0, Math.min(2, page));
     setCurrentPage(target);
-    pagerRef.current?.scrollTo({ x: target * containerWidth, animated });
+    currentPageRef.current = target;
+    const targetOffset = -target * containerWidthRef.current;
+
+    if (animated) {
+      Animated.spring(translateX, {
+        toValue: targetOffset,
+        friction: 9,
+        tension: 50,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start();
+    } else {
+      translateX.setValue(targetOffset);
+    }
   };
+
+  // 터치 기반 실시간 좌우 스와이프 제스처 컨트롤러 (웹 및 모바일 완전 호환)
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const isSwipingHorizontal = useRef<boolean>(false);
+
+  const handleTouchStart = (e: any) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isSwipingHorizontal.current = false;
+  };
+
+  const handleTouchMove = (e: any) => {
+    if (touchStartX.current === null || !e.touches) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current!;
+
+    if (!isSwipingHorizontal.current) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+        isSwipingHorizontal.current = true;
+      }
+    }
+
+    if (isSwipingHorizontal.current) {
+      const currentBase = -currentPageRef.current * containerWidthRef.current;
+      if (currentPageRef.current === 0 && dx > 0) {
+        translateX.setValue(currentBase + dx * 0.18);
+      } else if (currentPageRef.current === 2 && dx < 0) {
+        translateX.setValue(currentBase + dx * 0.18);
+      } else {
+        translateX.setValue(currentBase + dx);
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: any) => {
+    if (isSwipingHorizontal.current && touchStartX.current !== null) {
+      const touch = e.changedTouches ? e.changedTouches[0] : null;
+      const endX = touch ? touch.clientX : touchStartX.current;
+      const dx = endX - touchStartX.current;
+      if (dx < -35 && currentPageRef.current < 2) {
+        goToPage(currentPageRef.current + 1);
+      } else if (dx > 35 && currentPageRef.current > 0) {
+        goToPage(currentPageRef.current - 1);
+      } else {
+        goToPage(currentPageRef.current);
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+    isSwipingHorizontal.current = false;
+  };
+
+  // React Native PanResponder (제스처 캡처 단계에서 수평 스와이프 우선 가로채기)
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.15;
+      },
+      onPanResponderGrant: () => {
+        translateX.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const { dx } = gestureState;
+        const currentBase = -currentPageRef.current * containerWidthRef.current;
+        if (currentPageRef.current === 0 && dx > 0) {
+          translateX.setValue(currentBase + dx * 0.18);
+        } else if (currentPageRef.current === 2 && dx < 0) {
+          translateX.setValue(currentBase + dx * 0.18);
+        } else {
+          translateX.setValue(currentBase + dx);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const { dx, vx } = gestureState;
+        if (dx < -35 || (dx < -15 && vx < -0.25)) {
+          if (currentPageRef.current < 2) {
+            goToPage(currentPageRef.current + 1);
+          } else {
+            goToPage(currentPageRef.current);
+          }
+        } else if (dx > 35 || (dx > 18 && vx > 0.25)) {
+          if (currentPageRef.current > 0) {
+            goToPage(currentPageRef.current - 1);
+          } else {
+            goToPage(currentPageRef.current);
+          }
+        } else {
+          goToPage(currentPageRef.current);
+        }
+      },
+    })
+  ).current;
+
+  // 데스크톱 / 노트북 트랙패드 수평 스크롤 연동
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    let accumulatedDeltaX = 0;
+    let wheelTimer: any = null;
+
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 15) {
+        accumulatedDeltaX += e.deltaX;
+        clearTimeout(wheelTimer);
+        wheelTimer = setTimeout(() => {
+          if (accumulatedDeltaX > 35 && currentPageRef.current < 2) {
+            goToPage(currentPageRef.current + 1);
+          } else if (accumulatedDeltaX < -35 && currentPageRef.current > 0) {
+            goToPage(currentPageRef.current - 1);
+          }
+          accumulatedDeltaX = 0;
+        }, 50);
+      }
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: true });
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      clearTimeout(wheelTimer);
+    };
+  }, []);
 
   // 1. Core Data Hook
   const {
@@ -382,31 +539,26 @@ export default function App() {
 
         {/* 📖 자연스러운 책 넘김 수평 페이저: [0: 메인] -> [1: 과목자료함] -> [2: 설정] */}
         <View
-          style={styles.mainContent}
+          style={[styles.mainContent, { overflow: 'hidden' }]}
           onLayout={(e) => {
             const w = e.nativeEvent.layout.width;
             if (w > 0 && Math.abs(w - containerWidth) > 1) {
               setContainerWidth(w);
+              translateX.setValue(-currentPage * w);
             }
           }}
+          {...panResponder.panHandlers}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          <ScrollView
-            ref={pagerRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            directionalLockEnabled={true}
-            scrollEventThrottle={16}
-            onMomentumScrollEnd={(e) => {
-              const x = e.nativeEvent.contentOffset.x;
-              const page = Math.round(x / containerWidth);
-              if (page >= 0 && page <= 2 && page !== currentPage) {
-                setCurrentPage(page);
-              }
+          <Animated.View
+            style={{
+              flexDirection: 'row',
+              width: containerWidth * 3,
+              flex: 1,
+              transform: [{ translateX }],
             }}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ width: containerWidth * 3 }}
           >
             {/* 1. Page 0: 메인 (맨 왼쪽 고정, 왼쪽으로 더 갈 수 없음) */}
             <View style={{ width: containerWidth, flex: 1 }}>
@@ -497,7 +649,7 @@ export default function App() {
                 onApplyUpdate={appUpdate.applyUpdate}
               />
             </View>
-          </ScrollView>
+          </Animated.View>
 
           {/* AI 출제 및 커리큘럼 생성 대기 전체화면 오버레이 */}
           <LoadingWaitOverlay
