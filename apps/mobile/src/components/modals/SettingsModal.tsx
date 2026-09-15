@@ -7,6 +7,8 @@ import { View, Text, Modal, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlarmConfig } from '../../utils/notifications';
 import { SettingsScreen } from '../../features/settings/SettingsScreen';
+import { BrandHeader } from '../common/BrandHeader';
+import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { appStyles as styles } from '../../styles/appStyles';
 
 export interface SettingsModalProps {
@@ -28,18 +30,41 @@ export interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
+  // 왼쪽으로 스와이프하면 메인 화면으로 복귀
+  const swipeHandlers = useSwipeGesture({
+    onSwipeLeft: props.onClose,
+  });
+
   return (
     <Modal
       visible={props.visible}
       animationType="slide"
       onRequestClose={props.onClose}
     >
-      <SafeAreaView style={styles.fullModalContainer}>
+      <SafeAreaView style={styles.fullModalContainer} {...swipeHandlers}>
+        {/* 상단 어플 이름 터치 시 메인(홈) 화면으로 복귀 */}
+        <BrandHeader
+          onGoHome={props.onClose}
+          subtitle="어플 이름 터치 또는 왼쪽으로 넘기면 메인 홈 복귀"
+        />
+
         <View style={styles.fullModalHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: 20 }}>⚙️</Text>
-            <Text style={styles.fullModalTitle}>환경설정 & AI 모델 관리</Text>
+          {/* 1. 뒤로가기 버튼 */}
+          <TouchableOpacity
+            style={styles.fullModalBackBtn}
+            onPress={props.onClose}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.fullModalBackBtnText}>← 뒤로</Text>
+          </TouchableOpacity>
+
+          {/* 2. 화면 타이틀 */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 18 }}>⚙️</Text>
+            <Text style={styles.fullModalTitle}>환경설정</Text>
           </View>
+
+          {/* 3. 저장 버튼 */}
           <TouchableOpacity
             style={styles.fullModalSaveBtn}
             onPress={props.onSaveSettings}

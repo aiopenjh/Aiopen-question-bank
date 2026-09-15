@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Topic, Source } from '../../contracts/types';
+import { BrandHeader } from '../common/BrandHeader';
 
 interface SourceUploadModalProps {
   visible: boolean;
@@ -43,6 +44,13 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modalCard}>
+          {/* 상단 어플 이름 터치 시 메인(홈) 화면으로 복귀 */}
+          <BrandHeader
+            onGoHome={onClose}
+            subtitle="어플 이름을 누르면 메인 홈으로 돌아갑니다"
+            compact
+          />
+
           {/* 헤더 */}
           <View style={styles.headerRow}>
             <View>
@@ -51,8 +59,8 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                 파일 첨부 시 AI가 분석하여 해당 과목의 맞춤 문제로 출제합니다
               </Text>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Text style={styles.closeBtnText}>✕</Text>
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+              <Text style={styles.closeBtnText}>← 뒤로</Text>
             </TouchableOpacity>
           </View>
 

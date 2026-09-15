@@ -52,7 +52,7 @@ export function usePromptGeneration({
           active: true,
           count: 3,
           title: prompt,
-          message: '⚡ AI 맞춤 문제 출제 중입니다 (약 10초 내외 소요)...',
+          message: '잠시만 기다려 주세요 ✨',
         });
         const intent = analyzeUserIntent(prompt);
         const category = detectCategoryForTopic(`${prompt} ${intent.domain}`);

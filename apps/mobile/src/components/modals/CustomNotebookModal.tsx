@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { QuestionRevision, Topic } from '../../contracts/types';
 import { getCustomNoteQuestionIds, toggleCustomNoteQuestion } from '../../data/db';
+import { BrandHeader } from '../common/BrandHeader';
+import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { styles } from './customNotebookStyles';
 
 export interface CustomNotebookModalProps {
@@ -32,6 +34,11 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
   const [customNoteIds, setCustomNoteIds] = useState<Set<string>>(new Set());
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [expandedExplIds, setExpandedExplIds] = useState<Set<string>>(new Set());
+
+  // 오른쪽으로 넘기면 이전 화면으로 복귀
+  const swipeHandlers = useSwipeGesture({
+    onSwipeRight: onClose,
+  });
 
   // 북마크 ID 로드
   const reloadBookmarks = async () => {
@@ -94,8 +101,14 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} {...swipeHandlers}>
         <StatusBar barStyle="dark-content" />
+
+        {/* 상단 어플 이름 터치 시 메인(홈) 화면으로 복귀 */}
+        <BrandHeader
+          onGoHome={onClose}
+          subtitle="어플 이름 터치 또는 오른쪽으로 넘기면 복귀"
+        />
 
         {/* 상단 조용한 헤더 바 */}
         <View style={styles.header}>
@@ -109,7 +122,7 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
             </Text>
           </View>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-            <Text style={styles.closeBtnText}>닫기 ✕</Text>
+            <Text style={styles.closeBtnText}>← 뒤로가기</Text>
           </TouchableOpacity>
         </View>
 

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { BrandHeader } from '../common/BrandHeader';
 
 export interface UserManualModalProps {
   visible: boolean;
@@ -139,6 +140,13 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modalCard}>
+          {/* 상단 어플 이름 터치 시 메인(홈) 화면으로 복귀 */}
+          <BrandHeader
+            onGoHome={onClose}
+            subtitle="어플 이름을 누르면 메인 홈으로 돌아갑니다"
+            compact
+          />
+
           {/* 모달 헤더 */}
           <View style={styles.headerRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -148,8 +156,8 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
                 <Text style={styles.subtitle}>궁금한 항목을 터치하면 상세 설명이 펼쳐집니다</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Text style={styles.closeBtnText}>✕</Text>
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+              <Text style={styles.closeBtnText}>← 뒤로</Text>
             </TouchableOpacity>
           </View>
 

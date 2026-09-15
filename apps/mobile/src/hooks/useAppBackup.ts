@@ -43,8 +43,13 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         showAlert(
-          '압축 백업 완료',
-          `85~90% 용량이 압축된 백업 파일(${zipFileName})이 다운로드되었습니다.`
+          '압축 백업 및 실전 문제집 생성 완료',
+          `백업 파일(${zipFileName})이 저장되었습니다.\n\n` +
+          `[ZIP 압축 파일 포함 구성]\n` +
+          `1. 📝 [시험지] 인쇄 및 PDF 저장용.html\n   (브라우저에서 열어 인쇄/PDF 저장 가능)\n` +
+          `2. 🎯 [정답지] 정답 및 해설집.html\n   (빠른 정답표 및 상세 해설 수록)\n` +
+          `3. 📄 [텍스트] 문제집_한글워드용.txt\n   (한글 HWP/워드 편집용)\n` +
+          `4. 💾 backup_data.json\n   (앱 데이터 100% 복원용 원본)`
         );
       } else {
         // 모바일 (Android/iOS): 압축 파일 생성 후 공유 시트로 전송 (카톡/메일/클라우드 저장 등)
@@ -57,7 +62,7 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(fileUri, {
             mimeType: 'application/zip',
-            dialogTitle: '학습 데이터 압축 백업 파일 공유/저장',
+            dialogTitle: '학습 데이터 백업 & 인쇄용 문제집 ZIP 공유/저장',
             UTI: 'public.zip-archive',
           });
         } else {

@@ -19,9 +19,9 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
       <View style={styles.compactCard}>
         <View style={styles.compactCardHeader}>
           <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.compactCardTitle}>🛡️ 데이터 백업 및 복원</Text>
+            <Text style={styles.compactCardTitle}>🛡️ 데이터 백업 & 인쇄용 문제집</Text>
             <Text style={styles.compactCardSubtitle}>
-              초경량 ZIP 압축 백업 파일 내보내기 및 자동 복원
+              초경량 ZIP 백업 (A4 인쇄/PDF 시험지 및 정답지 자동 동봉)
             </Text>
           </View>
           <View style={styles.compactBtnGroup}>
@@ -30,7 +30,7 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
               onPress={onExportBackup}
               activeOpacity={0.7}
             >
-              <Text style={styles.miniBtnPrimaryText}>💾 백업</Text>
+              <Text style={styles.miniBtnPrimaryText}>💾 백업/출력</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.miniBtnSecondary}

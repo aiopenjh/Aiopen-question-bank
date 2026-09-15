@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TextInput,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { RoutineRevision } from '../../contracts/types';
 import { DailyInspirationCard } from './DailyInspirationCard';
@@ -36,6 +37,10 @@ interface StudyMapScreenProps {
   // AI 응원 문구 연동
   apiKey?: string;
   topicName?: string;
+
+  // 화면 전환 연동
+  onOpenLibrary?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
@@ -54,8 +59,22 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   isAiGenerating = false,
   apiKey,
   topicName,
+  onOpenLibrary,
+  onOpenSettings,
 }) => {
   const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [showRefreshSuccess, setShowRefreshSuccess] = useState(false);
+  const prevRefreshingRef = useRef(refreshing);
+
+  useEffect(() => {
+    if (prevRefreshingRef.current && !refreshing) {
+      setShowRefreshSuccess(true);
+      const timer = setTimeout(() => setShowRefreshSuccess(false), 2500);
+      return () => clearTimeout(timer);
+    }
+    prevRefreshingRef.current = refreshing;
+  }, [refreshing]);
+
   const targetCount = routine?.targetQuestionCount || 3;
   const progressPercent = Math.min(100, Math.round((todayAttemptsCount / targetCount) * 100));
 
@@ -69,10 +88,11 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   return (
     <ScrollView
       style={styles.tabContent}
-      contentContainerStyle={styles.scrollPadding}
+      contentContainerStyle={[styles.scrollPadding, { flexGrow: 1 }]}
       bounces={true}
       alwaysBounceVertical={true}
       overScrollMode="always"
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       refreshControl={
         onRefresh ? (
@@ -83,10 +103,36 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             tintColor="#f43f5e"
             title="학습 데이터 새로고침 중..."
             titleColor="#be123c"
+            progressBackgroundColor="#ffffff"
+            progressViewOffset={Platform.OS === 'android' ? 20 : 0}
           />
         ) : undefined
       }
     >
+      {/* 🔄 당겨서 새로고침 상태 안내 및 터치 새로고침 바 */}
+      {onRefresh && (
+        <TouchableOpacity
+          style={[
+            styles.pullRefreshNoticeBar,
+            showRefreshSuccess && styles.pullRefreshNoticeBarSuccess,
+          ]}
+          onPress={() => onRefresh()}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.pullRefreshNoticeText,
+              showRefreshSuccess && styles.pullRefreshNoticeTextSuccess,
+            ]}
+          >
+            {refreshing
+              ? '⏳ 최신 학습 현황을 불러오는 중...'
+              : showRefreshSuccess
+              ? '✨ 최신 학습 데이터로 새로고침되었습니다!'
+              : '🔄 화면을 아래로 당기거나 터치하여 새로고침'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* 1. 즉시 AI 문제 출제 바 (설명문 제거 및 직관적 레이아웃) */}
       {onQuickPromptGenerate && (
@@ -208,6 +254,25 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
 
       {/* 4. 건의사항 & 불편한 점 제보 (카카오톡 오픈채팅 직통 연결) */}
       <FeedbackCard />
+
+      {/* 5. 좌우 넘기기(스와이프) 빠른 화면 이동 가이드 */}
+      <View style={styles.swipeGuideRow}>
+        <TouchableOpacity
+          style={styles.swipeGuideBtn}
+          onPress={() => onOpenSettings?.()}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.swipeGuideBtnText}>👉 우측 넘김: [설정]</Text>
+        </TouchableOpacity>
+        <Text style={styles.swipeGuideDivider}>•</Text>
+        <TouchableOpacity
+          style={styles.swipeGuideBtn}
+          onPress={() => onOpenLibrary?.()}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.swipeGuideBtnText}>👈 좌측 넘김: [과목저장]</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 };
@@ -220,6 +285,63 @@ const styles = StyleSheet.create({
   scrollPadding: {
     padding: 18,
     paddingBottom: 40,
+  },
+  swipeGuideRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+  },
+  swipeGuideBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  swipeGuideBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#881337',
+  },
+  swipeGuideDivider: {
+    color: '#fda4af',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  pullRefreshNoticeBar: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1.2,
+    borderColor: '#fda4af',
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  pullRefreshNoticeBarSuccess: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#10b981',
+  },
+  pullRefreshNoticeText: {
+    color: '#9f1239',
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  pullRefreshNoticeTextSuccess: {
+    color: '#065f46',
+    fontWeight: '700',
   },
   heroRoutineCard: {
     backgroundColor: '#ffffff',

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Topic, Unit, QuestionRevision } from '../contracts/types';
 import {
   analyzeUserIntent,
@@ -75,6 +75,18 @@ export function useQuizGeneration({
   const [quizCountModalVisible, setQuizCountModalVisible] = useState(false);
   const [pendingQuizUnit, setPendingQuizUnit] = useState<PendingQuizUnit | null>(null);
 
+  // 문제 출제 취소 제어용 ref
+  const abortRef = useRef(false);
+
+  const handleCancelGeneration = useCallback(() => {
+    abortRef.current = true;
+    setIsGenerating(false);
+    setIsCurriculumGenerating(false);
+    setGeneratingUnitId(null);
+    setGeneratingWaitStatus(null);
+    showAlert('출제 취소', '문제 출제가 취소되었습니다.');
+  }, []);
+
   const handlePromptQuizCount = useCallback(
     (topicId: string, topicName: string, unitId: string, unitTitle: string) => {
       const existingCount = questions.filter(
@@ -94,17 +106,13 @@ export function useQuizGeneration({
       unitTitle: string,
       targetCount: number = 3
     ) => {
+      abortRef.current = false;
       setGeneratingUnitId(unitId);
       setGeneratingWaitStatus({
         active: true,
         count: targetCount,
         title: `${topicName} - ${unitTitle}`,
-        message:
-          targetCount === 3
-            ? '⚡ 3문제를 생성 중입니다 (약 10초 내외 소요)...'
-            : targetCount === 5
-            ? '🎯 5문제를 정밀 출제 중입니다 (약 15~20초 소요)...'
-            : '🏆 10문제 시험지를 출제 중입니다 (약 25~35초 소요)...',
+        message: '잠시만 기다려 주세요 ✨',
       });
       try {
         const scoped = analyzeUserIntent(
@@ -152,6 +160,10 @@ export function useQuizGeneration({
           customContext,
         });
 
+        if (abortRef.current) {
+          return;
+        }
+
         if (outcome.status === 'NEEDS_CONNECTION') {
           showAlert(
             '⚠️ AI 출제 엔진 연결 필요',
@@ -183,7 +195,9 @@ export function useQuizGeneration({
         onCloseLibrary?.();
         startExam(outcome.questions);
       } catch (err: any) {
-        showAlert('오류', `단원 문제 출제 실패: ${err?.message || '네트워크 응답 오류'}`);
+        if (!abortRef.current) {
+          showAlert('오류', `단원 문제 출제 실패: ${err?.message || '네트워크 응답 오류'}`);
+        }
       } finally {
         setGeneratingUnitId(null);
         setGeneratingWaitStatus(null);
@@ -220,12 +234,13 @@ export function useQuizGeneration({
         existingTitles = [],
       } = options || {};
 
+      abortRef.current = false;
       setIsCurriculumGenerating(true);
       setGeneratingWaitStatus({
         active: true,
         count: 0,
         title: `${topicName} 5단계 목차`,
-        message: '✨ AI가 공인 표준 교육과정에 기반한 5단계 목차를 설계 중입니다 (약 5~10초 소요)...',
+        message: '잠시만 기다려 주세요 ✨',
       });
       try {
         const generatedUnits = await generateCurriculumUnits({
@@ -234,6 +249,10 @@ export function useQuizGeneration({
           stageName,
           existingUnitTitles: existingTitles,
         });
+
+        if (abortRef.current) {
+          return;
+        }
 
         if (shouldReplace) {
           await replaceTopicUnits(topicId, generatedUnits);
@@ -450,12 +469,13 @@ export function useQuizGeneration({
 ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existingSummary}` : ''}
 3. [품질 및 해설]: 각 문항마다 오답 선지가 왜 틀렸는지와 정답의 핵심 원리를 명쾌하게 해설하세요.`;
 
+    abortRef.current = false;
     setIsGenerating(true);
     setGeneratingWaitStatus({
       active: true,
       count: 3,
       title: `${currentTopic.name} 추가 학습`,
-      message: '⚡ 같은 개념 범위에서 새로운 문제를 출제 중입니다 (약 10초 내외 소요)...',
+      message: '잠시만 기다려 주세요 ✨',
     });
 
     try {
@@ -486,6 +506,10 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         customContext,
       });
 
+      if (abortRef.current) {
+        return;
+      }
+
       if (outcome.status === 'NEEDS_CONNECTION') {
         showAlert(
           'API 키 미등록',
@@ -502,17 +526,10 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       }
 
       if (outcome.status === 'FAILED') {
-        showAlert(
-          '문제 생성 실패',
-          `새로운 문제를 만들지 못했습니다.\n(${outcome.message})\n\n기존에 학습했던 문제를 복습하시겠습니까?`,
-          [
-            { text: '취소', style: 'cancel' },
-            { text: '설정 열기', onPress: onOpenSettings },
-            ...(existingQuestions.length > 0
-              ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
-              : []),
-          ]
-        );
+        showAlert('AI 출제 실패', outcome.message, [
+          { text: '닫기', style: 'cancel' },
+          { text: '설정 열기', onPress: onOpenSettings },
+        ]);
         return;
       }
 
@@ -587,5 +604,6 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     handleApplyScaffolding,
     handleGenerateCurriculumForTopic,
     handleDeduplicateUnits,
+    handleCancelGeneration,
   };
 }

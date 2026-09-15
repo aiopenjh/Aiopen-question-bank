@@ -7,6 +7,7 @@ interface HeaderProps {
   onOpenLibrary: () => void;
   onOpenSettings: () => void;
   onOpenSourceUpload?: () => void;
+  onGoHome?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,14 +16,24 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLibrary,
   onOpenSettings,
   onOpenSourceUpload,
+  onGoHome,
 }) => {
   return (
     <View style={styles.headerContainer}>
-      {/* 1. 어플 이름 독립 공간 (최상단) */}
-      <View style={styles.brandSection}>
-        <Text style={styles.appTitle}>Celueste ✨</Text>
-        <Text style={styles.appSubtitle}>나만의 맞춤형 CBT 학습 엔진</Text>
-      </View>
+      {/* 1. 어플 이름 독립 공간 (최상단 - 누르면 언제든 메인 홈으로 복귀) */}
+      <TouchableOpacity
+        style={styles.brandSection}
+        onPress={onGoHome}
+        activeOpacity={0.7}
+      >
+        <View style={styles.titleRow}>
+          <Text style={styles.appTitle}>Celueste ✨</Text>
+          <View style={styles.homeBadge}>
+            <Text style={styles.homeBadgeText}>🏠 홈</Text>
+          </View>
+        </View>
+        <Text style={styles.appSubtitle}>나만의 맞춤형 CBT 학습 엔진 (터치 시 홈으로 이동)</Text>
+      </TouchableOpacity>
 
       {/* 2. 과목&자료함, 내자료업로드, 설정 1열 가로 배열 */}
       <View style={styles.navRow}>
@@ -76,11 +87,30 @@ const styles = StyleSheet.create({
     paddingBottom: 9,
     backgroundColor: '#ffffff',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   appTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#881337',
     letterSpacing: 0.3,
+  },
+  homeBadge: {
+    backgroundColor: '#ffe4e6',
+    borderWidth: 1,
+    borderColor: '#fda4af',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  homeBadgeText: {
+    color: '#be123c',
+    fontSize: 11,
+    fontWeight: '700',
   },
   appSubtitle: {
     fontSize: 11,

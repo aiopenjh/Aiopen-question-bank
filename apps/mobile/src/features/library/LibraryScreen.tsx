@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { Source, QuestionRevision, Topic, Unit, ManualCompletion, ReviewState } from '../../contracts/types';
 import { styles } from './libraryStyles';
@@ -103,10 +104,11 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
     <>
       <ScrollView
         style={styles.tabContent}
-        contentContainerStyle={styles.scrollPadding}
+        contentContainerStyle={[styles.scrollPadding, { flexGrow: 1 }]}
         bounces={true}
         alwaysBounceVertical={true}
         overScrollMode="always"
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           onRefresh ? (
             <RefreshControl
@@ -116,6 +118,8 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
               tintColor="#f43f5e"
               title="학습 데이터 새로고침 중..."
               titleColor="#be123c"
+              progressBackgroundColor="#ffffff"
+              progressViewOffset={Platform.OS === 'android' ? 20 : 0}
             />
           ) : undefined
         }

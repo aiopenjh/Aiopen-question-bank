@@ -41,20 +41,76 @@ export function base64ToU8(base64: string): Uint8Array {
   return bytes.subarray(0, p);
 }
 
+import {
+  generateExamSheetHtml,
+  generateAnswerSheetHtml,
+  generateExamSheetTxt,
+} from './examSheetExport';
+
 /**
  * JSON 문자열을 85~90% 압축된 .zip 아카이브 바이너리(Uint8Array)로 변환
+ * - 앱 복원용 원본(backup_data.json) 100% 보존
+ * - PC에서 A4 인쇄 및 PDF 저장이 가능한 예쁜 HTML 시험지/해설지 및 텍스트 파일 함께 동봉
  */
 export function compressBackupToZip(jsonString: string): Uint8Array {
   const dateStr = new Date().toISOString().slice(0, 10);
-  const readmeText = `[Celueste AI 문제은행 안전 백업 아카이브]
-생성 일자: ${dateStr}
-포맷: ZIP 압축 아카이브 (앱에서 파일 선택 시 자동으로 압축이 풀려 복원됩니다.)
-내부 파일: backup_data.json`;
 
-  return zipSync({
+  let topics: any[] = [];
+  let units: any[] = [];
+  let questions: any[] = [];
+
+  try {
+    const parsed = JSON.parse(jsonString);
+    topics = parsed.topics || [];
+    units = parsed.units || [];
+    questions = parsed.questions || [];
+  } catch {
+    // JSON 파싱 실패 시 원본만 패키징
+  }
+
+  const zipEntries: Record<string, Uint8Array> = {
     'backup_data.json': strToU8(jsonString),
-    'README.txt': strToU8(readmeText),
-  });
+  };
+
+  // 문제 데이터가 보관되어 있는 경우: 인쇄/PDF용 실전 시험지와 해설지, 텍스트본 생성하여 함께 압축
+  if (questions.length > 0) {
+    const examHtml = generateExamSheetHtml(topics, units, questions, dateStr);
+    const answerHtml = generateAnswerSheetHtml(topics, units, questions, dateStr);
+    const examTxt = generateExamSheetTxt(topics, units, questions, dateStr);
+
+    zipEntries['1. [시험지] 인쇄 및 PDF 저장용.html'] = strToU8(examHtml);
+    zipEntries['2. [정답지] 정답 및 해설집.html'] = strToU8(answerHtml);
+    zipEntries['3. [텍스트] 문제집_한글워드용.txt'] = strToU8(examTxt);
+  }
+
+  const topicSummary = topics.map((t: any) => t.name).join(', ') || '전체';
+  const readmeText = `========================================================================
+[ Celueste AI 학습 데이터 백업 & 실전 문제집 올인원 패키지 ]
+========================================================================
+생성 일자: ${dateStr}
+보관 문항수: 총 ${questions.length}문항 (과목: ${topicSummary})
+
+[ 📂 내부 파일 안내 및 활용법 ]
+1. "1. [시험지] 인쇄 및 PDF 저장용.html"
+   - 컴퓨터에서 더블클릭하면 크롬/엣지 브라우저에서 실제 시험지 양식으로 열립니다.
+   - 키보드의 'Ctrl + P'를 누르시면 A4 용지로 바로 인쇄하거나 [PDF로 저장]할 수 있습니다!
+   - 정답과 해설이 가려져 있어 실제 시험처럼 종이에 풀어볼 수 있습니다.
+
+2. "2. [정답지] 정답 및 해설집.html"
+   - 빠른 정답 확인표 및 각 문항별 심층 해설이 깔끔하게 정리되어 있습니다.
+   - 역시 'Ctrl + P'로 해설집 PDF 저장 및 인쇄가 가능합니다.
+
+3. "3. [텍스트] 문제집_한글워드용.txt"
+   - 한글(HWP)이나 MS Word에 그대로 복사해서 나만의 시험지로 편집할 수 있습니다.
+
+4. "backup_data.json"
+   - Celueste 앱의 원본 데이터베이스입니다.
+   - 이 ZIP 파일 자체를 앱의 [설정 ➔ 복원]에서 선택하시면 1초 만에 스마트폰 앱으로 복원됩니다.
+========================================================================`;
+
+  zipEntries['README.txt'] = strToU8(readmeText);
+
+  return zipSync(zipEntries);
 }
 
 /**

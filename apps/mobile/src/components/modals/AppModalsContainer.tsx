@@ -95,6 +95,7 @@ export interface AppModalsContainerProps {
     title?: string;
     message?: string;
   } | null;
+  onCancelGeneration?: () => void;
 
   // 9. AppAlertModal
   appAlert: AlertData | null;
@@ -148,6 +149,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   isUserManualOpen,
   onCloseUserManual,
   generatingWaitStatus,
+  onCancelGeneration,
   appAlert,
   onCloseAlert,
 }) => {
@@ -228,7 +230,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
       {/* AI 문제 출제 대기 안내 모달 */}
       {generatingWaitStatus?.active && (
         <Modal visible transparent animationType="fade">
-          <LoadingWaitOverlay status={generatingWaitStatus} />
+          <LoadingWaitOverlay status={generatingWaitStatus} onCancel={onCancelGeneration} />
         </Modal>
       )}
 

@@ -31,6 +31,7 @@ import { useQuizGeneration } from './src/hooks/useQuizGeneration';
 import { usePromptGeneration } from './src/hooks/usePromptGeneration';
 import { useSourceManager } from './src/hooks/useSourceManager';
 import { useAppBackup } from './src/hooks/useAppBackup';
+import { useSwipeGesture } from './src/hooks/useSwipeGesture';
 
 // Clean Modular Components & Feature Screens
 import { Header } from './src/components/common/Header';
@@ -183,6 +184,7 @@ export default function App() {
     handleApplyScaffolding,
     handleGenerateCurriculumForTopic,
     handleDeduplicateUnits,
+    handleCancelGeneration,
   } = useQuizGeneration({
     apiKey,
     topics,
@@ -292,6 +294,19 @@ export default function App() {
     startExam(incorrect);
   };
 
+  // 어플 이름 터치 시 메인(홈) 화면으로 완전 복귀
+  const handleGoHome = () => {
+    setIsLibraryOpen(false);
+    setIsSettingsOpen(false);
+    setIsSourceUploadModalOpen(false);
+    setIsUserManualOpen(false);
+    setTopicModalVisible(false);
+    setUnitModalVisible(false);
+    setIsTopicSelectModalVisible(false);
+    setIsUnitSelectModalVisible(false);
+    handlePullRefresh();
+  };
+
   // -------------------------------------------------------------
   // Render
   // -------------------------------------------------------------
@@ -327,6 +342,13 @@ export default function App() {
     ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
     : incorrectQuestions;
 
+  // 메인 화면 좌/우 넘기기(스와이프) 제스처
+  // 왼쪽으로 넘기면(←) 과목저장, 오른쪽으로 넘기면(→) 설정창
+  const mainSwipeHandlers = useSwipeGesture({
+    onSwipeLeft: () => setIsLibraryOpen(true),
+    onSwipeRight: () => setIsSettingsOpen(true),
+  });
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
@@ -338,9 +360,10 @@ export default function App() {
           onOpenLibrary={() => setIsLibraryOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSourceUpload={() => setIsSourceUploadModalOpen(true)}
+          onGoHome={handleGoHome}
         />
 
-        <View style={styles.mainContent}>
+        <View style={styles.mainContent} {...mainSwipeHandlers}>
           <StudyMapScreen
             routine={routine}
             todayAttemptsCount={todayAttempts.length}
@@ -357,6 +380,8 @@ export default function App() {
             isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
             apiKey={apiKey}
             topicName={topics.find((t) => t.id === (selectedTopicId || lastStudiedTopicId))?.name}
+            onOpenLibrary={() => setIsLibraryOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         </View>
 
@@ -397,6 +422,7 @@ export default function App() {
           incorrectQuestions={incorrectQuestions}
           reviewStates={reviewStates}
           onOpenSourceModal={() => setIsSourceUploadModalOpen(true)}
+          onCancelGeneration={handleCancelGeneration}
         />
 
         {/* ⚙️ 환경설정 새창 팝업 모달 */}
@@ -484,6 +510,7 @@ export default function App() {
           isUserManualOpen={isUserManualOpen}
           onCloseUserManual={() => setIsUserManualOpen(false)}
           generatingWaitStatus={generatingWaitStatus}
+          onCancelGeneration={handleCancelGeneration}
           appAlert={appAlert}
           onCloseAlert={() => setAppAlert(null)}
         />
