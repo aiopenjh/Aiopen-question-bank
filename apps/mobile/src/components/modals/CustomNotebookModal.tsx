@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { QuestionRevision, Topic } from '../../contracts/types';
 import { getCustomNoteQuestionIds, toggleCustomNoteQuestion } from '../../data/db';
-import { BrandHeader } from '../common/BrandHeader';
 import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { styles } from './customNotebookStyles';
 
@@ -103,12 +102,6 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea} {...swipeHandlers}>
         <StatusBar barStyle="dark-content" />
-
-        {/* 상단 어플 이름 터치 시 메인(홈) 화면으로 복귀 */}
-        <BrandHeader
-          onGoHome={onClose}
-          subtitle="어플 이름 터치 또는 오른쪽으로 넘기면 복귀"
-        />
 
         {/* 상단 조용한 헤더 바 */}
         <View style={styles.header}>

@@ -8,7 +8,6 @@ import {
   ScrollView,
 } from 'react-native';
 import { Topic, Unit, QuestionRevision } from '../../contracts/types';
-import { BrandHeader } from '../common/BrandHeader';
 
 export interface UnitSelectModalProps {
   visible: boolean;
@@ -40,13 +39,6 @@ export const UnitSelectModal: React.FC<UnitSelectModalProps> = ({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modalCard}>
-          {/* 상단 어플 이름 터치 시 메인(홈) 화면으로 복귀 */}
-          <BrandHeader
-            onGoHome={onClose}
-            subtitle="어플 이름을 누르면 메인 홈으로 돌아갑니다"
-            compact
-          />
-
           {/* 헤더 */}
           <View style={styles.header}>
             <Text style={styles.badge}>🎯 실전 출제 영역 선택</Text>
