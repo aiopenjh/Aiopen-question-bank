@@ -17,7 +17,7 @@ $buildLabelMatch = [regex]::Match($buildInfoText, "buildLabel:\s*'([^']+)'")
 if (-not ($versionMatch.Success -and $buildTimeMatch.Success -and $buildLabelMatch.Success)) {
     throw "오류: buildInfo.ts에서 배포 버전 정보를 읽지 못했습니다."
 }
-@{
+[ordered]@{
     version = $versionMatch.Groups[1].Value
     buildTime = $buildTimeMatch.Groups[1].Value
     buildLabel = $buildLabelMatch.Groups[1].Value
