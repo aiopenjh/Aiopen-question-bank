@@ -7,7 +7,9 @@ import { useState } from 'react';
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
-import { PDFDocument } from 'pdf-lib';
+// The bundled ESM build avoids Metro's production-only interop failure in pdf-lib's
+// unbundled tslib dependency while keeping PDF work local to the device.
+import { PDFDocument } from 'pdf-lib/dist/pdf-lib.esm.js';
 import {
   AiDocumentInput,
   Source,
