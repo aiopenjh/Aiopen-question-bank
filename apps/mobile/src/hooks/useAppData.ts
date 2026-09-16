@@ -20,7 +20,7 @@ import {
   getRoutine,
   saveRoutine,
   getTopics,
-  createTopic,
+  createTopicWithUnits,
   deleteTopic,
   getUnits,
   createUnit,
@@ -39,6 +39,7 @@ import {
   saveLastStudiedTopicId,
 } from '../data/db';
 import { generateCurriculumUnits } from '../domain/generator';
+import { GeneratedUnitItem } from '../domain/curriculum_generator';
 import {
   AlarmConfig,
   DEFAULT_ALARM_CONFIG,
@@ -144,47 +145,37 @@ export function useAppData(callbacks?: {
     options?: {
       autoCurriculum?: boolean;
       learnerLevel?: LearnerKnowledgeLevel;
+      difficultyLevel?: number;
       category?: string;
       customUnits?: string[];
     }
   ) {
     const categoryName = options?.category?.trim() || '📚 일반';
-    const created = await createTopic(name, description, categoryName, options?.learnerLevel);
+    let generatedUnits: GeneratedUnitItem[] = [];
 
-    let generatedCount = 0;
-    if (options?.customUnits && options.customUnits.length > 0) {
-      for (const title of options.customUnits) {
-        const cleanTitle = title.trim();
-        if (cleanTitle) {
-          await createUnit({
-            topicId: created.id,
-            title: cleanTitle,
-            depth: 1,
-          });
-          generatedCount++;
-        }
-      }
-    } else if (options?.autoCurriculum !== false) {
-      try {
-        const generatedUnits = await generateCurriculumUnits({
-          topicName: name,
-          topicDescription: description,
-          category: categoryName,
-          learnerLevel: options?.learnerLevel,
-        });
-
-        for (const u of generatedUnits) {
-          await createUnit({
-            topicId: created.id,
-            title: u.title,
-            depth: u.depth,
-          });
-        }
-        generatedCount = generatedUnits.length;
-      } catch (err) {
-        console.warn('단원 자동 생성 중 오류:', err);
-      }
+    // AI 주제 판정과 목차 검증이 끝나기 전에는 과목을 저장하지 않습니다.
+    if ((!options?.customUnits || options.customUnits.length === 0) && options?.autoCurriculum !== false) {
+      generatedUnits = await generateCurriculumUnits({
+        topicName: name,
+        topicDescription: description,
+        category: categoryName,
+        learnerLevel: options?.learnerLevel,
+        difficultyLevel: options?.difficultyLevel,
+      });
     }
+
+    const unitsToCreate = options?.customUnits && options.customUnits.length > 0
+      ? options.customUnits.map((title) => ({ title, depth: 1 as const }))
+      : generatedUnits;
+    const { topic: created, units: createdUnits } = await createTopicWithUnits({
+      name,
+      description,
+      category: categoryName,
+      learnerLevel: options?.learnerLevel,
+      difficultyLevel: options?.difficultyLevel,
+      units: unitsToCreate,
+    });
+    const generatedCount = createdUnits.length;
 
     const [updatedTopics, updatedUnits] = await Promise.all([getTopics(), getUnits()]);
     setTopics(updatedTopics);
@@ -238,12 +229,57 @@ export function useAppData(callbacks?: {
   }
 
   async function handleDeleteUnit(unitId: string) {
-    await deleteUnit(unitId);
-    const updatedUnits = await getUnits();
-    setUnits(updatedUnits);
-    if (selectedUnitId === unitId) {
-      setSelectedUnitId(null);
+    const unit = units.find((item) => item.id === unitId);
+    if (!unit) return;
+    const childIds = new Set([unitId]);
+    let foundChild = true;
+    while (foundChild) {
+      foundChild = false;
+      for (const item of units) {
+        if (item.parentId && childIds.has(item.parentId) && !childIds.has(item.id)) {
+          childIds.add(item.id);
+          foundChild = true;
+        }
+      }
     }
+    const questionCount = questions.filter(
+      (question) => question.unitId && childIds.has(question.unitId)
+    ).length;
+
+    showAlert(
+      '⚠️ 단원 전체 영구 삭제',
+      `[${unit.title}] 단원과 하위 단원, 저장된 문제 ${questionCount}개 및 관련 풀이 기록이 모두 영구 삭제됩니다.\n\n삭제 후에는 복구할 수 없습니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '단원 전체 삭제',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteUnit(unitId);
+              const [nextUnits, nextQuestions, nextIncorrect, nextCompletions, nextReviewStates] =
+                await Promise.all([
+                  getUnits(),
+                  getQuestions(),
+                  getIncorrectQuestions(),
+                  getManualCompletions(),
+                  getReviewStates(),
+                ]);
+              setUnits(nextUnits);
+              setQuestions(nextQuestions);
+              setIncorrectQuestions(nextIncorrect);
+              setCompletions(nextCompletions);
+              setReviewStates(nextReviewStates);
+              if (selectedUnitId && childIds.has(selectedUnitId)) {
+                setSelectedUnitId(null);
+              }
+            } catch (error: any) {
+              showAlert('삭제 실패', error?.message || '단원을 삭제하지 못했습니다.');
+            }
+          },
+        },
+      ]
+    );
   }
 
   async function handleToggleUnitCompletion(unitId: string) {

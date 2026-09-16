@@ -39,6 +39,7 @@ import {
 export {
   getTopics,
   createTopic,
+  createTopicWithUnits,
   addTopic,
   deleteTopic,
   getUnits,
@@ -56,6 +57,7 @@ export {
   markUnitAsCompleted,
   getQuestions,
   addQuestions,
+  saveQuestionsForUnit,
   deleteQuestion,
   deleteQuestionsForUnit,
   getCustomNoteQuestionIds,
@@ -312,14 +314,26 @@ export async function saveGeminiApiKey(key: string): Promise<void> {
   await saveEncryptedApiKey(key);
 }
 
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
+
+export function isSupportedGeminiModel(model: string): boolean {
+  const match = model.trim().toLowerCase().match(/^gemini-(\d+)(?:\.(\d+))?(?:-|$)/);
+  if (!match) return false;
+
+  const major = Number(match[1]);
+  const minor = Number(match[2] ?? 0);
+  return major > 3 || (major === 3 && minor >= 5);
+}
+
 export async function getPreferredAiModel(): Promise<string> {
   const model = await AsyncStorage.getItem(STORAGE_KEYS.PREFERRED_MODEL);
-  if (!model || model.includes('1.5') || model.includes('2.0') || model.includes('2.5') || model.includes('3.0')) {
-    return 'gemini-3.5-flash';
-  }
-  return model;
+  return model && isSupportedGeminiModel(model) ? model.trim() : DEFAULT_GEMINI_MODEL;
 }
 
 export async function savePreferredAiModel(model: string): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.PREFERRED_MODEL, model.trim());
+  const normalizedModel = model.trim();
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.PREFERRED_MODEL,
+    isSupportedGeminiModel(normalizedModel) ? normalizedModel : DEFAULT_GEMINI_MODEL
+  );
 }

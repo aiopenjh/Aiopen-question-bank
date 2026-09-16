@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Unit, QuestionRevision } from '../contracts/types';
+import { Topic, Unit, QuestionRevision } from '../contracts/types';
 import { generateCurriculumUnits } from '../domain/generator';
 import {
   getUnits,
@@ -8,8 +8,17 @@ import {
   deduplicateTopicUnits,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
+import { StudyIntentResolutionError } from '../domain/intent';
+
+function formatIntentMessage(error: StudyIntentResolutionError): string {
+  if (error.clarificationChoices.length === 0) return error.message;
+  return `${error.message}\n\n가능한 해석:\n${error.clarificationChoices
+    .map((choice) => `• ${choice}`)
+    .join('\n')}`;
+}
 
 export interface UseCurriculumManagerProps {
+  topics: Topic[];
   units: Unit[];
   questions: QuestionRevision[];
   setUnits: (units: Unit[]) => void;
@@ -37,6 +46,7 @@ export interface UseCurriculumManagerReturn {
 }
 
 export function useCurriculumManager({
+  topics,
   units,
   questions,
   setUnits,
@@ -45,9 +55,12 @@ export function useCurriculumManager({
 }: UseCurriculumManagerProps): UseCurriculumManagerReturn {
   const [isCurriculumGenerating, setIsCurriculumGenerating] = useState(false);
   const abortRef = useRef(false);
+  const requestControllerRef = useRef<AbortController | null>(null);
 
   const cancelCurriculumGeneration = useCallback(() => {
     abortRef.current = true;
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
     setIsCurriculumGenerating(false);
     setGeneratingWaitStatus(null);
   }, [setGeneratingWaitStatus]);
@@ -71,19 +84,25 @@ export function useCurriculumManager({
       } = options || {};
 
       abortRef.current = false;
+      const requestController = new AbortController();
+      requestControllerRef.current = requestController;
       setIsCurriculumGenerating(true);
       setGeneratingWaitStatus({
         active: true,
         count: 0,
-        title: `${topicName} 5단계 목차`,
+        title: `${topicName} 5개 단원 목차`,
         message: '잠시만 기다려 주세요 ✨',
       });
       try {
+        const currentTopic = topics.find((topic) => topic.id === topicId);
         const generatedUnits = await generateCurriculumUnits({
           topicName,
+          learnerLevel: currentTopic?.learnerLevel,
+          difficultyLevel: currentTopic?.difficultyLevel,
           startUnitIndex,
           stageName,
           existingUnitTitles: existingTitles,
+          signal: requestController.signal,
         });
 
         if (abortRef.current) {
@@ -117,17 +136,28 @@ export function useCurriculumManager({
         } else {
           showAlert(
             '목차 생성 완료',
-            `[${topicName}]의 1단계(01~05단원) 필수 과정이 구성되었습니다.\n\n각 단원의 [출제 / 풀기]를 눌러 문제를 학습해 보세요!`
+            `[${topicName}]의 01~05단원 필수 과정이 구성되었습니다.\n\n각 단원의 [출제 / 풀기]를 눌러 문제를 학습해 보세요!`
           );
         }
       } catch (err: any) {
-        showAlert('오류', `AI 커리큘럼 생성 실패: ${err?.message || '알 수 없는 오류'}`);
+        if (abortRef.current) return;
+        if (err instanceof StudyIntentResolutionError) {
+          showAlert(
+            err.status === 'NEEDS_CLARIFICATION' ? '주제 확인 필요' : '입력 확인 필요',
+            formatIntentMessage(err)
+          );
+        } else {
+          showAlert('오류', `AI 커리큘럼 생성 실패: ${err?.message || '알 수 없는 오류'}`);
+        }
       } finally {
+        if (requestControllerRef.current === requestController) {
+          requestControllerRef.current = null;
+        }
         setIsCurriculumGenerating(false);
         setGeneratingWaitStatus(null);
       }
     },
-    [setUnits, setGeneratingWaitStatus]
+    [topics, setUnits, setGeneratingWaitStatus]
   );
 
   const handleGenerateCurriculumForTopic = useCallback(
@@ -135,7 +165,7 @@ export function useCurriculumManager({
       const existing = units.filter((u) => u.topicId === topicId);
       const topicQuestions = questions.filter((q) => q.topicId === topicId);
 
-      // 단원이 아직 없거나 1개뿐인 경우 -> 1단계(01~05단원) 즉시 생성
+      // 단원이 아직 없거나 1개뿐인 경우 -> 01~05단원 즉시 생성
       if (existing.length <= 1) {
         await executeCurriculumGeneration(topicId, topicName, {
           startUnitIndex: 1,
@@ -150,10 +180,10 @@ export function useCurriculumManager({
       const startPad = String(nextStartIndex).padStart(2, '0');
       const endPad = String(nextStartIndex + 4).padStart(2, '0');
 
-      // 30단원 이상 도달 시: 30단계 마스터 축하 및 계속 추가 생성 선택 제공
+      // 30단원 이상 도달 시에도 계속 추가 생성 선택 제공
       if (existing.length >= 30) {
         showAlert(
-          '👑 30단계 초정밀 마스터 커리큘럼 완성',
+          '👑 30단원 학습 목차 완성',
           `[${topicName}]의 입문부터 실전 프로젝트까지 총 ${existing.length}개의 촘촘한 마이크로 커리큘럼이 완성되었습니다!\n\n현재 총 ${topicQuestions.length}문항이 저장되어 있습니다. 추가 단원을 더 생성하시겠습니까, 아니면 전체 CBT 모의고사를 보시겠습니까?`,
           [
             { text: '닫기', style: 'cancel' },
@@ -176,7 +206,7 @@ export function useCurriculumManager({
                 }),
             },
             {
-              text: '처음부터 1단계로 새로고침',
+              text: '처음 5개 단원으로 재구성',
               style: 'destructive',
               onPress: () =>
                 executeCurriculumGeneration(topicId, topicName, {
@@ -225,7 +255,7 @@ export function useCurriculumManager({
               }),
           },
           {
-            text: '1단계부터 새로고침',
+            text: '처음 5개 단원으로 재구성',
             style: 'destructive',
             onPress: () =>
               executeCurriculumGeneration(topicId, topicName, {

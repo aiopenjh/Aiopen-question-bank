@@ -64,7 +64,7 @@
 | **커리큘럼 훅** | `apps/mobile/src/hooks/useCurriculumManager.ts` | 5단계/30단계 마이크로 목차 자동 생성, 단계별 목차 확장, 단원 중복 정리 전담 |
 | **문제출제 훅** | `apps/mobile/src/hooks/useQuizGeneration.ts` | 단원별 문제 출제, 문항 수 선택, 추가 자율 학습, 오답 비계 풀이 전담 |
 | **출제 프롬프트** | `apps/mobile/src/domain/prompts.ts` | 공인 시험 출제위원 프롬프트, 도메인 고정, 교차 충돌 우선순위, 9대 헌법 정의 |
-| **AI 통신 엔진** | `apps/mobile/src/domain/ai_client.ts` | Gemini(3.5/2.5/2.0 캐스케이드 및 타임아웃 방어), Claude 3.5 Sonnet(`sk-ant-`), OpenAI GPT-4o(`sk-`) 멀티 프로바이더 통합 |
+| **AI 통신 엔진** | `apps/mobile/src/domain/ai_client.ts` | Gemini 3.5 이상 모델 내 캐스케이드 및 타임아웃 방어, Claude 3.5 Sonnet(`sk-ant-`), OpenAI GPT-4o(`sk-`) 멀티 프로바이더 통합 |
 | **출제 파이프라인**| `apps/mobile/src/domain/generator.ts` | 문제 출제 오케스트레이션, JSON 무결성 검증, Fisher-Yates 정답 분산 호출 |
 | **정답 셔플러** | `apps/mobile/src/domain/question_distribution.ts` | 4지선다 정답 위치(0~3) 균등 무작위 분산 및 연속 정답 방지 수학적 알고리즘 |
 | **영구 저장소** | `apps/mobile/src/data/db.ts` | 과목(Topic - `learnerLevel` 보존), 단원(Unit), 문제(Question), 오답노트, API 키 영구 보관 (AsyncStorage) |

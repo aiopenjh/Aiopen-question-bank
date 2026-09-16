@@ -72,9 +72,12 @@ export function sendWebNotification(title: string, body: string, onClick?: () =>
   }
   if (Notification.permission === 'granted') {
     try {
+      const webBasePath = window.location.pathname.includes('/Aiopen-question-bank')
+        ? '/Aiopen-question-bank'
+        : '';
       const n = new Notification(title, {
         body,
-        icon: '/favicon.ico',
+        icon: `${webBasePath}/app-icon-192.png`,
       });
       if (onClick) {
         n.onclick = () => {
@@ -224,7 +227,7 @@ export async function scheduleWeekdayStudyAlarms(customConfig?: AlarmConfig): Pr
         await Notifications.scheduleNotificationAsync({
           content: {
             title: `🌸 [Celueste] ${dayName}요일 오전 ${config.morningHour}시 문제 풀이 시간!`,
-            body: '오늘 복습 일정을 확인하고 학습을 시작해 보세요! (터치하여 바로 시작)',
+            body: '오늘 학습할 과목과 단원을 선택해 보세요.',
             data: { action: 'START_STUDY', timeSlot: 'morning' },
             sound: true,
             channelId: 'default',
@@ -246,7 +249,7 @@ export async function scheduleWeekdayStudyAlarms(customConfig?: AlarmConfig): Pr
         await Notifications.scheduleNotificationAsync({
           content: {
             title: `🌙 [Celueste] ${dayName}요일 저녁 ${displayHour}시 집중 복습 시간!`,
-            body: '오늘 복습 일정부터 차분하게 마무리해 보세요! (터치하여 바로 시작)',
+            body: '오늘 학습할 과목과 단원을 선택해 보세요.',
             data: { action: 'START_STUDY', timeSlot: 'evening' },
             sound: true,
             channelId: 'default',
@@ -275,19 +278,36 @@ export async function scheduleWeekdayStudyAlarms(customConfig?: AlarmConfig): Pr
 }
 
 /**
- * 알람 탭 반응 리스너 등록 (터치 시 문제 풀이 즉시 실행)
+ * 알람 탭 반응 리스너 등록 (터치 시 과목/단원 선택 화면 열기)
  */
-export function registerNotificationResponseListener(onStartExam: () => void): () => void {
+export function registerNotificationResponseListener(onOpenStudySelection: () => void): () => void {
   if (Platform.OS === 'web' || !Notifications) {
     return () => {};
   }
 
-  const subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
+  const handledResponseIds = new Set<string>();
+  const handleResponse = (response: any) => {
     const data = response.notification.request.content.data;
-    if (data?.action === 'START_STUDY' || data?.action === 'START_EXAM') {
-      onStartExam();
+    const responseId = response.notification.request.identifier;
+    if (
+      !handledResponseIds.has(responseId) &&
+      (data?.action === 'START_STUDY' || data?.action === 'START_EXAM')
+    ) {
+      handledResponseIds.add(responseId);
+      onOpenStudySelection();
     }
-  });
+  };
+
+  const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+  void Notifications.getLastNotificationResponseAsync()
+    .then(async (response: any) => {
+      if (!response) return;
+      handleResponse(response);
+      await Notifications.clearLastNotificationResponseAsync();
+    })
+    .catch((error: unknown) => {
+      console.warn('마지막 알림 응답 확인 실패:', error);
+    });
 
   return () => {
     subscription.remove();
@@ -341,7 +361,7 @@ export async function checkInAppScheduledAlarm(onStartExam: (slotLabel: string) 
   // 1. 웹 시스템 알림 전송 (브라우저가 다른 탭에 있거나 백그라운드일 때 유효)
   sendWebNotification(
     `⏰ [Celueste] ${displayHour} 정기 학습 시간입니다!`,
-    '오늘 복습 일정을 확인하고 학습을 이어가 보세요! (클릭하여 시작)',
+    '오늘 학습할 과목과 단원을 선택해 보세요.',
     () => onStartExam(displayHour)
   );
 

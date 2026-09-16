@@ -7,11 +7,16 @@ import {
 import {
   getQuestions,
   addQuestions,
-  deleteQuestionsForUnit,
+  saveQuestionsForUnit,
   generateUUID,
+  createUnit,
+  deleteUnit,
+  getUnits,
   getSourceTextForTopic,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
+import { legacyLevelToDifficulty } from '../domain/difficulty';
+import { buildUnitGenerationContext, formatIntentMessage } from './quizGenerationContext';
 
 export interface GeneratingWaitStatus {
   active: boolean;
@@ -27,6 +32,7 @@ export interface PendingQuizUnit {
   unitTitle: string;
   existingCount?: number;
   initialLevel?: LearnerKnowledgeLevel;
+  initialDifficultyLevel?: number;
 }
 
 export interface UseQuizGenerationProps {
@@ -42,6 +48,7 @@ export interface UseQuizGenerationProps {
   onOpenSettings: () => void;
   onOpenTopicModal: () => void;
   setQuestions: (questions: QuestionRevision[]) => void;
+  setUnits: (units: Unit[]) => void;
 }
 
 export function useQuizGeneration({
@@ -57,6 +64,7 @@ export function useQuizGeneration({
   onOpenSettings,
   onOpenTopicModal,
   setQuestions,
+  setUnits,
 }: UseQuizGenerationProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingUnitId, setGeneratingUnitId] = useState<string | null>(null);
@@ -67,9 +75,12 @@ export function useQuizGeneration({
 
   // 문제 출제 취소 제어용 ref
   const abortRef = useRef(false);
+  const requestControllerRef = useRef<AbortController | null>(null);
 
   const handleCancelGeneration = useCallback(() => {
     abortRef.current = true;
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
     setIsGenerating(false);
     setGeneratingUnitId(null);
     setGeneratingWaitStatus(null);
@@ -80,7 +91,7 @@ export function useQuizGeneration({
     (topicId: string, topicName: string, unitId: string, unitTitle: string) => {
       const currentTopic = topics.find((t) => t.id === topicId);
       const existingCount = questions.filter(
-        (q) => q.topicId === topicId && (q.unitId === unitId || q.stem.includes(unitTitle))
+        (q) => q.topicId === topicId && q.unitId === unitId
       ).length;
       setPendingQuizUnit({
         topicId,
@@ -89,6 +100,8 @@ export function useQuizGeneration({
         unitTitle,
         existingCount,
         initialLevel: currentTopic?.learnerLevel || 'basic',
+        initialDifficultyLevel:
+          currentTopic?.difficultyLevel ?? legacyLevelToDifficulty(currentTopic?.learnerLevel),
       });
       setQuizCountModalVisible(true);
     },
@@ -102,9 +115,15 @@ export function useQuizGeneration({
       unitId: string,
       unitTitle: string,
       targetCount: number = 3,
-      options?: { learnerLevel?: LearnerKnowledgeLevel; shouldReplaceExisting?: boolean }
+      options?: {
+        learnerLevel?: LearnerKnowledgeLevel;
+        difficultyLevel?: number;
+        shouldReplaceExisting?: boolean;
+      }
     ) => {
       abortRef.current = false;
+      const requestController = new AbortController();
+      requestControllerRef.current = requestController;
       setGeneratingUnitId(unitId);
       setGeneratingWaitStatus({
         active: true,
@@ -113,21 +132,19 @@ export function useQuizGeneration({
         message: '잠시만 기다려 주세요 ✨',
       });
       try {
-        const targetLevel = options?.learnerLevel || 'basic';
-        const levelText =
-          targetLevel === 'beginner'
-            ? '입문 기초'
-            : targetLevel === 'advanced'
-            ? '실전'
-            : targetLevel === 'master'
-            ? '심화'
-            : '표준 정규';
+        const currentTopic = topics.find((t) => t.id === topicId);
+        const targetLevel = options?.learnerLevel || currentTopic?.learnerLevel || 'basic';
+        const targetDifficulty =
+          options?.difficultyLevel ??
+          currentTopic?.difficultyLevel ??
+          legacyLevelToDifficulty(targetLevel);
 
         const scoped = analyzeUserIntent(
-          `[${topicName} - ${unitTitle}] ${levelText} 난이도 개념 ${targetCount}문제 출제`,
+          `[${topicName} - ${unitTitle}] 레벨 ${targetDifficulty} 난이도 개념 ${targetCount}문제 출제`,
           topicName,
           {
             learnerLevel: targetLevel,
+            difficultyLevel: targetDifficulty,
             targetCount,
           }
         );
@@ -138,27 +155,9 @@ export function useQuizGeneration({
         // 이 단원에 이미 저장된 문제 최신 DB에서 파악 -> 판박이 중복 방지 및 단원 내 다양한 개념 확장
         const allSavedQuestions = await getQuestions();
         const existingInUnit = allSavedQuestions.filter(
-          (q) => q.topicId === topicId && (q.unitId === unitId || q.stem.includes(unitTitle))
+          (q) => q.topicId === topicId && q.unitId === unitId
         );
-        const existingSummary = existingInUnit
-          .slice(-15)
-          .map((q) => `• ${q.stem}`)
-          .join('\n');
-
-        const contextParts: string[] = [];
-        if (sourceMaterial && sourceMaterial.trim().length > 0) {
-          contextParts.push(
-            `[학습자가 직접 첨부한 교재/자료 핵심 내용 (★최우선 반영 필수★)]:\n${sourceMaterial}\n※ 반드시 학습자가 첨부한 위 교재 내용과 핵심 개념을 직접 활용하여 시험 문제를 정밀 출제해 주십시오.`
-          );
-        }
-        if (existingSummary) {
-          contextParts.push(
-            `[이 단원에 이미 출제된 기존 문제 목록 (판박이 복사 재탕 절대 금지 & 개념 범위 확장)]:\n${existingSummary}\n※ 핵심 지침:\n1. 위 기존 문제들과 문장 구조나 지문이 똑같은 판박이 재탕 문항은 절대 출제하지 마십시오.\n2. 특정 대표 개념 하나만 반복하지 말고, 이 단원 내의 다양한 다른 세부 개념, 원리, 공식, 이론들을 골고루 탐색하여 출제하십시오.\n3. 단원의 중요 핵심 개념을 다루더라도 구체적 사례 제시, 긍정/부정 비틀기 등 다른 각도로 꼬아낸 변형 문제는 자연스럽게 허용됩니다.`
-          );
-        }
-
-        const customContext = contextParts.length > 0 ? contextParts.join('\n\n') : undefined;
-        const currentTopic = topics.find((t) => t.id === topicId);
+        const customContext = buildUnitGenerationContext(sourceMaterial || '', existingInUnit);
         const outcome = await generateFactBasedQuestions({
           intent: scoped,
           ownerId: 'owner-default',
@@ -168,6 +167,7 @@ export function useQuizGeneration({
           unitId,
           unitTitle,
           customContext,
+          signal: requestController.signal,
         });
 
         if (abortRef.current) {
@@ -186,6 +186,14 @@ export function useQuizGeneration({
           return;
         }
 
+        if (outcome.status === 'NEEDS_CLARIFICATION' || outcome.status === 'REJECTED') {
+          showAlert(
+            outcome.status === 'NEEDS_CLARIFICATION' ? '주제 확인 필요' : '입력 확인 필요',
+            formatIntentMessage(outcome.message, outcome.clarificationChoices)
+          );
+          return;
+        }
+
         if (outcome.status === 'FAILED') {
           showAlert('AI 출제 실패', outcome.message, [
             { text: '닫기', style: 'cancel' },
@@ -194,24 +202,35 @@ export function useQuizGeneration({
           return;
         }
 
-        if (outcome.questions && outcome.questions.length > 0) {
-          if (options?.shouldReplaceExisting) {
-            // 사용자의 선택: 기존 문제를 비우고, 선택한 새 난이도 문제로 완전 교체!
-            await deleteQuestionsForUnit(topicId, unitId, unitTitle);
-            await addQuestions(outcome.questions);
-          }
+        const saveResult = await saveQuestionsForUnit(
+          topicId,
+          unitId,
+          outcome.questions,
+          options?.shouldReplaceExisting === true
+        );
+        if (!saveResult.committed || saveResult.saved.length === 0) {
+          showAlert(
+            '중복 문제 확인',
+            options?.shouldReplaceExisting
+              ? '새 문제에 중복 문항이 포함되어 기존 문제를 그대로 보존했습니다. 다시 출제해 주세요.'
+              : '새로 생성된 문제가 기존 문제와 너무 비슷하여 저장하지 않았습니다.'
+          );
+          return;
         }
 
         const allQ = await getQuestions();
         setQuestions(allQ);
 
         // 출제 완료 시 CBT 시험장 즉시 입장 (과목보관함 위치 안전 유지)
-        startExam(outcome.questions);
+        startExam(saveResult.saved);
       } catch (err: any) {
         if (!abortRef.current) {
           showAlert('오류', `단원 문제 출제 실패: ${err?.message || '네트워크 응답 오류'}`);
         }
       } finally {
+        if (requestControllerRef.current === requestController) {
+          requestControllerRef.current = null;
+        }
         setGeneratingUnitId(null);
         setGeneratingWaitStatus(null);
       }
@@ -222,7 +241,11 @@ export function useQuizGeneration({
   const handleSelectQuizCount = useCallback(
     async (
       count: number,
-      options?: { learnerLevel?: LearnerKnowledgeLevel; shouldReplaceExisting?: boolean }
+      options?: {
+        learnerLevel?: LearnerKnowledgeLevel;
+        difficultyLevel?: number;
+        shouldReplaceExisting?: boolean;
+      }
     ) => {
       setQuizCountModalVisible(false);
       if (!pendingQuizUnit) return;
@@ -281,6 +304,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
 3. [품질 및 해설]: 각 문항마다 오답 선지가 왜 틀렸는지와 정답의 핵심 원리를 명쾌하게 해설하세요.`;
 
     abortRef.current = false;
+    const requestController = new AbortController();
+    requestControllerRef.current = requestController;
     setIsGenerating(true);
     setGeneratingWaitStatus({
       active: true,
@@ -289,6 +314,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       message: '잠시만 기다려 주세요 ✨',
     });
 
+    let newlyCreatedUnitId: string | null = null;
+    let questionsPersisted = false;
     try {
       const targetUnitId = targetUnit?.id || generateUUID();
       const targetUnitTitle = targetUnit?.title || `${currentTopic.name} 핵심 종합`;
@@ -298,6 +325,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         currentTopic.name,
         {
           learnerLevel: 'basic',
+          difficultyLevel:
+            currentTopic.difficultyLevel ?? legacyLevelToDifficulty(currentTopic.learnerLevel),
           targetCount: 3,
         }
       );
@@ -305,26 +334,9 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       const sourceMaterial = await getSourceTextForTopic(currentTopic.id, currentTopic.name);
       const allSavedQuestions = await getQuestions();
       const existingInTargetUnit = allSavedQuestions.filter(
-        (q) => q.topicId === currentTopic.id && (q.unitId === targetUnitId || (targetUnitTitle && q.stem.includes(targetUnitTitle)))
+        (q) => q.topicId === currentTopic.id && q.unitId === targetUnitId
       );
-      const existingSummary = existingInTargetUnit
-        .slice(-15)
-        .map((q) => `• ${q.stem}`)
-        .join('\n');
-
-      const contextParts: string[] = [];
-      if (sourceMaterial && sourceMaterial.trim().length > 0) {
-        contextParts.push(
-          `[학습자가 직접 첨부한 교재/자료 핵심 내용 (★최우선 반영 필수★)]:\n${sourceMaterial}\n※ 반드시 학습자가 첨부한 위 교재 내용과 핵심 개념을 직접 활용하여 시험 문제를 정밀 출제해 주십시오.`
-        );
-      }
-      if (existingSummary) {
-        contextParts.push(
-          `[이 단원에 이미 출제된 기존 문제 목록 (판박이 복사 재탕 절대 금지 & 개념 범위 확장)]:\n${existingSummary}\n※ 핵심 지침:\n1. 위 기존 문제들과 문장 구조나 지문이 똑같은 판박이 재탕 문항은 절대 출제하지 마십시오.\n2. 특정 대표 개념 하나만 반복하지 말고, 이 단원 내의 다양한 다른 세부 개념, 원리, 공식, 이론들을 골고루 탐색하여 출제하십시오.\n3. 단원의 중요 핵심 개념을 다룰 때 구체적 사례 제시, 긍정/부정 비틀기 등 다른 각도로 꼬아낸 변형 문제는 자연스럽게 허용됩니다.`
-        );
-      }
-
-      const customContext = contextParts.length > 0 ? contextParts.join('\n\n') : undefined;
+      const customContext = buildUnitGenerationContext(sourceMaterial || '', existingInTargetUnit);
 
       const outcome = await generateFactBasedQuestions({
         intent: scoped,
@@ -335,6 +347,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         unitId: targetUnitId,
         unitTitle: targetUnitTitle,
         customContext,
+        signal: requestController.signal,
       });
 
       if (abortRef.current) {
@@ -356,6 +369,14 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         return;
       }
 
+      if (outcome.status === 'NEEDS_CLARIFICATION' || outcome.status === 'REJECTED') {
+        showAlert(
+          outcome.status === 'NEEDS_CLARIFICATION' ? '주제 확인 필요' : '입력 확인 필요',
+          formatIntentMessage(outcome.message, outcome.clarificationChoices)
+        );
+        return;
+      }
+
       if (outcome.status === 'FAILED') {
         showAlert('AI 출제 실패', outcome.message, [
           { text: '닫기', style: 'cancel' },
@@ -364,12 +385,47 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         return;
       }
 
+
+      let resolvedUnitId = targetUnit?.id;
+      if (!resolvedUnitId) {
+        const createdUnit = await createUnit({
+          topicId: currentTopic.id,
+          title: targetUnitTitle,
+          depth: 1,
+        });
+        resolvedUnitId = createdUnit.id;
+        newlyCreatedUnitId = createdUnit.id;
+        setUnits(await getUnits());
+      }
+      const questionsToSave = outcome.questions.map((question) => ({
+        ...question,
+        unitId: resolvedUnitId,
+      }));
+      const savedQuestions = await addQuestions(questionsToSave);
+      if (savedQuestions.length === 0) {
+        if (newlyCreatedUnitId) {
+          await deleteUnit(newlyCreatedUnitId);
+          setUnits(await getUnits());
+        }
+        showAlert('중복 문제 확인', '새로 생성된 문제가 기존 문제와 너무 비슷하여 저장하지 않았습니다.');
+        return;
+      }
+      questionsPersisted = true;
+
       const allQ = await getQuestions();
       setQuestions(allQ);
 
       // 즉시 새로 출제된 문제로 CBT 시험 시작
-      startExam(outcome.questions);
+      startExam(savedQuestions);
     } catch (err: any) {
+      if (newlyCreatedUnitId && !questionsPersisted) {
+        try {
+          await deleteUnit(newlyCreatedUnitId);
+          setUnits(await getUnits());
+        } catch {
+          // 원래 생성 오류를 사용자에게 유지하여 전달합니다.
+        }
+      }
       showAlert(
         '문제 생성 실패',
         `새로운 문제를 만들지 못했습니다.\n(${err?.message || '네트워크 오류'})\n\n기존에 학습했던 문제를 복습하시겠습니까?`,
@@ -382,6 +438,9 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         ]
       );
     } finally {
+      if (requestControllerRef.current === requestController) {
+        requestControllerRef.current = null;
+      }
       setIsGenerating(false);
       setGeneratingWaitStatus(null);
     }
@@ -397,6 +456,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     onOpenSettings,
     startExam,
     setQuestions,
+    setUnits,
   ]);
 
   const handleApplyScaffolding = useCallback(async () => {

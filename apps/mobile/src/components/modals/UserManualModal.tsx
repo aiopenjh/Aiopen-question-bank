@@ -62,24 +62,25 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
     {
       id: 'curriculum',
       icon: '🎯',
-      title: '30단계 목차 학습법',
-      subtitle: '5단계 마이크로 스텝 원리 및 입문 vs 실전 레벨 가이드',
+      title: '30단원 이상 목차 학습법',
+      subtitle: '5개 단원씩 확장하는 방법과 1~30 이상 난이도 레벨 가이드',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>🪜 1. 30단계 촘촘한 마이크로 스텝</Text>
+            <Text style={styles.tipTitle}>🪜 1. 30단원 이상 촘촘한 학습 목차</Text>
             <Text style={styles.tipText}>
               • 한 번에 많은 양을 공부하다 지치지 않도록, 5개 단원씩 '촘촘한 계단(Micro-Step)'으로 분할 설계됩니다.{'\n'}
-              • 1단계(01~05단원)를 마치면 [🚀 다음 5단계 목차 생성]을 눌러 30단원 마스터까지 계속 진도를 확장하세요.
+              • 01~05단원을 마치면 [🚀 다음 5개 단원 생성]을 눌러 30단원 이후까지 계속 진도를 확장하세요.
             </Text>
           </View>
 
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>🎯 2. 학습자 난이도 수준 선택 가이드</Text>
+            <Text style={styles.tipTitle}>🎯 2. 문제 난이도 레벨 선택 가이드</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>입문 / 기본</Text>: 기초 용어부터 정규 교과과정을 01단원부터 차근차근 밟아나가는 정석 코스입니다.{'\n'}
-              • <Text style={styles.bold}>실전</Text>: 뻔한 기초 개념은 생략하고, 대학교 3학년 및 실제 시험 기출 함정/디버깅 문제부터 바로 시작하는 월반(편입) 패스트트랙입니다.{'\n'}
-              • <Text style={styles.bold}>심화</Text>: 고난도 킬러 문항 및 융합 추론 중심의 전문가 코스입니다.
+              • <Text style={styles.bold}>레벨 1~10</Text>: 필수 용어와 핵심 차이를 작은 간격으로 익힙니다.{'\n'}
+              • <Text style={styles.bold}>레벨 11~20</Text>: 기본 적용에서 응용 판단까지 점진적으로 넓힙니다.{'\n'}
+              • <Text style={styles.bold}>레벨 21~30</Text>: 세부 조건, 오개념 판별, 종합 추론을 다룹니다.{'\n'}
+              • <Text style={styles.bold}>레벨 31 이상</Text>: 난이도만 올리지 않고 새로운 사례와 관점으로 범위를 확장합니다. 정답률로 레벨이 자동 변경되지는 않습니다.
             </Text>
           </View>
         </View>

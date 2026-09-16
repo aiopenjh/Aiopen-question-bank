@@ -100,6 +100,7 @@ export interface Topic {
   description: string;
   category?: string; // 대단위/대분류 (예: '💻 IT/개발', '📐 수학', '🌐 언어/어학', '📊 경제/경영', '📚 일반')
   learnerLevel?: LearnerKnowledgeLevel; // 과목 생성 시 기본 설정된 학습 난이도
+  difficultyLevel?: number; // 1부터 시작하는 세분화 난이도. 30 이후도 확장 가능
   archivedAt: ISODateTimeString | null;
   createdAt: ISODateTimeString;
 }
@@ -162,6 +163,7 @@ export interface LearningSpec {
   sourceRevisionIds: UUID[];
   unitIds: UUID[];
   level: CognitiveLevel;
+  difficultyLevel?: number;
   questionCount: number;
   createdAt: ISODateTimeString;
 }
@@ -180,6 +182,7 @@ export interface QuestionRevision {
   specId: UUID;
   topicId?: UUID; // 연관 주제 ID
   unitId?: UUID;  // 연관 단원(목차) ID
+  difficultyLevel?: number;
   stem: string; // 문제 지문
   conceptDefinition?: string; // 핵심 개념 및 용어의 명확한 정의 (찍어서 맞춘 학습자를 위한 1분 개념 고정)
   options: QuestionOption[];

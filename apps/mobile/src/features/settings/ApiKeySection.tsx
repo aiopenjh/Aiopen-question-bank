@@ -22,14 +22,6 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
 
   const isRegistered = apiKey.trim().length > 8;
 
-  const getProviderName = () => {
-    const k = apiKey.trim();
-    if (k.startsWith('AIzaSy')) return 'Google Gemini (최신 3.5 자동 연동)';
-    if (k.startsWith('sk-ant-')) return 'Anthropic Claude';
-    if (k.startsWith('sk-')) return 'OpenAI GPT';
-    return '범용 AI 출제 엔진';
-  };
-
   async function handlePressSave() {
     const trimmed = newKeyInput.trim();
     if (!trimmed) {
@@ -77,7 +69,7 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
               </View>
             </View>
             <Text style={styles.apiProviderText}>
-              {getProviderName()} · 화면에 키를 표시하지 않음
+              등록된 키는 화면에 표시하지 않습니다.
             </Text>
           </View>
 

@@ -137,7 +137,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </View>
               <View style={styles.manualBannerCopy}>
                 <Text style={styles.manualBannerTitle}>앱 공식 이용 가이드 & 사용설명서</Text>
-                <Text style={styles.manualBannerSub}>교재 업로드, 30단계 커리큘럼, 오답노트 활용법</Text>
+                <Text style={styles.manualBannerSub}>교재 업로드, 30단원 이상 커리큘럼, 오답노트 활용법</Text>
               </View>
               <Text style={styles.manualBannerArrow}>열기 ›</Text>
             </View>

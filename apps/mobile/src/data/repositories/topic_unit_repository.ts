@@ -4,8 +4,22 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Topic, Unit, QuestionRevision, Profile, UUID, LearnerKnowledgeLevel } from '../../contracts/types';
+import {
+  Topic,
+  Unit,
+  QuestionRevision,
+  Profile,
+  UUID,
+  LearnerKnowledgeLevel,
+  LearningSpec,
+  StudySession,
+  SessionItem,
+  Attempt,
+  ReviewState,
+  ManualCompletion,
+} from '../../contracts/types';
 import { STORAGE_KEYS, generateUUID, getCurrentISOTime } from '../storage_keys';
+import { legacyLevelToDifficulty, normalizeDifficultyLevel } from '../../domain/difficulty';
 
 export async function getTopics(): Promise<Topic[]> {
   const data = await AsyncStorage.getItem(STORAGE_KEYS.TOPICS);
@@ -27,6 +41,10 @@ export async function getTopics(): Promise<Topic[]> {
         t.category = '📚 일반';
       }
     }
+    t.difficultyLevel = normalizeDifficultyLevel(
+      t.difficultyLevel,
+      legacyLevelToDifficulty(t.learnerLevel)
+    );
     return t;
   });
 }
@@ -35,7 +53,8 @@ export async function createTopic(
   name: string,
   description: string = '',
   category: string = '📚 일반',
-  learnerLevel: LearnerKnowledgeLevel = 'basic'
+  learnerLevel: LearnerKnowledgeLevel = 'basic',
+  difficultyLevel: number = legacyLevelToDifficulty(learnerLevel)
 ): Promise<Topic> {
   const profileData = await AsyncStorage.getItem(STORAGE_KEYS.PROFILE);
   const profile: Profile | null = profileData ? JSON.parse(profileData) : null;
@@ -46,6 +65,7 @@ export async function createTopic(
     description: description.trim(),
     category: category.trim() || '📚 일반',
     learnerLevel,
+    difficultyLevel: normalizeDifficultyLevel(difficultyLevel),
     archivedAt: null,
     createdAt: getCurrentISOTime(),
   };
@@ -55,6 +75,72 @@ export async function createTopic(
   return newTopic;
 }
 
+export async function createTopicWithUnits(params: {
+  name: string;
+  description?: string;
+  category?: string;
+  learnerLevel?: LearnerKnowledgeLevel;
+  difficultyLevel?: number;
+  units?: { title: string; depth?: 1 | 2 | 3 }[];
+}): Promise<{ topic: Topic; units: Unit[] }> {
+  const snapshot = await AsyncStorage.multiGet([
+    STORAGE_KEYS.PROFILE,
+    STORAGE_KEYS.TOPICS,
+    STORAGE_KEYS.UNITS,
+  ]);
+  const stored = new Map(snapshot);
+  const profile: Profile | null = stored.get(STORAGE_KEYS.PROFILE)
+    ? JSON.parse(stored.get(STORAGE_KEYS.PROFILE) as string)
+    : null;
+  const topics: Topic[] = stored.get(STORAGE_KEYS.TOPICS)
+    ? JSON.parse(stored.get(STORAGE_KEYS.TOPICS) as string)
+    : [];
+  const allUnits: Unit[] = stored.get(STORAGE_KEYS.UNITS)
+    ? JSON.parse(stored.get(STORAGE_KEYS.UNITS) as string)
+    : [];
+  const learnerLevel = params.learnerLevel || 'basic';
+  const topic: Topic = {
+    id: generateUUID(),
+    ownerId: profile?.id || generateUUID(),
+    name: params.name.trim(),
+    description: (params.description || '').trim(),
+    category: params.category?.trim() || '📚 일반',
+    learnerLevel,
+    difficultyLevel: normalizeDifficultyLevel(
+      params.difficultyLevel,
+      legacyLevelToDifficulty(learnerLevel)
+    ),
+    archivedAt: null,
+    createdAt: getCurrentISOTime(),
+  };
+  const createdUnits: Unit[] = (params.units || [])
+    .filter((unit) => unit.title.trim().length > 0)
+    .map((unit, index) => ({
+      id: generateUUID(),
+      topicId: topic.id,
+      parentId: null,
+      depth: unit.depth || 1,
+      title: unit.title.trim(),
+      orderIndex: index + 1,
+      createdAt: getCurrentISOTime(),
+    }));
+
+  try {
+    await AsyncStorage.multiSet([
+      [STORAGE_KEYS.TOPICS, JSON.stringify([...topics, topic])],
+      [STORAGE_KEYS.UNITS, JSON.stringify([...allUnits, ...createdUnits])],
+    ]);
+  } catch (error) {
+    const restoreValues = snapshot.filter((entry): entry is [string, string] => entry[1] !== null);
+    const removeKeys = snapshot.filter((entry) => entry[1] === null).map(([key]) => key);
+    if (restoreValues.length > 0) await AsyncStorage.multiSet(restoreValues);
+    if (removeKeys.length > 0) await AsyncStorage.multiRemove(removeKeys);
+    throw error;
+  }
+
+  return { topic, units: createdUnits };
+}
+
 export async function addTopic(topic: Topic): Promise<void> {
   const topics = await getTopics();
   topics.push(topic);
@@ -62,20 +148,98 @@ export async function addTopic(topic: Topic): Promise<void> {
 }
 
 export async function deleteTopic(topicId: UUID): Promise<void> {
-  const topics = await getTopics();
-  const updatedTopics = topics.filter((t) => t.id !== topicId);
-  await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(updatedTopics));
+  const keys = [
+    STORAGE_KEYS.TOPICS,
+    STORAGE_KEYS.UNITS,
+    STORAGE_KEYS.LEARNING_SPECS,
+    STORAGE_KEYS.QUESTIONS,
+    STORAGE_KEYS.SESSIONS,
+    STORAGE_KEYS.SESSION_ITEMS,
+    STORAGE_KEYS.ATTEMPTS,
+    STORAGE_KEYS.REVIEW_STATES,
+    STORAGE_KEYS.MANUAL_COMPLETIONS,
+    STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS,
+    STORAGE_KEYS.LAST_STUDIED_TOPIC,
+  ] as const;
+  const snapshot = await AsyncStorage.multiGet([...keys]);
+  const stored = new Map(snapshot);
+  const parseArray = <T,>(key: string): T[] => {
+    const raw = stored.get(key);
+    return raw ? JSON.parse(raw) : [];
+  };
 
-  // 연관 단원 및 문제도 정리
-  const units = await getUnits();
-  const updatedUnits = units.filter((u) => u.topicId !== topicId);
-  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(updatedUnits));
+  const topics = parseArray<Topic>(STORAGE_KEYS.TOPICS);
+  const units = parseArray<Unit>(STORAGE_KEYS.UNITS);
+  const specs = parseArray<LearningSpec>(STORAGE_KEYS.LEARNING_SPECS);
+  const questions = parseArray<QuestionRevision>(STORAGE_KEYS.QUESTIONS);
+  const sessions = parseArray<StudySession>(STORAGE_KEYS.SESSIONS);
+  const sessionItems = parseArray<SessionItem>(STORAGE_KEYS.SESSION_ITEMS);
+  const attempts = parseArray<Attempt>(STORAGE_KEYS.ATTEMPTS);
+  const reviewStates = parseArray<ReviewState>(STORAGE_KEYS.REVIEW_STATES);
+  const completions = parseArray<ManualCompletion>(STORAGE_KEYS.MANUAL_COMPLETIONS);
+  const customNotes = parseArray<string>(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
 
-  const questionsData = await AsyncStorage.getItem(STORAGE_KEYS.QUESTIONS);
-  if (questionsData) {
-    const questions: QuestionRevision[] = JSON.parse(questionsData);
-    const updatedQuestions = questions.filter((q) => q.topicId !== topicId);
-    await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(updatedQuestions));
+  const removedUnitIds = new Set(units.filter((item) => item.topicId === topicId).map((item) => item.id));
+  const removedSpecIds = new Set(specs.filter((item) => item.topicId === topicId).map((item) => item.id));
+  const removedQuestionIds = new Set(
+    questions.filter((item) => item.topicId === topicId).flatMap((item) => [item.id, item.questionId])
+  );
+  const removedSessionIds = new Set(
+    sessions
+      .filter((item) => item.topicId === topicId || removedSpecIds.has(item.specId))
+      .map((item) => item.id)
+  );
+  const removedSessionItemIds = new Set(
+    sessionItems
+      .filter(
+        (item) =>
+          removedSessionIds.has(item.sessionId) || removedQuestionIds.has(item.questionRevisionId)
+      )
+      .map((item) => item.id)
+  );
+
+  const values: [string, string][] = [
+    [STORAGE_KEYS.TOPICS, JSON.stringify(topics.filter((item) => item.id !== topicId))],
+    [STORAGE_KEYS.UNITS, JSON.stringify(units.filter((item) => item.topicId !== topicId))],
+    [STORAGE_KEYS.LEARNING_SPECS, JSON.stringify(specs.filter((item) => item.topicId !== topicId))],
+    [STORAGE_KEYS.QUESTIONS, JSON.stringify(questions.filter((item) => item.topicId !== topicId))],
+    [STORAGE_KEYS.SESSIONS, JSON.stringify(sessions.filter((item) => !removedSessionIds.has(item.id)))],
+    [STORAGE_KEYS.SESSION_ITEMS, JSON.stringify(sessionItems.filter((item) => !removedSessionItemIds.has(item.id)))],
+    [
+      STORAGE_KEYS.ATTEMPTS,
+      JSON.stringify(
+        attempts.filter(
+          (item) =>
+            !removedSessionItemIds.has(item.sessionItemId) &&
+            !Array.from(removedQuestionIds).some((questionId) => item.submissionKey.includes(questionId))
+        )
+      ),
+    ],
+    [
+      STORAGE_KEYS.REVIEW_STATES,
+      JSON.stringify(reviewStates.filter((item) => !removedQuestionIds.has(item.questionRevisionId))),
+    ],
+    [
+      STORAGE_KEYS.MANUAL_COMPLETIONS,
+      JSON.stringify(completions.filter((item) => !removedUnitIds.has(item.unitId))),
+    ],
+    [
+      STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS,
+      JSON.stringify(customNotes.filter((questionId) => !removedQuestionIds.has(questionId))),
+    ],
+  ];
+  if (stored.get(STORAGE_KEYS.LAST_STUDIED_TOPIC) === topicId) {
+    values.push([STORAGE_KEYS.LAST_STUDIED_TOPIC, '']);
+  }
+
+  try {
+    await AsyncStorage.multiSet(values);
+  } catch (error) {
+    const restoreValues = snapshot.filter((entry): entry is [string, string] => entry[1] !== null);
+    const removeKeys = snapshot.filter((entry) => entry[1] === null).map(([key]) => key);
+    if (restoreValues.length > 0) await AsyncStorage.multiSet(restoreValues);
+    if (removeKeys.length > 0) await AsyncStorage.multiRemove(removeKeys);
+    throw error;
   }
 }
 
@@ -108,9 +272,110 @@ export async function createUnit(params: {
 }
 
 export async function deleteUnit(unitId: UUID): Promise<void> {
-  const units = await getUnits();
-  const updatedUnits = units.filter((u) => u.id !== unitId && u.parentId !== unitId);
-  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(updatedUnits));
+  const keys = [
+    STORAGE_KEYS.UNITS,
+    STORAGE_KEYS.LEARNING_SPECS,
+    STORAGE_KEYS.QUESTIONS,
+    STORAGE_KEYS.SESSIONS,
+    STORAGE_KEYS.SESSION_ITEMS,
+    STORAGE_KEYS.ATTEMPTS,
+    STORAGE_KEYS.REVIEW_STATES,
+    STORAGE_KEYS.MANUAL_COMPLETIONS,
+    STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS,
+  ] as const;
+  const snapshot = await AsyncStorage.multiGet([...keys]);
+  const stored = new Map(snapshot);
+  const parseArray = <T,>(key: string): T[] => {
+    const raw = stored.get(key);
+    return raw ? JSON.parse(raw) : [];
+  };
+
+  const units = parseArray<Unit>(STORAGE_KEYS.UNITS);
+  const removedUnitIds = new Set<UUID>([unitId]);
+  let foundChild = true;
+  while (foundChild) {
+    foundChild = false;
+    for (const unit of units) {
+      if (unit.parentId && removedUnitIds.has(unit.parentId) && !removedUnitIds.has(unit.id)) {
+        removedUnitIds.add(unit.id);
+        foundChild = true;
+      }
+    }
+  }
+
+  const specs = parseArray<LearningSpec>(STORAGE_KEYS.LEARNING_SPECS);
+  const nextSpecs = specs
+    .map((spec) => ({
+      ...spec,
+      unitIds: spec.unitIds.filter((id) => !removedUnitIds.has(id)),
+    }))
+    .filter((spec) => spec.unitIds.length > 0);
+  const nextSpecIds = new Set(nextSpecs.map((spec) => spec.id));
+  const removedSpecIds = new Set(specs.filter((spec) => !nextSpecIds.has(spec.id)).map((spec) => spec.id));
+
+  const questions = parseArray<QuestionRevision>(STORAGE_KEYS.QUESTIONS);
+  const removedQuestionIds = new Set(
+    questions
+      .filter((question) => question.unitId && removedUnitIds.has(question.unitId))
+      .flatMap((question) => [question.id, question.questionId])
+  );
+  const sessions = parseArray<StudySession>(STORAGE_KEYS.SESSIONS);
+  const removedSessionIds = new Set(
+    sessions.filter((session) => removedSpecIds.has(session.specId)).map((session) => session.id)
+  );
+  const sessionItems = parseArray<SessionItem>(STORAGE_KEYS.SESSION_ITEMS);
+  const removedSessionItemIds = new Set(
+    sessionItems
+      .filter(
+        (item) =>
+          removedSessionIds.has(item.sessionId) || removedQuestionIds.has(item.questionRevisionId)
+      )
+      .map((item) => item.id)
+  );
+  const attempts = parseArray<Attempt>(STORAGE_KEYS.ATTEMPTS);
+  const reviewStates = parseArray<ReviewState>(STORAGE_KEYS.REVIEW_STATES);
+  const completions = parseArray<ManualCompletion>(STORAGE_KEYS.MANUAL_COMPLETIONS);
+  const customNotes = parseArray<string>(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
+
+  const values: [string, string][] = [
+    [STORAGE_KEYS.UNITS, JSON.stringify(units.filter((unit) => !removedUnitIds.has(unit.id)))],
+    [STORAGE_KEYS.LEARNING_SPECS, JSON.stringify(nextSpecs)],
+    [
+      STORAGE_KEYS.QUESTIONS,
+      JSON.stringify(questions.filter((question) => !removedQuestionIds.has(question.id))),
+    ],
+    [STORAGE_KEYS.SESSIONS, JSON.stringify(sessions.filter((session) => !removedSessionIds.has(session.id)))],
+    [
+      STORAGE_KEYS.SESSION_ITEMS,
+      JSON.stringify(sessionItems.filter((item) => !removedSessionItemIds.has(item.id))),
+    ],
+    [
+      STORAGE_KEYS.ATTEMPTS,
+      JSON.stringify(attempts.filter((attempt) => !removedSessionItemIds.has(attempt.sessionItemId))),
+    ],
+    [
+      STORAGE_KEYS.REVIEW_STATES,
+      JSON.stringify(reviewStates.filter((state) => !removedQuestionIds.has(state.questionRevisionId))),
+    ],
+    [
+      STORAGE_KEYS.MANUAL_COMPLETIONS,
+      JSON.stringify(completions.filter((completion) => !removedUnitIds.has(completion.unitId))),
+    ],
+    [
+      STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS,
+      JSON.stringify(customNotes.filter((questionId) => !removedQuestionIds.has(questionId))),
+    ],
+  ];
+
+  try {
+    await AsyncStorage.multiSet(values);
+  } catch (error) {
+    const restoreValues = snapshot.filter((entry): entry is [string, string] => entry[1] !== null);
+    const removeKeys = snapshot.filter((entry) => entry[1] === null).map(([key]) => key);
+    if (restoreValues.length > 0) await AsyncStorage.multiSet(restoreValues);
+    if (removeKeys.length > 0) await AsyncStorage.multiRemove(removeKeys);
+    throw error;
+  }
 }
 
 export async function replaceTopicUnits(

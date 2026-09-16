@@ -1,5 +1,5 @@
 export const APP_BUILD_INFO = {
-  version: '1.0.8',
-  buildTime: '2026-09-15T15:35:00.000Z',
-  buildLabel: 'v1.0.8 (2026.09.15)',
+  version: '2.0.0',
+  buildTime: '2026-09-16T02:13:00.012Z',
+  buildLabel: 'v2.0.0 (2026.09.16)',
 };

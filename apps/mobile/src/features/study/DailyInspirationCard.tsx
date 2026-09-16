@@ -1,17 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { colors, radius, spacing } from '../../styles/designTokens';
-
-interface DailyInspirationCardProps {
-  apiKey?: string;
-  topicName?: string;
-}
 
 const LOCAL_INSPIRATIONS: string[] = [
   '작은 진전도 진전입니다. 오늘 3문제로 어제보다 한 걸음 더 성장했어요! 🚀',
@@ -57,80 +51,21 @@ const LOCAL_INSPIRATIONS: string[] = [
   '당신이 걸어가는 그 길이 곧 당신만의 멋진 정답이 됩니다. 믿고 나아가세요! 🧭',
 ];
 
-export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
-  apiKey,
-  topicName,
-}) => {
-  const [currentMessage, setCurrentMessage] = useState<string>('');
-  const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
+function getRandomLocalMessage(): string {
+  const randomIndex = Math.floor(Math.random() * LOCAL_INSPIRATIONS.length);
+  return LOCAL_INSPIRATIONS[randomIndex];
+}
 
-  const getRandomLocalMessage = useCallback((): string => {
-    const randomIndex = Math.floor(Math.random() * LOCAL_INSPIRATIONS.length);
-    return LOCAL_INSPIRATIONS[randomIndex];
-  }, []);
-
-  const fetchAiInspiration = useCallback(async (key: string, topic?: string) => {
-    setIsLoadingAi(true);
-    try {
-      const prompt = `학습자를 위한 따뜻하고 힘이 되는 한 줄 응원 메시지를 작성해줘.${
-        topic ? ` (현재 학습 중인 과목: ${topic})` : ''
-      } 조건: 한국어로 친절하고 격려하는 톤, 어울리는 이모지 포함, 50자 이내, 따옴표나 군더더기 없이 본문 한 문장만 출력.`;
-
-      const response = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': key,
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.8,
-              maxOutputTokens: 60,
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`AI HTTP Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (text) {
-        setCurrentMessage(text.replace(/^["']|["']$/g, ''));
-      } else {
-        setCurrentMessage(getRandomLocalMessage());
-      }
-    } catch {
-      setCurrentMessage(getRandomLocalMessage());
-    } finally {
-      setIsLoadingAi(false);
-    }
-  }, [getRandomLocalMessage]);
+export const DailyInspirationCard: React.FC = () => {
+  const [currentMessage, setCurrentMessage] = useState<string>(getRandomLocalMessage);
 
   const handleRefresh = () => {
-    if (apiKey && apiKey.trim().length > 10) {
-      fetchAiInspiration(apiKey.trim(), topicName);
-    } else {
-      let nextMsg = getRandomLocalMessage();
-      while (nextMsg === currentMessage && LOCAL_INSPIRATIONS.length > 1) {
-        nextMsg = getRandomLocalMessage();
-      }
-      setCurrentMessage(nextMsg);
+    let nextMsg = getRandomLocalMessage();
+    while (nextMsg === currentMessage && LOCAL_INSPIRATIONS.length > 1) {
+      nextMsg = getRandomLocalMessage();
     }
+    setCurrentMessage(nextMsg);
   };
-
-  useEffect(() => {
-    if (apiKey && apiKey.trim().length > 10) {
-      fetchAiInspiration(apiKey.trim(), topicName);
-    } else {
-      setCurrentMessage(getRandomLocalMessage());
-    }
-  }, [apiKey, topicName, fetchAiInspiration, getRandomLocalMessage]);
 
   return (
     <View style={styles.cardContainer}>
@@ -141,16 +76,11 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({
         </View>
         <TouchableOpacity
           onPress={handleRefresh}
-          disabled={isLoadingAi}
           style={styles.refreshBtn}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          {isLoadingAi ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <Text style={styles.refreshBtnText}>↻</Text>
-          )}
+          <Text style={styles.refreshBtnText}>↻</Text>
         </TouchableOpacity>
       </View>
 

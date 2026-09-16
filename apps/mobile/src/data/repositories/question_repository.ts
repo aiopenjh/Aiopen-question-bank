@@ -12,6 +12,7 @@ import {
   UUID,
 } from '../../contracts/types';
 import { STORAGE_KEYS, getCurrentISOTime } from '../storage_keys';
+import { areQuestionStemsTooSimilar } from '../../domain/question_similarity';
 
 export async function getManualCompletions(): Promise<ManualCompletion[]> {
   const data = await AsyncStorage.getItem(STORAGE_KEYS.MANUAL_COMPLETIONS);
@@ -63,33 +64,72 @@ export async function getQuestions(topicId?: UUID): Promise<QuestionRevision[]> 
   return topicId ? questions.filter((q) => q.topicId === topicId) : questions;
 }
 
-export async function addQuestions(newQuestions: QuestionRevision[]): Promise<void> {
-  const questions = await getQuestions();
-  const knownIds = new Set(questions.map((question) => question.id));
-  const knownStems = new Set(
-    questions.map(
-      (question) =>
-        `${question.topicId}|${question.unitId || ''}|${normalizeQuestionStem(question.stem)}`
-    )
-  );
+function selectUniqueQuestions(
+  existingQuestions: QuestionRevision[],
+  newQuestions: QuestionRevision[]
+): QuestionRevision[] {
+  const accepted: QuestionRevision[] = [];
+  const knownIds = new Set(existingQuestions.map((question) => question.id));
 
-  const uniqueQuestions = newQuestions.filter((question) => {
-    const stemKey = `${question.topicId}|${question.unitId || ''}|${normalizeQuestionStem(question.stem)}`;
-    if (knownIds.has(question.id) || knownStems.has(stemKey)) return false;
+  for (const question of newQuestions) {
+    if (knownIds.has(question.id)) continue;
+    const comparisonPool = [...existingQuestions, ...accepted].filter(
+      (saved) => saved.topicId === question.topicId
+    );
+    if (comparisonPool.some((saved) => areQuestionStemsTooSimilar(saved.stem, question.stem))) {
+      continue;
+    }
     knownIds.add(question.id);
-    knownStems.add(stemKey);
-    return true;
-  });
+    accepted.push(question);
+  }
+  return accepted;
+}
 
-  if (uniqueQuestions.length === 0) return;
+export async function addQuestions(newQuestions: QuestionRevision[]): Promise<QuestionRevision[]> {
+  const questions = await getQuestions();
+  const uniqueQuestions = selectUniqueQuestions(questions, newQuestions);
+
+  if (uniqueQuestions.length === 0) return [];
   await AsyncStorage.setItem(
     STORAGE_KEYS.QUESTIONS,
     JSON.stringify([...questions, ...uniqueQuestions])
   );
+  return uniqueQuestions;
 }
 
-function normalizeQuestionStem(stem: string): string {
-  return stem.replace(/[\s\p{P}]/gu, '').toLowerCase();
+export interface SaveQuestionsForUnitResult {
+  saved: QuestionRevision[];
+  skippedCount: number;
+  committed: boolean;
+}
+
+export async function saveQuestionsForUnit(
+  topicId: UUID,
+  unitId: UUID,
+  newQuestions: QuestionRevision[],
+  replaceExisting: boolean
+): Promise<SaveQuestionsForUnitResult> {
+  const questions = await getQuestions();
+  const prepared = newQuestions.map((question) => ({ ...question, topicId, unitId }));
+  const retained = replaceExisting
+    ? questions.filter((question) => !(question.topicId === topicId && question.unitId === unitId))
+    : questions;
+  const uniqueQuestions = selectUniqueQuestions(questions, prepared);
+  const skippedCount = prepared.length - uniqueQuestions.length;
+
+  // 교체는 전 문항이 검증된 경우에만 한 번에 반영하여 기존 문제 유실을 막습니다.
+  if (replaceExisting && skippedCount > 0) {
+    return { saved: [], skippedCount, committed: false };
+  }
+  if (uniqueQuestions.length === 0) {
+    return { saved: [], skippedCount, committed: false };
+  }
+
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.QUESTIONS,
+    JSON.stringify(replaceExisting ? [...retained, ...uniqueQuestions] : [...questions, ...uniqueQuestions])
+  );
+  return { saved: uniqueQuestions, skippedCount, committed: true };
 }
 
 export async function deleteQuestion(questionId: UUID): Promise<void> {
@@ -98,10 +138,10 @@ export async function deleteQuestion(questionId: UUID): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(updated));
 }
 
-export async function deleteQuestionsForUnit(topicId: UUID, unitId: UUID, unitTitle?: string): Promise<void> {
+export async function deleteQuestionsForUnit(topicId: UUID, unitId: UUID, _unitTitle?: string): Promise<void> {
   const questions = await getQuestions();
   const updated = questions.filter(
-    (q) => !(q.topicId === topicId && (q.unitId === unitId || (unitTitle && q.stem.includes(unitTitle))))
+    (q) => !(q.topicId === topicId && q.unitId === unitId)
   );
   await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(updated));
 }

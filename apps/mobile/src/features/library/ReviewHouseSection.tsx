@@ -93,7 +93,7 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
     for (const u of currentTopicUnits) {
       const uQs = topicQuestions.filter((q) => {
         if (groupedQuestions.has(q)) return false;
-        return q.unitId ? q.unitId === u.id : q.stem.includes(u.title);
+        return q.unitId === u.id;
       });
       const uIncCount = uQs.filter((q) => incorrectIdSet.has(q.id)).length;
       if (uQs.length > 0) {

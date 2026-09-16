@@ -4,12 +4,71 @@
  */
 
 import { CognitiveLevel, LearnerKnowledgeLevel } from '../contracts/types';
+import {
+  getDifficultyProfile,
+  legacyLevelToDifficulty,
+  normalizeDifficultyLevel,
+} from './difficulty';
+
+export type StudyIntentStatus = 'READY' | 'NEEDS_CLARIFICATION' | 'REJECTED';
+
+export interface StudyIntentDecision {
+  status: StudyIntentStatus;
+  message?: string;
+  clarificationChoices?: string[];
+}
+
+export class StudyIntentResolutionError extends Error {
+  status: Exclude<StudyIntentStatus, 'READY'>;
+  clarificationChoices: string[];
+
+  constructor(
+    status: Exclude<StudyIntentStatus, 'READY'>,
+    message: string,
+    clarificationChoices: string[] = []
+  ) {
+    super(message);
+    this.name = 'StudyIntentResolutionError';
+    this.status = status;
+    this.clarificationChoices = clarificationChoices;
+  }
+}
+
+/**
+ * 의미 해석이 필요 없는 명백한 빈 입력/자모 나열만 로컬에서 차단합니다.
+ * 희귀 주제나 처음 보는 단어는 여기서 거부하지 않고 AI 의미 판정으로 넘깁니다.
+ */
+export function detectObviousInvalidStudyInput(input: string): StudyIntentDecision | null {
+  const compact = input.trim().replace(/[\s\p{P}\p{S}]/gu, '');
+  if (!compact) {
+    return { status: 'REJECTED', message: '학습할 주제를 한 글자 이상 입력해 주세요.' };
+  }
+
+  if (/^[ㄱ-ㅎㅏ-ㅣ]+$/u.test(compact)) {
+    return {
+      status: 'REJECTED',
+      message: '입력한 내용에서 학습 주제를 확인하기 어렵습니다. 원하는 주제를 조금 더 구체적으로 적어 주세요.',
+    };
+  }
+
+  // 정상 단어와 섞인 독립 자모도 조용히 버리지 않고 사용자에게 의미 확인을 요청합니다.
+  if (/[ㄱ-ㅎㅏ-ㅣ]/u.test(input)) {
+    return {
+      status: 'NEEDS_CLARIFICATION',
+      message:
+        '입력에 의미를 확정하기 어려운 독립 자모가 포함되어 있습니다. 해당 문자가 주제의 일부인지 확인해 주세요.',
+    };
+  }
+
+  return null;
+}
 
 export interface ScopedIntent {
   domain: string;
   level: CognitiveLevel;
   levelLabel: string;
   learnerLevel?: LearnerKnowledgeLevel;
+  difficultyLevel: number;
   knownScope?: string;
   levelBriefing?: string;
   style: string;
@@ -27,6 +86,7 @@ export function analyzeUserIntent(
   topicName?: string,
   options?: {
     learnerLevel?: LearnerKnowledgeLevel;
+    difficultyLevel?: number;
     knownScope?: string;
     targetCount?: number;
   }
@@ -37,30 +97,17 @@ export function analyzeUserIntent(
     ? topicName.trim()
     : (extractDomainFromText(text) || '자유 학습 주제');
 
-  const learnerLevel: LearnerKnowledgeLevel = options?.learnerLevel || 'basic';
+  const difficultyLevel = normalizeDifficultyLevel(
+    options?.difficultyLevel,
+    legacyLevelToDifficulty(options?.learnerLevel)
+  );
+  const difficultyProfile = getDifficultyProfile(difficultyLevel);
+  const learnerLevel: LearnerKnowledgeLevel = options?.learnerLevel || difficultyProfile.legacyLevel;
   const knownScope = options?.knownScope?.trim();
 
-  let level: CognitiveLevel = 'apply';
-  let levelLabel = '🌿 기본기 보유 (핵심 원리 & 실전 활용)';
-  let levelBriefing = '단순 명칭 암기나 너무 뻔한 기초는 빼고, 핵심 원리 이해 및 표준 실전/실무 활용 예제 위주로 출제합니다.';
-
-  if (learnerLevel === 'beginner') {
-    level = 'comprehend';
-    levelLabel = '🐣 왕초보 입문 (기초 개념 & 직관적 비유)';
-    levelBriefing = '난해한 고급 이론이나 복잡한 내부 구조는 배제하고, 직관적인 비유와 필수 기본 정의 위주로 출제합니다.';
-  } else if (learnerLevel === 'basic') {
-    level = 'apply';
-    levelLabel = '🌿 기본기 보유 (핵심 원리 & 실전 활용)';
-    levelBriefing = '단순 명칭 암기나 너무 뻔한 기초는 빼고, 핵심 원리 이해 및 표준 실전/실무 활용 예제 위주로 출제합니다.';
-  } else if (learnerLevel === 'advanced') {
-    level = 'analyze';
-    levelLabel = '🚀 실전 시험대비 (함정 선지 & 오류 디버깅)';
-    levelBriefing = '교과서식 단순 설명은 빼고, 실전 기출 수준의 빈출 함정 선지와 오류 해결(디버깅) 능력을 측정합니다.';
-  } else if (learnerLevel === 'master') {
-    level = 'synthesize';
-    levelLabel = '👑 심화/마스터 (복합 종합 추론)';
-    levelBriefing = '단순 암기 문제 0%! 2가지 이상의 원리가 결합된 고난도 종합 추론 문제를 출제합니다.';
-  }
+  const level: CognitiveLevel = difficultyProfile.cognitiveLevel;
+  const levelLabel = `레벨 ${difficultyLevel} · ${difficultyProfile.bandLabel}`;
+  let levelBriefing = difficultyProfile.briefing;
 
   if (knownScope) {
     levelBriefing += `\n(학습자 기준점: "${knownScope}" 맞춤 조율 반영)`;
@@ -83,12 +130,13 @@ export function analyzeUserIntent(
     level,
     levelLabel,
     learnerLevel,
+    difficultyLevel,
     knownScope,
     levelBriefing,
-    style: '공인 교재 및 정통 학술 사실 기반 4지선다형',
+    style: '사용자가 지정한 주제의 검증 가능한 사실 기반 4지선다형',
     targetCount,
     focusConcepts: [text],
-    factReferencePolicy: '공인 학술/교육과정 기준 팩트 및 출제 근거 필수 첨부',
+    factReferencePolicy: '주제에 적합한 신뢰 가능한 지식과 사용자 제공 자료 우선',
   };
 }
 

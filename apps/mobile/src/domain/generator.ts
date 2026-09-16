@@ -11,10 +11,17 @@ import {
   ValidationRecord,
   UUID,
 } from '../contracts/types';
-import { addQuestions, generateUUID, getCurrentISOTime, getGeminiApiKey } from '../data/db';
+import { generateUUID, getCurrentISOTime, getGeminiApiKey } from '../data/db';
 import { buildQuestionGenerationPrompt } from './prompts';
 import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
-import { ScopedIntent, analyzeUserIntent, extractDomainFromText } from './intent';
+import {
+  ScopedIntent,
+  StudyIntentDecision,
+  StudyIntentStatus,
+  analyzeUserIntent,
+  detectObviousInvalidStudyInput,
+  extractDomainFromText,
+} from './intent';
 import { distributeQuestionAnswersRandomly } from './question_distribution';
 import { GeneratedUnitItem, generateCurriculumUnits } from './curriculum_generator';
 
@@ -44,9 +51,157 @@ export type GenerationOutcome =
       requiredAction: string;
     }
   | {
+      status: 'NEEDS_CLARIFICATION';
+      message: string;
+      clarificationChoices: string[];
+    }
+  | {
+      status: 'REJECTED';
+      message: string;
+      clarificationChoices: string[];
+    }
+  | {
       status: 'FAILED';
       message: string;
     };
+
+interface GeneratedQuestionInput {
+  stem: string;
+  conceptDefinition?: string;
+  options: Array<{
+    text: string;
+    distractorRationale?: string;
+  }>;
+  correctOptionNumber: number;
+  explanation: string;
+  deepReasoningHint?: string;
+}
+
+function normalizeComparableText(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function readOptionalText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readStudyIntentDecision(value: unknown): StudyIntentDecision {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
+  }
+
+  const result = value as Record<string, unknown>;
+  const status = result.intentStatus;
+  if (status !== 'READY' && status !== 'NEEDS_CLARIFICATION' && status !== 'REJECTED') {
+    throw new Error('AI가 주제 판정 상태를 올바르게 반환하지 않았습니다. 다시 시도해 주세요.');
+  }
+
+  const clarificationChoices = Array.isArray(result.clarificationChoices)
+    ? result.clarificationChoices
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        .map((item) => item.trim())
+        .slice(0, 3)
+    : [];
+
+  return {
+    status: status as StudyIntentStatus,
+    message: readOptionalText(result.message),
+    clarificationChoices,
+  };
+}
+
+export function validateGeneratedQuestions(
+  value: unknown,
+  expectedCount: number
+): GeneratedQuestionInput[] {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
+  }
+
+  const questions = (value as { questions?: unknown }).questions;
+  if (!Array.isArray(questions) || questions.length !== expectedCount) {
+    throw new Error(
+      `AI가 요청한 ${expectedCount}문항을 완전하게 반환하지 않았습니다. 다시 시도해 주세요.`
+    );
+  }
+
+  const knownStems = new Set<string>();
+
+  return questions.map((rawQuestion, questionIndex) => {
+    const number = questionIndex + 1;
+    if (typeof rawQuestion !== 'object' || rawQuestion === null || Array.isArray(rawQuestion)) {
+      throw new Error(`AI 응답의 ${number}번 문제 형식이 올바르지 않습니다. 다시 시도해 주세요.`);
+    }
+
+    const question = rawQuestion as Record<string, unknown>;
+    const stem = typeof question.stem === 'string' ? question.stem.trim() : '';
+    if (!stem) {
+      throw new Error(`AI 응답의 ${number}번 문제 지문이 비어 있습니다. 다시 시도해 주세요.`);
+    }
+
+    const normalizedStem = normalizeComparableText(stem);
+    if (knownStems.has(normalizedStem)) {
+      throw new Error(`AI 응답에 동일한 문제 지문이 반복되었습니다. 다시 시도해 주세요.`);
+    }
+    knownStems.add(normalizedStem);
+
+    if (!Array.isArray(question.options) || question.options.length !== 4) {
+      throw new Error(`AI 응답의 ${number}번 문제 보기가 4개가 아닙니다. 다시 시도해 주세요.`);
+    }
+
+    const knownOptions = new Set<string>();
+    const options = question.options.map((rawOption, optionIndex) => {
+      if (typeof rawOption !== 'object' || rawOption === null || Array.isArray(rawOption)) {
+        throw new Error(
+          `AI 응답의 ${number}번 문제 ${optionIndex + 1}번 보기 형식이 올바르지 않습니다. 다시 시도해 주세요.`
+        );
+      }
+
+      const option = rawOption as Record<string, unknown>;
+      const text = typeof option.text === 'string' ? option.text.trim() : '';
+      if (!text) {
+        throw new Error(
+          `AI 응답의 ${number}번 문제 ${optionIndex + 1}번 보기가 비어 있습니다. 다시 시도해 주세요.`
+        );
+      }
+
+      const normalizedOption = normalizeComparableText(text);
+      if (knownOptions.has(normalizedOption)) {
+        throw new Error(`AI 응답의 ${number}번 문제에 중복 보기가 있습니다. 다시 시도해 주세요.`);
+      }
+      knownOptions.add(normalizedOption);
+
+      return {
+        text,
+        distractorRationale: readOptionalText(option.distractorRationale),
+      };
+    });
+
+    if (
+      typeof question.correctOptionNumber !== 'number' ||
+      !Number.isInteger(question.correctOptionNumber) ||
+      question.correctOptionNumber < 1 ||
+      question.correctOptionNumber > options.length
+    ) {
+      throw new Error(`AI 응답의 ${number}번 문제 정답 번호가 올바르지 않습니다. 다시 시도해 주세요.`);
+    }
+
+    const explanation =
+      typeof question.explanation === 'string' ? question.explanation.trim() : '';
+    if (!explanation) {
+      throw new Error(`AI 응답의 ${number}번 문제 해설이 비어 있습니다. 다시 시도해 주세요.`);
+    }
+
+    return {
+      stem,
+      conceptDefinition: readOptionalText(question.conceptDefinition),
+      options,
+      correctOptionNumber: question.correctOptionNumber,
+      explanation,
+      deepReasoningHint: readOptionalText(question.deepReasoningHint),
+    };
+  });
+}
 
 /**
  * 문제 출제 및 무결성 검증 파이프라인
@@ -62,22 +217,32 @@ export async function generateFactBasedQuestions(params: {
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
+  signal?: AbortSignal;
 }): Promise<GenerationOutcome> {
-  const { intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext } = params;
+  const { intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, signal } = params;
+  const obviousInvalid = detectObviousInvalidStudyInput(topicName || intent.domain);
+  if (obviousInvalid && obviousInvalid.status !== 'READY') {
+    return {
+      status: obviousInvalid.status,
+      message: obviousInvalid.message || '학습할 주제를 조금 더 구체적으로 입력해 주세요.',
+      clarificationChoices: [],
+    };
+  }
+
   const apiKey = await getGeminiApiKey();
 
   // API Key 미연동 시: 가짜 문제를 억지로 내지 않고 솔직한 통로 안내 반환
   if (!apiKey || apiKey.trim().length < 8) {
     return {
       status: 'NEEDS_CONNECTION',
-      provider: 'Google Gemini 3.5 / 3.0 / 2.0 AI Provider',
+      provider: 'AI_PROVIDER',
       message: 'AI 출제 엔진 통로가 미연동 상태입니다. (하드코딩된 가짜 문제를 일절 배제합니다)',
-      requiredAction: '설정 탭에서 최신 Gemini 3.5 / Claude / GPT API Key를 등록해 주세요.',
+      requiredAction: '설정 탭에서 사용할 AI API Key를 등록해 주세요.',
     };
   }
 
   try {
-    const { questions, validations, spec } = await generateViaUniversalAiApi({
+    const generated = await generateViaUniversalAiApi({
       apiKey: apiKey.trim(),
       intent,
       ownerId,
@@ -87,16 +252,18 @@ export async function generateFactBasedQuestions(params: {
       unitId,
       unitTitle,
       customContext,
+      signal,
     });
 
-    // 영속 저장소에 등록
-    await addQuestions(questions);
+    if (generated.status !== 'READY') {
+      return generated;
+    }
 
     return {
       status: 'READY',
-      spec,
-      questions,
-      validations,
+      spec: generated.spec,
+      questions: generated.questions,
+      validations: generated.validations,
     };
   } catch (err: any) {
     console.error('AI 출제 API 통신 실패:', err);
@@ -108,7 +275,7 @@ export async function generateFactBasedQuestions(params: {
 }
 
 /**
- * 범용 최신 AI 통신 엔진 (Gemini 3.5 + Claude 3.5 + GPT-4o)
+ * 범용 최신 AI 통신 엔진
  */
 async function generateViaUniversalAiApi(params: {
   apiKey: string;
@@ -120,12 +287,26 @@ async function generateViaUniversalAiApi(params: {
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
-}): Promise<{
-  spec: LearningSpec;
-  questions: QuestionRevision[];
-  validations: ValidationRecord[];
-}> {
-  const { apiKey, intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext } = params;
+  signal?: AbortSignal;
+}): Promise<
+  | {
+      status: 'READY';
+      spec: LearningSpec;
+      questions: QuestionRevision[];
+      validations: ValidationRecord[];
+    }
+  | {
+      status: 'NEEDS_CLARIFICATION';
+      message: string;
+      clarificationChoices: string[];
+    }
+  | {
+      status: 'REJECTED';
+      message: string;
+      clarificationChoices: string[];
+    }
+> {
+  const { apiKey, intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, signal } = params;
 
   const specId = generateUUID();
   const spec: LearningSpec = {
@@ -136,6 +317,7 @@ async function generateViaUniversalAiApi(params: {
     sourceRevisionIds: [],
     unitIds: unitId ? [unitId] : [],
     level: intent.level,
+    difficultyLevel: intent.difficultyLevel,
     questionCount: intent.targetCount,
     createdAt: getCurrentISOTime(),
   };
@@ -152,32 +334,34 @@ async function generateViaUniversalAiApi(params: {
     customContext,
   });
 
-  const rawJson = await callUniversalAiCompletion(apiKey, prompt);
-  const parsed = parseAiJsonResponse<{ questions: any[] }>(rawJson);
+  const rawJson = await callUniversalAiCompletion(apiKey, prompt, signal);
+  const parsed = parseAiJsonResponse<unknown>(rawJson);
+  const intentDecision = readStudyIntentDecision(parsed);
+  if (intentDecision.status !== 'READY') {
+    return {
+      status: intentDecision.status,
+      message:
+        intentDecision.message ||
+        (intentDecision.status === 'NEEDS_CLARIFICATION'
+          ? '학습하려는 주제의 관계나 범위를 조금 더 구체적으로 알려 주세요.'
+          : '입력한 내용에서 학습 주제를 확인하기 어렵습니다.'),
+      clarificationChoices: intentDecision.clarificationChoices || [],
+    };
+  }
+  const generatedQuestions = validateGeneratedQuestions(parsed, intent.targetCount);
   const questions: QuestionRevision[] = [];
   const validations: ValidationRecord[] = [];
 
-  for (const item of parsed.questions || []) {
+  for (const item of generatedQuestions) {
     const qId = generateUUID();
-    const opts = (item.options || []).map((o: any) => ({
+    const opts = item.options.map((o) => ({
       id: generateUUID(),
-      text: o.text || '',
+      text: o.text,
       isDistractor: true,
-      distractorRationale: o.distractorRationale || undefined,
+      distractorRationale: o.distractorRationale,
     }));
 
-    while (opts.length < 4) {
-      opts.push({
-        id: generateUUID(),
-        text: `선지 ${opts.length + 1}`,
-        isDistractor: true,
-        distractorRationale: '기본 선지',
-      });
-    }
-
-    const correctIdx = typeof item.correctIndex === 'number' && item.correctIndex >= 0 && item.correctIndex < opts.length
-      ? item.correctIndex
-      : 0;
+    const correctIdx = item.correctOptionNumber - 1;
 
     opts.forEach((o: any, idx: number) => {
       o.isDistractor = idx !== correctIdx;
@@ -201,11 +385,12 @@ async function generateViaUniversalAiApi(params: {
       specId,
       topicId,
       unitId: unitId || undefined,
-      stem: item.stem || '문제 지문',
-      conceptDefinition: item.conceptDefinition || undefined,
+      difficultyLevel: intent.difficultyLevel,
+      stem: item.stem,
+      conceptDefinition: item.conceptDefinition,
       options: opts,
       answerOptionId: answerId,
-      explanation: item.explanation || '정답 해설',
+      explanation: item.explanation,
       deepReasoningHint: item.deepReasoningHint,
       status: 'ready_personal',
       createdAt: getCurrentISOTime(),
@@ -215,15 +400,15 @@ async function generateViaUniversalAiApi(params: {
     validations.push({
       id: generateUUID(),
       questionRevisionId: qId,
-      checkType: 'fact_grounding',
+      checkType: 'syntax_integrity',
       result: 'pass',
-      reviewerKind: 'ai_reviewer',
-      reason: '최신 AI 실시간 출제 및 4지선다 무결성 통과',
+      reviewerKind: 'rule_engine',
+      reason: '문항 수, 지문, 보기, 정답 번호, 해설 형식 검사 통과',
       createdAt: getCurrentISOTime(),
     });
   }
 
   // 정답 위치 균등 무작위 분산 강제 적용
   const distributedQuestions = distributeQuestionAnswersRandomly(questions);
-  return { spec, questions: distributedQuestions, validations };
+  return { status: 'READY', spec, questions: distributedQuestions, validations };
 }

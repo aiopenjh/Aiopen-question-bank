@@ -63,17 +63,26 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* 과목 전체 즉시 CBT 버튼 */}
-      {topicQuestions.length > 0 && (
+      {/* 과목 전체 학습 및 관리 버튼 */}
+      <View style={styles.topicTopActionsRow}>
+        {topicQuestions.length > 0 && (
+          <TouchableOpacity
+            style={styles.topicExamBtn}
+            onPress={() => onStartExamWithQuestions(topicQuestions)}
+          >
+            <Text style={styles.topicExamBtnText}>
+              전체 {topicQuestions.length}문제 CBT 시작
+            </Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
-          style={styles.topicExamBtn}
-          onPress={() => onStartExamWithQuestions(topicQuestions)}
+          style={styles.topicDeleteTopBtn}
+          onPress={() => onDeleteTopic(topic.id, topic.name)}
+          activeOpacity={0.72}
         >
-          <Text style={styles.topicExamBtnText}>
-            전체 {topicQuestions.length}문제 CBT 시작
-          </Text>
+          <Text style={styles.topicDeleteTopBtnText}>과목 삭제</Text>
         </TouchableOpacity>
-      )}
+      </View>
 
       {/* 펼쳤을 때: 커리큘럼 단원 및 단원별 문제집 */}
       {isExpanded && (
@@ -105,7 +114,7 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.actionPillText}>AI 5단계 목차 만들기</Text>
+                <Text style={styles.actionPillText}>AI 5개 단원 만들기</Text>
               )}
             </TouchableOpacity>
             {hasDuplicates && onDeduplicateUnits && (
@@ -129,7 +138,7 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
           ) : (
             topicUnits.map((unit) => {
               const unitQuestions = questions.filter(
-                (q) => q.topicId === topic.id && (q.unitId === unit.id || q.stem.includes(unit.title))
+                (q) => q.topicId === topic.id && q.unitId === unit.id
               );
               const isThisUnitGenerating = generatingUnitId === unit.id;
 
@@ -180,15 +189,6 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
             })
           )}
 
-          <View style={styles.topicManagementRow}>
-            <TouchableOpacity
-              style={styles.topicDeleteLink}
-              onPress={() => onDeleteTopic(topic.id, topic.name)}
-              activeOpacity={0.72}
-            >
-              <Text style={styles.topicDeleteLinkText}>과목 관리 · 삭제</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       )}
     </View>

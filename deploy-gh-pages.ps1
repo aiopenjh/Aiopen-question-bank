@@ -5,9 +5,26 @@ if (-not $rootDir) {
 }
 
 $distDir = Join-Path $rootDir "apps\mobile\dist"
+$mobileDir = Join-Path $rootDir "apps\mobile"
+$buildInfoPath = Join-Path $mobileDir "src\constants\buildInfo.ts"
+$publicVersionPath = Join-Path $mobileDir "public\version.json"
+
+# 앱에 내장된 버전과 배포 서버의 버전을 같은 값으로 유지합니다.
+$buildInfoText = Get-Content -LiteralPath $buildInfoPath -Raw
+$versionMatch = [regex]::Match($buildInfoText, "version:\s*'([^']+)'")
+$buildTimeMatch = [regex]::Match($buildInfoText, "buildTime:\s*'([^']+)'")
+$buildLabelMatch = [regex]::Match($buildInfoText, "buildLabel:\s*'([^']+)'")
+if (-not ($versionMatch.Success -and $buildTimeMatch.Success -and $buildLabelMatch.Success)) {
+    throw "오류: buildInfo.ts에서 배포 버전 정보를 읽지 못했습니다."
+}
+@{
+    version = $versionMatch.Groups[1].Value
+    buildTime = $buildTimeMatch.Groups[1].Value
+    buildLabel = $buildLabelMatch.Groups[1].Value
+} | ConvertTo-Json | Set-Content -LiteralPath $publicVersionPath -Encoding utf8
 
 Write-Host "📦 1. Expo 정적 웹 번들 빌드 시작 (apps\mobile)..." -ForegroundColor Cyan
-Push-Location (Join-Path $rootDir "apps\mobile")
+Push-Location $mobileDir
 cmd.exe /c npx expo export
 Pop-Location
 

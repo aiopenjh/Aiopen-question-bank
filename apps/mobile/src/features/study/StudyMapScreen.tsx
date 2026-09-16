@@ -217,7 +217,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      <DailyInspirationCard apiKey={apiKey} topicName={topicName} />
+      <DailyInspirationCard />
 
       {(onOpenTopicModal || onQuickPromptGenerate) && (
         <View style={styles.quickPromptCard}>

@@ -70,8 +70,8 @@ export const LoadingWaitOverlay: React.FC<LoadingWaitOverlayProps> = ({
         <View style={styles.loadingWaitNoteBox}>
           <Text style={styles.loadingWaitNoteText}>
             {isCurriculum
-              ? 'AI가 공인 표준 교육과정에 맞추어 단계별 학습 단원을 체계적으로 설계하고 있습니다.'
-              : 'AI가 핵심 개념을 분석하여 정확하고 유익한 맞춤 문제를 구성하고 있습니다.'}
+              ? 'AI가 입력한 주제와 시작 난이도에 맞춰 5개의 학습 단원을 직접 설계하고 있습니다.'
+              : 'AI가 입력한 주제와 조건에 맞춰 새로운 4지선다 문제를 직접 출제하고 있습니다.'}
           </Text>
         </View>
 

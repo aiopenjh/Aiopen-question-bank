@@ -50,11 +50,12 @@ ${mistakeSummaries}
   const intent: ScopedIntent = {
     domain: `${topicName} (오답 개념 기초 다지기)`,
     level: 'comprehend' as CognitiveLevel,
+    difficultyLevel: Math.max(1, (targetMistakes[0]?.difficultyLevel || 6) - 1),
     levelLabel: 'Lv.2 원리 이해 & 오개념 교정',
     style: '선수 지식 확인 및 오개념 극복 맞춤형 4지선다',
     targetCount: Math.min(3, Math.max(2, targetMistakes.length)),
     focusConcepts: [focusConceptSummary || '최근 오답 관련 핵심 개념'],
-    factReferencePolicy: '공인 표준 교재 기초 개념 및 오답 극복 원전 팩트',
+    factReferencePolicy: '사용자 제공 자료 또는 주제에 적합한 신뢰 가능한 기초 지식',
   };
 
   return {

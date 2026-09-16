@@ -3,7 +3,38 @@
  * Supports Google Gemini (with smart timeout fallback and cascade), Anthropic Claude, and OpenAI GPT.
  */
 
-import { getPreferredAiModel } from '../data/db';
+import {
+  DEFAULT_GEMINI_MODEL,
+  getPreferredAiModel,
+  isSupportedGeminiModel,
+} from '../data/db';
+
+let geminiRateLimitUntil = 0;
+
+function getRetryAfterSeconds(headerValue: string | null): number {
+  if (!headerValue) return 30;
+  const seconds = Number(headerValue);
+  if (Number.isFinite(seconds) && seconds > 0) return Math.ceil(seconds);
+  const retryDate = Date.parse(headerValue);
+  if (Number.isFinite(retryDate)) {
+    return Math.max(1, Math.ceil((retryDate - Date.now()) / 1000));
+  }
+  return 30;
+}
+
+function createGeminiRateLimitError(waitSeconds: number): Error {
+  const error = new Error(
+    `Google Gemini 요청 한도에 도달했습니다. 약 ${waitSeconds}초 후 다시 시도해 주세요. 기존 문제와 학습 데이터는 그대로 유지됩니다.`
+  );
+  error.name = 'GeminiRateLimitError';
+  return error;
+}
+
+function createGenerationCancelledError(): Error {
+  const error = new Error('사용자가 문제 출제를 취소했습니다.');
+  error.name = 'GenerationCancelledError';
+  return error;
+}
 
 /**
  * AI JSON 응답 파싱 유틸리티 (마크다운 백틱 제거)
@@ -25,10 +56,15 @@ export function parseAiJsonResponse<T>(rawText: string): T {
  * 범용 최신 AI 통신 엔진
  * - Gemini 최신 버전(3.5 Flash) 기본 적용
  * - Claude 3.5 Sonnet (sk-ant- 키) 및 OpenAI GPT-4o (sk- 키) 멀티 프로바이더 지원
- * - 404 방어: 최신 모델부터 호환 모델까지 자동 캐스케이드 폴백
+ * - Gemini는 3.5 이상 모델 안에서만 자동 전환
  */
-export async function callUniversalAiCompletion(apiKey: string, prompt: string): Promise<string> {
+export async function callUniversalAiCompletion(
+  apiKey: string,
+  prompt: string,
+  signal?: AbortSignal
+): Promise<string> {
   const trimmedKey = apiKey.trim();
+  if (signal?.aborted) throw createGenerationCancelledError();
 
   // 1. Anthropic Claude 3.5 Sonnet 지원 (sk-ant- 시작 키)
   if (trimmedKey.startsWith('sk-ant-')) {
@@ -40,6 +76,7 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
         'anthropic-version': '2023-06-01',
         'dangerously-allow-browser': 'true',
       },
+      signal,
       body: JSON.stringify({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 4096,
@@ -64,6 +101,7 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
         'Content-Type': 'application/json',
         Authorization: `Bearer ${trimmedKey}`,
       },
+      signal,
       body: JSON.stringify({
         model: 'gpt-4o',
         temperature: 0.2,
@@ -80,19 +118,19 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
     return rawText;
   }
 
-  // 3. Google Gemini: 3.5 최우선 사용 및 통신 시간 만료(타임아웃) 시 다음 버전 자동 우회
+  // 3. Google Gemini: 3.5 이상 모델만 사용
+  const remainingCooldownSeconds = Math.ceil((geminiRateLimitUntil - Date.now()) / 1000);
+  if (remainingCooldownSeconds > 0) {
+    throw createGeminiRateLimitError(remainingCooldownSeconds);
+  }
   const preferredModel = await getPreferredAiModel();
   let candidateModels = Array.from(
     new Set([
       preferredModel,
-      'gemini-3.5-flash',
+      DEFAULT_GEMINI_MODEL,
       'gemini-3.5-flash-lite',
       'gemini-3.5-pro',
-      'gemini-2.5-flash',
-      'gemini-2.5-flash-lite',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-    ].filter(Boolean) as string[])
+    ].filter((model): model is string => Boolean(model) && isSupportedGeminiModel(model)))
   );
 
   let lastError: any = null;
@@ -104,12 +142,17 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
     triedModels.add(model);
 
     let timeoutTimer: any = null;
+    let externalAbortHandler: (() => void) | null = null;
     try {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
       if (controller) {
         // 통신 시간 만료(25초 초과) 시 자동 중단 후 다음 가용 모델로 자동 전환
         timeoutTimer = setTimeout(() => controller.abort(), 25000);
+        if (signal) {
+          externalAbortHandler = () => controller.abort();
+          signal.addEventListener('abort', externalAbortHandler, { once: true });
+        }
       }
 
       const res = await fetch(endpoint, {
@@ -129,6 +172,9 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
         }),
       });
       if (timeoutTimer) clearTimeout(timeoutTimer);
+      if (signal && externalAbortHandler) {
+        signal.removeEventListener('abort', externalAbortHandler);
+      }
 
       if (res.status === 404) {
         lastError = new Error(`Gemini 모델 [${model}] 404 Not Found`);
@@ -143,7 +189,11 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
             if (listRes.ok) {
               const listData = await listRes.json();
               const activeGoogleModels: string[] = (listData.models || [])
-                .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+                .filter(
+                  (m: any) =>
+                    m.supportedGenerationMethods?.includes('generateContent') &&
+                    isSupportedGeminiModel(String(m.name || '').replace('models/', ''))
+                )
                 .map((m: any) => m.name.replace('models/', ''));
               for (const gm of activeGoogleModels) {
                 if (!triedModels.has(gm)) {
@@ -158,8 +208,14 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
         continue;
       }
 
-      // 구글 AI 서버 일시적 과부하 (503 High Demand), 게이트웨이 오류(502/504), 할당량(429) 자동 전환
-      if (res.status === 503 || res.status === 502 || res.status === 504 || res.status === 500 || res.status === 429) {
+      if (res.status === 429) {
+        const waitSeconds = getRetryAfterSeconds(res.headers.get('retry-after'));
+        geminiRateLimitUntil = Date.now() + waitSeconds * 1000;
+        throw createGeminiRateLimitError(waitSeconds);
+      }
+
+      // 구글 AI 서버 일시적 과부하와 게이트웨이 오류는 3.5 이상 후보 안에서만 전환합니다.
+      if (res.status === 503 || res.status === 502 || res.status === 504 || res.status === 500) {
         lastError = new Error(`Gemini 모델 [${model}] 서버 일시 혼잡 (${res.status})`);
         console.warn(`Gemini 모델 [${model}] 서버 혼잡 (${res.status}) -> 다음 가용 모델 자동 전환`);
         continue;
@@ -183,16 +239,24 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
       return rawJson;
     } catch (err: any) {
       if (timeoutTimer) clearTimeout(timeoutTimer);
+      if (signal && externalAbortHandler) {
+        signal.removeEventListener('abort', externalAbortHandler);
+      }
       lastError = err;
       const msg = err?.message || '';
-      // 통신 시간 만료, AbortError, 서버 혼잡 시 즉시 다음 버전 모델로 자동 폴백
+      if (signal?.aborted) {
+        throw createGenerationCancelledError();
+      }
+      if (err?.name === 'GeminiRateLimitError') {
+        throw err;
+      }
+      // 통신 시간 만료, AbortError, 서버 혼잡 시 다음 3.5 이상 모델로만 전환
       if (
         msg.includes('404') ||
         msg.includes('503') ||
         msg.includes('502') ||
         msg.includes('500') ||
         msg.includes('504') ||
-        msg.includes('429') ||
         msg.includes('high demand') ||
         msg.includes('UNAVAILABLE') ||
         msg.includes('Resource has been exhausted') ||
@@ -201,7 +265,7 @@ export async function callUniversalAiCompletion(apiKey: string, prompt: string):
         msg.includes('timeout') ||
         msg.includes('Network request failed')
       ) {
-        console.warn(`Gemini 모델 [${model}] 통신 지연/타임아웃 발생 -> 다음 상위 버전으로 자동 우회 시도`);
+        console.warn(`Gemini 모델 [${model}] 통신 지연/타임아웃 발생 -> 다음 3.5 이상 모델로 자동 우회 시도`);
         continue;
       }
       throw err;
