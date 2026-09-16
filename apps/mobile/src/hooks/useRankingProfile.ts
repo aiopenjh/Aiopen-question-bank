@@ -11,15 +11,15 @@ export function useRankingProfile() {
   const [rankingSyncModalVisible, setRankingSyncModalVisible] = useState(false);
 
   useEffect(() => {
-    getRankingProfile().then((profile) => {
+    (async () => {
+      const profile = await getRankingProfile();
       setRankingProfile(profile);
       if (!profile) return;
       // 계획서 §6: 실패한 연동 요청은 앱이 다음에 열린 뒤 사용자 동의를 거쳐 재시도한다.
       // 자동 전송하지 않고 연동 확인 모달을 다시 띄워 "연동하기"를 누르게 한다.
-      getPendingSyncRequest().then((pending) => {
-        if (pending) setRankingSyncModalVisible(true);
-      });
-    });
+      const pending = await getPendingSyncRequest();
+      if (pending) setRankingSyncModalVisible(true);
+    })();
   }, []);
 
   const handleRankingProfileChange = useCallback(async (profile: RankingProfile | null) => {

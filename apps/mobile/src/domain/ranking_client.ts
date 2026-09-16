@@ -12,11 +12,6 @@ import { RankingProfile } from '../contracts/types';
 // 랭킹 기능 진입점을 노출하지 않는다 (서버 미배포 상태 보호).
 export const RANKING_API_BASE_URL = '';
 
-export interface RankingApiError {
-  code: string;
-  message: string;
-}
-
 export class RankingApiRequestError extends Error {
   code: string;
   status: number;
@@ -44,7 +39,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
 
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    const err: RankingApiError | undefined = body?.error;
+    const err: { code?: string; message?: string } | undefined = body?.error;
     throw new RankingApiRequestError(
       err?.code ?? 'SERVER_ERROR',
       err?.message ?? '알 수 없는 오류가 발생했습니다.',

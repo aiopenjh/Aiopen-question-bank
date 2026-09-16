@@ -87,7 +87,6 @@ export {
   getRankingProfile,
   saveRankingProfile,
   clearRankingProfile,
-  updateLastSynced,
   getPendingSyncRequest,
   setPendingSyncRequest,
   clearPendingSyncRequest,

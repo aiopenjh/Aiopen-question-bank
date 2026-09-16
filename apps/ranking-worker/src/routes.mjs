@@ -199,14 +199,12 @@ async function recomputeStats(env, participantId, studyDate, qualifiedToday, was
   let currentStreak = statsRow?.current_streak ?? 0;
   const lastQualifiedDate = statsRow?.last_qualified_date ?? null;
 
+  // qualifiedToday && !wasQualifiedBefore: 오늘 새로 자격을 얻었으므로 스트릭을 이어붙이거나 새로 시작한다.
+  // 그 외 경우(자격 유지/미달)는 currentStreak을 그대로 둔다 (재연동으로 3문제 미만 하락은
+  // 클라이언트가 보내지 않는 한 발생하지 않고, 과도한 조작 방지는 초기 범위 밖 - FEATURE_PLAN §9).
   if (qualifiedToday && !wasQualifiedBefore) {
     const yesterday = addDaysToDateString(studyDate, -1);
     currentStreak = lastQualifiedDate === yesterday ? currentStreak + 1 : 1;
-  } else if (!qualifiedToday && wasQualifiedBefore) {
-    // 재연동으로 3문제 미만으로 내려가는 경우는 클라이언트가 보내지 않는 한 발생하지 않지만
-    // 방어적으로 오늘 자격을 취소해도 스트릭은 유지한다(과도한 조작 방지는 초기 범위 밖, FEATURE_PLAN §9).
-  } else if (qualifiedToday && wasQualifiedBefore) {
-    // 이미 오늘 자격을 반영했으므로 스트릭 변화 없음.
   }
 
   const bestStreak = Math.max(statsRow?.best_streak ?? 0, currentStreak);

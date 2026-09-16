@@ -21,16 +21,6 @@ export async function clearRankingProfile(): Promise<void> {
   await AsyncStorage.multiRemove([STORAGE_KEYS.RANKING_PROFILE, STORAGE_KEYS.RANKING_SYNC_QUEUE]);
 }
 
-export async function updateLastSynced(localDate: string, solvedCount: number): Promise<void> {
-  const profile = await getRankingProfile();
-  if (!profile) return;
-  await saveRankingProfile({
-    ...profile,
-    lastSyncedDate: localDate,
-    lastSyncedSolvedCount: solvedCount,
-  });
-}
-
 /**
  * 실패한 연동 요청 대기열. 계획서 §6: 기기에 한 건만 대기시킨다.
  * 새 요청은 기존 대기 항목을 덮어쓴다(누적하지 않음).
