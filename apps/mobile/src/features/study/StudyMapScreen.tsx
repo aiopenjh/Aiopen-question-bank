@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { RoutineRevision } from '../../contracts/types';
 import { DailyInspirationCard } from './DailyInspirationCard';
+import { RankingLeaderboardCard } from './RankingLeaderboardCard';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
 import { StateIllustration } from '../../components/common/StateIllustration';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
@@ -176,6 +177,8 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </TouchableOpacity>
         )}
       </View>
+
+      <RankingLeaderboardCard />
 
       {(onOpenTopicModal || onQuickPromptGenerate) && (
         <View style={styles.quickPromptCard}>
