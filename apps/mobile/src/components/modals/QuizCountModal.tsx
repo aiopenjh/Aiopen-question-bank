@@ -14,7 +14,6 @@ import {
 } from '../../domain/difficulty';
 import { colors } from '../../styles/designTokens';
 import { UniversalModal as Modal } from '../common/UniversalModal';
-import { DifficultyLevelControl } from '../common/DifficultyLevelControl';
 import { quizCountModalStyles as styles } from './QuizCountModal.styles';
 
 export interface QuizCountModalOptions {
@@ -52,19 +51,16 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   onSelectCount,
   onOpenBackup,
 }) => {
-  const defaultDifficulty = initialDifficultyLevel ?? legacyLevelToDifficulty(initialLevel);
-  const [selectedDifficulty, setSelectedDifficulty] = useState(defaultDifficulty);
+  const fixedDifficulty = initialDifficultyLevel ?? legacyLevelToDifficulty(initialLevel);
   const [shouldReplace, setShouldReplace] = useState(false);
 
   useEffect(() => {
     if (visible) {
-      setSelectedDifficulty(initialDifficultyLevel ?? legacyLevelToDifficulty(initialLevel));
       setShouldReplace(false);
     }
-  }, [visible, initialLevel, initialDifficultyLevel]);
+  }, [visible]);
 
-  const selectedProfile = getDifficultyProfile(selectedDifficulty);
-  const isModifiedFromDefault = selectedDifficulty !== defaultDifficulty;
+  const fixedProfile = getDifficultyProfile(fixedDifficulty);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -102,29 +98,15 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
               <View style={styles.currentLevelCopy}>
                 <Text style={styles.currentLevelLabel}>현재 난이도</Text>
                 <Text style={styles.currentLevelValue}>
-                  레벨 {selectedDifficulty} · {selectedProfile.bandLabel}
+                  레벨 {fixedDifficulty} · {fixedProfile.bandLabel}
                 </Text>
               </View>
-              <Text style={styles.originTag}>
-                {isModifiedFromDefault ? '이번만 변경' : '과목 기본값'}
-              </Text>
+              <Text style={styles.originTag}>과목 고정</Text>
             </View>
 
-            <View style={styles.sectionHeadingRow}>
-              <Text style={styles.sectionTitle}>난이도</Text>
-              {isModifiedFromDefault ? (
-                <TouchableOpacity onPress={() => setSelectedDifficulty(defaultDifficulty)}>
-                  <Text style={styles.resetText}>기본값으로</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.sectionHint}>필요할 때만 바꾸세요</Text>
-              )}
-            </View>
-            <DifficultyLevelControl
-              value={selectedDifficulty}
-              onChange={setSelectedDifficulty}
-              compact
-            />
+            <Text style={styles.lockedLevelNote}>
+              새 과목을 만들 때 선택한 난이도로 문제가 출제됩니다.
+            </Text>
 
             {existingCount > 0 ? (
               <View style={styles.existingSection}>
@@ -166,8 +148,8 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                   style={[styles.countCard, item.recommended && styles.countCardRecommended]}
                   onPress={() =>
                     onSelectCount(item.count, {
-                      learnerLevel: difficultyToLegacyLevel(selectedDifficulty),
-                      difficultyLevel: selectedDifficulty,
+                      learnerLevel: difficultyToLegacyLevel(fixedDifficulty),
+                      difficultyLevel: fixedDifficulty,
                       shouldReplaceExisting: shouldReplace,
                     })
                   }
