@@ -5,6 +5,7 @@ import { colors, radius, spacing } from '../../styles/designTokens';
 import { RankingProfile } from '../../contracts/types';
 import { syncToday, RankingApiRequestError, SyncTodayResult } from '../../domain/ranking_client';
 import { CONSISTENCY_MIN_QUESTIONS } from '../../domain/ranking';
+import { setPendingSyncRequest, clearPendingSyncRequest } from '../../data/db';
 
 export interface RankingSyncModalProps {
   visible: boolean;
@@ -36,10 +37,20 @@ export const RankingSyncModal: React.FC<RankingSyncModalProps> = ({
     setErrorMessage(null);
     try {
       const result = await syncToday(rankingProfile, localDate, todaySolvedCount);
+      await clearPendingSyncRequest();
       onSynced(result);
       onClose();
     } catch (err) {
-      setErrorMessage(err instanceof RankingApiRequestError ? err.message : '알 수 없는 오류가 발생했습니다.');
+      if (err instanceof RankingApiRequestError) {
+        setErrorMessage(err.message);
+        // 서버/네트워크 장애(0, 429, 5xx)만 기기에 대기시킨다.
+        // 닉네임 충돌 등 사용자 조치가 필요한 4xx는 대기시키지 않는다 (계획서 §6).
+        if (err.status === 0 || err.status === 429 || err.status >= 500) {
+          await setPendingSyncRequest(localDate, todaySolvedCount);
+        }
+      } else {
+        setErrorMessage('알 수 없는 오류가 발생했습니다.');
+      }
     } finally {
       setSyncing(false);
     }
