@@ -23,7 +23,7 @@ Base URL과 실제 도메인은 서버 선택 후 확정한다.
 | `device_token_hash` | 현재 기기 인증 토큰 해시 |
 | `created_at` | 참여 등록 시각 |
 | `updated_at` | 마지막 변경 시각 |
-| `deleted_at` | 탈퇴 처리 시각, 정책 확정 전까지 선택 필드 |
+| `deleted_at` | 탈퇴 요청 시각. NULL이 아니면 즉시 공개 랭킹에서 제외되고, 이 값으로부터 3일 뒤 참여자와 관련 기록이 일괄 삭제된다 |
 
 ### `daily_learning`
 
@@ -178,7 +178,18 @@ qualifiedConsistency = newSolvedCount >= 3
 
 `DELETE /participants/me`
 
-탈퇴 시 즉시 삭제 또는 복구 유예 기간은 구현 전에 확정한다. 어떤 정책을 선택해도 닉네임이 공개 랭킹에서 언제 사라지는지 응답에 명시한다.
+탈퇴 요청 시 즉시 삭제하지 않고 `participants.deleted_at`에 요청 시각을 기록한다. 닉네임은 탈퇴 요청 즉시 공개 랭킹(`GET /leaderboard`)에서 제외한다. 서버는 `deleted_at`으로부터 3일이 지난 참여자와 그 `daily_learning`, `participant_stats` 기록을 일괄 삭제한다(스케줄 작업 또는 조회 시 지연 삭제로 구현).
+
+유예 기간(3일) 중 같은 `deviceToken` 또는 `recoveryToken`으로 `POST /sync/today` 또는 `POST /participants/recover`를 호출하면 탈퇴 요청은 취소되고 `deleted_at`을 초기화한다.
+
+응답:
+
+```json
+{
+  "status": "PENDING_DELETION",
+  "scheduledDeletionAt": "2026-09-19T10:00:00Z"
+}
+```
 
 ## 5. 검증과 호출 제한
 
