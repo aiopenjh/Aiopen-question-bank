@@ -118,6 +118,12 @@ export const quizCountModalStyles = StyleSheet.create({
     marginTop: -spacing.sm,
     marginBottom: spacing.sm,
   },
+  adjustableLevelNote: {
+    color: colors.inkMuted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: spacing.sm,
+  },
   sectionHeadingRow: {
     flexDirection: 'row',
     alignItems: 'center',

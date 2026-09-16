@@ -83,6 +83,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const [selectedLibraryTopicId, setSelectedLibraryTopicId] = useState<string | null>(null);
+  const [isQuestionBankOpen, setIsQuestionBankOpen] = useState(false);
   const [isCustomNotebookOpen, setIsCustomNotebookOpen] = useState(false);
   const [customNotebookRevision, setCustomNotebookRevision] = useState(0);
   const lastHandledCustomNotebookRequest = React.useRef(0);
@@ -102,6 +103,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
     if (!isActive) {
       setIsCustomNotebookOpen(false);
       setSelectedLibraryTopicId(null);
+      setIsQuestionBankOpen(false);
     }
   }, [isActive]);
 
@@ -146,11 +148,19 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
 
   const showTopicList = () => {
     setSelectedLibraryTopicId(null);
+    setIsQuestionBankOpen(false);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
   const showTopicDetail = (topicId: string) => {
+    setIsQuestionBankOpen(false);
     setSelectedLibraryTopicId(topicId);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
+  const showQuestionBank = () => {
+    setSelectedLibraryTopicId(null);
+    setIsQuestionBankOpen(true);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
@@ -193,16 +203,30 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
             <View style={styles.headerCopy}>
               <Text style={styles.headerEyebrow}>MY LIBRARY</Text>
               <Text style={styles.headerTitle}>학습 자료함</Text>
-              <Text style={styles.headerSubtitle}>
-                {selectedLibraryTopic
-                  ? '선택한 과목의 단원과 문제만 집중해서 관리하세요.'
-                  : '과목을 선택하면 해당 과목의 단원과 문제만 표시됩니다.'}
-              </Text>
             </View>
-            <TouchableOpacity style={styles.newTopicBtn} onPress={onOpenTopicModal} activeOpacity={0.8}>
-              <Text style={styles.newTopicBtnText}>+ 과목 추가</Text>
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={[styles.questionBankBtn, isQuestionBankOpen && styles.questionBankBtnActive]}
+                onPress={showQuestionBank}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.questionBankBtnText, isQuestionBankOpen && styles.questionBankBtnTextActive]}>
+                  문제 보관함
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.newTopicBtn} onPress={onOpenTopicModal} activeOpacity={0.8}>
+                <Text style={styles.newTopicBtnText}>+ 과목 추가</Text>
+              </TouchableOpacity>
+            </View>
           </View>
+
+          <Text style={styles.headerSubtitle}>
+            {isQuestionBankOpen
+              ? '출제한 문제를 과목과 단원별로 확인하고 관리하세요.'
+              : selectedLibraryTopic
+                ? '선택한 과목의 단원과 문제만 집중해서 관리하세요.'
+                : '과목을 선택하면 해당 과목의 단원과 문제만 표시됩니다.'}
+          </Text>
 
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
@@ -217,7 +241,29 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
           </View>
         </View>
 
-        {selectedLibraryTopic ? (
+        {isQuestionBankOpen ? (
+          <View>
+            <View style={styles.topicDetailNavigation}>
+              <TouchableOpacity
+                style={styles.topicBackButton}
+                onPress={showTopicList}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.topicBackButtonText}>← 과목 목록</Text>
+              </TouchableOpacity>
+              <Text style={styles.topicDetailHint}>전체 문제를 과목과 단원별로 관리합니다.</Text>
+            </View>
+            <ReviewHouseSection
+              mode="bank"
+              questions={questions}
+              topics={topics}
+              units={units}
+              incorrectQuestions={incorrectQuestions}
+              onDeleteQuestion={onDeleteQuestion}
+              refreshCustomNotesRequest={customNotebookRevision}
+            />
+          </View>
+        ) : selectedLibraryTopic ? (
           <View>
             <View style={styles.topicDetailNavigation}>
               <TouchableOpacity
@@ -300,19 +346,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
               </View>
             )}
 
-            {questions.length > 0 && (
-              <View style={styles.questionBankSection}>
-                <ReviewHouseSection
-                  mode="bank"
-                  questions={questions}
-                  topics={topics}
-                  units={units}
-                  incorrectQuestions={incorrectQuestions}
-                  onDeleteQuestion={onDeleteQuestion}
-                  refreshCustomNotesRequest={customNotebookRevision}
-                />
-              </View>
-            )}
           </View>
         )}
       </ScrollView>

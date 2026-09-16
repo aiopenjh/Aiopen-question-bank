@@ -300,40 +300,42 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
         renderUnitGroups()
       ) : (
         <View style={styles.reviewTopicStack}>
-          <View>
-            <TouchableOpacity
-              style={[
-                styles.reviewParentTab,
-                activeReviewTopicId === ALL_TOPICS_ID && styles.reviewParentTabActive,
-              ]}
-              onPress={() => {
-                setActiveReviewTopicId((current) =>
-                  current === ALL_TOPICS_ID ? null : ALL_TOPICS_ID,
-                );
-                setExpandedReviewUnitId(null);
-                setExpandedQuestionExplId(null);
-              }}
-              activeOpacity={0.78}
-            >
-              <View style={styles.reviewParentTabCopy}>
-                <Text
-                  style={[
-                    styles.reviewParentTabTitle,
-                    activeReviewTopicId === ALL_TOPICS_ID && styles.reviewParentTabTitleActive,
-                  ]}
-                >
-                  전체 문제
+          {mode === 'review' ? (
+            <View>
+              <TouchableOpacity
+                style={[
+                  styles.reviewParentTab,
+                  activeReviewTopicId === ALL_TOPICS_ID && styles.reviewParentTabActive,
+                ]}
+                onPress={() => {
+                  setActiveReviewTopicId((current) =>
+                    current === ALL_TOPICS_ID ? null : ALL_TOPICS_ID,
+                  );
+                  setExpandedReviewUnitId(null);
+                  setExpandedQuestionExplId(null);
+                }}
+                activeOpacity={0.78}
+              >
+                <View style={styles.reviewParentTabCopy}>
+                  <Text
+                    style={[
+                      styles.reviewParentTabTitle,
+                      activeReviewTopicId === ALL_TOPICS_ID && styles.reviewParentTabTitleActive,
+                    ]}
+                  >
+                    전체 문제
+                  </Text>
+                  <Text style={styles.reviewParentTabMeta}>
+                    모든 과목 · {visibleQuestions.length}문항
+                  </Text>
+                </View>
+                <Text style={styles.reviewParentTabArrow}>
+                  {activeReviewTopicId === ALL_TOPICS_ID ? '▲' : '▼'}
                 </Text>
-                <Text style={styles.reviewParentTabMeta}>
-                  모든 과목 · {visibleQuestions.length}문항
-                </Text>
-              </View>
-              <Text style={styles.reviewParentTabArrow}>
-                {activeReviewTopicId === ALL_TOPICS_ID ? '▲' : '▼'}
-              </Text>
-            </TouchableOpacity>
-            {activeReviewTopicId === ALL_TOPICS_ID && renderUnitGroups()}
-          </View>
+              </TouchableOpacity>
+              {activeReviewTopicId === ALL_TOPICS_ID && renderUnitGroups()}
+            </View>
+          ) : null}
 
           {topicsWithQuestions.map(({ topic, questionCount }) => {
             const isActive = activeReviewTopicId === topic.id;

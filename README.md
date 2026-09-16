@@ -1,16 +1,16 @@
-# Celueste v2.1.0
+# Celueste v2.2.0
 
 사용자가 자신의 API 키를 연결해 원하는 주제로 문제를 만들고, 저장한 문제를 반복해서 풀며, 정해 둔 시간에 학습 알림을 받을 수 있는 로컬 퍼스트 CBT 문제은행입니다.
 
 - 웹 서비스: [https://aiopenjh.github.io/Aiopen-question-bank/](https://aiopenjh.github.io/Aiopen-question-bank/)
 - 저장소: [https://github.com/aiopenjh/Aiopen-question-bank](https://github.com/aiopenjh/Aiopen-question-bank)
-- 기술 스택: React Native, Expo Web, TypeScript, AsyncStorage
+- 기술 스택: React Native, Expo Web, TypeScript, IndexedDB(Web), AsyncStorage(Native)
 
 ![Celueste v2 코드 전체 진행 방향](docs/assets/celueste-v2-code-direction.svg)
 
 상세 구조와 실행 순서는 [Celueste v2 아키텍처와 워크플로](docs/ARCHITECTURE_WORKFLOW_V2.md)에서 확인할 수 있습니다.
 
-## v2.1.0 핵심 동작
+## v2.2.0 핵심 동작
 
 ### 자유 주제 출제
 
@@ -49,11 +49,14 @@
 - 과목 등록 시 시작 레벨을 기준으로 첫 5개 단원을 구성합니다.
 - 사용자는 이후 단원을 5개씩 추가하며 학습 범위를 계속 넓힐 수 있습니다.
 - 생성한 문제, 풀이 기록, 오답, 과목과 단원은 사용자 기기에 저장됩니다.
+- 웹에서는 처음 실행할 때 개인 IndexedDB를 자동 생성하고 기존 브라우저 저장 데이터를 검증 후 자동 이관합니다. 사용자가 별도로 DB를 만들 필요가 없습니다.
+- IndexedDB 이관에 실패하면 기존 저장소를 유지하며, API 키는 일반 학습 데이터와 분리된 보안 저장소에 둡니다.
 - 자료함 첫 화면은 과목 목록을 먼저 보여주고, 과목을 열면 해당 과목의 단원만 표시합니다.
 - 문제 보관함은 과목 상세 밖에서 전체 과목·단원을 기존 방식으로 관리합니다.
 - 단원 삭제는 해당 단원과 연결된 문제를 함께 삭제하며 복구할 수 없음을 확인창에서 알립니다.
 - 전체 과목 삭제는 과목 카드 상단의 관리 영역에서 실행할 수 있어 문제 목록이 길어져도 아래로 스크롤할 필요가 없습니다.
 - 백업 ZIP/JSON에는 API 키를 제외한 학습 데이터가 포함되며, 복원 전 형식을 검사하고 저장 실패 시 기존 데이터 복구를 시도합니다.
+- 전체 데이터 초기화는 IndexedDB, 이전 저장 데이터와 API 키를 삭제합니다. 추후 복구가 필요하면 초기화 전에 백업해야 합니다.
 
 ### 알림과 재방문
 
@@ -140,8 +143,8 @@ Aiopen-question-bank/
 
 ## 배포 버전
 
-- 앱 버전: `2.1.0`
-- Android `versionCode`: `3`
+- 앱 버전: `2.2.0`
+- Android `versionCode`: `4`
 - 웹 버전 확인 파일: `apps/mobile/public/version.json`
 
 ## 라이선스

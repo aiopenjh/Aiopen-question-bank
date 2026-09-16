@@ -3,7 +3,7 @@
  * Reference: CogniQuest_개발명세_v1/03_데이터와처리계약.md
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../app_storage';
 import { Source, SourceRevision, SourceChunk, UUID } from '../../contracts/types';
 import { STORAGE_KEYS } from '../storage_keys';
 

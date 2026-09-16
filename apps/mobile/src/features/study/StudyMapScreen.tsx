@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { RoutineRevision } from '../../contracts/types';
 import { DailyInspirationCard } from './DailyInspirationCard';
-import { FeedbackCard } from './FeedbackCard';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
 import { StateIllustration } from '../../components/common/StateIllustration';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
@@ -178,41 +177,16 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
         )}
       </View>
 
-      <View style={styles.quickActionRow}>
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={onStartDueReview}
-          disabled={!onStartDueReview}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.quickActionIcon, { color: colors.lavender }]}>◷</Text>
-          <Text style={styles.quickActionTitle}>복습 예정</Text>
-          <Text style={styles.quickActionValue}>{dueQuestionsCount}문항</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.quickActionCard, styles.notebookQuickActionCard]}
-          onPress={onOpenCustomNotebook}
-          disabled={!onOpenCustomNotebook}
-          activeOpacity={0.8}
-        >
-          <StateIllustration
-            kind="reviewComplete"
-            width={48}
-            style={styles.notebookQuickActionCharacter}
-          />
-          <Text style={styles.quickActionTitle}>나만의 오답노트</Text>
-          <Text style={styles.quickActionValue}>열기</Text>
-        </TouchableOpacity>
-      </View>
-
-      <DailyInspirationCard />
-
       {(onOpenTopicModal || onQuickPromptGenerate) && (
         <View style={styles.quickPromptCard}>
           <View style={styles.secondarySectionHeader}>
-            <Text style={styles.quickPromptLabel}>새 과목 시작</Text>
-            <Text style={styles.secondarySectionHint}>관심 분야를 새 학습 과정으로 만들어요</Text>
+            <Text style={styles.quickPromptLabel}>
+              새 과목 시작 <Text style={styles.secondarySectionHint}>(관심 분야를 새 학습 과정으로 만들어요)</Text>
+            </Text>
           </View>
+
+          <DailyInspirationCard embedded />
+
           <View style={styles.quickPromptInputRow}>
             <TextInput
               style={styles.quickPromptInput}
@@ -246,7 +220,32 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
         </View>
       )}
 
-      <FeedbackCard />
+      <View style={styles.quickActionRow}>
+        <TouchableOpacity
+          style={styles.quickActionCard}
+          onPress={onStartDueReview}
+          disabled={!onStartDueReview}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.quickActionIcon, { color: colors.lavender }]}>◷</Text>
+          <Text style={styles.quickActionTitle}>복습 예정</Text>
+          <Text style={styles.quickActionValue}>{dueQuestionsCount}문항</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.quickActionCard, styles.notebookQuickActionCard]}
+          onPress={onOpenCustomNotebook}
+          disabled={!onOpenCustomNotebook}
+          activeOpacity={0.8}
+        >
+          <StateIllustration
+            kind="reviewComplete"
+            width={48}
+            style={styles.notebookQuickActionCharacter}
+          />
+          <Text style={styles.quickActionTitle}>나만의 오답노트</Text>
+          <Text style={styles.quickActionValue}>열기</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 };
@@ -440,22 +439,24 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   quickPromptLabel: {
-    fontSize: 14,
+    fontSize: 21,
+    lineHeight: 27,
     fontWeight: '800',
     color: colors.ink,
   },
   secondarySectionHeader: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   secondarySectionHint: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: colors.inkMuted,
-    marginTop: 3,
+    fontWeight: '500',
   },
   quickPromptInputRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     alignItems: 'center',
+    marginTop: spacing.md,
   },
   quickPromptInput: {
     flex: 1,

@@ -181,7 +181,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipTitle}>🔒 1. 로컬 학습 데이터</Text>
             <Text style={styles.tipText}>
               • Celueste는 외부 중앙 서버에 사용자의 개인 학습 데이터나 교재를 수집하지 않습니다.{'\n'}
-              • 과목, 단원, 문제와 풀이 기록은 현재 기기의 앱 또는 브라우저 저장소에 보관됩니다. 브라우저 데이터 삭제나 앱 삭제 전에 백업 파일을 만들어 두세요.
+              • 웹에서는 과목, 단원, 문제와 풀이 기록을 현재 기기의 개인 IndexedDB에 자동 보관합니다. 별도로 DB를 만들거나 설정할 필요가 없습니다. 브라우저 데이터 삭제나 앱 초기화 전에는 백업 파일을 만들어 두세요.
             </Text>
           </View>
 
@@ -198,6 +198,16 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipText}>
               • Android Chrome은 메뉴의 <Text style={styles.bold}>[홈 화면에 추가]</Text>, iPhone Safari는 공유 메뉴의 <Text style={styles.bold}>[홈 화면에 추가]</Text>를 사용합니다.{'\n'}
               • 이전 바로가기가 기본 아이콘으로 보이면 기존 바로가기를 삭제한 뒤 다시 추가하세요.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>⚠️ 4. 학습 데이터 삭제 방법</Text>
+            <Text style={styles.tipText}>
+              • 가장 확실한 방법은 앱의 <Text style={styles.bold}>[설정 ➔ 데이터 관리 ➔ 전체 데이터 초기화]</Text>를 먼저 실행한 뒤 홈 화면 아이콘을 삭제하는 것입니다. 과목, 단원, 문제, 풀이 기록과 등록한 API 키가 함께 삭제되며 복구할 수 없습니다.{'\n'}
+              • 추후 복구를 원하시면 전체 초기화 전에 <Text style={styles.bold}>[백업/출력]</Text>에서 백업 데이터를 저장해 두시길 권장합니다.{'\n'}
+              • 홈 화면 아이콘만 삭제하는 것으로는 학습 데이터 삭제가 보장되지 않습니다. 같은 브라우저에서 기존 주소를 다시 열면 데이터가 남아 있을 수 있습니다.{'\n'}
+              • 앱에서 초기화하지 못한 경우에는 Android Chrome 또는 iPhone Safari 설정의 <Text style={styles.bold}>웹사이트 데이터</Text>에서 <Text style={styles.bold}>aiopenjh.github.io</Text> 항목을 삭제하세요.
             </Text>
           </View>
         </View>

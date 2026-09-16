@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../data/app_storage';
 import { STORAGE_KEYS } from '../data/storage_keys';
 
 const ALARM_SETTINGS_KEY = '@celueste:alarm_enabled';

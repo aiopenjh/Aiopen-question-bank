@@ -198,18 +198,22 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
   }
 
   function handleResetAllData() {
-    showAlert('전체 초기화', '모든 주제, 단원, 문제 및 학습 기록이 삭제됩니다. 계속하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '완전 초기화',
-        style: 'destructive',
-        onPress: async () => {
-          await clearAllData();
-          await onRefreshData();
-          showAlert('초기화 완료', '모든 데이터가 깨끗하게 정리되었습니다.');
+    showAlert(
+      '전체 초기화',
+      '모든 과목, 단원, 문제, 학습 기록과 등록한 API 키가 삭제되며 복구할 수 없습니다.\n\n추후 복구를 원하시면 초기화 전에 백업 데이터를 저장해 두시길 권장합니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '완전 초기화',
+          style: 'destructive',
+          onPress: async () => {
+            await clearAllData();
+            await onRefreshData();
+            showAlert('초기화 완료', '모든 데이터가 깨끗하게 정리되었습니다.');
+          },
         },
-      },
-    ]);
+      ]
+    );
   }
 
   return {

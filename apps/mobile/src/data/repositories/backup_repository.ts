@@ -3,7 +3,7 @@
  * Reference: CogniQuest_개발명세_v1 (R11, T14 준수)
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../app_storage';
 import {
   Profile,
   RoutineRevision,

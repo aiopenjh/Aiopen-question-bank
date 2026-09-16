@@ -4,7 +4,7 @@
  * Reference: CogniQuest_개발명세_v1/03_데이터와처리계약.md
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage, { initializeAppStorage } from './app_storage';
 import {
   Profile,
   RoutineRevision,
@@ -89,6 +89,7 @@ export { getEncryptedApiKey, saveEncryptedApiKey, deleteEncryptedApiKey };
  * 초기 시드 데이터 및 마이그레이션 실행
  */
 export async function initializeDatabase(): Promise<void> {
+  await initializeAppStorage();
   const versionStr = await AsyncStorage.getItem(STORAGE_KEYS.DB_VERSION);
   const version = versionStr ? parseInt(versionStr, 10) : 0;
 

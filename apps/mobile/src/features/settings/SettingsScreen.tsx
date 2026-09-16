@@ -9,6 +9,7 @@ import { AlarmConfigSection } from './AlarmConfigSection';
 import { DailyGoalSection } from './DailyGoalSection';
 import { DataBackupSection } from './DataBackupSection';
 import { AppVersionSection } from './AppVersionSection';
+import { FeedbackCard } from '../study/FeedbackCard';
 
 interface SettingsGroupProps {
   index: string;
@@ -191,6 +192,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           />
         )}
       </SettingsGroup>
+
+      <FeedbackCard compact />
     </ScrollView>
   );
 };

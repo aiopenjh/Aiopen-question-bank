@@ -10,9 +10,9 @@
 - 이름: Celueste (셀루에스테) — 로컬 퍼스트 AI 맞춤형 CBT 문제은행 플랫폼
 - 저장소: https://github.com/aiopenjh/Aiopen-question-bank
 - 웹 서비스: https://aiopenjh.github.io/Aiopen-question-bank/
-- 기술 스택: React Native, Expo Web, TypeScript, AsyncStorage (Local-First)
+- 기술 스택: React Native, Expo Web, TypeScript, IndexedDB(Web), AsyncStorage(Native) (Local-First)
 - AI 연동: Google Gemini 3.5 이상을 기본 기준으로 사용. Gemini는 3.5 미만 모델로 전환 금지. 기존 키 형식 호환을 위한 Claude/OpenAI 통신 경로 유지
-- 현재 릴리스: v2.0.0 (2026-09-16)
+- 현재 릴리스: v2.2.0 (2026-09-16)
 
 2. 8대 불변 개발 헌법 (어떤 AI든 반드시 준수):
 ① [가짜 하드코딩 금지]: API 키 미연동 시 가짜 문제를 만들지 않고 NEEDS_CONNECTION 반환
@@ -38,6 +38,7 @@
 - apps/mobile/src/features/exam/ExamScreen.tsx: 실전 CBT 시험장 & 4단계 오답노트
 - apps/mobile/src/domain/difficulty.ts: 1~30 이상 난이도 프로필
 - apps/mobile/src/domain/question_similarity.ts: 저장 문제와 신규 문제의 중복 유사도 검사
+- apps/mobile/src/data/app_storage.ts: 웹 IndexedDB 자동 생성·기존 데이터 이관과 네이티브 AsyncStorage 연결
 - deploy-gh-pages.ps1: GitHub Pages 빌드/배포 스크립트 (.nojekyll, 404.html, version.json 자동 포함)
 
 4. 빌드 및 배포 방법:

@@ -69,7 +69,7 @@ function fixture() {
     require(id) {
       if (id === 'react-native') return { Platform: { OS: 'android' } };
       if (id === 'expo-notifications') return notifications;
-      if (id === '@react-native-async-storage/async-storage') {
+      if (id === '@react-native-async-storage/async-storage' || id === '../data/app_storage') {
         return {
           async getItem(key) { return store.get(key) ?? null; },
           async setItem(key, value) { store.set(key, value); },

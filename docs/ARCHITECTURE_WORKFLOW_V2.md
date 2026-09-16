@@ -1,6 +1,6 @@
-# Celueste v2.1 아키텍처와 워크플로
+# Celueste v2.2 아키텍처와 워크플로
 
-이 문서는 v2.1.0 코드의 현재 구조, 실제 실행 흐름, 이후 변경 시 지켜야 할 방향을 기록한다.
+이 문서는 v2.2.0 코드의 현재 구조, 실제 실행 흐름, 이후 변경 시 지켜야 할 방향을 기록한다.
 
 ![Celueste v2 코드 전체 진행 방향](./assets/celueste-v2-code-direction.svg)
 
@@ -29,7 +29,7 @@
 | AI 통신 | `src/domain/ai_client.ts` | Gemini 3.5 이상 호출, 제한 시간, 취소, 429 대기 |
 | 중복 방지 | `src/domain/question_similarity.ts`, `question_repository.ts` | 신규·기존 문제 유사도 검사와 중복 제외 |
 | 동시 생성 방지 | `src/domain/generator.ts` | 동일 생성 요청의 진행 중 Promise 공유와 완료 후 해제 |
-| 저장소 | `src/data/db.ts`, `src/data/repositories/*` | 로컬 데이터 읽기·쓰기, 연쇄 삭제, 실패 복구 |
+| 저장소 | `src/data/app_storage.ts`, `src/data/db.ts`, `src/data/repositories/*` | 웹 IndexedDB 자동 이관, 네이티브 AsyncStorage, 로컬 데이터 읽기·쓰기, 연쇄 삭제, 실패 복구 |
 | 플랫폼 | `src/utils/notifications.ts`, `src/integrations/secure_storage.ts`, `src/utils/backupArchive.ts` | 알림, API 키 보관, 백업·복원 |
 | 배포 | `apps/mobile/public/*`, `deploy-gh-pages.ps1` | PWA 메타데이터·아이콘·버전과 GitHub Pages 게시 |
 
@@ -85,11 +85,15 @@ sequenceDiagram
     participant UI as 화면
     participant Hook as 기능 훅
     participant Repo as Repository
-    participant DB as 로컬 저장소
+    participant DB as AppStorage
+    participant Web as IndexedDB(Web)
+    participant Native as AsyncStorage(Native)
     UI->>Hook: 저장 또는 삭제 요청
     Hook->>Repo: 관련 데이터 단위 작업
     Repo->>DB: 현재 값 스냅샷
     Repo->>DB: 변경 데이터 순차 반영
+    DB->>Web: 웹 데이터 트랜잭션
+    DB->>Native: 네이티브 데이터 저장
     alt 전체 성공
         DB-->>Repo: 커밋 완료
         Repo-->>Hook: 최신 데이터 반환
@@ -105,6 +109,9 @@ sequenceDiagram
 - 전체 과목 삭제는 복구할 수 없으므로 사용자 확인 뒤 실행한다.
 - 백업 복원은 먼저 스키마를 검사하고, 저장 중 실패하면 기존 데이터 복구를 시도한다.
 - API 키는 백업에 포함하지 않는다.
+- 웹 최초 실행은 `app_storage.ts`가 IndexedDB를 자동 생성하고 기존 Celueste 데이터를 복사·검증한 뒤 전환한다.
+- 이관 실패 시 기존 AsyncStorage/localStorage를 유지하며 원본을 삭제하지 않는다.
+- 전체 데이터 초기화는 IndexedDB와 구형 앱 데이터, API 키를 함께 삭제한 뒤 기본 상태를 다시 만든다.
 
 ## 7. 알림 워크플로
 

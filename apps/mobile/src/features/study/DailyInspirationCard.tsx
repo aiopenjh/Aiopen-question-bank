@@ -5,7 +5,7 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
-import { colors, radius, spacing } from '../../styles/designTokens';
+import { colors, spacing } from '../../styles/designTokens';
 
 const LOCAL_INSPIRATIONS: string[] = [
   '작은 진전도 진전입니다. 오늘 3문제로 어제보다 한 걸음 더 성장했어요! 🚀',
@@ -56,7 +56,11 @@ function getRandomLocalMessage(): string {
   return LOCAL_INSPIRATIONS[randomIndex];
 }
 
-export const DailyInspirationCard: React.FC = () => {
+export interface DailyInspirationCardProps {
+  embedded?: boolean;
+}
+
+export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({ embedded = false }) => {
   const [currentMessage, setCurrentMessage] = useState<string>(getRandomLocalMessage);
 
   const handleRefresh = () => {
@@ -68,7 +72,7 @@ export const DailyInspirationCard: React.FC = () => {
   };
 
   return (
-    <View style={styles.cardContainer}>
+    <View style={[styles.cardContainer, embedded && styles.cardContainerEmbedded]}>
       <View style={styles.cardHeader}>
         <View style={styles.badgeRow}>
           <Text style={styles.badgeIcon}>✦</Text>
@@ -95,11 +99,15 @@ export const DailyInspirationCard: React.FC = () => {
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: colors.goldSoft,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    backgroundColor: 'transparent',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.sm,
     marginBottom: spacing.md,
+  },
+  cardContainerEmbedded: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    marginBottom: 0,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -108,6 +116,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   badgeRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -117,15 +126,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   badgeTitle: {
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: '700',
     color: colors.ink,
   },
   refreshBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    width: 28,
+    height: 28,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },

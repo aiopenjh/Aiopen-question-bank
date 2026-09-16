@@ -11,7 +11,11 @@ import { colors, radius, spacing } from '../../styles/designTokens';
 
 const KAKAO_OPEN_CHAT_URL = 'https://open.kakao.com/o/gaRtkENi';
 
-export const FeedbackCard: React.FC = () => {
+export interface FeedbackCardProps {
+  compact?: boolean;
+}
+
+export const FeedbackCard: React.FC<FeedbackCardProps> = ({ compact = false }) => {
   const handleOpenKakaoChat = async () => {
     try {
       const supported = await Linking.canOpenURL(KAKAO_OPEN_CHAT_URL);
@@ -28,6 +32,22 @@ export const FeedbackCard: React.FC = () => {
       );
     }
   };
+
+  if (compact) {
+    return (
+      <TouchableOpacity
+        style={styles.compactContainer}
+        onPress={handleOpenKakaoChat}
+        activeOpacity={0.8}
+        accessibilityRole="link"
+        accessibilityLabel="카카오톡으로 의견 보내기"
+      >
+        <Text style={styles.compactIcon}>💬</Text>
+        <Text style={styles.compactText}>카카오톡 문의</Text>
+        <Text style={styles.compactArrow}>↗</Text>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -75,5 +95,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: colors.primary,
+  },
+  compactContainer: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  compactIcon: {
+    fontSize: 13,
+    marginRight: 6,
+  },
+  compactText: {
+    color: colors.inkMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  compactArrow: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '800',
+    marginLeft: 5,
   },
 });

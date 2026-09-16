@@ -20,22 +20,33 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <View style={styles.headerContainer}>
       {/* 1. 브랜드 헤더 (터치 시 첫 페이지인 메인 홈으로 자연스럽게 복귀) */}
-      <TouchableOpacity
-        style={styles.brandSection}
-        onPress={() => onSelectPage(0)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.brandTitleRow}>
-          <Image
-            source={require('../../../assets/app-icon.png')}
-            style={styles.brandIcon}
-            resizeMode="cover"
-            accessibilityLabel="Celueste 책 아이콘"
-          />
-          <Text style={styles.appTitle}>Celueste <Text style={styles.appTitleStar}>✦</Text></Text>
-        </View>
-        <Text style={styles.appSubtitle}>나만의 CBT 스터디 아틀리에</Text>
-      </TouchableOpacity>
+      <View style={styles.brandSection}>
+        <TouchableOpacity
+          style={styles.brandHome}
+          onPress={() => onSelectPage(0)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.brandTitleRow}>
+            <Image
+              source={require('../../../assets/app-icon.png')}
+              style={styles.brandIcon}
+              resizeMode="cover"
+              accessibilityLabel="Celueste 책 아이콘"
+            />
+            <Text style={styles.appTitle}>Celueste <Text style={styles.appTitleStar}>✦</Text></Text>
+          </View>
+        </TouchableOpacity>
+
+        {onOpenSourceUpload && (
+          <TouchableOpacity
+            onPress={onOpenSourceUpload}
+            style={styles.uploadShortcutBtn}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.uploadShortcutBtnText}>+ 자료</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* 2. 책 목차형 3단 탭 네비게이션: 메인(0) -> 과목자료함(1) -> 설정(2) */}
       <View style={styles.navRow}>
@@ -88,17 +99,6 @@ export const Header: React.FC<HeaderProps> = ({
             설정{!hasApiKey ? '  !' : ''}
           </Text>
         </TouchableOpacity>
-
-        {/* [ 📁 자료추가 ] 숏컷 버튼 */}
-        {onOpenSourceUpload && (
-          <TouchableOpacity
-            onPress={onOpenSourceUpload}
-            style={styles.uploadShortcutBtn}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.uploadShortcutBtnText}>+ 자료</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
@@ -111,11 +111,17 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   brandSection: {
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 10,
-    paddingBottom: 8,
+    minHeight: 48,
+    paddingVertical: 9,
+    paddingHorizontal: 68,
     backgroundColor: colors.surface,
+  },
+  brandHome: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   brandTitleRow: {
     flexDirection: 'row',
@@ -130,6 +136,7 @@ const styles = StyleSheet.create({
   },
   appTitle: {
     fontSize: 21,
+    lineHeight: 26,
     fontWeight: '800',
     color: colors.ink,
     letterSpacing: 0.4,
@@ -137,25 +144,19 @@ const styles = StyleSheet.create({
   appTitleStar: {
     color: colors.primary,
   },
-  appSubtitle: {
-    fontSize: 11,
-    color: colors.inkMuted,
-    marginTop: 2,
-    fontWeight: '500',
-  },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.canvas,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    gap: spacing.sm,
   },
   navTab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: 4,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
@@ -185,6 +186,9 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   uploadShortcutBtn: {
+    position: 'absolute',
+    right: spacing.md,
+    top: 8,
     paddingVertical: 8,
     paddingHorizontal: 9,
     borderRadius: radius.sm,

@@ -67,7 +67,7 @@
 | **AI 통신 엔진** | `apps/mobile/src/domain/ai_client.ts` | Gemini 3.5 이상 모델 내 캐스케이드 및 타임아웃 방어, Claude 3.5 Sonnet(`sk-ant-`), OpenAI GPT-4o(`sk-`) 멀티 프로바이더 통합 |
 | **출제 파이프라인**| `apps/mobile/src/domain/generator.ts` | 문제 출제 오케스트레이션, JSON 무결성 검증, Fisher-Yates 정답 분산 호출 |
 | **정답 셔플러** | `apps/mobile/src/domain/question_distribution.ts` | 4지선다 정답 위치(0~3) 균등 무작위 분산 및 연속 정답 방지 수학적 알고리즘 |
-| **영구 저장소** | `apps/mobile/src/data/db.ts` | 과목(Topic - `learnerLevel` 보존), 단원(Unit), 문제(Question), 오답노트, API 키 영구 보관 (AsyncStorage) |
+| **영구 저장소** | `apps/mobile/src/data/app_storage.ts`, `apps/mobile/src/data/db.ts` | 웹 IndexedDB 자동 생성·기존 데이터 이관, 네이티브 AsyncStorage, 과목·단원·문제·오답노트 영구 보관 |
 | **CBT 시험장** | `apps/mobile/src/features/exam/ExamSessionScreen.tsx` | 전체화면 오버레이 시험장, 4단계 입체 해설지, 복습 완료 후 과목자료함(Page 1) 직행 복귀 |
 | **과목자료함** | `apps/mobile/src/features/library/LibraryScreen.tsx` | 과목 목록, 소단원 목록, 교재 텍스트 첨부, 문제은행 누적 보관 및 시험 응시 |
 | **출제 설정 팝업**| `apps/mobile/src/components/modals/QuizCountModal.tsx` | 과목 등록 시 선택한 난이도(입문/기본/실전/심화) 자동 고정 표시, 난이도 변경 영역, 3/5/10문제 선택 |
@@ -90,6 +90,10 @@
    - `App.tsx`: 제스처/뷰포트 코드를 `src/hooks/useBookPagerGesture.ts`로 분리 (891줄 ➔ 657줄).
    - `useQuizGeneration.ts`: 커리큘럼 생성 로직을 `src/hooks/useCurriculumManager.ts`로 분리 (680줄 ➔ 370줄).
    - 유기된 코드(`goToPage(0, false)` 잔재, 미사용 import) 완전 제거.
+4. **웹 학습 데이터 IndexedDB 전환**:
+   - 첫 실행 시 기존 AsyncStorage/localStorage 학습 데이터를 IndexedDB로 자동 복사하고 값 검증 후 전환.
+   - API 키와 구형 보안 저장 키는 일반 학습 DB 이관에서 제외.
+   - 이관 실패 시 기존 저장소를 유지하고, 전체 초기화 시 IndexedDB와 구형 앱 데이터를 함께 정리.
 
 ---
 

@@ -27,7 +27,7 @@ export const libraryBaseStyles = StyleSheet.create({
   },
   headerCopy: {
     flex: 1,
-    paddingRight: spacing.md,
+    paddingRight: spacing.sm,
   },
   headerEyebrow: {
     fontSize: 10,
@@ -47,15 +47,42 @@ export const libraryBaseStyles = StyleSheet.create({
     marginTop: spacing.xs,
     lineHeight: 18,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  questionBankBtn: {
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  questionBankBtnActive: {
+    backgroundColor: colors.primaryPressed,
+    borderColor: colors.primaryPressed,
+  },
+  questionBankBtnText: {
+    color: colors.inkMuted,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  questionBankBtnTextActive: {
+    color: colors.white,
+  },
   newTopicBtn: {
     backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 9,
     borderRadius: radius.pill,
   },
   newTopicBtnText: {
     color: colors.primaryPressed,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   summaryRow: {
