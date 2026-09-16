@@ -10,6 +10,7 @@ import {
 import { Source, QuestionRevision, Topic, Unit, ManualCompletion, ReviewState } from '../../contracts/types';
 import { styles } from './libraryStyles';
 import { TopicFolderCard } from './TopicFolderCard';
+import { LibraryTopicSummaryCard } from './LibraryTopicSummaryCard';
 import { ReviewHouseSection } from './ReviewHouseSection';
 import { CustomNotebookModal } from '../../components/modals/CustomNotebookModal';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
@@ -17,6 +18,7 @@ import { StateIllustration } from '../../components/common/StateIllustration';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 
 export interface LibraryScreenProps {
+  isActive?: boolean;
   questions: QuestionRevision[];
   topics: Topic[];
   units: Unit[];
@@ -59,6 +61,7 @@ export interface LibraryScreenProps {
 }
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({
+  isActive = false,
   questions,
   topics,
   units,
@@ -79,15 +82,28 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   openCustomNotebookRequest = 0,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
-  const [expandedTopicId, setExpandedTopicId] = useState<string | null>(null);
+  const [selectedLibraryTopicId, setSelectedLibraryTopicId] = useState<string | null>(null);
   const [isCustomNotebookOpen, setIsCustomNotebookOpen] = useState(false);
   const [customNotebookRevision, setCustomNotebookRevision] = useState(0);
+  const lastHandledCustomNotebookRequest = React.useRef(0);
+  const scrollRef = React.useRef<ScrollView>(null);
 
   React.useEffect(() => {
-    if (openCustomNotebookRequest > 0) {
+    if (
+      isActive &&
+      openCustomNotebookRequest > lastHandledCustomNotebookRequest.current
+    ) {
+      lastHandledCustomNotebookRequest.current = openCustomNotebookRequest;
       setIsCustomNotebookOpen(true);
     }
-  }, [openCustomNotebookRequest]);
+  }, [isActive, openCustomNotebookRequest]);
+
+  React.useEffect(() => {
+    if (!isActive) {
+      setIsCustomNotebookOpen(false);
+      setSelectedLibraryTopicId(null);
+    }
+  }, [isActive]);
 
   const { pullDistance, handleScroll, touchHandlers } = usePullToRefresh({
     refreshing,
@@ -110,6 +126,34 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
     return topics.filter((t) => (t.category || '📚 일반') === selectedCategory);
   }, [topics, selectedCategory]);
 
+  const selectedLibraryTopic = React.useMemo(
+    () => topics.find((topic) => topic.id === selectedLibraryTopicId) || null,
+    [topics, selectedLibraryTopicId]
+  );
+  const selectedTopicUnits = React.useMemo(
+    () => units.filter((unit) => unit.topicId === selectedLibraryTopicId),
+    [units, selectedLibraryTopicId]
+  );
+  const selectedTopicQuestions = React.useMemo(
+    () => questions.filter((question) => question.topicId === selectedLibraryTopicId),
+    [questions, selectedLibraryTopicId]
+  );
+  React.useEffect(() => {
+    if (selectedLibraryTopicId && !selectedLibraryTopic) {
+      setSelectedLibraryTopicId(null);
+    }
+  }, [selectedLibraryTopic, selectedLibraryTopicId]);
+
+  const showTopicList = () => {
+    setSelectedLibraryTopicId(null);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
+  const showTopicDetail = (topicId: string) => {
+    setSelectedLibraryTopicId(topicId);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
   const handleUnitPress = (topic: Topic, unit: Unit) => {
     onQuickGenerateForUnit(topic.id, topic.name, unit.id, unit.title);
   };
@@ -117,6 +161,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   return (
     <>
       <ScrollView
+        ref={scrollRef}
         style={styles.tabContent}
         contentContainerStyle={[styles.scrollPadding, { flexGrow: 1 }]}
         bounces={true}
@@ -148,7 +193,11 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
             <View style={styles.headerCopy}>
               <Text style={styles.headerEyebrow}>MY LIBRARY</Text>
               <Text style={styles.headerTitle}>학습 자료함</Text>
-              <Text style={styles.headerSubtitle}>과목을 만들고, 출제한 문제를 한곳에서 관리하세요.</Text>
+              <Text style={styles.headerSubtitle}>
+                {selectedLibraryTopic
+                  ? '선택한 과목의 단원과 문제만 집중해서 관리하세요.'
+                  : '과목을 선택하면 해당 과목의 단원과 문제만 표시됩니다.'}
+              </Text>
             </View>
             <TouchableOpacity style={styles.newTopicBtn} onPress={onOpenTopicModal} activeOpacity={0.8}>
               <Text style={styles.newTopicBtnText}>+ 과목 추가</Text>
@@ -165,19 +214,46 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
               <Text style={styles.summaryValue}>{units.length}</Text>
               <Text style={styles.summaryLabel}>단원</Text>
             </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{questions.length}</Text>
-              <Text style={styles.summaryLabel}>보관 문제</Text>
-            </View>
           </View>
         </View>
 
-        <View>
+        {selectedLibraryTopic ? (
+          <View>
+            <View style={styles.topicDetailNavigation}>
+              <TouchableOpacity
+                style={styles.topicBackButton}
+                onPress={showTopicList}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.topicBackButtonText}>← 과목 목록</Text>
+              </TouchableOpacity>
+              <Text style={styles.topicDetailHint}>단원을 눌러 출제하거나 문제를 풀어보세요.</Text>
+            </View>
+
+            <TopicFolderCard
+              topic={selectedLibraryTopic}
+              units={selectedTopicUnits}
+              questions={selectedTopicQuestions}
+              isExpanded={true}
+              onToggleExpand={showTopicList}
+              showAccordionControl={false}
+              onStartExamWithQuestions={onStartExamWithQuestions}
+              onGenerateCurriculumForTopic={onGenerateCurriculumForTopic}
+              onDeduplicateUnits={onDeduplicateUnits}
+              onDeleteTopic={onDeleteTopic}
+              onDeleteUnit={onDeleteUnit}
+              onUnitPress={handleUnitPress}
+              isAiGenerating={isAiGenerating}
+              generatingUnitId={generatingUnitId}
+            />
+
+          </View>
+        ) : (
+          <View>
             <View style={styles.sectionHeadingRow}>
               <View style={styles.sectionHeadingCopy}>
-                <Text style={styles.sectionTitle}>과목과 목차</Text>
-                <Text style={styles.sectionDescription}>과목을 열어 단원별로 문제를 만들거나 시험을 시작하세요.</Text>
+                <Text style={styles.sectionTitle}>과목 목록</Text>
+                <Text style={styles.sectionDescription}>학습할 과목을 선택하면 해당 단원만 정리해서 보여드립니다.</Text>
               </View>
             </View>
 
@@ -212,38 +288,33 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                 </TouchableOpacity>
               </View>
             ) : (
-              filteredTopics.map((topic) => (
-                <TopicFolderCard
-                  key={topic.id}
-                  topic={topic}
-                  units={units}
-                  questions={questions}
-                  isExpanded={expandedTopicId === topic.id}
-                  onToggleExpand={() => setExpandedTopicId(expandedTopicId === topic.id ? null : topic.id)}
-                  onStartExamWithQuestions={onStartExamWithQuestions}
-                  onGenerateCurriculumForTopic={onGenerateCurriculumForTopic}
-                  onDeduplicateUnits={onDeduplicateUnits}
-                  onDeleteTopic={onDeleteTopic}
-                  onDeleteUnit={onDeleteUnit}
-                  onUnitPress={handleUnitPress}
-                  isAiGenerating={isAiGenerating}
-                  generatingUnitId={generatingUnitId}
-                />
-              ))
+              <View style={styles.topicList}>
+                {filteredTopics.map((topic) => (
+                  <LibraryTopicSummaryCard
+                    key={topic.id}
+                    topic={topic}
+                    units={units}
+                    onPress={() => showTopicDetail(topic.id)}
+                  />
+                ))}
+              </View>
             )}
-        </View>
 
-        <View style={styles.questionBankSection}>
-          <ReviewHouseSection
-            mode="bank"
-            questions={questions}
-            topics={topics}
-            units={units}
-            incorrectQuestions={incorrectQuestions}
-            onDeleteQuestion={onDeleteQuestion}
-            refreshCustomNotesRequest={customNotebookRevision}
-          />
-        </View>
+            {questions.length > 0 && (
+              <View style={styles.questionBankSection}>
+                <ReviewHouseSection
+                  mode="bank"
+                  questions={questions}
+                  topics={topics}
+                  units={units}
+                  incorrectQuestions={incorrectQuestions}
+                  onDeleteQuestion={onDeleteQuestion}
+                  refreshCustomNotesRequest={customNotebookRevision}
+                />
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* 나만의 오답노트 전용 창 (조용하고 쾌적한 학습 공간) */}

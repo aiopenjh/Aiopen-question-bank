@@ -33,12 +33,12 @@ export const libraryReviewStyles = StyleSheet.create({
     lineHeight: 17,
   },
   reviewTopicStack: {
-    gap: 9,
+    gap: 6,
   },
   reviewParentTab: {
-    minHeight: 58,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    minHeight: 50,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -282,14 +282,14 @@ export const libraryReviewStyles = StyleSheet.create({
   reviewHouseCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.soft,
   },
   reviewHouseHeader: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   practiceModeSwitcher: {
     flexDirection: 'row',

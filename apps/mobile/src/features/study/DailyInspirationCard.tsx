@@ -72,13 +72,15 @@ export const DailyInspirationCard: React.FC = () => {
       <View style={styles.cardHeader}>
         <View style={styles.badgeRow}>
           <Text style={styles.badgeIcon}>✦</Text>
-          <Text style={styles.badgeTitle}>오늘의 문장</Text>
+          <Text style={styles.badgeTitle}>당신을 위한 Celueste의 한마디</Text>
         </View>
         <TouchableOpacity
           onPress={handleRefresh}
           style={styles.refreshBtn}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="새 응원 받기"
         >
           <Text style={styles.refreshBtnText}>↻</Text>
         </TouchableOpacity>

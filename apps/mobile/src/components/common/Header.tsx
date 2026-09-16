@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { colors, radius, spacing } from '../../styles/designTokens';
 
 export interface HeaderProps {
@@ -25,7 +25,15 @@ export const Header: React.FC<HeaderProps> = ({
         onPress={() => onSelectPage(0)}
         activeOpacity={0.7}
       >
-        <Text style={styles.appTitle}>Celueste <Text style={styles.appTitleStar}>✦</Text></Text>
+        <View style={styles.brandTitleRow}>
+          <Image
+            source={require('../../../assets/app-icon.png')}
+            style={styles.brandIcon}
+            resizeMode="cover"
+            accessibilityLabel="Celueste 책 아이콘"
+          />
+          <Text style={styles.appTitle}>Celueste <Text style={styles.appTitleStar}>✦</Text></Text>
+        </View>
         <Text style={styles.appSubtitle}>나만의 CBT 스터디 아틀리에</Text>
       </TouchableOpacity>
 
@@ -48,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* [ 📚 과목&자료함 ] */}
         <TouchableOpacity
           onPress={() => onSelectPage(1)}
-          style={[styles.navTab, styles.navTabMiddle, currentPage === 1 && styles.navTabActive]}
+          style={[styles.navTab, currentPage === 1 && styles.navTabActive]}
           activeOpacity={0.8}
         >
           <Text
@@ -109,6 +117,17 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     backgroundColor: colors.surface,
   },
+  brandTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  brandIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+  },
   appTitle: {
     fontSize: 21,
     fontWeight: '800',
@@ -144,9 +163,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  navTabMiddle: {
-    flex: 1.3,
   },
   navTabActive: {
     backgroundColor: colors.primaryPressed,

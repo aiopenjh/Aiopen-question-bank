@@ -10,6 +10,7 @@ export interface TopicFolderCardProps {
   questions: QuestionRevision[];
   isExpanded: boolean;
   onToggleExpand: () => void;
+  showAccordionControl?: boolean;
   onStartExamWithQuestions: (questions: QuestionRevision[]) => void;
   onGenerateCurriculumForTopic: (topicId: string, topicName: string) => Promise<void>;
   onDeduplicateUnits?: (topicId: string) => Promise<void>;
@@ -26,6 +27,7 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
   questions,
   isExpanded,
   onToggleExpand,
+  showAccordionControl = true,
   onStartExamWithQuestions,
   onGenerateCurriculumForTopic,
   onDeduplicateUnits,
@@ -49,18 +51,22 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
             <Text style={styles.topicHouseTitle}>{topic.name}</Text>
           </View>
           <Text style={styles.topicHouseSub}>
-            단원 {topicUnits.length}개 · 문제 {topicQuestions.length}문항
+            {showAccordionControl
+              ? `단원 ${topicUnits.length}개 · 문제 ${topicQuestions.length}문항`
+              : `단원 ${topicUnits.length}개`}
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.toggleAccordionBtn, isExpanded && styles.toggleAccordionBtnActive]}
-          onPress={onToggleExpand}
-        >
-          <Text style={styles.toggleAccordionText}>
-            {isExpanded ? '접기  ▲' : '목차 보기  ▼'}
-          </Text>
-        </TouchableOpacity>
+        {showAccordionControl && (
+          <TouchableOpacity
+            style={[styles.toggleAccordionBtn, isExpanded && styles.toggleAccordionBtnActive]}
+            onPress={onToggleExpand}
+          >
+            <Text style={styles.toggleAccordionText}>
+              {isExpanded ? '접기  ▲' : '목차 보기  ▼'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* 과목 전체 학습 및 관리 버튼 */}

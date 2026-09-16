@@ -54,22 +54,28 @@ export function useBookPagerGesture(initialPage: number = 0): UseBookPagerGestur
 
   const goToPage = useCallback((page: number, animated = true) => {
     const target = Math.max(0, Math.min(2, page));
-    setCurrentPage(target);
     currentPageRef.current = target;
     const targetOffset = -target * containerWidthRef.current;
 
     if (animated) {
       isTransitioning.current = true;
+      translateX.stopAnimation();
       Animated.timing(translateX, {
         toValue: targetOffset,
-        duration: 240,
-        easing: Easing.out(Easing.quad),
+        duration: 260,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
         useNativeDriver: Platform.OS !== 'web',
-      }).start(() => {
+        isInteraction: false,
+      }).start(({ finished }) => {
+        if (!finished) return;
+        // 무거운 화면의 선택 상태 변경은 이동이 끝난 뒤 반영해
+        // 애니메이션 도중 세 화면이 동시에 다시 렌더링되는 끊김을 피합니다.
+        setCurrentPage(target);
         isTransitioning.current = false;
       });
     } else {
       translateX.setValue(targetOffset);
+      setCurrentPage(target);
       isTransitioning.current = false;
     }
   }, [translateX]);

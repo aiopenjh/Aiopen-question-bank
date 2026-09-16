@@ -18,7 +18,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
   visible,
   onClose,
 }) => {
-  // 처음에는 4개 제목만 깔끔하게 보이고, 누르면 해당 항목이 열림
+  // 처음에는 제목만 깔끔하게 보이고, 누르면 해당 항목이 열림
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   const toggleSection = (id: string) => {
@@ -27,16 +27,42 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
 
   const sections = [
     {
+      id: 'start',
+      icon: '✨',
+      title: '처음 시작 & 문제 출제',
+      subtitle: 'API 키 등록부터 자유 주제 4지선다 문제 만들기까지',
+      content: (
+        <View style={styles.detailContainer}>
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>🔑 1. 내 API 키 연결하기</Text>
+            <Text style={styles.tipText}>
+              • <Text style={styles.bold}>[설정 ➔ AI 연결]</Text>에서 본인의 API 키를 저장합니다. 키가 없으면 가짜 문제를 만들지 않고 연결 안내를 표시합니다.{'\n'}
+              • Gemini는 3.5 이상 모델만 사용하며 일반 화면에는 모델명을 별도 표시하지 않습니다.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>🧩 2. 자유 주제로 문제 만들기</Text>
+            <Text style={styles.tipText}>
+              • 메인 화면 또는 <Text style={styles.bold}>[자료함 ➔ 과목 추가]</Text>에서 자격증, 언어, 게임, 동식물 등 원하는 주제를 입력합니다.{'\n'}
+              • 과목과 시작 레벨을 정하면 첫 5개 단원이 구성됩니다. 단원을 고른 뒤 문항 수와 레벨을 확인하면 1~4번 4지선다 문제가 생성됩니다.{'\n'}
+              • 출제 중 취소하면 진행 중인 요청과 저장을 중단합니다. 요청 한도(429)나 무응답이 발생하면 잠시 기다린 뒤 다시 시도해 주세요.
+            </Text>
+          </View>
+        </View>
+      ),
+    },
+    {
       id: 'upload',
       icon: '📁',
       title: '교재 업로드 가이드',
-      subtitle: '구글드라이브/카톡 파일 넣기, TXT/ZIP 추천, HWP 변환법',
+      subtitle: 'TXT/MD/CSV/JSON/ZIP 추천과 PDF·HWP 사용 주의사항',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>📲 1. 스마트폰에 교재 파일 쉽게 넣는 법</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>클라우드 연동 (가장 편리 ⭐)</Text>: PC에서 구글 드라이브(Google Drive), OneDrive, 또는 카카오톡 '나와의 채팅'에 교재를 올려두세요. 앱에서 파일 첨부를 누른 뒤 구글 드라이브를 탭하면 폰 용량 없이 바로 첨부됩니다.{'\n'}
+              • <Text style={styles.bold}>클라우드 파일 선택</Text>: PC에서 구글 드라이브, OneDrive 또는 카카오톡 '나와의 채팅'에 교재를 보관한 뒤 기기의 파일 선택 화면에서 불러올 수 있습니다.{'\n'}
               • <Text style={styles.bold}>다운로드 폴더</Text>: 스마트폰 웹에서 다운받은 파일은 [다운로드] 폴더에서 즉시 선택할 수 있습니다.
             </Text>
           </View>
@@ -44,15 +70,16 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>📑 2. 추천 파일 형식</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>TXT, MD, ZIP (강력 추천 ⭐)</Text>: 원본 텍스트가 100% 온전하게 AI에게 전달되어 문제 출제 적중률이 가장 높습니다.{'\n'}
-              • <Text style={styles.bold}>PDF 파일</Text>: PDF 문서 첨부 지원. 텍스트 추출 정확도를 극대화하려면 텍스트(.txt)로 저장하여 올리시는 것을 권장합니다.
+              • <Text style={styles.bold}>TXT, MD, CSV, JSON</Text>: 실제 본문을 읽어 등록하므로 문제 출제 자료로 가장 적합합니다.{'\n'}
+              • <Text style={styles.bold}>ZIP</Text>: 압축 안의 TXT, MD, CSV, JSON 텍스트 파일을 함께 불러옵니다.{'\n'}
+              • <Text style={styles.bold}>PDF</Text>: 현재 파일명과 크기만 참고 정보로 등록하며 PDF 본문을 직접 추출하지 않습니다. 정확한 출제를 원하면 본문을 TXT로 변환하거나 직접 붙여넣으세요.
             </Text>
           </View>
 
           <View style={[styles.tipBox, styles.cautionBox]}>
             <Text style={[styles.tipTitle, { color: '#991b1b' }]}>⚠️ 3. 한글 문서(.hwp, .hwpx) 주의사항</Text>
             <Text style={[styles.tipText, { color: '#7f1d1d' }]}>
-              • 한글 문서는 AI가 직접 읽을 수 없는 특수 규격입니다.{'\n'}
+              • 한글 문서는 현재 앱이 본문을 직접 읽지 못합니다.{'\n'}
               • 한글 프로그램에서 <Text style={styles.bold}>[파일 ➔ 다른 이름으로 저장 ➔ PDF 또는 텍스트(.txt)]</Text>로 변환하신 후 첨부해 주세요.
             </Text>
           </View>
@@ -96,8 +123,8 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>⭐ 1. 나만의 오답노트 활용법</Text>
             <Text style={styles.tipText}>
-              • 문제를 풀다가 나중에 꼭 다시 보고 싶은 중요한 문제는 <Text style={styles.bold}>[☆ 기억하기]</Text> 버튼을 누르세요.{'\n'}
-              • 과목자료함의 [⭐ 나만의 오답노트]에 담겨, 시험 직전 나만의 핵심 족보로 집중 복습할 수 있습니다.
+              • 문제 보관함에서 다시 보고 싶은 문제의 <Text style={styles.bold}>[오답노트 저장]</Text>을 누르세요.{'\n'}
+              • 메인 화면의 <Text style={styles.bold}>[나만의 오답노트]</Text>에서 저장한 문제만 모아 집중 복습할 수 있습니다.
             </Text>
           </View>
 
@@ -105,6 +132,39 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipTitle}>📝 2. 전체 CBT 검증 후 넘어가기</Text>
             <Text style={styles.tipText}>
               • 다음 단계 단원을 추가하기 전, 지금까지 풀고 쌓아둔 해당 과목의 모든 기존 문제들을 실전 CBT 시험장 형태로 한 번에 총정리 복습할 수 있습니다.
+              {'\n'}• 과목 전체 삭제는 과목 카드의 <Text style={styles.bold}>[과목 삭제]</Text>, 단원 삭제는 목차를 펼친 뒤 해당 단원의 삭제 버튼에서 실행합니다. 삭제한 데이터는 복구할 수 없으므로 먼저 백업하세요.
+            </Text>
+          </View>
+        </View>
+      ),
+    },
+    {
+      id: 'settings',
+      icon: '⚙️',
+      title: '학습 목표 & 알림 설정',
+      subtitle: '일일 문항 저장, 아침·저녁 알림, 당겨서 새로고침',
+      content: (
+        <View style={styles.detailContainer}>
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>🎯 1. 일일 학습 목표 저장</Text>
+            <Text style={styles.tipText}>
+              • <Text style={styles.bold}>[설정 ➔ 학습 루틴]</Text>에서 1~10 사이의 목표 문항 수를 입력하거나 화살표로 조절합니다.{'\n'}
+              • 숫자를 바꾼 뒤 <Text style={styles.bold}>[목표 n문항 저장]</Text>을 누르면 메인 화면의 일일 달성 기준에 반영됩니다.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>⏰ 2. 아침·저녁 학습 알림</Text>
+            <Text style={styles.tipText}>
+              • 알림 요일과 아침·저녁 시간을 직접 선택합니다. 기기 또는 브라우저의 알림 권한이 허용되어야 합니다.{'\n'}
+              • 알림을 누르면 앱으로 이동하지만 단원이나 문제를 자동 시작하지 않습니다. 자료함에서 원하는 학습 대상을 직접 선택하세요.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>↻ 3. 화면 새로고침</Text>
+            <Text style={styles.tipText}>
+              • 메인, 자료함, 설정 화면의 맨 위에서 아래로 당기면 저장된 최신 학습 데이터를 다시 불러옵니다.
             </Text>
           </View>
         </View>
@@ -114,22 +174,30 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
       id: 'backup',
       icon: '💾',
       title: '백업 & 데이터 보안',
-      subtitle: '100% 로컬 프라이버시 및 기기 변경 시 데이터 이동 방법',
+      subtitle: '로컬 저장, ZIP/JSON 백업과 홈 화면 추가 방법',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>🔒 1. 100% 로컬 프라이버시 보장</Text>
+            <Text style={styles.tipTitle}>🔒 1. 로컬 학습 데이터</Text>
             <Text style={styles.tipText}>
               • Celueste는 외부 중앙 서버에 사용자의 개인 학습 데이터나 교재를 수집하지 않습니다.{'\n'}
-              • 모든 과목, 단원, 문제, 오답노트는 고객님의 스마트폰 내부 저장소에만 안전하게 보관됩니다.
+              • 과목, 단원, 문제와 풀이 기록은 현재 기기의 앱 또는 브라우저 저장소에 보관됩니다. 브라우저 데이터 삭제나 앱 삭제 전에 백업 파일을 만들어 두세요.
             </Text>
           </View>
 
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>💾 2. 스마트폰 변경 시 데이터 이동 방법</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>[설정 ➔ 백업 파일 내보내기]</Text>를 누르면 지금까지의 모든 학습 데이터가 파일로 안전하게 저장됩니다.{'\n'}
-              • 새 폰에서 앱을 켜고 <Text style={styles.bold}>[설정 ➔ 백업 파일 복원하기]</Text>를 누르면 1초 만에 이전 학습 기록이 그대로 복원됩니다.
+              • <Text style={styles.bold}>[설정 ➔ 백업/출력]</Text>은 API 키를 제외한 학습 데이터와 인쇄용 문제지·해설지를 ZIP으로 저장합니다.{'\n'}
+              • 새 기기의 <Text style={styles.bold}>[설정 ➔ 복원]</Text>에서 ZIP 또는 JSON을 선택하면 형식을 검사한 뒤 학습 기록을 복원합니다. API 키는 새 기기에서 다시 등록합니다.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>📱 3. 홈 화면에 앱 아이콘 추가</Text>
+            <Text style={styles.tipText}>
+              • Android Chrome은 메뉴의 <Text style={styles.bold}>[홈 화면에 추가]</Text>, iPhone Safari는 공유 메뉴의 <Text style={styles.bold}>[홈 화면에 추가]</Text>를 사용합니다.{'\n'}
+              • 이전 바로가기가 기본 아이콘으로 보이면 기존 바로가기를 삭제한 뒤 다시 추가하세요.
             </Text>
           </View>
         </View>
@@ -167,7 +235,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* 깔끔한 4개 아코디언 메뉴 목록 */}
+          {/* 아코디언 메뉴 목록 */}
           <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false}>
             {sections.map((sec) => {
               const isExpanded = expandedSection === sec.id;

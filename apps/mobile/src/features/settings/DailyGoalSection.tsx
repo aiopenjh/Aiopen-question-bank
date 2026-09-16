@@ -4,7 +4,7 @@ import { styles } from './settingsStyles';
 
 export interface DailyGoalSectionProps {
   targetCount: number;
-  onChangeTargetCount: (count: number) => void;
+  onChangeTargetCount: (count: number) => void | Promise<void>;
 }
 
 export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
@@ -17,46 +17,49 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
     setInputText(String(targetCount));
   }, [targetCount]);
 
-  const handleCommitNumber = (text: string) => {
-    const cleaned = text.replace(/[^0-9]/g, '');
-    setInputText(cleaned);
-    const parsed = parseInt(cleaned, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      onChangeTargetCount(Math.min(10, Math.max(1, parsed)));
-    }
+  const parsedInput = Number.parseInt(inputText, 10);
+  const isValidInput = Number.isInteger(parsedInput) && parsedInput >= 1 && parsedInput <= 10;
+  const hasChanges = isValidInput && parsedInput !== targetCount;
+
+  const handleChangeNumber = (text: string) => {
+    setInputText(text.replace(/[^0-9]/g, ''));
   };
 
   const handleStep = (delta: number) => {
-    const next = Math.min(10, Math.max(1, targetCount + delta));
+    const current = isValidInput ? parsedInput : targetCount;
+    const next = Math.min(10, Math.max(1, current + delta));
     setInputText(String(next));
-    onChangeTargetCount(next);
   };
 
-  const PRESETS = [3, 5, 7, 10];
+  const handleSave = async () => {
+    if (!hasChanges) return;
+    await onChangeTargetCount(parsedInput);
+  };
 
   return (
-    <View style={styles.card}>
-      <View style={styles.cardHeaderRow}>
-        <View style={{ flex: 1, paddingRight: 8 }}>
-          <Text style={styles.cardSectionTitle}>일일 학습 목표 설정</Text>
-          <Text style={styles.alarmSubGuide}>
-            메인 홈 화면의 일일 달성률 기준이 되는 하루 목표 문제 수(1~10문항)를 설정합니다.
+    <View style={[styles.card, styles.goalCard]}>
+      <View style={styles.goalHeaderRow}>
+        <Text style={[styles.cardSectionTitle, styles.goalCardTitle]}>일일 학습 목표</Text>
+        <TouchableOpacity
+          style={[styles.goalSaveButton, !hasChanges && styles.goalSaveButtonDisabled]}
+          onPress={handleSave}
+          disabled={!hasChanges}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.goalSaveButtonText, !hasChanges && styles.goalSaveButtonTextDisabled]}>
+            목표 {isValidInput ? parsedInput : targetCount}문항 저장
           </Text>
-        </View>
-        <View style={styles.alarmActiveBadge}>
-          <Text style={styles.alarmActiveBadgeText}>목표 {targetCount}문항</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
-      {/* 목표 문항 수 숫자 직접 입력 및 스텝 버튼 */}
       <View style={styles.goalInputRow}>
         <TouchableOpacity
-          style={[styles.stepperArrowBtn, targetCount <= 1 && styles.stepperArrowBtnDisabled]}
+          style={[styles.stepperArrowBtn, parsedInput <= 1 && styles.stepperArrowBtnDisabled]}
           onPress={() => handleStep(-1)}
-          disabled={targetCount <= 1}
+          disabled={parsedInput <= 1}
           activeOpacity={0.7}
         >
-          <Text style={[styles.stepperArrowText, targetCount <= 1 && styles.stepperArrowTextDisabled]}>
+          <Text style={[styles.stepperArrowText, parsedInput <= 1 && styles.stepperArrowTextDisabled]}>
             ◀
           </Text>
         </TouchableOpacity>
@@ -65,47 +68,27 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
           <TextInput
             style={styles.goalInputField}
             value={inputText}
-            onChangeText={handleCommitNumber}
+            onChangeText={handleChangeNumber}
             keyboardType="number-pad"
             maxLength={2}
             selectTextOnFocus
           />
-          <Text style={styles.goalInputSuffix}>문항 / 일</Text>
+          <Text style={styles.goalInputSuffix}>문항</Text>
         </View>
 
         <TouchableOpacity
-          style={[styles.stepperArrowBtn, targetCount >= 10 && styles.stepperArrowBtnDisabled]}
+          style={[styles.stepperArrowBtn, parsedInput >= 10 && styles.stepperArrowBtnDisabled]}
           onPress={() => handleStep(1)}
-          disabled={targetCount >= 10}
+          disabled={parsedInput >= 10}
           activeOpacity={0.7}
         >
-          <Text style={[styles.stepperArrowText, targetCount >= 10 && styles.stepperArrowTextDisabled]}>
+          <Text style={[styles.stepperArrowText, parsedInput >= 10 && styles.stepperArrowTextDisabled]}>
             ▶
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* 빠른 추천 프리셋 버튼 */}
-      <View style={styles.goalPresetRow}>
-        {PRESETS.map((count) => {
-          const isSelected = targetCount === count;
-          return (
-            <TouchableOpacity
-              key={count}
-              style={[styles.goalPresetChip, isSelected && styles.goalPresetChipActive]}
-              onPress={() => {
-                setInputText(String(count));
-                onChangeTargetCount(count);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.goalPresetText, isSelected && styles.goalPresetTextActive]}>
-                {count}문제
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      {!isValidInput && <Text style={styles.goalValidationText}>1~10 사이의 문항 수를 입력해 주세요.</Text>}
     </View>
   );
 };

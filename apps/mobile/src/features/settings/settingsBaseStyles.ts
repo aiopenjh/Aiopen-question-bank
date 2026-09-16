@@ -13,7 +13,7 @@ export const settingsBaseStyles = StyleSheet.create({
   },
   pageIntro: {
     paddingHorizontal: spacing.xs,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.lg,
   },
   pageEyebrow: {
     color: colors.primary,
@@ -41,7 +41,12 @@ export const settingsBaseStyles = StyleSheet.create({
   groupHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: spacing.xs,
+    backgroundColor: colors.primarySoft,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     marginBottom: spacing.sm,
   },
   groupIndex: {
@@ -109,11 +114,19 @@ export const settingsBaseStyles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 16,
   },
-  manualBannerArrow: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.primary,
+  manualBannerButton: {
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     marginLeft: spacing.sm,
+  },
+  manualBannerButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
   },
   card: {
     backgroundColor: colors.surface,

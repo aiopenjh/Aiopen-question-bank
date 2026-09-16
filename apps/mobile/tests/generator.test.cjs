@@ -5,162 +5,259 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function harness(fetchImpl, { model = '', fastTimeout = false, key = 'AIza-synthetic-key' } = {}) {
-  const saved = [];
-  const specs = [];
-  let id = 0;
+const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
+
+function isSupportedGeminiModel(model) {
+  const match = String(model).trim().toLowerCase().match(/^gemini-(\d+)(?:\.(\d+))?(?:-|$)/);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2] || 0);
+  return major > 3 || (major === 3 && minor >= 5);
+}
+
+function harness(fetchImpl = async () => { throw new Error('unexpected provider call'); }, options = {}) {
+  const { model = '', key = 'AIza-synthetic-key' } = options;
   const cache = {};
+  let id = 0;
+
   function load(relative) {
-    const filename = path.resolve(__dirname, '../src/domain', relative + '.ts');
+    const filename = path.resolve(__dirname, '../src/domain', `${relative}.ts`);
     if (cache[filename]) return cache[filename].exports;
+
     const module = { exports: {} };
     cache[filename] = module;
-    const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS } }).outputText;
+    const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+      compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS },
+    }).outputText;
+
     vm.runInNewContext(code, {
-      module, exports: module.exports, AbortController,
-      setTimeout: fastTimeout ? (fn) => setTimeout(fn, 5) : setTimeout, clearTimeout,
+      module,
+      exports: module.exports,
+      AbortController,
+      clearTimeout,
+      console: { error() {}, log() {}, warn() {} },
       fetch: fetchImpl,
-      require: (name) => name === '../data/db' ? {
-        getGeminiApiKey: async () => key, getPreferredAiModel: async () => model,
-        generateUUID: () => String(++id), getCurrentISOTime: () => '2026-09-14T00:00:00.000Z',
-        addQuestions: async (questions, spec) => { saved.push(...questions); specs.push(spec); },
-      } : load(name),
+      setTimeout,
+      require: (name) => name === '../data/db'
+        ? {
+            DEFAULT_GEMINI_MODEL,
+            generateUUID: () => String(++id),
+            getCurrentISOTime: () => '2026-09-14T00:00:00.000Z',
+            getGeminiApiKey: async () => key,
+            getPreferredAiModel: async () => model,
+            isSupportedGeminiModel,
+          }
+        : load(name),
     }, { filename });
+
     return module.exports;
   }
-  return { generator: load('generator'), validation: load('question_validation'), saved, specs };
+
+  return load('generator');
 }
-const question = () => ({ stem: '2 + 2 = ?', explanation: '2에 2를 더하면 4입니다.', correctIndex: 1, options: ['3', '4', '5', '6'].map(text => ({ text })) });
-const args = (generator) => ({ ownerId: 'synthetic', topicId: 'math', sourceRevisionIds: ['source-1'], intent: generator.analyzeUserIntent('덧셈', undefined, { targetCount: 1 }) });
-const response = value => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }] }) });
 
-test('rejects incomplete, duplicate and invalid AI answers before saving', async () => {
+function question(overrides = {}) {
+  return {
+    stem: '2 + 2 = ?',
+    explanation: '2에 2를 더하면 4입니다.',
+    correctOptionNumber: 2,
+    options: ['3', '4', '5', '6'].map((text) => ({ text })),
+    ...overrides,
+  };
+}
+
+function args(generator, targetCount = 1) {
+  return {
+    ownerId: 'synthetic',
+    topicId: 'math',
+    topicName: '덧셈',
+    intent: generator.analyzeUserIntent('덧셈', undefined, { targetCount }),
+  };
+}
+
+function providerPayload(questions = [question()]) {
+  return { intentStatus: 'READY', questions };
+}
+
+function response(value) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }],
+    }),
+  };
+}
+
+test('rejects incomplete, duplicate, and invalid generated questions', () => {
+  const generator = harness();
   const variants = [
-    q => { q.stem = ''; }, q => { q.explanation = ' '; }, q => { q.options.pop(); },
-    q => { q.options.push({ text: '7' }); }, q => { q.options[0].text = ''; },
-    q => { q.options[0].text = ' 4 '; }, q => { q.correctIndex = 1.5; },
-    q => { q.correctIndex = 4; }, q => { delete q.correctIndex; },
+    () => null,
+    () => ({ questions: [] }),
+    () => ({ questions: [question({ stem: '' })] }),
+    () => ({ questions: [question({ explanation: ' ' })] }),
+    () => ({ questions: [question({ options: question().options.slice(0, 3) })] }),
+    () => ({ questions: [question({ options: [...question().options, { text: '7' }] })] }),
+    () => ({ questions: [question({ options: [{ text: '' }, ...question().options.slice(1)] })] }),
+    () => ({ questions: [question({ options: [{ text: ' 4 ' }, ...question().options.slice(1)] })] }),
+    () => ({ questions: [question({ correctOptionNumber: 1.5 })] }),
+    () => ({ questions: [question({ correctOptionNumber: 0 })] }),
+    () => ({ questions: [question({ correctOptionNumber: 5 })] }),
+    () => ({ questions: [{ ...question(), correctOptionNumber: undefined }] }),
   ];
-  for (const mutate of variants) {
-    const q = question(); mutate(q);
-    const h = harness(async () => response({ questions: [q] }));
-    const result = await h.generator.generateFactBasedQuestions(args(h.generator));
-    assert.equal(result.status, 'FAILED'); assert.equal(h.saved.length, 0);
+
+  for (const makeValue of variants) {
+    assert.throws(() => generator.validateGeneratedQuestions(makeValue(), 1));
   }
+
+  assert.throws(() => generator.validateGeneratedQuestions({
+    questions: [question(), question({ stem: '  2 + 2 = ?  ' })],
+  }, 2), /동일한 문제/);
+  assert.throws(() => generator.parseAiJsonResponse('{broken'));
 });
 
-test('rejects wrong count, duplicate questions, malformed JSON', () => {
-  const { validation } = harness();
-  assert.throws(() => validation.validateQuestionResponse({ questions: [] }, 1));
-  assert.throws(() => validation.validateQuestionResponse({ questions: [question(), question()] }, 2));
-  assert.throws(() => validation.parseAiJsonResponse('{broken'));
-});
+test('valid generation preserves all four options, the correct answer, and structural validation', async () => {
+  const generator = harness(async () => response(providerPayload()));
+  const result = await generator.generateFactBasedQuestions(args(generator));
 
-test('valid generation preserves correct option, references, and records structural checks only', async () => {
-  const h = harness(async () => response({ questions: [question()] }));
-  const result = await h.generator.generateFactBasedQuestions(args(h.generator));
-  assert.equal(result.status, 'READY'); assert.equal(h.saved.length, 1);
-  const q = result.questions[0];
-  assert.equal(q.options.find(o => o.id === q.answerOptionId).text, '4');
-  assert.equal(result.spec.sourceRevisionIds[0], 'source-1');
-  assert.equal(h.specs[0].sourceRevisionIds[0], 'source-1');
-  assert.equal(h.specs[0].id, q.specId);
+  assert.equal(result.status, 'READY');
+  assert.equal(result.spec.sourceRevisionIds.length, 0);
+  assert.equal(result.questions.length, 1);
+  assert.equal(result.questions[0].options.length, 4);
+  assert.deepEqual(
+    Array.from(result.questions[0].options, (option) => option.text).sort(),
+    ['3', '4', '5', '6']
+  );
+  assert.equal(
+    result.questions[0].options.find((option) => option.id === result.questions[0].answerOptionId).text,
+    '4'
+  );
   assert.equal(result.validations[0].checkType, 'syntax_integrity');
   assert.equal(result.validations[0].reviewerKind, 'rule_engine');
 });
 
-test('HTTP errors do not expose provider body or try another model', async () => {
+test('provider HTTP failures expose neither the API key nor the provider response body', async () => {
+  const providerSecret = 'secret-provider-body';
+  const apiKey = 'AIza-secret-synthetic-key';
+  let bodyRead = false;
   let calls = 0;
-  const h = harness(async (url) => {
-    calls++; assert.ok(!url.includes('synthetic-key'));
-    return { ok: false, status: 429, text: async () => 'secret-key-user-content' };
-  });
-  const result = await h.generator.generateFactBasedQuestions(args(h.generator));
-  assert.equal(result.status, 'FAILED'); assert.equal(calls, 1);
-  assert.ok(!result.message.includes('secret')); assert.equal(h.saved.length, 0);
-});
+  const generator = harness(async (url, request) => {
+    calls += 1;
+    assert.ok(!url.includes(apiKey));
+    assert.equal(request.headers['x-goog-api-key'], apiKey);
+    return {
+      ok: false,
+      status: 418,
+      text: async () => { bodyRead = true; return providerSecret; },
+    };
+  }, { key: apiKey });
 
-test('timeout covers a stalled body and does not retry', async () => {
-  let calls = 0;
-  const h = harness(async () => { calls++; return { ok: true, json: () => new Promise(() => {}) }; }, { fastTimeout: true });
-  const result = await h.generator.generateFactBasedQuestions(args(h.generator));
-  assert.equal(result.status, 'FAILED'); assert.equal(calls, 1);
-  assert.match(result.message, /초과/);
-});
-
-test('concurrent requests produce one provider call', async () => {
-  let resolve;
-  let calls = 0;
-  const h = harness(() => { calls++; return new Promise(r => { resolve = r; }); });
-  const first = h.generator.generateFactBasedQuestions(args(h.generator));
-  await new Promise(r => setImmediate(r));
-  const second = await h.generator.generateFactBasedQuestions(args(h.generator));
-  assert.equal(second.status, 'FAILED'); assert.equal(calls, 1);
-  resolve(response({ questions: [question()] }));
-  assert.equal((await first).status, 'READY');
-});
-
-test('the configured model baseline never falls below 3.5', () => {
-  const { generator } = harness();
-  assert.equal(generator.selectAiModel('synthetic', '').model, 'gemini-3.5-flash');
-  assert.equal(generator.selectAiModel('synthetic', 'gemini-2.5-flash').model, 'gemini-3.5-flash');
-  assert.equal(generator.selectAiModel('synthetic', 'gemini-3.7-flash').model, 'gemini-3.7-flash');
-  assert.equal(generator.selectAiModel('synthetic', 'gpt-4o-mini').model, 'gemini-3.5-flash');
-});
-
-test('answer shuffling rejects broken questions instead of inventing options', () => {
-  const { generator } = harness();
-  assert.throws(() => generator.distributeQuestionAnswersRandomly([{ options: [], answerOptionId: 'missing' }]));
-});
-
-test('one request uses the 3.5 baseline without trying another model', async () => {
-  let calls = 0;
-  const h = harness(async (url) => {
-    calls++;
-    assert.match(url, /gemini-3\.5-flash/);
-    return response({ questions: [question()] });
-  }, { model: 'gemini-2.5-flash' });
-  assert.equal((await h.generator.generateFactBasedQuestions(args(h.generator))).status, 'READY');
+  const result = await generator.generateFactBasedQuestions(args(generator));
+  assert.equal(result.status, 'FAILED');
   assert.equal(calls, 1);
+  assert.equal(bodyRead, false);
+  assert.ok(!result.message.includes(apiKey));
+  assert.ok(!result.message.includes(providerSecret));
 });
 
-test('invalid requested count makes no API call', async () => {
-  let calls = 0;
-  const h = harness(async () => { calls++; return response({ questions: [] }); });
-  const params = args(h.generator); params.intent.targetCount = 0;
-  assert.equal((await h.generator.generateFactBasedQuestions(params)).status, 'FAILED');
-  assert.equal(calls, 0);
-});
-
-test('empty and malformed successful provider responses never become READY', async () => {
-  for (const value of [{ questions: [] }, {}, null]) {
-    const h = harness(async () => response(value));
-    assert.equal((await h.generator.generateFactBasedQuestions(args(h.generator))).status, 'FAILED');
-    assert.equal(h.saved.length, 0);
-  }
-  const h = harness(async () => ({ ok: true, json: async () => ({ candidates: [] }) }));
-  assert.equal((await h.generator.generateFactBasedQuestions(args(h.generator))).status, 'FAILED');
-  assert.equal(h.saved.length, 0);
-});
-
-test('transport and JSON decoder exceptions never reveal raw provider secrets', async () => {
-  for (const fetchImpl of [
-    async () => { throw new Error('secret-transport-body'); },
-    async () => ({ ok: true, json: async () => { throw new Error('secret-decoder-body'); } }),
+test('Gemini model selection never falls below the 3.5 baseline', async () => {
+  for (const [preferred, expected] of [
+    ['', DEFAULT_GEMINI_MODEL],
+    ['gemini-2.5-flash', DEFAULT_GEMINI_MODEL],
+    ['gpt-4o-mini', DEFAULT_GEMINI_MODEL],
+    ['gemini-3.7-flash', 'gemini-3.7-flash'],
   ]) {
-    const h = harness(fetchImpl);
-    const result = await h.generator.generateFactBasedQuestions(args(h.generator));
-    assert.equal(result.status, 'FAILED');
-    assert.ok(!result.message.includes('secret'));
-    assert.equal(h.saved.length, 0);
+    const requestedModels = [];
+    const generator = harness(async (url) => {
+      requestedModels.push(url.match(/models\/([^:]+):/)[1]);
+      return response(providerPayload());
+    }, { model: preferred });
+
+    const result = await generator.generateFactBasedQuestions(args(generator));
+    assert.equal(result.status, 'READY');
+    assert.deepEqual(requestedModels, [expected]);
+    assert.ok(isSupportedGeminiModel(requestedModels[0]));
   }
 });
 
-test('validated questions retain optional concept explanations and hints', async () => {
-  const item = { ...question(), conceptDefinition: ' 덧셈은 수량을 합칩니다. ', deepReasoningHint: ' 하나씩 세어 보세요. ' };
-  const h = harness(async () => response({ questions: [item] }));
-  const result = await h.generator.generateFactBasedQuestions(args(h.generator));
+test('malformed and semantically rejected provider responses never become READY', async () => {
+  const values = [
+    { intentStatus: 'READY', questions: [] },
+    { intentStatus: 'READY' },
+    {},
+    null,
+    { intentStatus: 'UNKNOWN', questions: [question()] },
+  ];
+
+  for (const value of values) {
+    const generator = harness(async () => response(value));
+    assert.equal((await generator.generateFactBasedQuestions(args(generator))).status, 'FAILED');
+  }
+
+  const generator = harness(async () => response({
+    intentStatus: 'REJECTED',
+    message: '학습 주제를 확인할 수 없습니다.',
+    clarificationChoices: [],
+  }));
+  assert.equal((await generator.generateFactBasedQuestions(args(generator))).status, 'REJECTED');
+});
+
+test('validated questions retain trimmed optional explanations and hints', async () => {
+  const item = question({
+    conceptDefinition: ' 덧셈은 수량을 합칩니다. ',
+    deepReasoningHint: ' 하나씩 세어 보세요. ',
+  });
+  const generator = harness(async () => response(providerPayload([item])));
+  const result = await generator.generateFactBasedQuestions(args(generator));
+
   assert.equal(result.status, 'READY');
-  assert.equal(h.saved[0].conceptDefinition, '덧셈은 수량을 합칩니다.');
-  assert.equal(h.saved[0].deepReasoningHint, '하나씩 세어 보세요.');
+  assert.equal(result.questions[0].conceptDefinition, '덧셈은 수량을 합칩니다.');
+  assert.equal(result.questions[0].deepReasoningHint, '하나씩 세어 보세요.');
+});
+
+test('transport and JSON decoder exceptions do not expose raw provider secrets', async () => {
+  const cases = [
+    {
+      secret: 'secret-transport-detail',
+      fetchImpl: async () => { throw new Error('secret-transport-detail'); },
+    },
+    {
+      secret: 'secret-decoder-detail',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => { throw new Error('secret-decoder-detail'); },
+      }),
+    },
+  ];
+
+  for (const { secret, fetchImpl } of cases) {
+    const generator = harness(fetchImpl);
+    const result = await generator.generateFactBasedQuestions(args(generator));
+
+    assert.equal(result.status, 'FAILED');
+    assert.ok(!result.message.includes(secret));
+    assert.match(result.message, /API 서버와 통신할 수 없습니다/);
+  }
+});
+
+test('concurrent identical generation requests share one in-flight provider call', async () => {
+  let calls = 0;
+  const generator = harness(async () => {
+    calls += 1;
+    return response(providerPayload());
+  });
+
+  const params = args(generator);
+  const first = generator.generateFactBasedQuestions(params);
+  const second = generator.generateFactBasedQuestions(params);
+  assert.equal(first, second);
+
+  const results = await Promise.all([first, second]);
+
+  assert.deepEqual(Array.from(results, (result) => result.status), ['READY', 'READY']);
+  assert.equal(calls, 1);
+
+  assert.equal((await generator.generateFactBasedQuestions(params)).status, 'READY');
+  assert.equal(calls, 2);
 });

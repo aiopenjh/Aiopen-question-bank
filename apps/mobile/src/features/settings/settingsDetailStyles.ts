@@ -2,13 +2,23 @@ import { StyleSheet } from 'react-native';
 import { colors, radius, shadows, spacing } from '../../styles/designTokens';
 
 export const settingsDetailStyles = StyleSheet.create({
+  goalCard: {
+    padding: 14,
+  },
+  goalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  goalCardTitle: {
+    marginBottom: 0,
+  },
   goalInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    marginTop: 6,
-    marginBottom: 12,
+    gap: 6,
+    marginTop: 8,
   },
   goalInputCenter: {
     flexDirection: 'row',
@@ -20,17 +30,17 @@ export const settingsDetailStyles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    height: 42,
-    minWidth: 95,
-    maxWidth: 130,
+    height: 36,
+    minWidth: 74,
+    maxWidth: 92,
     gap: 4,
   },
   goalInputField: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.ink,
     textAlign: 'center',
-    width: 32,
+    width: 26,
     padding: 0,
     margin: 0,
   },
@@ -39,33 +49,32 @@ export const settingsDetailStyles = StyleSheet.create({
     color: colors.primaryPressed,
     fontWeight: '700',
   },
-  goalPresetRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 6,
+  goalValidationText: {
+    color: colors.danger,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 7,
   },
-  goalPresetChip: {
-    flex: 1,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 8,
+  goalSaveButton: {
+    minHeight: 36,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.primaryPressed,
+    paddingHorizontal: 12,
   },
-  goalPresetChipActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+  goalSaveButtonDisabled: {
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  goalPresetText: {
+  goalSaveButtonText: {
+    color: colors.white,
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.inkMuted,
+    fontWeight: '800',
   },
-  goalPresetTextActive: {
-    color: colors.primaryPressed,
-    fontWeight: 'bold',
+  goalSaveButtonTextDisabled: {
+    color: colors.inkMuted,
   },
   alarmItemBlock: {
     backgroundColor: colors.surfaceMuted,
@@ -147,8 +156,8 @@ export const settingsDetailStyles = StyleSheet.create({
     borderColor: colors.border,
   },
   stepperArrowBtn: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     backgroundColor: colors.primarySoft,
     borderWidth: 1,

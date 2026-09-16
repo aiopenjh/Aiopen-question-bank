@@ -1,7 +1,9 @@
 import React from 'react';
-import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { AlarmConfig, DEFAULT_ALARM_CONFIG } from '../../utils/notifications';
 import { styles } from './settingsStyles';
+import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { ApiKeySection } from './ApiKeySection';
 import { AlarmConfigSection } from './AlarmConfigSection';
 import { DailyGoalSection } from './DailyGoalSection';
@@ -51,6 +53,8 @@ interface SettingsScreenProps {
   latestVersion?: string;
   onCheckForUpdate?: () => void;
   onApplyUpdate?: () => void;
+  refreshing?: boolean;
+  onRefresh?: () => Promise<void> | void;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
@@ -71,9 +75,41 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   latestVersion,
   onCheckForUpdate,
   onApplyUpdate,
+  refreshing = false,
+  onRefresh,
 }) => {
+  const { pullDistance, handleScroll, touchHandlers } = usePullToRefresh({
+    refreshing,
+    onRefresh,
+  });
+
   return (
-    <ScrollView style={styles.tabContent} contentContainerStyle={styles.scrollPadding}>
+    <ScrollView
+      style={styles.tabContent}
+      contentContainerStyle={[styles.scrollPadding, { flexGrow: 1 }]}
+      bounces={true}
+      alwaysBounceVertical={true}
+      overScrollMode="always"
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+      {...touchHandlers}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#f43f5e', '#be123c']}
+            tintColor="#f43f5e"
+            titleColor="#be123c"
+            progressBackgroundColor="#ffffff"
+            progressViewOffset={Platform.OS === 'android' ? 20 : 0}
+          />
+        ) : undefined
+      }
+    >
+      <PullRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
       <View style={styles.pageIntro}>
         <Text style={styles.pageEyebrow}>MY STUDY SETTINGS</Text>
         <Text style={styles.pageTitle}>나에게 맞는 학습 환경</Text>
@@ -137,9 +173,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </View>
               <View style={styles.manualBannerCopy}>
                 <Text style={styles.manualBannerTitle}>앱 공식 이용 가이드 & 사용설명서</Text>
-                <Text style={styles.manualBannerSub}>교재 업로드, 30단원 이상 커리큘럼, 오답노트 활용법</Text>
+                <Text style={styles.manualBannerSub}>문제 출제, 목표·알림, 자료함, 백업과 홈 화면 추가 안내</Text>
               </View>
-              <Text style={styles.manualBannerArrow}>열기 ›</Text>
+              <View style={styles.manualBannerButton}>
+                <Text style={styles.manualBannerButtonText}>열기 ›</Text>
+              </View>
             </View>
           </TouchableOpacity>
         )}

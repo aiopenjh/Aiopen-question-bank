@@ -44,7 +44,6 @@ export interface StudyMapScreenProps {
   topicName?: string;
 
   // 화면 전환 연동
-  onOpenLibrary?: () => void;
   onOpenSettings?: () => void;
 }
 
@@ -63,7 +62,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   isAiGenerating = false,
   apiKey,
   topicName,
-  onOpenLibrary,
   onOpenSettings,
 }) => {
   const [customPrompt, setCustomPrompt] = useState<string>('');
@@ -203,16 +201,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             style={styles.notebookQuickActionCharacter}
           />
           <Text style={styles.quickActionTitle}>나만의 오답노트</Text>
-          <Text style={styles.quickActionValue}>열기</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={onOpenLibrary}
-          disabled={!onOpenLibrary}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.quickActionIcon, { color: colors.mint }]}>▣</Text>
-          <Text style={styles.quickActionTitle}>과목 자료함</Text>
           <Text style={styles.quickActionValue}>열기</Text>
         </TouchableOpacity>
       </View>

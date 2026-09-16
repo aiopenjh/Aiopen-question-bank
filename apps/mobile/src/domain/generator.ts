@@ -65,6 +65,25 @@ export type GenerationOutcome =
       message: string;
     };
 
+type GenerationParams = {
+  intent: ScopedIntent;
+  ownerId: UUID;
+  topicId: UUID;
+  topicName?: string;
+  category?: string;
+  unitId?: UUID;
+  unitTitle?: string;
+  customContext?: string;
+  signal?: AbortSignal;
+};
+
+const inFlightGenerations = new Map<string, Promise<GenerationOutcome>>();
+
+function getGenerationRequestKey(params: GenerationParams): string {
+  const { signal: _signal, ...request } = params;
+  return JSON.stringify(request);
+}
+
 interface GeneratedQuestionInput {
   stem: string;
   conceptDefinition?: string;
@@ -208,17 +227,25 @@ export function validateGeneratedQuestions(
  * - API Key가 없으면 가짜 문제를 내지 않고 NEEDS_CONNECTION을 반환합니다.
  * - API Key가 있으면 실제 최신 AI API를 호출하여 정밀 4지선다 문항을 생성합니다.
  */
-export async function generateFactBasedQuestions(params: {
-  intent: ScopedIntent;
-  ownerId: UUID;
-  topicId: UUID;
-  topicName?: string;
-  category?: string;
-  unitId?: UUID;
-  unitTitle?: string;
-  customContext?: string;
-  signal?: AbortSignal;
-}): Promise<GenerationOutcome> {
+export function generateFactBasedQuestions(params: GenerationParams): Promise<GenerationOutcome> {
+  const requestKey = getGenerationRequestKey(params);
+  const existing = inFlightGenerations.get(requestKey);
+  if (existing) return existing;
+
+  const generation = generateFactBasedQuestionsOnce(params);
+  inFlightGenerations.set(requestKey, generation);
+
+  const clearInFlight = () => {
+    if (inFlightGenerations.get(requestKey) === generation) {
+      inFlightGenerations.delete(requestKey);
+    }
+  };
+  void generation.then(clearInFlight, clearInFlight);
+
+  return generation;
+}
+
+async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise<GenerationOutcome> {
   const { intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, signal } = params;
   const obviousInvalid = detectObviousInvalidStudyInput(topicName || intent.domain);
   if (obviousInvalid && obviousInvalid.status !== 'READY') {
@@ -269,7 +296,7 @@ export async function generateFactBasedQuestions(params: {
     console.error('AI 출제 API 통신 실패:', err);
     return {
       status: 'FAILED',
-      message: `[AI 서버 연결 실패]\n${err?.message || 'API 서버와 통신할 수 없습니다.'}\n\n※ 원칙에 따라 가짜 하드코딩 문제를 생성하지 않고 연결 상태를 정직하게 통보합니다. 설정 탭에서 API 키와 모델을 확인해 주세요.`,
+      message: '[AI 서버 연결 실패]\nAPI 서버와 통신할 수 없습니다.\n\n※ 원칙에 따라 가짜 하드코딩 문제를 생성하지 않고 연결 상태를 정직하게 통보합니다. 설정 탭에서 API 키와 모델을 확인해 주세요.',
     };
   }
 }

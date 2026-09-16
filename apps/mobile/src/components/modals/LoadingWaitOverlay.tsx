@@ -1,8 +1,16 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  TouchableOpacity,
+  AccessibilityInfo,
+  Animated,
+  Easing,
+} from 'react-native';
 import { appStyles as styles } from '../../styles/appStyles';
-import { StateIllustration } from '../common/StateIllustration';
 import { colors } from '../../styles/designTokens';
+import { AiGeneratingDanceSprite } from './AiGeneratingDanceSprite';
 
 export interface LoadingWaitOverlayProps {
   status: {
@@ -25,6 +33,67 @@ export const LoadingWaitOverlay: React.FC<LoadingWaitOverlayProps> = ({
   isAbsolute = false,
   onCancel,
 }) => {
+  const floatProgress = React.useRef(new Animated.Value(0)).current;
+  const spinProgress = React.useRef(new Animated.Value(0)).current;
+  const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotionEnabled(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotionEnabled,
+    );
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!status?.active || reduceMotionEnabled) {
+      floatProgress.stopAnimation();
+      spinProgress.stopAnimation();
+      floatProgress.setValue(0);
+      spinProgress.setValue(0);
+      return;
+    }
+
+    const floatLoop = Animated.loop(
+      Animated.timing(floatProgress, {
+        toValue: 1,
+        duration: 3200,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }),
+    );
+    const spinLoop = Animated.sequence([
+      Animated.delay(5500),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(spinProgress, {
+            toValue: 1,
+            duration: 1100,
+            easing: Easing.inOut(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.delay(11900),
+        ]),
+      ),
+    ]);
+    floatLoop.start();
+    spinLoop.start();
+
+    return () => {
+      floatLoop.stop();
+      spinLoop.stop();
+      floatProgress.setValue(0);
+      spinProgress.setValue(0);
+    };
+  }, [floatProgress, reduceMotionEnabled, spinProgress, status?.active]);
+
   if (!status?.active) return null;
 
   const isCurriculum = status.title?.includes('목차') || status.count === 0;
@@ -48,7 +117,41 @@ export const LoadingWaitOverlay: React.FC<LoadingWaitOverlayProps> = ({
       ]}
     >
       <View style={styles.loadingWaitCard}>
-        <StateIllustration kind="aiGenerating" width={108} style={styles.loadingWaitIllustration} />
+        <Animated.View
+          style={{
+            transform: [
+              { perspective: 850 },
+              {
+                translateX: floatProgress.interpolate({
+                  inputRange: [0, 0.25, 0.5, 0.75, 1],
+                  outputRange: [0, 1.5, 0, -1.5, 0],
+                }),
+              },
+              {
+                translateY: floatProgress.interpolate({
+                  inputRange: [0, 0.25, 0.5, 0.75, 1],
+                  outputRange: [0, -3, -5, -3, 0],
+                }),
+              },
+              {
+                rotateY: spinProgress.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: ['0deg', '180deg', '360deg'],
+                }),
+              },
+              {
+                scale: floatProgress.interpolate({
+                  inputRange: [0, 0.25, 0.5, 0.75, 1],
+                  outputRange: [1, 1.004, 1.008, 1.004, 1],
+                }),
+              },
+            ],
+          }}
+        >
+          <View style={styles.loadingWaitIllustration}>
+            <AiGeneratingDanceSprite reduceMotion={reduceMotionEnabled} />
+          </View>
+        </Animated.View>
 
         {/* 1. 통일된 제목 */}
         <Text style={styles.loadingWaitTitle}>

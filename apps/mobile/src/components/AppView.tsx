@@ -139,7 +139,6 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
                 apiKey={apiKey}
                 topicName={topics.find((t) => t.id === (selectedTopicId || lastStudiedTopicId))?.name}
-                onOpenLibrary={() => goToPage(1, true)}
                 onOpenSettings={() => goToPage(2, true)}
               />
             </View>
@@ -163,6 +162,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
               }}
             >
               <LibraryScreen
+                isActive={currentPage === 1}
                 questions={questions}
                 topics={topics}
                 units={units}
@@ -240,6 +240,8 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 latestVersion={appUpdate.latestVersion}
                 onCheckForUpdate={() => appUpdate.checkForUpdate(true)}
                 onApplyUpdate={appUpdate.applyUpdate}
+                refreshing={refreshing}
+                onRefresh={handlePullRefresh}
               />
             </View>
           </Animated.View>
