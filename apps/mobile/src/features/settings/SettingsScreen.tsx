@@ -9,7 +9,9 @@ import { AlarmConfigSection } from './AlarmConfigSection';
 import { DailyGoalSection } from './DailyGoalSection';
 import { DataBackupSection } from './DataBackupSection';
 import { AppVersionSection } from './AppVersionSection';
+import { RankingSection } from './RankingSection';
 import { FeedbackCard } from '../study/FeedbackCard';
+import { RankingProfile } from '../../contracts/types';
 
 interface SettingsGroupProps {
   index: string;
@@ -56,6 +58,9 @@ interface SettingsScreenProps {
   onApplyUpdate?: () => void;
   refreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
+  rankingProfile?: RankingProfile | null;
+  onRankingProfileChange?: (profile: RankingProfile | null) => Promise<void>;
+  onOpenRankingSyncModal?: () => void;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
@@ -78,6 +83,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onApplyUpdate,
   refreshing = false,
   onRefresh,
+  rankingProfile = null,
+  onRankingProfileChange,
+  onOpenRankingSyncModal,
 }) => {
   const { pullDistance, handleScroll, touchHandlers } = usePullToRefresh({
     refreshing,
@@ -161,8 +169,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         />
       </SettingsGroup>
 
+      {onRankingProfileChange && onOpenRankingSyncModal && (
+        <SettingsGroup
+          index="04"
+          title="랭킹 참여"
+          description="원하는 사용자끼리 가볍게 학습 동기를 나눕니다."
+        >
+          <RankingSection
+            rankingProfile={rankingProfile}
+            onRankingProfileChange={onRankingProfileChange}
+            onOpenSyncModal={onOpenRankingSyncModal}
+          />
+        </SettingsGroup>
+      )}
+
       <SettingsGroup
-        index="04"
+        index="05"
         title="앱 정보"
         description="사용 가이드와 현재 앱 버전을 확인합니다."
       >
