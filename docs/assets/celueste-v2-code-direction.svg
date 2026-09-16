@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040" role="img" aria-labelledby="title desc">
+  <title id="title">Celueste v2 코드 전체 진행 방향</title>
+  <desc id="desc">사용자 학습 흐름, 화면과 제어 계층, AI 문제 생성 파이프라인, 로컬 저장과 배포 흐름을 나타낸 아키텍처 다이어그램</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbf8ff"/>
+      <stop offset="1" stop-color="#f4f8ff"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8656a7"/>
+      <stop offset="1" stop-color="#b35f7c"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#4d365b" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#765783"/>
+    </marker>
+    <style>
+      text { font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; fill: #33283b; }
+      .title { font-size: 38px; font-weight: 800; fill: white; }
+      .subtitle { font-size: 18px; font-weight: 500; fill: #f7eefa; }
+      .lane { font-size: 21px; font-weight: 800; fill: #704b7d; }
+      .boxTitle { font-size: 17px; font-weight: 800; }
+      .boxText { font-size: 13px; font-weight: 500; fill: #675b6c; }
+      .small { font-size: 12px; font-weight: 600; fill: #6f6175; }
+      .arrow { stroke: #765783; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke-dasharray: 8 7; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1040" rx="28" fill="url(#bg)"/>
+  <rect x="40" y="35" width="1520" height="120" rx="26" fill="url(#hero)" filter="url(#shadow)"/>
+  <text x="85" y="88" class="title">Celueste v2.0 — 코드 전체 진행 방향</text>
+  <text x="86" y="125" class="subtitle">자유 주제 입력 → 1~30+ 난이도 → AI 생성·검증 → 로컬 문제은행 → 반복 학습과 알림</text>
+
+  <text x="55" y="210" class="lane">① 사용자 학습 흐름</text>
+  <g filter="url(#shadow)">
+    <rect x="55" y="235" width="210" height="100" rx="18" fill="#fff" stroke="#d9c7e6"/>
+    <rect x="300" y="235" width="210" height="100" rx="18" fill="#fff" stroke="#d9c7e6"/>
+    <rect x="545" y="235" width="210" height="100" rx="18" fill="#fff" stroke="#d9c7e6"/>
+    <rect x="790" y="235" width="210" height="100" rx="18" fill="#fff" stroke="#d9c7e6"/>
+    <rect x="1035" y="235" width="210" height="100" rx="18" fill="#fff" stroke="#d9c7e6"/>
+    <rect x="1280" y="235" width="260" height="100" rx="18" fill="#fff" stroke="#d9c7e6"/>
+  </g>
+  <text x="160" y="275" text-anchor="middle" class="boxTitle">자유 주제 등록</text><text x="160" y="302" text-anchor="middle" class="boxText">희귀 주제도 그대로 존중</text>
+  <text x="405" y="275" text-anchor="middle" class="boxTitle">레벨 선택</text><text x="405" y="302" text-anchor="middle" class="boxText">1~30, 31 이상 확장</text>
+  <text x="650" y="275" text-anchor="middle" class="boxTitle">단원 선택</text><text x="650" y="302" text-anchor="middle" class="boxText">5개씩 추가, 사용자 결정</text>
+  <text x="895" y="275" text-anchor="middle" class="boxTitle">AI 문제 생성</text><text x="895" y="302" text-anchor="middle" class="boxText">Gemini 3.5 이상</text>
+  <text x="1140" y="275" text-anchor="middle" class="boxTitle">CBT 풀이·채점</text><text x="1140" y="302" text-anchor="middle" class="boxText">1~4번 4지선다</text>
+  <text x="1410" y="275" text-anchor="middle" class="boxTitle">저장·복습·알림</text><text x="1410" y="302" text-anchor="middle" class="boxText">로컬 누적 후 다시 선택</text>
+  <path class="arrow" d="M265 285 H292"/><path class="arrow" d="M510 285 H537"/><path class="arrow" d="M755 285 H782"/><path class="arrow" d="M1000 285 H1027"/><path class="arrow" d="M1245 285 H1272"/>
+
+  <text x="55" y="395" class="lane">② 화면과 제어 계층</text>
+  <g filter="url(#shadow)">
+    <rect x="55" y="420" width="260" height="115" rx="18" fill="#f3eafb" stroke="#bb96cf"/>
+    <rect x="355" y="420" width="310" height="115" rx="18" fill="#f3eafb" stroke="#bb96cf"/>
+    <rect x="705" y="420" width="400" height="115" rx="18" fill="#f3eafb" stroke="#bb96cf"/>
+    <rect x="1145" y="420" width="395" height="115" rx="18" fill="#f3eafb" stroke="#bb96cf"/>
+  </g>
+  <text x="185" y="461" text-anchor="middle" class="boxTitle">App.tsx</text><text x="185" y="488" text-anchor="middle" class="boxText">가벼운 진입점</text><text x="185" y="510" text-anchor="middle" class="small">Controller → View</text>
+  <text x="510" y="461" text-anchor="middle" class="boxTitle">useAppController</text><text x="510" y="488" text-anchor="middle" class="boxText">상태·기능 훅·알림 진입 조합</text>
+  <text x="905" y="461" text-anchor="middle" class="boxTitle">기능 훅</text><text x="905" y="488" text-anchor="middle" class="boxText">AppData · QuizGeneration · Curriculum</text><text x="905" y="510" text-anchor="middle" class="small">ExamSession · Backup · Update · Source</text>
+  <text x="1342" y="461" text-anchor="middle" class="boxTitle">AppView + Feature Screens</text><text x="1342" y="488" text-anchor="middle" class="boxText">Study · Library · Exam · Settings</text>
+  <path class="arrow" d="M315 478 H347"/><path class="arrow" d="M665 478 H697"/><path class="arrow" d="M1105 478 H1137"/>
+
+  <text x="55" y="595" class="lane">③ AI 문제 생성 파이프라인</text>
+  <g filter="url(#shadow)">
+    <rect x="55" y="620" width="245" height="120" rx="18" fill="#eef6ff" stroke="#93b7dc"/>
+    <rect x="335" y="620" width="245" height="120" rx="18" fill="#eef6ff" stroke="#93b7dc"/>
+    <rect x="615" y="620" width="245" height="120" rx="18" fill="#eef6ff" stroke="#93b7dc"/>
+    <rect x="895" y="620" width="280" height="120" rx="18" fill="#eef6ff" stroke="#93b7dc"/>
+    <rect x="1210" y="620" width="330" height="120" rx="18" fill="#eef6ff" stroke="#93b7dc"/>
+  </g>
+  <text x="177" y="660" text-anchor="middle" class="boxTitle">의도·난이도</text><text x="177" y="687" text-anchor="middle" class="boxText">intent · difficulty</text><text x="177" y="711" text-anchor="middle" class="small">주제 보존, 레벨 기준</text>
+  <text x="457" y="660" text-anchor="middle" class="boxTitle">프롬프트</text><text x="457" y="687" text-anchor="middle" class="boxText">prompts.ts</text><text x="457" y="711" text-anchor="middle" class="small">4지선다 JSON 요구</text>
+  <text x="737" y="660" text-anchor="middle" class="boxTitle">AI 통신</text><text x="737" y="687" text-anchor="middle" class="boxText">ai_client.ts</text><text x="737" y="711" text-anchor="middle" class="small">취소 · timeout · 429</text>
+  <text x="1035" y="660" text-anchor="middle" class="boxTitle">응답 검증</text><text x="1035" y="687" text-anchor="middle" class="boxText">generator.ts</text><text x="1035" y="711" text-anchor="middle" class="small">문항·보기·정답·해설</text>
+  <text x="1375" y="660" text-anchor="middle" class="boxTitle">중복 검사 후 저장</text><text x="1375" y="687" text-anchor="middle" class="boxText">similarity + repository</text><text x="1375" y="711" text-anchor="middle" class="small">커밋 성공분만 CBT 전달</text>
+  <path class="arrow" d="M300 680 H327"/><path class="arrow" d="M580 680 H607"/><path class="arrow" d="M860 680 H887"/><path class="arrow" d="M1175 680 H1202"/>
+
+  <text x="55" y="800" class="lane">④ 로컬 데이터·플랫폼·배포</text>
+  <g filter="url(#shadow)">
+    <rect x="55" y="825" width="280" height="125" rx="18" fill="#fff7e9" stroke="#ddb977"/>
+    <rect x="370" y="825" width="280" height="125" rx="18" fill="#fff7e9" stroke="#ddb977"/>
+    <rect x="685" y="825" width="280" height="125" rx="18" fill="#fff7e9" stroke="#ddb977"/>
+    <rect x="1000" y="825" width="250" height="125" rx="18" fill="#fff7e9" stroke="#ddb977"/>
+    <rect x="1285" y="825" width="255" height="125" rx="18" fill="#fff7e9" stroke="#ddb977"/>
+  </g>
+  <text x="195" y="867" text-anchor="middle" class="boxTitle">AsyncStorage</text><text x="195" y="894" text-anchor="middle" class="boxText">과목·단원·문제·풀이 기록</text><text x="195" y="918" text-anchor="middle" class="small">연쇄 삭제와 실패 복구</text>
+  <text x="510" y="867" text-anchor="middle" class="boxTitle">Secure Storage</text><text x="510" y="894" text-anchor="middle" class="boxText">사용자 API 키</text><text x="510" y="918" text-anchor="middle" class="small">백업에서는 제외</text>
+  <text x="825" y="867" text-anchor="middle" class="boxTitle">Notifications</text><text x="825" y="894" text-anchor="middle" class="boxText">요일·아침·저녁 예약</text><text x="825" y="918" text-anchor="middle" class="small">진입 후 사용자 선택</text>
+  <text x="1125" y="867" text-anchor="middle" class="boxTitle">Backup</text><text x="1125" y="894" text-anchor="middle" class="boxText">ZIP / JSON</text><text x="1125" y="918" text-anchor="middle" class="small">검사 후 복원</text>
+  <text x="1412" y="867" text-anchor="middle" class="boxTitle">GitHub Pages</text><text x="1412" y="894" text-anchor="middle" class="boxText">PWA + version.json</text><text x="1412" y="918" text-anchor="middle" class="small">Android · Apple 아이콘</text>
+  <path class="arrow dashed" d="M335 887 H362"/><path class="arrow dashed" d="M650 887 H677"/><path class="arrow dashed" d="M965 887 H992"/><path class="arrow dashed" d="M1250 887 H1277"/>
+
+  <text x="800" y="1002" text-anchor="middle" class="small">원칙: 사용자 선택을 보존하고, 검증된 데이터만 저장하며, 기능별 책임을 작은 파일로 유지한다.</text>
+</svg>
