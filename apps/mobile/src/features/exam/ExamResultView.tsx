@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { QuestionRevision } from '../../contracts/types';
 import { styles } from './examStyles';
 import { StateIllustration } from '../../components/common/StateIllustration';
+import { CurrentReferenceNotice } from '../../components/common/CurrentReferenceNotice';
 
 export interface ExamResultViewProps {
   questions: QuestionRevision[];
@@ -134,6 +135,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                   .replace(/출제\s*근거\s*팩트\s*:[^\n]*/gi, '')
                   .trim()}
               </Text>
+              <CurrentReferenceNotice reference={item.currentReference} />
             </View>
           </View>
         );

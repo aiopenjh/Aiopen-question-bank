@@ -95,8 +95,8 @@ export async function generateCurriculumUnits(params: {
       const documentPrompt = documentInput
         ? `${prompt}\n\n첨부된 PDF의 ${documentInput.pageStart}~${documentInput.pageEnd}페이지를 최우선 근거로 사용하십시오.`
         : prompt;
-      const rawJson = await callUniversalAiCompletion(apiKey, documentPrompt, signal, documentInput);
-      const parsed = parseAiJsonResponse<unknown>(rawJson);
+      const completion = await callUniversalAiCompletion(apiKey, documentPrompt, signal, documentInput);
+      const parsed = parseAiJsonResponse<unknown>(completion.text);
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
         throw new Error('AI가 목차 응답 형식을 올바르게 반환하지 않았습니다.');
       }

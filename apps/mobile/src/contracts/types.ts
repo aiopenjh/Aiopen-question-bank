@@ -214,6 +214,13 @@ export interface QuestionRevision {
   answerOptionId: UUID; // 정답 옵션 ID
   explanation: string; // 전체 정답 해설
   deepReasoningHint?: string; // 심화 역추론 힌트 (오답 선택 시 왜 틀렸는지)
+  currentReference?: {
+    referenceDate: string;
+    effectiveStatus: 'currently_effective';
+    sourceAgency: string;
+    sourceTitle: string;
+    sourceUrl: string;
+  }; // 세율·법령처럼 변동되는 정보의 공식 근거
   status: QuestionStatus;
   createdAt: ISODateTimeString;
 }

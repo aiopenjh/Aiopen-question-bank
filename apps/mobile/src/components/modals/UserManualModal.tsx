@@ -49,6 +49,15 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
               • 출제 중 취소하면 진행 중인 요청과 저장을 중단합니다. 요청 한도(429)나 무응답이 발생하면 잠시 기다린 뒤 다시 시도해 주세요.
             </Text>
           </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>🏛️ 3. 최신 세율·법령 문제</Text>
+            <Text style={styles.tipText}>
+              • 세율, 부동산법, 법령처럼 바뀔 수 있는 주제는 출제할 때 공식 정부 자료를 검색해 현재 시행 중인 내용만 사용합니다.{`\n`}
+              • 풀이 결과와 문제 보관함에서 기준일, 공식 기관과 원문 링크를 확인할 수 있습니다.{`\n`}
+              • 공식 근거를 확인하지 못하면 문제를 임의로 만들지 않고 출제를 중단합니다. 이 기능은 Google 검색을 지원하는 Gemini API 키가 필요합니다.
+            </Text>
+          </View>
         </View>
       ),
     },

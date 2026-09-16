@@ -12,6 +12,7 @@ import { getCustomNoteQuestionIds, toggleCustomNoteQuestion } from '../../data/d
 import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { styles } from './customNotebookStyles';
 import { UniversalModal as Modal } from '../common/UniversalModal';
+import { CurrentReferenceNotice } from '../common/CurrentReferenceNotice';
 
 export interface CustomNotebookModalProps {
   visible: boolean;
@@ -241,6 +242,7 @@ export const CustomNotebookModal: React.FC<CustomNotebookModalProps> = ({
                     <View style={styles.explBox}>
                       <Text style={styles.explTitle}>[상세 정답 해설]</Text>
                       <Text style={styles.explBody}>{q.explanation || '해설이 등록되지 않았습니다.'}</Text>
+                      <CurrentReferenceNotice reference={q.currentReference} />
                       {q.deepReasoningHint ? (
                         <View style={styles.hintBox}>
                           <Text style={styles.hintTitle}>⚠️ 빈출 오답 및 핵심 분석:</Text>

@@ -25,6 +25,13 @@ import {
 } from './intent';
 import { distributeQuestionAnswersRandomly } from './question_distribution';
 import { GeneratedUnitItem, generateCurriculumUnits } from './curriculum_generator';
+import {
+  buildCurrentInformationInstruction,
+  CurrentInformationReference,
+  getKoreanReferenceDate,
+  isTrustedOfficialSourceUrl,
+  requiresCurrentOfficialSources,
+} from './current_information';
 
 // 100% 하위 호환성을 위한 re-export
 export {
@@ -106,6 +113,7 @@ interface GeneratedQuestionInput {
   correctOptionNumber: number;
   explanation: string;
   deepReasoningHint?: string;
+  currentReference?: CurrentInformationReference;
 }
 
 function normalizeComparableText(value: string): string {
@@ -143,7 +151,10 @@ function readStudyIntentDecision(value: unknown): StudyIntentDecision {
 
 export function validateGeneratedQuestions(
   value: unknown,
-  expectedCount: number
+  expectedCount: number,
+  currentInformationRequired = false,
+  expectedReferenceDate?: string,
+  groundingWasUsed = false
 ): GeneratedQuestionInput[] {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
@@ -157,6 +168,10 @@ export function validateGeneratedQuestions(
   }
 
   const knownStems = new Set<string>();
+
+  if (currentInformationRequired && !groundingWasUsed) {
+    throw new Error('최신 공식 자료 검색 결과를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  }
 
   return questions.map((rawQuestion, questionIndex) => {
     const number = questionIndex + 1;
@@ -223,6 +238,37 @@ export function validateGeneratedQuestions(
       throw new Error(`AI 응답의 ${number}번 문제 해설이 비어 있습니다. 다시 시도해 주세요.`);
     }
 
+    let currentReference: CurrentInformationReference | undefined;
+    if (currentInformationRequired) {
+      const rawReference = question.currentReference;
+      if (typeof rawReference !== 'object' || rawReference === null || Array.isArray(rawReference)) {
+        throw new Error(`AI가 ${number}번 문제의 최신 공식 출처를 확인하지 못했습니다. 다시 시도해 주세요.`);
+      }
+      const reference = rawReference as Record<string, unknown>;
+      const referenceDate = readOptionalText(reference.referenceDate);
+      const sourceAgency = readOptionalText(reference.sourceAgency);
+      const sourceTitle = readOptionalText(reference.sourceTitle);
+      const sourceUrl = readOptionalText(reference.sourceUrl);
+      if (
+        !referenceDate ||
+        referenceDate !== expectedReferenceDate ||
+        reference.effectiveStatus !== 'currently_effective' ||
+        !sourceAgency ||
+        !sourceTitle ||
+        !sourceUrl ||
+        !isTrustedOfficialSourceUrl(sourceUrl)
+      ) {
+        throw new Error(`AI가 ${number}번 문제에 현재 시행 중인 공식 근거를 제시하지 못했습니다. 다시 시도해 주세요.`);
+      }
+      currentReference = {
+        referenceDate,
+        effectiveStatus: 'currently_effective',
+        sourceAgency,
+        sourceTitle,
+        sourceUrl,
+      };
+    }
+
     return {
       stem,
       conceptDefinition: readOptionalText(question.conceptDefinition),
@@ -230,6 +276,7 @@ export function validateGeneratedQuestions(
       correctOptionNumber: question.correctOptionNumber,
       explanation,
       deepReasoningHint: readOptionalText(question.deepReasoningHint),
+      currentReference,
     };
   });
 }
@@ -307,9 +354,12 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
     };
   } catch (err: any) {
     console.error('AI 출제 API 통신 실패:', err);
+    const detail = typeof err?.message === 'string' && err.message.trim().length > 0
+      ? `\n\n${err.message.trim()}`
+      : '';
     return {
       status: 'FAILED',
-      message: '[AI 서버 연결 실패]\nAPI 서버와 통신할 수 없습니다.\n\n※ 원칙에 따라 가짜 하드코딩 문제를 생성하지 않고 연결 상태를 정직하게 통보합니다. 설정 탭에서 API 키와 모델을 확인해 주세요.',
+      message: `[AI 출제 실패]\n요청한 문제를 안전하게 생성하지 못했습니다.${detail}\n\n기존 문제와 학습 데이터는 그대로 유지됩니다.`,
     };
   }
 }
@@ -367,19 +417,36 @@ async function generateViaUniversalAiApi(params: {
     ? topicName.trim()
     : intent.domain;
 
+  const currentInformationRequired = !documentInput && requiresCurrentOfficialSources(
+    resolvedDomain,
+    category,
+    unitTitle,
+    intent.focusConcepts.join(' ')
+  );
+  const referenceDate = currentInformationRequired ? getKoreanReferenceDate() : undefined;
+
   const prompt = buildQuestionGenerationPrompt({
     intent,
     resolvedDomain,
     category,
     unitTitle,
     customContext,
+    currentInformationInstruction: referenceDate
+      ? buildCurrentInformationInstruction(referenceDate)
+      : undefined,
   });
 
   const documentPrompt = documentInput
     ? `${prompt}\n\n첨부된 PDF의 ${documentInput.pageStart}~${documentInput.pageEnd}페이지를 문제의 최우선 근거로 사용하십시오. PDF 밖의 내용을 임의로 섞지 마십시오.`
     : prompt;
-  const rawJson = await callUniversalAiCompletion(apiKey, documentPrompt, signal, documentInput);
-  const parsed = parseAiJsonResponse<unknown>(rawJson);
+  const completion = await callUniversalAiCompletion(
+    apiKey,
+    documentPrompt,
+    signal,
+    documentInput,
+    { enableGoogleSearch: currentInformationRequired }
+  );
+  const parsed = parseAiJsonResponse<unknown>(completion.text);
   const intentDecision = readStudyIntentDecision(parsed);
   if (intentDecision.status !== 'READY') {
     return {
@@ -392,7 +459,13 @@ async function generateViaUniversalAiApi(params: {
       clarificationChoices: intentDecision.clarificationChoices || [],
     };
   }
-  const generatedQuestions = validateGeneratedQuestions(parsed, intent.targetCount);
+  const generatedQuestions = validateGeneratedQuestions(
+    parsed,
+    intent.targetCount,
+    currentInformationRequired,
+    referenceDate,
+    completion.groundingSources.length > 0
+  );
   const questions: QuestionRevision[] = [];
   const validations: ValidationRecord[] = [];
 
@@ -436,6 +509,7 @@ async function generateViaUniversalAiApi(params: {
       answerOptionId: answerId,
       explanation: item.explanation,
       deepReasoningHint: item.deepReasoningHint,
+      currentReference: item.currentReference,
       status: 'ready_personal',
       createdAt: getCurrentISOTime(),
     };

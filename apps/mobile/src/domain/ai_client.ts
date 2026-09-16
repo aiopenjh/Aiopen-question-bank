@@ -12,6 +12,11 @@ import { AiDocumentInput } from '../contracts/types';
 
 let geminiRateLimitUntil = 0;
 
+export type AiCompletionResult = {
+  text: string;
+  groundingSources: Array<{ title: string; uri: string }>;
+};
+
 function getRetryAfterSeconds(headerValue: string | null): number {
   if (!headerValue) return 30;
   const seconds = Number(headerValue);
@@ -63,13 +68,17 @@ export async function callUniversalAiCompletion(
   apiKey: string,
   prompt: string,
   signal?: AbortSignal,
-  documentInput?: AiDocumentInput
-): Promise<string> {
+  documentInput?: AiDocumentInput,
+  options?: { enableGoogleSearch?: boolean }
+): Promise<AiCompletionResult> {
   const trimmedKey = apiKey.trim();
   if (signal?.aborted) throw createGenerationCancelledError();
 
   // 1. Anthropic Claude 3.5 Sonnet 지원 (sk-ant- 시작 키)
   if (trimmedKey.startsWith('sk-ant-')) {
+    if (options?.enableGoogleSearch) {
+      throw new Error('최신 법령·세율 확인 출제는 Google 검색을 지원하는 Gemini API 키가 필요합니다.');
+    }
     if (documentInput) throw new Error('PDF 직접 출제는 Gemini API 키에서만 지원합니다.');
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -93,11 +102,14 @@ export async function callUniversalAiCompletion(
     const data = await res.json();
     const rawText = data.content?.[0]?.text;
     if (!rawText) throw new Error('Claude로부터 빈 응답을 받았습니다.');
-    return rawText;
+    return { text: rawText, groundingSources: [] };
   }
 
   // 2. OpenAI GPT-4o 지원 (sk- 시작 키)
   if (trimmedKey.startsWith('sk-')) {
+    if (options?.enableGoogleSearch) {
+      throw new Error('최신 법령·세율 확인 출제는 Google 검색을 지원하는 Gemini API 키가 필요합니다.');
+    }
     if (documentInput) throw new Error('PDF 직접 출제는 Gemini API 키에서만 지원합니다.');
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -119,7 +131,7 @@ export async function callUniversalAiCompletion(
     const data = await res.json();
     const rawText = data.choices?.[0]?.message?.content;
     if (!rawText) throw new Error('OpenAI로부터 빈 응답을 받았습니다.');
-    return rawText;
+    return { text: rawText, groundingSources: [] };
   }
 
   // 3. Google Gemini: 3.5 이상 모델만 사용
@@ -180,6 +192,7 @@ export async function callUniversalAiCompletion(
                 : []),
             ],
           }],
+          ...(options?.enableGoogleSearch ? { tools: [{ google_search: {} }] } : {}),
           generationConfig: {
             responseMimeType: 'application/json',
             maxOutputTokens: 8192,
@@ -248,11 +261,20 @@ export async function callUniversalAiCompletion(
       }
 
       const data = await res.json();
-      const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const candidate = data.candidates?.[0];
+      const rawJson = candidate?.content?.parts?.find(
+        (part: any) => typeof part?.text === 'string'
+      )?.text;
       if (!rawJson) {
         throw new Error(`Gemini 모델 [${model}]로부터 비어있는 응답을 받았습니다.`);
       }
-      return rawJson;
+      const groundingSources = Array.isArray(candidate?.groundingMetadata?.groundingChunks)
+        ? candidate.groundingMetadata.groundingChunks
+            .map((chunk: any) => chunk?.web)
+            .filter((web: any) => typeof web?.uri === 'string' && typeof web?.title === 'string')
+            .map((web: any) => ({ title: web.title, uri: web.uri }))
+        : [];
+      return { text: rawJson, groundingSources };
     } catch (err: any) {
       if (timeoutTimer) clearTimeout(timeoutTimer);
       if (signal && externalAbortHandler) {
