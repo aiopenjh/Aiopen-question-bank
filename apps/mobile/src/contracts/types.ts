@@ -267,6 +267,34 @@ export interface ManualCompletion {
   changedAt: ISODateTimeString;
 }
 
+// -------------------------------------------------------------
+// Ranking (선택형 공동 랭킹, docs/ranking/ 참고)
+// -------------------------------------------------------------
+
+/**
+ * 기기에 저장하는 랭킹 참여 자격 정보.
+ * deviceToken/recoveryToken은 백업에는 포함되지만 개인 API 키와 달리
+ * 화면에는 평문으로 계속 노출하지 않는다.
+ */
+export interface RankingProfile {
+  nickname: string;
+  participantId: string;
+  deviceToken: string;
+  recoveryToken: string;
+  lastSyncedDate?: ISODateString;
+  lastSyncedSolvedCount?: number;
+}
+
+/**
+ * 연동 실패 시 기기에 대기시키는 요청 1건.
+ * 계획서 §6: 실패한 연동 요청은 기기에 한 건만 대기시킨다.
+ */
+export interface RankingSyncQueueItem {
+  localDate: ISODateString;
+  solvedCount: number;
+  queuedAt: ISODateTimeString;
+}
+
 export function detectCategoryForTopic(text: string): string {
   const lower = (text || '').toLowerCase();
   if (

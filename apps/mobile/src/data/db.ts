@@ -83,6 +83,16 @@ export {
   restoreBackupJSON,
 } from './repositories/backup_repository';
 
+export {
+  getRankingProfile,
+  saveRankingProfile,
+  clearRankingProfile,
+  updateLastSynced,
+  getPendingSyncRequest,
+  setPendingSyncRequest,
+  clearPendingSyncRequest,
+} from './repositories/ranking_repository';
+
 export { getEncryptedApiKey, saveEncryptedApiKey, deleteEncryptedApiKey };
 
 /**
