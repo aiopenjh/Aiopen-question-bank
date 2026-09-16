@@ -1,181 +1,345 @@
 /**
- * Study Material & Source File Management Hook
- * Supports file picking for PDF/TXT/MD/CSV/ZIP with text extraction and HWP conversion notices.
+ * Study material manager.
+ * PDF bytes stay in memory only. IndexedDB stores metadata, links and generated learning data.
  */
 
 import { useState } from 'react';
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
-import { Topic, Source, SourceRevision, SourceChunk } from '../contracts/types';
-import { addSource, deleteSource, getSources, generateUUID, getCurrentISOTime } from '../data/db';
-import { base64ToU8, unzipSync, strFromU8 } from '../utils/backupArchive';
+import { PDFDocument } from 'pdf-lib';
+import {
+  AiDocumentInput,
+  Source,
+  SourceRevision,
+  SourceChunk,
+  Topic,
+} from '../contracts/types';
+import {
+  addSource,
+  deleteSource,
+  generateUUID,
+  getCurrentISOTime,
+  getSources,
+  getTopicSourceLinks,
+  linkSourceToTopic,
+} from '../data/db';
+import { base64ToU8, unzipSync, strFromU8, u8ToBase64 } from '../utils/backupArchive';
 import { showAlert } from '../utils/alert';
+
+const LARGE_PDF_PAGE_THRESHOLD = 30;
+const RECOMMENDED_PDF_PAGE_BLOCK = 20;
+
+interface PdfMemoryEntry {
+  bytes: Uint8Array;
+  fingerprint: string;
+  fileName: string;
+  pageCount: number;
+}
+
+const pdfMemoryCache = new Map<string, PdfMemoryEntry>();
+
+async function readPickedBytes(file: DocumentPicker.DocumentPickerAsset): Promise<Uint8Array> {
+  if (Platform.OS === 'web' && (file as any).file) {
+    return new Uint8Array(await (file as any).file.arrayBuffer());
+  }
+  const base64 = await FileSystem.readAsStringAsync(file.uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return base64ToU8(base64);
+}
+
+async function fingerprintBytes(bytes: Uint8Array): Promise<string> {
+  if (globalThis.crypto?.subtle) {
+    const copied = new Uint8Array(bytes.length);
+    copied.set(bytes);
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', copied.buffer);
+    return Array.from(new Uint8Array(digest))
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  let hash = 2166136261;
+  const stride = Math.max(1, Math.floor(bytes.length / 4096));
+  for (let index = 0; index < bytes.length; index += stride) {
+    hash ^= bytes[index];
+    hash = Math.imul(hash, 16777619);
+  }
+  return `size-${bytes.length}-fnv-${(hash >>> 0).toString(16)}`;
+}
+
+async function pickSingleDocument(): Promise<DocumentPicker.DocumentPickerAsset | null> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: '*/*',
+    copyToCacheDirectory: true,
+  });
+  return result.canceled || !result.assets?.length ? null : result.assets[0];
+}
 
 export function useSourceManager(params: {
   topics: Topic[];
   setSources: (sources: Source[]) => void;
 }) {
   const { topics, setSources } = params;
-
   const [sourceTitle, setSourceTitle] = useState('');
   const [sourceText, setSourceText] = useState('');
   const [sourceTopicId, setSourceTopicId] = useState<string | null>(null);
+  const [sourceFileName, setSourceFileName] = useState<string | null>(null);
+  const [sourcePageCount, setSourcePageCount] = useState<number | null>(null);
+  const [sourcePageStart, setSourcePageStart] = useState(1);
+  const [sourcePageEnd, setSourcePageEnd] = useState(RECOMMENDED_PDF_PAGE_BLOCK);
+  const [pendingPdf, setPendingPdf] = useState<PdfMemoryEntry | null>(null);
+
+  function applyLargePdfDefault(pageCount: number): boolean {
+    setSourcePageStart(1);
+    setSourcePageEnd(Math.min(RECOMMENDED_PDF_PAGE_BLOCK, pageCount));
+    if (pageCount <= LARGE_PDF_PAGE_THRESHOLD) return false;
+
+    showAlert(
+      'PDF 페이지가 많습니다',
+      `선택한 PDF는 총 ${pageCount}페이지입니다.\n\n전체 문서를 한 번에 분석하면 처리 시간이 길어지고 Gemini API 무료 할당량을 초과하거나 429 제한이 발생할 수 있습니다.\n\n필요한 페이지를 지정하거나 여러 구간으로 나누어 문제를 출제하는 것을 권장합니다.`,
+      [
+        {
+          text: '20페이지씩 나눠 출제',
+          onPress: () => {
+            setSourcePageStart(1);
+            setSourcePageEnd(Math.min(RECOMMENDED_PDF_PAGE_BLOCK, pageCount));
+          },
+        },
+        { text: '직접 범위 지정', style: 'cancel' },
+        {
+          text: '전체 문서로 계속',
+          onPress: () => {
+            setSourcePageStart(1);
+            setSourcePageEnd(pageCount);
+          },
+        },
+      ]
+    );
+    return true;
+  }
 
   async function handlePickSourceFile() {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        return;
-      }
-
-      const file = result.assets[0];
+      const file = await pickSingleDocument();
+      if (!file) return;
       const fileName = file.name;
       const ext = fileName.split('.').pop()?.toLowerCase() || '';
 
-      // 1. 한글 파일(.hwp, .hwpx) 차단 및 친절한 변환 가이드
       if (ext === 'hwp' || ext === 'hwpx') {
         showAlert(
-          '⚠️ 한글 문서(.hwp) 변환 안내',
-          '한글 문서(.hwp)는 AI 엔진이 바로 읽을 수 없는 고유 바이너리 규격입니다.\n\n한글 프로그램에서 [파일 > 다른 이름으로 저장 > PDF 또는 텍스트(.txt)]로 변환하신 후 첨부해 주세요!'
+          '한글 문서 변환 안내',
+          '한글 문서는 바로 읽을 수 없습니다. PDF 또는 텍스트(.txt)로 변환한 뒤 첨부해 주세요.'
         );
         return;
       }
 
-      let extractedText = '';
+      if (!sourceTitle.trim()) setSourceTitle(fileName.replace(/\.[^/.]+$/, ''));
+      setSourceFileName(fileName);
 
-      // 2. ZIP 압축 파일 (내부 txt, md, json, pdf 등 자동 압축 해제)
-      if (ext === 'zip') {
-        let u8: Uint8Array;
-        if (Platform.OS === 'web' && (file as any).file) {
-          const buf = await (file as any).file.arrayBuffer();
-          u8 = new Uint8Array(buf);
-        } else {
-          const b64 = await FileSystem.readAsStringAsync(file.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          u8 = base64ToU8(b64);
+      if (ext === 'pdf') {
+        const bytes = await readPickedBytes(file);
+        const pdf = await PDFDocument.load(bytes, { ignoreEncryption: false });
+        const pageCount = pdf.getPageCount();
+        const fingerprint = await fingerprintBytes(bytes);
+        setPendingPdf({ bytes, fingerprint, fileName, pageCount });
+        setSourceText('');
+        setSourcePageCount(pageCount);
+        const warnedForSize = applyLargePdfDefault(pageCount);
+        if (!warnedForSize) {
+          showAlert(
+            'PDF 불러오기 완료',
+            `${fileName}\n총 ${pageCount}페이지를 확인했습니다.\n\nPDF 원본은 저장하지 않으며 선택한 페이지는 목차나 문제를 만들 때만 Gemini에 전달됩니다.`
+          );
         }
-        const unzipped = unzipSync(u8);
-        let foundCount = 0;
+        return;
+      }
+
+      setPendingPdf(null);
+      setSourcePageCount(null);
+      let extractedText = '';
+      if (ext === 'zip') {
+        const unzipped = unzipSync(await readPickedBytes(file));
         for (const name of Object.keys(unzipped)) {
           const innerExt = name.split('.').pop()?.toLowerCase();
           if (innerExt === 'txt' || innerExt === 'md' || innerExt === 'json' || innerExt === 'csv') {
-            extractedText += `[${name}]\n` + strFromU8(unzipped[name]) + '\n\n';
-            foundCount++;
-          } else if (innerExt === 'pdf') {
-            extractedText += `[압축 내 PDF 교재: ${name}]\n`;
-            foundCount++;
+            extractedText += `[${name}]\n${strFromU8(unzipped[name])}\n\n`;
           }
         }
-        if (foundCount === 0) {
-          extractedText = `[ZIP 아카이브: ${fileName}] (${Object.keys(unzipped).length}개 파일 포함)`;
-        }
+        if (!extractedText) throw new Error('ZIP 안에서 읽을 수 있는 텍스트 자료를 찾지 못했습니다.');
       } else if (ext === 'txt' || ext === 'md' || ext === 'csv' || ext === 'json') {
-        // 3. 텍스트 / 마크다운 문서
-        if (Platform.OS === 'web' && (file as any).file) {
-          extractedText = await (file as any).file.text();
-        } else {
-          extractedText = await FileSystem.readAsStringAsync(file.uri, {
-            encoding: FileSystem.EncodingType.UTF8,
-          });
-        }
-      } else if (ext === 'pdf') {
-        // 4. PDF 교재 문서
-        const sizeKb = file.size ? Math.round(file.size / 1024) : 0;
-        extractedText = `[PDF 교재: ${fileName} (${sizeKb}KB)]\n해당 PDF 교재의 학습 내용에 기반하여 문제가 정밀 출제됩니다.`;
+        extractedText = Platform.OS === 'web' && (file as any).file
+          ? await (file as any).file.text()
+          : await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.UTF8 });
       } else {
-        extractedText = `[첨부 파일: ${fileName}]`;
+        throw new Error('PDF, TXT, MD, CSV, JSON 또는 ZIP 파일만 지원합니다.');
       }
 
-      // 제목 자동 기입: 사용자가 1단계에서 아직 이름을 적지 않았을 때만 파일명 자동 채움
-      const cleanTitle = fileName.replace(/\.[^/.]+$/, '');
-      if (!sourceTitle.trim()) {
-        setSourceTitle(cleanTitle);
-      }
       setSourceText(extractedText);
-
-      showAlert(
-        '📁 파일 불러오기 완료',
-        `"${fileName}" 파일이 첨부되었습니다.\n\n1단계의 과목(대단원)명을 확인하신 후 [💾 교재 자료 등록하기]를 눌러주세요!`
-      );
-    } catch (err: any) {
-      console.warn('파일 첨부 실패:', err);
-      showAlert('오류', `파일을 불러오는 중 오류가 발생했습니다: ${err?.message || '알 수 없는 오류'}`);
+      showAlert('파일 불러오기 완료', `“${fileName}” 내용을 읽었습니다. 자료 등록을 눌러 저장해 주세요.`);
+    } catch (error: any) {
+      console.warn('파일 첨부 실패:', error);
+      showAlert('파일 불러오기 실패', error?.message || '파일을 읽지 못했습니다.');
     }
   }
 
-  async function handleSaveSource() {
+  async function handleSaveSource(): Promise<boolean> {
     if (!sourceTitle.trim()) {
-      showAlert('알림', '학습 과목(대단원) 또는 자료 이름을 입력해 주세요.');
-      return;
+      showAlert('알림', '자료 이름을 입력해 주세요.');
+      return false;
+    }
+    if (!pendingPdf && !sourceText.trim()) {
+      showAlert('알림', '먼저 읽을 파일을 선택해 주세요.');
+      return false;
     }
 
-    const trimmedName = sourceTitle.trim();
-    const targetTopic = topics.find(
-      (t) => t.id === sourceTopicId || t.name.trim().toLowerCase() === trimmedName.toLowerCase()
-    );
-    const finalTitle = targetTopic && targetTopic.name.trim().toLowerCase() !== trimmedName.toLowerCase()
-      ? `[${targetTopic.name}] ${trimmedName}`
-      : trimmedName;
-
     const sourceId = generateUUID();
-    const revId = generateUUID();
-
+    const revisionId = generateUUID();
+    const isPdf = Boolean(pendingPdf);
+    const pageStart = isPdf ? Math.max(1, Math.min(sourcePageStart, pendingPdf!.pageCount)) : undefined;
+    const pageEnd = isPdf
+      ? Math.max(pageStart!, Math.min(sourcePageEnd, pendingPdf!.pageCount))
+      : undefined;
     const newSource: Source = {
       id: sourceId,
       ownerId: 'owner-default',
-      kind: 'text',
-      title: finalTitle,
+      kind: isPdf ? 'pdf' : 'text',
+      title: sourceTitle.trim(),
+      fileName: sourceFileName || undefined,
+      fileSizeBytes: isPdf ? pendingPdf!.bytes.byteLength : undefined,
+      pageCount: isPdf ? pendingPdf!.pageCount : undefined,
+      fingerprint: isPdf ? pendingPdf!.fingerprint : undefined,
+      selectedPageStart: pageStart,
+      selectedPageEnd: pageEnd,
       visibility: 'private',
-      allowExternalProcessing: false,
+      allowExternalProcessing: isPdf,
       archivedAt: null,
       createdAt: getCurrentISOTime(),
     };
-
-    const newRev: SourceRevision = {
-      id: revId,
+    const revision: SourceRevision = {
+      id: revisionId,
       sourceId,
-      hash: 'sha256-' + Date.now(),
-      provenance: targetTopic ? `[${targetTopic.name}] 연계 교재 자료` : '교재 및 텍스트 발췌',
+      hash: isPdf ? pendingPdf!.fingerprint : `text-${Date.now()}`,
+      provenance: isPdf
+        ? `PDF ${pageStart}~${pageEnd}페이지 선택, 원본 미보관`
+        : '사용자 첨부 텍스트 자료',
       originalFileRef: null,
       createdAt: getCurrentISOTime(),
     };
+    const chunks: SourceChunk[] = isPdf
+      ? []
+      : [{
+          id: generateUUID(),
+          revisionId,
+          rawText: sourceText.trim(),
+          normalizedText: sourceText.trim().replace(/\s+/g, ' '),
+          locator: { kind: 'text', blockIndex: 0 },
+          extractionStatus: 'success',
+        }];
 
-    const content = sourceText.trim() || sourceTitle.trim();
-    const newChunk: SourceChunk = {
-      id: generateUUID(),
-      revisionId: revId,
-      rawText: content,
-      normalizedText: content.replace(/\s+/g, ' '),
-      locator: { kind: 'text', blockIndex: 0 },
-      extractionStatus: 'success',
-    };
+    await addSource(newSource, revision, chunks);
+    if (pendingPdf) pdfMemoryCache.set(sourceId, pendingPdf);
+    const targetTopic = topics.find((topic) => topic.id === sourceTopicId);
+    if (targetTopic) {
+      await linkSourceToTopic({
+        topicId: targetTopic.id,
+        sourceId,
+        pageStart,
+        pageEnd,
+        lastProcessedPage: pageStart,
+        createdAt: getCurrentISOTime(),
+      });
+    }
 
-    await addSource(newSource, newRev, [newChunk]);
-    const updatedSources = await getSources();
-    setSources(updatedSources);
-
-    showAlert('등록 완료', `"${finalTitle}" 교재 자료가 안전하게 로컬 저장소에 보관되었습니다.`);
+    setSources(await getSources());
+    showAlert(
+      '자료 등록 완료',
+      isPdf
+        ? `“${newSource.title}”의 제목과 페이지 정보만 저장했습니다. PDF 원본은 저장하지 않았습니다.`
+        : `“${newSource.title}” 자료를 저장했습니다.`
+    );
     setSourceTitle('');
     setSourceText('');
+    setSourceFileName(null);
+    setSourcePageCount(null);
+    setSourcePageStart(1);
+    setSourcePageEnd(RECOMMENDED_PDF_PAGE_BLOCK);
+    setPendingPdf(null);
+    setSourceTopicId(null);
+    return true;
+  }
+
+  async function handleReconnectSource(sourceId: string) {
+    const source = (await getSources()).find((item) => item.id === sourceId);
+    if (!source || source.kind !== 'pdf') return;
+    try {
+      const file = await pickSingleDocument();
+      if (!file) return;
+      const bytes = await readPickedBytes(file);
+      const fingerprint = await fingerprintBytes(bytes);
+      if (source.fingerprint && fingerprint !== source.fingerprint) {
+        showAlert('다른 PDF입니다', `처음 등록한 “${source.fileName || source.title}” 파일을 선택해 주세요.`);
+        return;
+      }
+      const pdf = await PDFDocument.load(bytes, { ignoreEncryption: false });
+      pdfMemoryCache.set(sourceId, { bytes, fingerprint, fileName: file.name, pageCount: pdf.getPageCount() });
+      showAlert('원본 PDF 연결 완료', 'PDF는 저장하지 않고 이번 실행 중에만 목차와 문제 출제에 사용합니다.');
+    } catch (error: any) {
+      showAlert('PDF 연결 실패', error?.message || 'PDF를 다시 읽지 못했습니다.');
+    }
+  }
+
+  function hasPdfInMemory(sourceId: string): boolean {
+    return pdfMemoryCache.has(sourceId);
+  }
+
+  async function getDocumentInputForSource(
+    sourceId: string,
+    pageStart?: number,
+    pageEnd?: number
+  ): Promise<AiDocumentInput | null> {
+    const source = (await getSources()).find((item) => item.id === sourceId);
+    if (!source || source.kind !== 'pdf') return null;
+    const cached = pdfMemoryCache.get(sourceId);
+    if (!cached) return null;
+
+    const start = Math.max(1, Math.min(pageStart ?? source.selectedPageStart ?? 1, cached.pageCount));
+    const end = Math.max(start, Math.min(pageEnd ?? source.selectedPageEnd ?? cached.pageCount, cached.pageCount));
+    const original = await PDFDocument.load(cached.bytes, { ignoreEncryption: false });
+    const sliced = await PDFDocument.create();
+    const indexes = Array.from({ length: end - start + 1 }, (_, index) => start - 1 + index);
+    const pages = await sliced.copyPages(original, indexes);
+    pages.forEach((page) => sliced.addPage(page));
+    const bytes = await sliced.save({ useObjectStreams: true });
+    if (bytes.byteLength > 48 * 1024 * 1024) {
+      throw new Error('선택한 PDF 구간의 용량이 큽니다. 페이지 범위를 더 작게 나누어 주세요.');
+    }
+    return {
+      mimeType: 'application/pdf',
+      base64Data: u8ToBase64(bytes),
+      fileName: cached.fileName,
+      pageStart: start,
+      pageEnd: end,
+      sourceId,
+    };
+  }
+
+  async function getDocumentInputForTopic(topicId: string): Promise<AiDocumentInput | null> {
+    const link = (await getTopicSourceLinks(topicId))[0];
+    return link ? getDocumentInputForSource(link.sourceId, link.pageStart, link.pageEnd) : null;
   }
 
   async function handleDeleteSource(sourceId: string) {
-    showAlert('자료 삭제', '이 교재 자료를 보관함에서 삭제하시겠습니까?', [
+    showAlert('자료 삭제', '이 자료와 과목 연결을 삭제하시겠습니까? 기존 과목과 문제는 유지됩니다.', [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제하기',
         style: 'destructive',
         onPress: async () => {
           await deleteSource(sourceId);
-          const updatedSources = await getSources();
-          setSources(updatedSources);
-          showAlert('삭제 완료', '교재 자료가 삭제되었습니다.');
+          pdfMemoryCache.delete(sourceId);
+          setSources(await getSources());
+          showAlert('삭제 완료', '자료와 과목 연결을 삭제했습니다.');
         },
       },
     ]);
@@ -188,8 +352,18 @@ export function useSourceManager(params: {
     setSourceText,
     sourceTopicId,
     setSourceTopicId,
+    sourceFileName,
+    sourcePageCount,
+    sourcePageStart,
+    setSourcePageStart,
+    sourcePageEnd,
+    setSourcePageEnd,
     handlePickSourceFile,
     handleSaveSource,
+    handleReconnectSource,
+    hasPdfInMemory,
+    getDocumentInputForSource,
+    getDocumentInputForTopic,
     handleDeleteSource,
   };
 }

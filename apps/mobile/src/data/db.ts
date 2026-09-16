@@ -74,7 +74,11 @@ export {
   addSource,
   deleteSource,
   getSourceChunks,
+  getSourceTextForSource,
   getSourceTextForTopic,
+  getTopicSourceLinks,
+  linkSourceToTopic,
+  getLinkedSourceForTopic,
 } from './repositories/source_repository';
 
 export {

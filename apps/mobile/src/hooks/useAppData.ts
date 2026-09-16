@@ -14,6 +14,7 @@ import {
   Source,
   ReviewState,
   LearnerKnowledgeLevel,
+  AiDocumentInput,
 } from '../contracts/types';
 import {
   initializeDatabase,
@@ -37,6 +38,8 @@ import {
   getIncorrectQuestions,
   getLastStudiedTopicId,
   saveLastStudiedTopicId,
+  linkSourceToTopic,
+  getCurrentISOTime,
 } from '../data/db';
 import { generateCurriculumUnits } from '../domain/generator';
 import { GeneratedUnitItem } from '../domain/curriculum_generator';
@@ -148,6 +151,9 @@ export function useAppData(callbacks?: {
       difficultyLevel?: number;
       category?: string;
       customUnits?: string[];
+      sourceId?: string;
+      sourceDocument?: AiDocumentInput;
+      sourceText?: string;
     }
   ) {
     const categoryName = options?.category?.trim() || '📚 일반';
@@ -161,6 +167,8 @@ export function useAppData(callbacks?: {
         category: categoryName,
         learnerLevel: options?.learnerLevel,
         difficultyLevel: options?.difficultyLevel,
+        knownScope: options?.sourceText,
+        documentInput: options?.sourceDocument,
       });
     }
 
@@ -184,6 +192,16 @@ export function useAppData(callbacks?: {
     setSelectedUnitId(null);
     setLastStudiedTopicId(created.id);
     await saveLastStudiedTopicId(created.id);
+    if (options?.sourceId) {
+      await linkSourceToTopic({
+        topicId: created.id,
+        sourceId: options.sourceId,
+        pageStart: options.sourceDocument?.pageStart,
+        pageEnd: options.sourceDocument?.pageEnd,
+        lastProcessedPage: options.sourceDocument?.pageStart,
+        createdAt: getCurrentISOTime(),
+      });
+    }
 
     callbacks?.onAfterTopicCreated?.(created, generatedCount);
   }

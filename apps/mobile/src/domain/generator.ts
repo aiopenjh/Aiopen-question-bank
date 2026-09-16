@@ -6,6 +6,7 @@
  */
 
 import {
+  AiDocumentInput,
   LearningSpec,
   QuestionRevision,
   ValidationRecord,
@@ -74,14 +75,25 @@ type GenerationParams = {
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
+  documentInput?: AiDocumentInput;
   signal?: AbortSignal;
 };
 
 const inFlightGenerations = new Map<string, Promise<GenerationOutcome>>();
 
 function getGenerationRequestKey(params: GenerationParams): string {
-  const { signal: _signal, ...request } = params;
-  return JSON.stringify(request);
+  const { signal: _signal, documentInput, ...request } = params;
+  return JSON.stringify({
+    ...request,
+    documentInput: documentInput
+      ? {
+          sourceId: documentInput.sourceId,
+          sourceRevisionId: documentInput.sourceRevisionId,
+          pageStart: documentInput.pageStart,
+          pageEnd: documentInput.pageEnd,
+        }
+      : undefined,
+  });
 }
 
 interface GeneratedQuestionInput {
@@ -246,7 +258,7 @@ export function generateFactBasedQuestions(params: GenerationParams): Promise<Ge
 }
 
 async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise<GenerationOutcome> {
-  const { intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, signal } = params;
+  const { intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, documentInput, signal } = params;
   const obviousInvalid = detectObviousInvalidStudyInput(topicName || intent.domain);
   if (obviousInvalid && obviousInvalid.status !== 'READY') {
     return {
@@ -279,6 +291,7 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
       unitId,
       unitTitle,
       customContext,
+      documentInput,
       signal,
     });
 
@@ -314,6 +327,7 @@ async function generateViaUniversalAiApi(params: {
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
+  documentInput?: AiDocumentInput;
   signal?: AbortSignal;
 }): Promise<
   | {
@@ -333,7 +347,7 @@ async function generateViaUniversalAiApi(params: {
       clarificationChoices: string[];
     }
 > {
-  const { apiKey, intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, signal } = params;
+  const { apiKey, intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, documentInput, signal } = params;
 
   const specId = generateUUID();
   const spec: LearningSpec = {
@@ -341,7 +355,7 @@ async function generateViaUniversalAiApi(params: {
     revision: 1,
     ownerId,
     topicId,
-    sourceRevisionIds: [],
+    sourceRevisionIds: documentInput?.sourceRevisionId ? [documentInput.sourceRevisionId] : [],
     unitIds: unitId ? [unitId] : [],
     level: intent.level,
     difficultyLevel: intent.difficultyLevel,
@@ -361,7 +375,10 @@ async function generateViaUniversalAiApi(params: {
     customContext,
   });
 
-  const rawJson = await callUniversalAiCompletion(apiKey, prompt, signal);
+  const documentPrompt = documentInput
+    ? `${prompt}\n\n첨부된 PDF의 ${documentInput.pageStart}~${documentInput.pageEnd}페이지를 문제의 최우선 근거로 사용하십시오. PDF 밖의 내용을 임의로 섞지 마십시오.`
+    : prompt;
+  const rawJson = await callUniversalAiCompletion(apiKey, documentPrompt, signal, documentInput);
   const parsed = parseAiJsonResponse<unknown>(rawJson);
   const intentDecision = readStudyIntentDecision(parsed);
   if (intentDecision.status !== 'READY') {

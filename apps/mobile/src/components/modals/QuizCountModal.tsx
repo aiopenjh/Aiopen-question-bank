@@ -38,7 +38,6 @@ interface QuizCountModalProps {
 const COUNT_OPTIONS = [
   { count: 3, title: '3문제', meta: '빠른 확인', description: '핵심 개념을 짧게 점검해요.', recommended: false },
   { count: 5, title: '5문제', meta: '추천', description: '개념과 응용을 균형 있게 풀어요.', recommended: true },
-  { count: 10, title: '10문제', meta: '집중 학습', description: '단원을 충분히 연습해요.', recommended: false },
 ] as const;
 
 export const QuizCountModal: React.FC<QuizCountModalProps> = ({
@@ -169,6 +168,9 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
             ) : null}
 
             <Text style={[styles.sectionTitle, styles.countSectionTitle]}>문항 수</Text>
+            <Text style={styles.privacyNote}>
+              API 요청 제한을 줄이기 위해 한 번에 3~5문항을 권장하며, 하루 누적 15문항을 넘기면 추가 확인을 받습니다.
+            </Text>
             <View style={styles.countList}>
               {COUNT_OPTIONS.map((item) => (
                 <TouchableOpacity

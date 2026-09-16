@@ -110,10 +110,35 @@ export interface Source {
   ownerId: UUID;
   kind: SourceKind;
   title: string;
+  fileName?: string;
+  fileSizeBytes?: number;
+  pageCount?: number;
+  fingerprint?: string;
+  selectedPageStart?: number;
+  selectedPageEnd?: number;
   visibility: ContentVisibility;
   allowExternalProcessing: boolean;
   archivedAt: ISODateTimeString | null;
   createdAt: ISODateTimeString;
+}
+
+export interface TopicSourceLink {
+  topicId: UUID;
+  sourceId: UUID;
+  pageStart?: number;
+  pageEnd?: number;
+  lastProcessedPage?: number;
+  createdAt: ISODateTimeString;
+}
+
+export interface AiDocumentInput {
+  mimeType: 'application/pdf';
+  base64Data: string;
+  fileName: string;
+  pageStart: number;
+  pageEnd: number;
+  sourceId: UUID;
+  sourceRevisionId?: UUID;
 }
 
 export interface SourceRevision {

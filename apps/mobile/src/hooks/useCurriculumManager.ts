@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef } from 'react';
-import { Topic, Unit, QuestionRevision } from '../contracts/types';
+import { AiDocumentInput, Topic, Unit, QuestionRevision } from '../contracts/types';
 import { generateCurriculumUnits } from '../domain/generator';
 import {
   getUnits,
   replaceTopicUnits,
   createUnit,
   deduplicateTopicUnits,
+  getLinkedSourceForTopic,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
 import { StudyIntentResolutionError } from '../domain/intent';
@@ -26,6 +27,8 @@ export interface UseCurriculumManagerProps {
   setGeneratingWaitStatus: (
     status: { active: boolean; count: number; title: string; message: string } | null
   ) => void;
+  getDocumentInputForTopic: (topicId: string) => Promise<AiDocumentInput | null>;
+  onOpenSourceManager: () => void;
 }
 
 export interface UseCurriculumManagerReturn {
@@ -52,6 +55,8 @@ export function useCurriculumManager({
   setUnits,
   startExam,
   setGeneratingWaitStatus,
+  getDocumentInputForTopic,
+  onOpenSourceManager,
 }: UseCurriculumManagerProps): UseCurriculumManagerReturn {
   const [isCurriculumGenerating, setIsCurriculumGenerating] = useState(false);
   const abortRef = useRef(false);
@@ -95,6 +100,19 @@ export function useCurriculumManager({
       });
       try {
         const currentTopic = topics.find((topic) => topic.id === topicId);
+        const documentInput = await getDocumentInputForTopic(topicId);
+        const linkedSource = await getLinkedSourceForTopic(topicId);
+        if (linkedSource?.kind === 'pdf' && !documentInput) {
+          showAlert(
+            '원본 PDF를 다시 선택해 주세요',
+            `Celueste는 PDF 원본을 저장하지 않습니다. + 자료에서 “${linkedSource.fileName || linkedSource.title}” 원본을 다시 선택해 주세요.`,
+            [
+              { text: '취소', style: 'cancel' },
+              { text: '+ 자료 열기', onPress: onOpenSourceManager },
+            ]
+          );
+          return;
+        }
         const generatedUnits = await generateCurriculumUnits({
           topicName,
           learnerLevel: currentTopic?.learnerLevel,
@@ -103,6 +121,7 @@ export function useCurriculumManager({
           stageName,
           existingUnitTitles: existingTitles,
           signal: requestController.signal,
+          documentInput: documentInput || undefined,
         });
 
         if (abortRef.current) {
@@ -157,7 +176,7 @@ export function useCurriculumManager({
         setGeneratingWaitStatus(null);
       }
     },
-    [topics, setUnits, setGeneratingWaitStatus]
+    [getDocumentInputForTopic, onOpenSourceManager, topics, setUnits, setGeneratingWaitStatus]
   );
 
   const handleGenerateCurriculumForTopic = useCallback(

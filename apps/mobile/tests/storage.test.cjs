@@ -133,6 +133,71 @@ test('complete backup round trip contains sources, progress and settings but nev
   assert.equal(session.data.get(key('secure_vault_v1')), 'SECRET');
 });
 
+test('topic-source links select only the explicitly connected material', async () => {
+  const session = setup();
+  await session.db.initializeDatabase();
+  const topic = await session.db.createTopic('math');
+  const otherTopic = await session.db.createTopic('history');
+
+  for (const [id, text] of [['math-source', 'linked math text'], ['history-source', 'unrelated history text']]) {
+    await session.db.addSource(
+      {
+        id, ownerId: 'owner', kind: 'text', title: id, visibility: 'private',
+        allowExternalProcessing: true, archivedAt: null, createdAt: now,
+      },
+      {
+        id: `${id}-revision`, sourceId: id, hash: `${id}-hash`, provenance: 'test',
+        originalFileRef: null, createdAt: now,
+      },
+      [{
+        id: `${id}-chunk`, revisionId: `${id}-revision`, rawText: text, normalizedText: text,
+        locator: { kind: 'text' }, extractionStatus: 'success',
+      }]
+    );
+  }
+
+  await session.db.linkSourceToTopic({
+    topicId: topic.id,
+    sourceId: 'math-source',
+    createdAt: now,
+  });
+  assert.equal(await session.db.getSourceTextForTopic(topic.id, topic.name), 'linked math text');
+  assert.equal(await session.db.getSourceTextForTopic(otherTopic.id, otherTopic.name), '');
+});
+
+test('PDF backup stores metadata and topic linkage without file bytes or extracted body', async () => {
+  const session = setup();
+  await session.db.initializeDatabase();
+  const topic = await session.db.createTopic('pdf topic');
+  await session.db.addSource(
+    {
+      id: 'pdf-source', ownerId: 'owner', kind: 'pdf', title: 'book', fileName: 'book.pdf',
+      fileSizeBytes: 1234, pageCount: 300, fingerprint: 'sha256-only', selectedPageStart: 1,
+      selectedPageEnd: 20, visibility: 'private', allowExternalProcessing: true,
+      archivedAt: null, createdAt: now,
+    },
+    {
+      id: 'pdf-revision', sourceId: 'pdf-source', hash: 'sha256-only',
+      provenance: 'PDF 1~20 pages, original not stored', originalFileRef: null, createdAt: now,
+    },
+    []
+  );
+  await session.db.linkSourceToTopic({
+    topicId: topic.id, sourceId: 'pdf-source', pageStart: 1, pageEnd: 20, createdAt: now,
+  });
+
+  const backup = await session.db.exportBackupJSON();
+  const payload = JSON.parse(backup);
+  assert.equal(payload.sources[0].fileName, 'book.pdf');
+  assert.equal(payload.sourceChunks.length, 0);
+  assert.equal(payload.topicSourceLinks[0].topicId, topic.id);
+  assert.ok(!backup.includes('base64Data'));
+  assert.ok(!backup.includes('JVBER'));
+
+  await session.db.deleteTopic(topic.id);
+  assert.equal((await session.db.getTopicSourceLinks(topic.id)).length, 0);
+});
+
 test('malformed backup leaves every original value unchanged', async () => {
   const session = setup();
   await session.db.initializeDatabase();

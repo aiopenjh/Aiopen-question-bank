@@ -56,7 +56,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
       id: 'upload',
       icon: '📁',
       title: '교재 업로드 가이드',
-      subtitle: 'TXT/MD/CSV/JSON/ZIP 추천과 PDF·HWP 사용 주의사항',
+      subtitle: '내 파일 연결, PDF 페이지 분할과 API 사용 안내',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
@@ -72,7 +72,9 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipText}>
               • <Text style={styles.bold}>TXT, MD, CSV, JSON</Text>: 실제 본문을 읽어 등록하므로 문제 출제 자료로 가장 적합합니다.{'\n'}
               • <Text style={styles.bold}>ZIP</Text>: 압축 안의 TXT, MD, CSV, JSON 텍스트 파일을 함께 불러옵니다.{'\n'}
-              • <Text style={styles.bold}>PDF</Text>: 현재 파일명과 크기만 참고 정보로 등록하며 PDF 본문을 직접 추출하지 않습니다. 정확한 출제를 원하면 본문을 TXT로 변환하거나 직접 붙여넣으세요.
+              • <Text style={styles.bold}>PDF</Text>: 기기에서 페이지 수를 확인하고 선택한 페이지를 목차·문제 생성 요청에 함께 전달합니다. 파일 원본과 전체 본문은 저장하지 않습니다.{'\n'}
+              • <Text style={styles.bold}>자료함 ➔ 과목 추가 ➔ 내 파일 불러오기</Text>에서 등록한 자료를 과목에 연결하면 해당 자료를 기준으로 단원과 문제를 만듭니다. 앱을 다시 연 뒤 PDF를 사용할 때는 같은 원본 파일을 다시 선택해야 합니다.{'\n'}
+              • 30페이지가 넘는 PDF는 10~20페이지씩 나누고, 문제도 한 번에 3~5문항씩 생성하는 것을 권장합니다. 하루 누적 15문항을 넘기면 무료 할당량 소진이나 429 제한이 발생할 수 있습니다.
             </Text>
           </View>
 

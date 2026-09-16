@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Topic, Unit, QuestionRevision, LearnerKnowledgeLevel } from '../contracts/types';
+import { AiDocumentInput, Topic, Unit, QuestionRevision, LearnerKnowledgeLevel } from '../contracts/types';
 import {
   analyzeUserIntent,
   generateFactBasedQuestions,
@@ -13,10 +13,19 @@ import {
   deleteUnit,
   getUnits,
   getSourceTextForTopic,
+  getLinkedSourceForTopic,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
 import { legacyLevelToDifficulty } from '../domain/difficulty';
 import { buildUnitGenerationContext, formatIntentMessage } from './quizGenerationContext';
+import { getLocalDateString } from '../domain/routine';
+
+const DAILY_FREE_QUESTION_GUIDE = 15;
+
+function isCreatedToday(createdAt: string): boolean {
+  const date = new Date(createdAt);
+  return Number.isNaN(date.getTime()) ? false : getLocalDateString(date) === getLocalDateString();
+}
 
 export interface GeneratingWaitStatus {
   active: boolean;
@@ -49,6 +58,8 @@ export interface UseQuizGenerationProps {
   onOpenTopicModal: () => void;
   setQuestions: (questions: QuestionRevision[]) => void;
   setUnits: (units: Unit[]) => void;
+  getDocumentInputForTopic: (topicId: string) => Promise<AiDocumentInput | null>;
+  onOpenSourceManager: () => void;
 }
 
 export function useQuizGeneration({
@@ -65,6 +76,8 @@ export function useQuizGeneration({
   onOpenTopicModal,
   setQuestions,
   setUnits,
+  getDocumentInputForTopic,
+  onOpenSourceManager,
 }: UseQuizGenerationProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingUnitId, setGeneratingUnitId] = useState<string | null>(null);
@@ -76,6 +89,7 @@ export function useQuizGeneration({
   // 문제 출제 취소 제어용 ref
   const abortRef = useRef(false);
   const requestControllerRef = useRef<AbortController | null>(null);
+  const budgetOverrideRef = useRef(false);
 
   const handleCancelGeneration = useCallback(() => {
     abortRef.current = true;
@@ -151,6 +165,19 @@ export function useQuizGeneration({
 
         // 학습자가 업로드한 교재/자료 텍스트 조회
         const sourceMaterial = await getSourceTextForTopic(topicId, topicName);
+        const linkedSource = await getLinkedSourceForTopic(topicId);
+        const documentInput = await getDocumentInputForTopic(topicId);
+        if (linkedSource?.kind === 'pdf' && !documentInput) {
+          showAlert(
+            '원본 PDF를 다시 선택해 주세요',
+            `Celueste는 저장 공간 보호를 위해 “${linkedSource.fileName || linkedSource.title}” 원본을 보관하지 않습니다.\n\n+ 자료에서 원본 선택을 누른 뒤 다시 출제해 주세요.`,
+            [
+              { text: '닫기', style: 'cancel' },
+              { text: '+ 자료 열기', onPress: onOpenSourceManager },
+            ]
+          );
+          return;
+        }
 
         // 이 단원에 이미 저장된 문제 최신 DB에서 파악 -> 판박이 중복 방지 및 단원 내 다양한 개념 확장
         const allSavedQuestions = await getQuestions();
@@ -167,6 +194,7 @@ export function useQuizGeneration({
           unitId,
           unitTitle,
           customContext,
+          documentInput: documentInput || undefined,
           signal: requestController.signal,
         });
 
@@ -235,7 +263,7 @@ export function useQuizGeneration({
         setGeneratingWaitStatus(null);
       }
     },
-    [onOpenSettings, setQuestions, startExam, topics]
+    [getDocumentInputForTopic, onOpenSettings, onOpenSourceManager, setQuestions, startExam, topics]
   );
 
   const handleSelectQuizCount = useCallback(
@@ -250,12 +278,46 @@ export function useQuizGeneration({
       setQuizCountModalVisible(false);
       if (!pendingQuizUnit) return;
       const { topicId, topicName, unitId, unitTitle } = pendingQuizUnit;
+      const todayCount = questions.filter((question) => isCreatedToday(question.createdAt)).length;
+      if (todayCount + count > DAILY_FREE_QUESTION_GUIDE) {
+        showAlert(
+          '오늘의 무료 사용 기준 안내',
+          `오늘 생성한 문제는 ${todayCount}개입니다. ${count}문제를 추가하면 하루 권장 기준인 ${DAILY_FREE_QUESTION_GUIDE}문제를 넘습니다.\n\n추가 생성은 Gemini API 무료 할당량을 사용하거나 429 제한이 발생할 수 있습니다.`,
+          [
+            { text: '오늘은 그만 생성', style: 'cancel' },
+            {
+              text: '추가 생성',
+              onPress: () => handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options),
+            },
+          ]
+        );
+        return;
+      }
       await handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options);
     },
-    [pendingQuizUnit, handleQuickGenerateForUnit]
+    [pendingQuizUnit, handleQuickGenerateForUnit, questions]
   );
 
   const handleGenerateMoreQuestions = useCallback(async () => {
+    const todayCount = questions.filter((question) => isCreatedToday(question.createdAt)).length;
+    if (!budgetOverrideRef.current && todayCount + 3 > DAILY_FREE_QUESTION_GUIDE) {
+      showAlert(
+        '오늘의 무료 사용 기준 안내',
+        `오늘 생성한 문제는 ${todayCount}개입니다. 추가 출제 시 하루 권장 기준인 ${DAILY_FREE_QUESTION_GUIDE}문제를 넘고 Gemini API 무료 할당량 또는 429 제한에 영향을 줄 수 있습니다.`,
+        [
+          { text: '오늘은 그만 생성', style: 'cancel' },
+          {
+            text: '추가 생성',
+            onPress: () => {
+              budgetOverrideRef.current = true;
+              void handleGenerateMoreQuestions();
+            },
+          },
+        ]
+      );
+      return;
+    }
+    budgetOverrideRef.current = false;
     const currentTopic =
       topics.find((t) => t.id === selectedTopicId) ||
       topics.find((t) => t.id === lastStudiedTopicId) ||
@@ -332,6 +394,19 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       );
 
       const sourceMaterial = await getSourceTextForTopic(currentTopic.id, currentTopic.name);
+      const linkedSource = await getLinkedSourceForTopic(currentTopic.id);
+      const documentInput = await getDocumentInputForTopic(currentTopic.id);
+      if (linkedSource?.kind === 'pdf' && !documentInput) {
+        showAlert(
+          '원본 PDF를 다시 선택해 주세요',
+          `Celueste는 PDF 원본을 저장하지 않습니다. + 자료에서 “${linkedSource.fileName || linkedSource.title}” 원본을 다시 선택해 주세요.`,
+          [
+            { text: '닫기', style: 'cancel' },
+            { text: '+ 자료 열기', onPress: onOpenSourceManager },
+          ]
+        );
+        return;
+      }
       const allSavedQuestions = await getQuestions();
       const existingInTargetUnit = allSavedQuestions.filter(
         (q) => q.topicId === currentTopic.id && q.unitId === targetUnitId
@@ -347,6 +422,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
         unitId: targetUnitId,
         unitTitle: targetUnitTitle,
         customContext,
+        documentInput: documentInput || undefined,
         signal: requestController.signal,
       });
 
@@ -457,6 +533,8 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     startExam,
     setQuestions,
     setUnits,
+    getDocumentInputForTopic,
+    onOpenSourceManager,
   ]);
 
   const handleApplyScaffolding = useCallback(async () => {

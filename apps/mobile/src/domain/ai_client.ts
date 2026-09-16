@@ -8,6 +8,7 @@ import {
   getPreferredAiModel,
   isSupportedGeminiModel,
 } from '../data/db';
+import { AiDocumentInput } from '../contracts/types';
 
 let geminiRateLimitUntil = 0;
 
@@ -61,13 +62,15 @@ export function parseAiJsonResponse<T>(rawText: string): T {
 export async function callUniversalAiCompletion(
   apiKey: string,
   prompt: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  documentInput?: AiDocumentInput
 ): Promise<string> {
   const trimmedKey = apiKey.trim();
   if (signal?.aborted) throw createGenerationCancelledError();
 
   // 1. Anthropic Claude 3.5 Sonnet 지원 (sk-ant- 시작 키)
   if (trimmedKey.startsWith('sk-ant-')) {
+    if (documentInput) throw new Error('PDF 직접 출제는 Gemini API 키에서만 지원합니다.');
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -95,6 +98,7 @@ export async function callUniversalAiCompletion(
 
   // 2. OpenAI GPT-4o 지원 (sk- 시작 키)
   if (trimmedKey.startsWith('sk-')) {
+    if (documentInput) throw new Error('PDF 직접 출제는 Gemini API 키에서만 지원합니다.');
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -148,7 +152,7 @@ export async function callUniversalAiCompletion(
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
       if (controller) {
         // 통신 시간 만료(25초 초과) 시 자동 중단 후 다음 가용 모델로 자동 전환
-        timeoutTimer = setTimeout(() => controller.abort(), 25000);
+        timeoutTimer = setTimeout(() => controller.abort(), documentInput ? 60000 : 25000);
         if (signal) {
           externalAbortHandler = () => controller.abort();
           signal.addEventListener('abort', externalAbortHandler, { once: true });
@@ -163,7 +167,19 @@ export async function callUniversalAiCompletion(
         },
         signal: controller?.signal,
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{
+            parts: [
+              { text: prompt },
+              ...(documentInput
+                ? [{
+                    inlineData: {
+                      mimeType: documentInput.mimeType,
+                      data: documentInput.base64Data,
+                    },
+                  }]
+                : []),
+            ],
+          }],
           generationConfig: {
             responseMimeType: 'application/json',
             maxOutputTokens: 8192,

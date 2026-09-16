@@ -23,6 +23,7 @@ export interface AppModalsContainerProps {
   // 1. TopicModal
   topicModalVisible: boolean;
   initialTopicName?: string;
+  isPdfReady: (sourceId: string) => boolean;
   onCloseTopicModal: () => void;
   onCreateTopic: (name: string, description: string, options?: any) => Promise<void>;
 
@@ -77,12 +78,19 @@ export interface AppModalsContainerProps {
   sources: Source[];
   sourceTitle: string;
   sourceText?: string;
+  sourceFileName?: string | null;
+  sourcePageCount?: number | null;
+  sourcePageStart: number;
+  sourcePageEnd: number;
+  onChangeSourcePageStart: (page: number) => void;
+  onChangeSourcePageEnd: (page: number) => void;
   selectedSourceTopicId: string | null;
   onSelectSourceTopicId: (topicId: string | null) => void;
   onChangeSourceTitle: (text: string) => void;
   onPickSourceFile: () => Promise<void>;
-  onSaveSource: () => Promise<void>;
+  onSaveSource: () => Promise<boolean>;
   onDeleteSource: (sourceId: string) => Promise<void>;
+  onReconnectSource: (sourceId: string) => Promise<void>;
   onCloseSourceUploadModal: () => void;
   onOpenUserManual: () => void;
 
@@ -104,6 +112,7 @@ export interface AppModalsContainerProps {
 export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   topicModalVisible,
   initialTopicName,
+  isPdfReady,
   onCloseTopicModal,
   onCreateTopic,
   unitModalVisible,
@@ -138,12 +147,19 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   sources,
   sourceTitle,
   sourceText,
+  sourceFileName,
+  sourcePageCount,
+  sourcePageStart,
+  sourcePageEnd,
+  onChangeSourcePageStart,
+  onChangeSourcePageEnd,
   selectedSourceTopicId,
   onSelectSourceTopicId,
   onChangeSourceTitle,
   onPickSourceFile,
   onSaveSource,
   onDeleteSource,
+  onReconnectSource,
   onCloseSourceUploadModal,
   onOpenUserManual,
   isUserManualOpen,
@@ -156,6 +172,8 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
       <TopicModal
         visible={topicModalVisible}
         initialTopicName={initialTopicName}
+        sources={sources}
+        isPdfReady={isPdfReady}
         onClose={onCloseTopicModal}
         onCreateTopic={onCreateTopic}
       />
@@ -214,12 +232,20 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
         sources={sources}
         sourceTitle={sourceTitle}
         sourceText={sourceText}
+        sourceFileName={sourceFileName}
+        sourcePageCount={sourcePageCount}
+        sourcePageStart={sourcePageStart}
+        sourcePageEnd={sourcePageEnd}
+        onChangeSourcePageStart={onChangeSourcePageStart}
+        onChangeSourcePageEnd={onChangeSourcePageEnd}
         selectedSourceTopicId={selectedSourceTopicId}
         onSelectSourceTopicId={onSelectSourceTopicId}
         onChangeSourceTitle={onChangeSourceTitle}
         onPickSourceFile={onPickSourceFile}
         onSaveSource={onSaveSource}
         onDeleteSource={onDeleteSource}
+        onReconnectSource={onReconnectSource}
+        hasPdfInMemory={isPdfReady}
         onClose={onCloseSourceUploadModal}
       />
 

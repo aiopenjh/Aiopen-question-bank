@@ -17,6 +17,7 @@ import {
   Attempt,
   ReviewState,
   ManualCompletion,
+  TopicSourceLink,
 } from '../../contracts/types';
 import { STORAGE_KEYS, generateUUID, getCurrentISOTime } from '../storage_keys';
 import { legacyLevelToDifficulty, normalizeDifficultyLevel } from '../../domain/difficulty';
@@ -160,6 +161,7 @@ export async function deleteTopic(topicId: UUID): Promise<void> {
     STORAGE_KEYS.MANUAL_COMPLETIONS,
     STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS,
     STORAGE_KEYS.LAST_STUDIED_TOPIC,
+    STORAGE_KEYS.TOPIC_SOURCE_LINKS,
   ] as const;
   const snapshot = await AsyncStorage.multiGet([...keys]);
   const stored = new Map(snapshot);
@@ -178,6 +180,7 @@ export async function deleteTopic(topicId: UUID): Promise<void> {
   const reviewStates = parseArray<ReviewState>(STORAGE_KEYS.REVIEW_STATES);
   const completions = parseArray<ManualCompletion>(STORAGE_KEYS.MANUAL_COMPLETIONS);
   const customNotes = parseArray<string>(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
+  const topicSourceLinks = parseArray<TopicSourceLink>(STORAGE_KEYS.TOPIC_SOURCE_LINKS);
 
   const removedUnitIds = new Set(units.filter((item) => item.topicId === topicId).map((item) => item.id));
   const removedSpecIds = new Set(specs.filter((item) => item.topicId === topicId).map((item) => item.id));
@@ -226,6 +229,10 @@ export async function deleteTopic(topicId: UUID): Promise<void> {
     [
       STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS,
       JSON.stringify(customNotes.filter((questionId) => !removedQuestionIds.has(questionId))),
+    ],
+    [
+      STORAGE_KEYS.TOPIC_SOURCE_LINKS,
+      JSON.stringify(topicSourceLinks.filter((link) => link.topicId !== topicId)),
     ],
   ];
   if (stored.get(STORAGE_KEYS.LAST_STUDIED_TOPIC) === topicId) {
