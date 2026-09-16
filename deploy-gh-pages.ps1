@@ -8,6 +8,23 @@ $distDir = Join-Path $rootDir "apps\mobile\dist"
 $mobileDir = Join-Path $rootDir "apps\mobile"
 $buildInfoPath = Join-Path $mobileDir "src\constants\buildInfo.ts"
 $publicVersionPath = Join-Path $mobileDir "public\version.json"
+$previousWebBundleName = $null
+try {
+    $cacheBust = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $liveIndex = Invoke-WebRequest `
+        -Uri "https://aiopenjh.github.io/Aiopen-question-bank/?deploy-check=$cacheBust" `
+        -Headers @{ "Cache-Control" = "no-cache" } `
+        -UseBasicParsing
+    $liveBundleMatch = [regex]::Match(
+        $liveIndex.Content,
+        "_expo/static/js/web/(index-[a-f0-9]+\.js)"
+    )
+    if ($liveBundleMatch.Success) {
+        $previousWebBundleName = $liveBundleMatch.Groups[1].Value
+    }
+} catch {
+    Write-Warning "기존 웹 번들 주소를 확인하지 못했습니다. 고정 호환 주소만 유지합니다."
+}
 
 # 앱에 내장된 버전과 배포 서버의 버전을 같은 값으로 유지합니다.
 $buildInfoText = Get-Content -LiteralPath $buildInfoPath -Raw
@@ -30,6 +47,28 @@ Pop-Location
 
 if (-not (Test-Path $distDir)) {
     throw "오류: apps\mobile\dist 빌드 결과물이 생성되지 않았습니다."
+}
+
+# GitHub Pages는 HTML을 최대 10분 캐시할 수 있습니다. 캐시된 이전 HTML이
+# 이미 삭제된 해시 번들을 가리켜 빈 화면이 되지 않도록 최근 배포 주소를
+# 현재 정상 번들의 호환 별칭으로 함께 유지합니다.
+$webBundleDir = Join-Path $distDir "_expo\static\js\web"
+$currentWebBundle = Get-ChildItem -LiteralPath $webBundleDir -Filter "index-*.js" -File |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+if (-not $currentWebBundle) {
+    throw "오류: 웹 JavaScript 번들을 찾지 못했습니다."
+}
+$compatWebBundleNames = @(
+    $previousWebBundleName,
+    "index-e3e2ad47f0c8cdc59ffbba4b1dca8ac1.js",
+    "index-6287b44145819a5dab0a81089bf97c46.js"
+) | Where-Object { $_ }
+foreach ($compatName in $compatWebBundleNames) {
+    $compatPath = Join-Path $webBundleDir $compatName
+    if ($currentWebBundle.FullName -ne $compatPath) {
+        Copy-Item -LiteralPath $currentWebBundle.FullName -Destination $compatPath -Force
+    }
 }
 
 # SPA 지원용 404.html 및 GitHub Pages용 .nojekyll 보장
