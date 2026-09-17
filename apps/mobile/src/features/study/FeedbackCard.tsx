@@ -1,8 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -24,7 +26,39 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({ compact = false }) =
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [webModalMaxHeight, setWebModalMaxHeight] = useState<number | undefined>();
   const submittingRef = useRef(false);
+  const modalTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || !visible) {
+      modalTranslateY.setValue(0);
+      setWebModalMaxHeight(undefined);
+      return;
+    }
+
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const updateForKeyboard = () => {
+      const keyboardInset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setWebModalMaxHeight(Math.max(280, viewport.height - 24));
+      Animated.timing(modalTranslateY, {
+        toValue: keyboardInset > 80 ? -Math.min(140, keyboardInset * 0.45) : 0,
+        duration: 190,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    updateForKeyboard();
+    viewport.addEventListener('resize', updateForKeyboard);
+    viewport.addEventListener('scroll', updateForKeyboard);
+    return () => {
+      viewport.removeEventListener('resize', updateForKeyboard);
+      viewport.removeEventListener('scroll', updateForKeyboard);
+      modalTranslateY.setValue(0);
+    };
+  }, [modalTranslateY, visible]);
 
   const openModal = () => {
     if (isSubmitting) return;
@@ -117,84 +151,101 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({ compact = false }) =
       <Modal visible={visible} transparent animationType="fade" onRequestClose={closeModal}>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
         >
           <TouchableOpacity activeOpacity={1} style={styles.modalBackdrop} onPress={closeModal}>
-            <TouchableOpacity
-              activeOpacity={1}
-              style={styles.modalCard}
-              onPress={(event) => event.stopPropagation?.()}
+            <Animated.View
+              style={[
+                styles.modalMotion,
+                {
+                  maxHeight: webModalMaxHeight,
+                  transform: [{ translateY: modalTranslateY }],
+                },
+              ]}
             >
-              {isSent ? (
-                <>
-                  <Text style={styles.modalIcon}>💌</Text>
-                  <Text style={styles.modalTitleCentered}>의견을 전달했습니다</Text>
-                  <Text style={styles.sentDescription}>보내주신 내용은 앱 개선에 소중히 반영하겠습니다.</Text>
-                  <TouchableOpacity
-                    style={[styles.primaryButton, styles.successButton]}
-                    onPress={closeModal}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.primaryButtonText}>확인</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <View style={styles.modalHeader}>
-                    <View style={styles.modalIconBadge}>
-                      <Text style={styles.modalIconSmall}>✉️</Text>
-                    </View>
-                    <View style={styles.modalHeaderCopy}>
-                      <Text style={styles.modalTitle}>Celueste에 의견 보내기</Text>
-                      <Text style={styles.modalDescription}>불편한 점이나 바라는 기능을 자유롭게 적어주세요.</Text>
-                    </View>
-                  </View>
+              <TouchableOpacity
+                activeOpacity={1}
+                style={[styles.modalCard, webModalMaxHeight ? { maxHeight: webModalMaxHeight } : null]}
+                onPress={(event) => event.stopPropagation?.()}
+              >
+                <ScrollView
+                  style={styles.modalScroll}
+                  contentContainerStyle={styles.modalScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="interactive"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {isSent ? (
+                    <>
+                      <Text style={styles.modalIcon}>💌</Text>
+                      <Text style={styles.modalTitleCentered}>의견을 전달했습니다</Text>
+                      <Text style={styles.sentDescription}>보내주신 내용은 앱 개선에 소중히 반영하겠습니다.</Text>
+                      <TouchableOpacity
+                        style={[styles.primaryButton, styles.successButton]}
+                        onPress={closeModal}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.primaryButtonText}>확인</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.modalHeader}>
+                        <View style={styles.modalIconBadge}>
+                          <Text style={styles.modalIconSmall}>✉️</Text>
+                        </View>
+                        <View style={styles.modalHeaderCopy}>
+                          <Text style={styles.modalTitle}>Celueste에 의견 보내기</Text>
+                          <Text style={styles.modalDescription}>불편한 점이나 바라는 기능을 자유롭게 적어주세요.</Text>
+                        </View>
+                      </View>
 
-                  <TextInput
-                    style={styles.messageInput}
-                    value={message}
-                    onChangeText={setMessage}
-                    placeholder="하고 싶은 말을 입력해주세요."
-                    placeholderTextColor={colors.inkMuted}
-                    multiline
-                    maxLength={1500}
-                    editable={!isSubmitting}
-                    textAlignVertical="top"
-                    autoFocus
-                    accessibilityLabel="의견 내용"
-                  />
-                  <Text style={styles.characterCount}>{message.length} / 1500</Text>
+                      <TextInput
+                        style={styles.messageInput}
+                        value={message}
+                        onChangeText={setMessage}
+                        placeholder="하고 싶은 말을 입력해주세요."
+                        placeholderTextColor={colors.inkMuted}
+                        multiline
+                        maxLength={1500}
+                        editable={!isSubmitting}
+                        textAlignVertical="top"
+                        accessibilityLabel="의견 내용"
+                      />
+                      <Text style={styles.characterCount}>{message.length} / 1500</Text>
 
-                  {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+                      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-                  <View style={styles.buttonRow}>
-                    <TouchableOpacity
-                      style={styles.secondaryButton}
-                      onPress={closeModal}
-                      disabled={isSubmitting}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.secondaryButtonText}>취소</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.primaryButton,
-                        (!message.trim() || isSubmitting) && styles.disabledButton,
-                      ]}
-                      onPress={handleSubmit}
-                      disabled={!message.trim() || isSubmitting}
-                      activeOpacity={0.8}
-                    >
-                      {isSubmitting ? (
-                        <ActivityIndicator size="small" color={colors.white} />
-                      ) : (
-                        <Text style={styles.primaryButtonText}>보내기</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-            </TouchableOpacity>
+                      <View style={styles.buttonRow}>
+                        <TouchableOpacity
+                          style={styles.secondaryButton}
+                          onPress={closeModal}
+                          disabled={isSubmitting}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.secondaryButtonText}>취소</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.primaryButton,
+                            (!message.trim() || isSubmitting) && styles.disabledButton,
+                          ]}
+                          onPress={handleSubmit}
+                          disabled={!message.trim() || isSubmitting}
+                          activeOpacity={0.8}
+                        >
+                          {isSubmitting ? (
+                            <ActivityIndicator size="small" color={colors.white} />
+                          ) : (
+                            <Text style={styles.primaryButtonText}>보내기</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+                </ScrollView>
+              </TouchableOpacity>
+            </Animated.View>
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
@@ -270,15 +321,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xl,
   },
-  modalCard: {
+  modalMotion: {
     width: '100%',
     maxWidth: 440,
+  },
+  modalCard: {
+    width: '100%',
+    maxHeight: '90%',
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.xl,
+    overflow: 'hidden',
     ...shadows.soft,
+  },
+  modalScroll: {
+    flexShrink: 1,
+  },
+  modalScrollContent: {
+    padding: spacing.xl,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -319,7 +380,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surfaceMuted,
     color: colors.ink,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
     padding: spacing.md,
   },

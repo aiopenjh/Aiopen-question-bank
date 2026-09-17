@@ -1,4 +1,4 @@
-# Celueste v2.3.2
+# Celueste v2.3.3
 
 사용자가 자신의 API 키를 연결해 원하는 주제로 문제를 만들고, 저장한 문제를 반복해서 풀며, 정해 둔 시간에 학습 알림을 받을 수 있는 로컬 퍼스트 CBT 문제은행입니다.
 
@@ -10,7 +10,7 @@
 
 상세 구조와 실행 순서는 [Celueste v2 아키텍처와 워크플로](docs/ARCHITECTURE_WORKFLOW_V2.md)에서 확인할 수 있습니다.
 
-## v2.3.2 핵심 동작
+## v2.3.3 핵심 동작
 
 ### 자유 주제 출제
 
@@ -156,7 +156,7 @@ Aiopen-question-bank/
 
 ## 배포 버전
 
-- 앱 버전: `2.3.2`
+- 앱 버전: `2.3.3`
 - Android `versionCode`: `6` (이번 배포는 웹)
 - 웹 버전 확인 파일: `apps/mobile/public/version.json`
 

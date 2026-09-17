@@ -21,9 +21,22 @@ function feedback(fetchImpl) {
       if (!(i in state)) state[i] = { current: initial };
       return state[i];
     },
+    useEffect() {},
   };
-  const native = { StyleSheet: { create: x => x }, Platform: { OS: 'web' } };
-  for (const name of ['ActivityIndicator', 'KeyboardAvoidingView', 'Text', 'TextInput', 'TouchableOpacity', 'View']) native[name] = name;
+  class AnimatedValue {
+    constructor(value) { this.value = value; }
+    setValue(value) { this.value = value; }
+  }
+  const native = {
+    StyleSheet: { create: x => x },
+    Platform: { OS: 'web' },
+    Animated: {
+      Value: AnimatedValue,
+      timing: () => ({ start() {} }),
+      View: 'AnimatedView',
+    },
+  };
+  for (const name of ['ActivityIndicator', 'KeyboardAvoidingView', 'ScrollView', 'Text', 'TextInput', 'TouchableOpacity', 'View']) native[name] = name;
   const exports = {};
   const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/features/study/FeedbackCard.tsx'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true },
@@ -64,6 +77,12 @@ test('feedback blocks empty input and duplicate sends before render and after su
   assert.equal(calls.length, 1);
   assert.equal(f.timers.size, 0);
   assert.ok(f.button('확인'));
+});
+
+test('feedback opens without forcing the mobile keyboard', () => {
+  const f = feedback(async () => ({ ok: true }));
+  assert.equal(f.input().props.autoFocus, undefined);
+  assert.equal(f.input().props.style.fontSize, 16);
 });
 test('feedback timeout releases the dialog and keeps draft; stale success cannot erase a retry', async () => {
   const calls = [];
