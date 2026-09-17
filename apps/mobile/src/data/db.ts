@@ -94,6 +94,9 @@ export {
   getPendingSyncRequest,
   setPendingSyncRequest,
   clearPendingSyncRequest,
+  getRankingRecoverySeed,
+  saveRankingRecoverySeed,
+  clearRankingRecoverySeed,
 } from './repositories/ranking_repository';
 
 export { getEncryptedApiKey, saveEncryptedApiKey, deleteEncryptedApiKey };

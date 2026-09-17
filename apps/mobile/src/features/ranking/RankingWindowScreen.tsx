@@ -26,8 +26,22 @@ export interface RankingWindowScreenProps {
  * Reference: docs/ranking/RANKING_FEATURE_PLAN.md §3.1~§3.3
  */
 export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClose }) => {
-  const { profile, todaySolvedCount, leaderboard, lastSync, loading, busy, error, register, sync, withdraw } =
-    useRankingWindow();
+  const {
+    profile,
+    todaySolvedCount,
+    leaderboard,
+    lastSync,
+    loading,
+    busy,
+    error,
+    recoverySeed,
+    pendingSync,
+    register,
+    sync,
+    withdraw,
+    recoverFromBackup,
+    dismissRecoverySeed,
+  } = useRankingWindow();
   const [tab, setTab] = useState<Tab>('mostSolved');
   const [nickname, setNickname] = useState('');
 
@@ -44,6 +58,15 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
         '랭킹 참여 완료',
         '복구 정보는 백업 파일에 포함됩니다. 백업 파일을 안전하게 보관해 주세요.'
       );
+    }
+  }
+
+  async function handleRecover() {
+    const result = await recoverFromBackup();
+    if (result.ok) {
+      showAlert('랭킹 계정 복구 완료', '백업에 있던 랭킹 계정으로 다시 연결되었습니다.');
+    } else {
+      showAlert('복구 실패', `${result.message}\n\n계정이 이미 탈퇴 처리되었다면 새로 참여해 주세요.`);
     }
   }
 
@@ -114,6 +137,36 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
         <ActivityIndicator size="small" color={colors.primaryPressed} style={{ marginTop: spacing.lg }} />
       ) : (
         <>
+          {!profile && recoverySeed && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>백업에서 랭킹 계정을 발견했습니다</Text>
+              <Text style={styles.noticeText}>
+                "{recoverySeed.nickname}" 계정의 누적 기록을 이 기기에서 이어서 쓸 수 있습니다. 탈퇴 후 유예 기간이
+                지난 계정이면 복구가 실패할 수 있습니다.
+              </Text>
+              <TouchableOpacity
+                style={[styles.primaryButton, busy && styles.buttonDisabled]}
+                onPress={handleRecover}
+                disabled={busy}
+                activeOpacity={0.85}
+              >
+                {busy ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>이 계정으로 복구하기</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={dismissRecoverySeed}
+                disabled={busy}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.secondaryButtonText}>새로 참여하기</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {profile ? (
             <View style={styles.card}>
               <View style={styles.summaryRow}>
@@ -124,6 +177,12 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
                 연동 시 오늘 완료한 문제 수와 꾸준함 참여 여부만 전송합니다. 문제 내용, 정답, 과목명과 API 키는
                 전송하지 않습니다.
               </Text>
+              {pendingSync && (
+                <Text style={styles.pendingText}>
+                  지난번 연동이 서버 오류로 실패해 대기 중입니다({pendingSync.localDate} ·{' '}
+                  {pendingSync.solvedCount}문제). 다시 연동하면 최신 값으로 반영됩니다.
+                </Text>
+              )}
               <TouchableOpacity
                 style={[styles.primaryButton, busy && styles.buttonDisabled]}
                 onPress={handleSync}
@@ -310,6 +369,14 @@ const styles = StyleSheet.create({
   myStatText: { fontSize: 12, color: colors.inkMuted, marginTop: 10, fontWeight: '600' },
   emptyText: { fontSize: 12, color: colors.inkMuted, paddingVertical: 6 },
   errorText: { fontSize: 12, color: colors.danger, marginBottom: spacing.md },
+  pendingText: {
+    fontSize: 12,
+    color: colors.primaryPressed,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+    padding: 8,
+    marginBottom: 10,
+  },
   withdrawButton: { alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 18 },
   withdrawButtonText: { fontSize: 13, fontWeight: '700', color: colors.danger },
 });

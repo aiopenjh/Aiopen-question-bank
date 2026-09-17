@@ -8,19 +8,23 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { RankingProfile } from '../contracts/types';
+import { RankingProfile, RankingRecoverySeed, RankingSyncQueueItem } from '../contracts/types';
 import {
   getAttempts,
   getRankingProfile,
   saveRankingProfile,
   clearRankingProfile,
+  getPendingSyncRequest,
   setPendingSyncRequest,
   clearPendingSyncRequest,
+  getRankingRecoverySeed,
+  clearRankingRecoverySeed,
 } from '../data/db';
 import { countTodayCompletedQuestions } from '../domain/ranking';
 import { getLocalDateString } from '../domain/routine';
 import {
   getLeaderboard,
+  recoverParticipant,
   registerParticipant,
   requestWithdrawal,
   syncToday,
@@ -43,6 +47,10 @@ export function useRankingWindow() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 백업을 복원했는데 아직 참여 중이 아니면(deviceToken 없음), 복구할 계정이 있는지 보여준다.
+  const [recoverySeed, setRecoverySeed] = useState<RankingRecoverySeed | null>(null);
+  // 계획서 §6: 실패해 대기 중인 연동 요청이 있으면 창을 열었을 때 알려준다.
+  const [pendingSync, setPendingSync] = useState<RankingSyncQueueItem | null>(null);
 
   const refreshLeaderboard = useCallback(async () => {
     try {
@@ -58,6 +66,8 @@ export function useRankingWindow() {
       const [storedProfile, attempts] = await Promise.all([getRankingProfile(), getAttempts()]);
       setProfile(storedProfile);
       setTodaySolvedCount(countTodayCompletedQuestions(attempts));
+      if (!storedProfile) setRecoverySeed(await getRankingRecoverySeed());
+      setPendingSync(await getPendingSyncRequest());
       await refreshLeaderboard();
       setLoading(false);
     })();
@@ -86,6 +96,47 @@ export function useRankingWindow() {
     }
   }, []);
 
+  /**
+   * 백업 복원으로 남은 복구 재료로 서버 계정을 되찾는다.
+   * 탈퇴 후 유예 기간이 지나 서버가 계정을 이미 지웠다면 실패하며,
+   * 그 경우 시드를 지우고 새로 참여하도록 안내한다.
+   */
+  const recoverFromBackup = useCallback(async () => {
+    if (!recoverySeed) return { ok: false as const, message: '복구할 백업 정보가 없습니다.' };
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await recoverParticipant(recoverySeed.participantId, recoverySeed.recoveryToken);
+      const next: RankingProfile = {
+        nickname: result.nickname,
+        participantId: result.participantId,
+        deviceToken: result.deviceToken,
+        recoveryToken: recoverySeed.recoveryToken,
+      };
+      await saveRankingProfile(next);
+      await clearRankingRecoverySeed();
+      setProfile(next);
+      setRecoverySeed(null);
+      return { ok: true as const };
+    } catch (err) {
+      const message = toMessage(err);
+      setError(message);
+      // 탈퇴+유예 만료로 서버 계정이 사라진 경우: 더 시도할 수 없으니 시드를 치운다.
+      if (err instanceof RankingApiRequestError && err.status === 401) {
+        await clearRankingRecoverySeed();
+        setRecoverySeed(null);
+      }
+      return { ok: false as const, message };
+    } finally {
+      setBusy(false);
+    }
+  }, [recoverySeed]);
+
+  const dismissRecoverySeed = useCallback(async () => {
+    await clearRankingRecoverySeed();
+    setRecoverySeed(null);
+  }, []);
+
   const sync = useCallback(async () => {
     if (!profile) return { ok: false as const, message: '먼저 랭킹에 참여해 주세요.' };
     setBusy(true);
@@ -94,6 +145,7 @@ export function useRankingWindow() {
     try {
       const result = await syncToday(profile, localDate, todaySolvedCount);
       await clearPendingSyncRequest();
+      setPendingSync(null);
       setLastSync(result);
       await refreshLeaderboard();
       return { ok: true as const, result };
@@ -103,6 +155,7 @@ export function useRankingWindow() {
       // 서버/네트워크 장애(0, 429, 5xx)만 기기에 대기시킨다 (계획서 §6).
       if (err instanceof RankingApiRequestError && (err.status === 0 || err.status === 429 || err.status >= 500)) {
         await setPendingSyncRequest(localDate, todaySolvedCount);
+        setPendingSync({ localDate, solvedCount: todaySolvedCount, queuedAt: new Date().toISOString() });
       }
       return { ok: false as const, message };
     } finally {
@@ -138,8 +191,12 @@ export function useRankingWindow() {
     loading,
     busy,
     error,
+    recoverySeed,
+    pendingSync,
     register,
     sync,
     withdraw,
+    recoverFromBackup,
+    dismissRecoverySeed,
   };
 }

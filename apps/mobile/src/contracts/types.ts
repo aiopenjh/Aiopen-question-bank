@@ -327,6 +327,17 @@ export interface RankingSyncQueueItem {
   queuedAt: ISODateTimeString;
 }
 
+/**
+ * 백업 복원 직후, deviceToken 없이 임시로 보관하는 랭킹 복구 재료.
+ * 탈퇴하지 않았다면 서버 계정은 그대로 있으므로, 랭킹 창에서
+ * POST /participants/recover로 새 deviceToken을 받아 RankingProfile을 완성한다.
+ */
+export interface RankingRecoverySeed {
+  nickname: string;
+  participantId: string;
+  recoveryToken: string;
+}
+
 export function detectCategoryForTopic(text: string): string {
   const lower = (text || '').toLowerCase();
   if (

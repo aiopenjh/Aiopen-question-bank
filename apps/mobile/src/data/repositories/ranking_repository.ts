@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '../app_storage';
-import { RankingProfile, RankingSyncQueueItem } from '../../contracts/types';
+import { RankingProfile, RankingRecoverySeed, RankingSyncQueueItem } from '../../contracts/types';
 import { STORAGE_KEYS, getCurrentISOTime } from '../storage_keys';
 
 export async function getRankingProfile(): Promise<RankingProfile | null> {
@@ -37,4 +37,21 @@ export async function setPendingSyncRequest(localDate: string, solvedCount: numb
 
 export async function clearPendingSyncRequest(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEYS.RANKING_SYNC_QUEUE);
+}
+
+/**
+ * 백업 복원 직후의 랭킹 복구 재료. 탈퇴하지 않았다면 서버 계정은 살아있으므로
+ * 랭킹 창에서 이 값으로 POST /participants/recover를 호출해 RankingProfile을 완성한다.
+ */
+export async function getRankingRecoverySeed(): Promise<RankingRecoverySeed | null> {
+  const data = await AsyncStorage.getItem(STORAGE_KEYS.RANKING_RECOVERY_SEED);
+  return data ? JSON.parse(data) : null;
+}
+
+export async function saveRankingRecoverySeed(seed: RankingRecoverySeed): Promise<void> {
+  await AsyncStorage.setItem(STORAGE_KEYS.RANKING_RECOVERY_SEED, JSON.stringify(seed));
+}
+
+export async function clearRankingRecoverySeed(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEYS.RANKING_RECOVERY_SEED);
 }

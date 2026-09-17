@@ -21,6 +21,7 @@ import {
   ReviewState,
   ManualCompletion,
   RankingProfile,
+  RankingRecoverySeed,
 } from '../../contracts/types';
 import type { AlarmConfig } from '../../utils/notifications';
 import { STORAGE_KEYS, CURRENT_DB_VERSION, getCurrentISOTime } from '../storage_keys';
@@ -87,6 +88,8 @@ const BACKUP_STORAGE_KEYS = [
 const RESTORE_STORAGE_KEYS: StorageKey[] = [
   STORAGE_KEYS.DB_VERSION,
   ...BACKUP_STORAGE_KEYS,
+  // 백업에는 포함되지 않지만(수출 대상 아님) 복원 중에 새로 쓰므로 롤백 스냅샷에 넣는다.
+  STORAGE_KEYS.RANKING_RECOVERY_SEED,
 ];
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -384,14 +387,29 @@ export async function restoreBackupJSON(
   if (payload.alarmConfig !== undefined) {
     addOptionalValue(STORAGE_KEYS.ALARM_CONFIG, payload.alarmConfig);
   }
-  // rankingRecoveryToken은 로컬 프로필을 직접 복원하지 않는다.
-  // deviceToken이 백업에 없으므로 화면에서 POST /participants/recover로
-  // 새 deviceToken을 발급받아야 참여자 복구가 완료된다.
+  // rankingRecoveryToken은 로컬 프로필을 직접 복원하지 않는다 (deviceToken이 백업에 없음).
+  // 대신 복구 재료를 남겨두면, 랭킹 창이 POST /participants/recover로
+  // 새 deviceToken을 발급받아 참여자 복구를 완료한다 (탈퇴하지 않았다면 서버 계정은 그대로다).
+  if (payload.rankingParticipantId && payload.rankingRecoveryToken) {
+    const seed: RankingRecoverySeed = {
+      nickname: payload.rankingNickname ?? '',
+      participantId: payload.rankingParticipantId,
+      recoveryToken: payload.rankingRecoveryToken,
+    };
+    valuesToWrite.push([STORAGE_KEYS.RANKING_RECOVERY_SEED, JSON.stringify(seed)]);
+  }
 
   try {
     await AsyncStorage.multiSet(valuesToWrite);
     if (keysToRemove.length > 0) await AsyncStorage.multiRemove(keysToRemove);
-    return { success: true, message: 'API 키를 제외한 전체 학습 데이터가 복원되었습니다.' };
+    const rankingNote =
+      payload.rankingParticipantId && payload.rankingRecoveryToken
+        ? ' 랭킹 창을 열면 이 백업의 랭킹 계정을 복구할 수 있습니다.'
+        : '';
+    return {
+      success: true,
+      message: `API 키를 제외한 전체 학습 데이터가 복원되었습니다.${rankingNote}`,
+    };
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : '알 수 없는 저장 오류';
     try {
