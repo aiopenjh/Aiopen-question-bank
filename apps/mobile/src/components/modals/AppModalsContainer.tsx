@@ -53,6 +53,7 @@ export interface AppModalsContainerProps {
   } | null;
   onCloseQuizCountModal: () => void;
   onSelectQuizCount: (count: number, options?: any) => void;
+  onSaveUnitDifficulty: (difficultyLevel: number) => Promise<void>;
   onOpenBackup: () => Promise<void>;
 
   // 5. TopicSelectModal
@@ -128,6 +129,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   pendingQuizUnit,
   onCloseQuizCountModal,
   onSelectQuizCount,
+  onSaveUnitDifficulty,
   onOpenBackup,
   isTopicSelectModalVisible,
   topics,
@@ -202,6 +204,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
         initialDifficultyLevel={pendingQuizUnit?.initialDifficultyLevel}
         onClose={onCloseQuizCountModal}
         onSelectCount={onSelectQuizCount}
+        onSaveDifficulty={onSaveUnitDifficulty}
         onOpenBackup={onOpenBackup}
       />
 

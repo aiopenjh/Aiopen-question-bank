@@ -12,7 +12,9 @@
 - 웹 서비스: https://aiopenjh.github.io/Aiopen-question-bank/
 - 기술 스택: React Native, Expo Web, TypeScript, IndexedDB(Web), AsyncStorage(Native) (Local-First)
 - AI 연동: Google Gemini 3.5 이상을 기본 기준으로 사용. Gemini는 3.5 미만 모델로 전환 금지. 기존 키 형식 호환을 위한 Claude/OpenAI 통신 경로 유지
-- 현재 릴리스: v2.2.0 (2026-09-16)
+- 현재 릴리스: v2.3.2 (2026-09-17)
+- 단원 레벨은 사용자가 레벨을 고른 뒤 3문제/5문제를 누르고 기존 문제 유지 또는 삭제를 선택할 때 Unit.difficultyLevel에 저장. 과목 시작 레벨이나 다른 단원을 변경하지 않음. 앱 재실행/백업 복원 후 유지.
+- 의견 보내기는 앱 내부 모달 → Formspree → 관리자 메일. 동기 중복 잠금과 20초 제한시간 적용. 오늘 풀이 집계는 UTC 문자열 앞부분이 아닌 로컬 날짜로 비교.
 
 2. 8대 불변 개발 헌법 (어떤 AI든 반드시 준수):
 ① [가짜 하드코딩 금지]: API 키 미연동 시 가짜 문제를 만들지 않고 NEEDS_CONNECTION 반환

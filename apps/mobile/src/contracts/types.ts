@@ -177,6 +177,7 @@ export interface Unit {
   title: string;
   orderIndex: number;
   allowedConcepts?: string[];
+  difficultyLevel?: number; // 단원별 저장 난이도. 미설정 단원은 과목 시작 레벨 사용
   createdAt: ISODateTimeString;
 }
 

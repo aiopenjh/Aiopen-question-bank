@@ -175,48 +175,6 @@ export const quizCountModalStyles = StyleSheet.create({
     color: colors.primaryPressed,
     fontWeight: '800',
   },
-  existingSection: {
-    marginTop: spacing.lg,
-  },
-  replaceRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  replaceButton: {
-    flex: 1,
-    minHeight: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-  },
-  replaceButtonActive: {
-    borderColor: '#C9E1D9',
-    backgroundColor: colors.mintSoft,
-  },
-  replaceButtonDanger: {
-    borderColor: '#E6C7CD',
-    backgroundColor: '#FAECEE',
-  },
-  replaceText: {
-    color: colors.inkMuted,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  replaceTextActive: {
-    color: colors.mint,
-  },
-  replaceTextDanger: {
-    color: colors.danger,
-  },
-  replaceWarning: {
-    color: colors.danger,
-    fontSize: 10,
-    lineHeight: 15,
-    marginTop: spacing.sm,
-  },
   countSectionTitle: {
     marginTop: spacing.xl,
     marginBottom: spacing.sm,

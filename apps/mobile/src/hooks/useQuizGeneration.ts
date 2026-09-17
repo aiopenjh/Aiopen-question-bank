@@ -14,9 +14,10 @@ import {
   getUnits,
   getSourceTextForTopic,
   getLinkedSourceForTopic,
+  updateUnitDifficulty,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
-import { legacyLevelToDifficulty } from '../domain/difficulty';
+import { difficultyToLegacyLevel, legacyLevelToDifficulty } from '../domain/difficulty';
 import { buildUnitGenerationContext, formatIntentMessage } from './quizGenerationContext';
 import { getLocalDateString } from '../domain/routine';
 
@@ -104,6 +105,7 @@ export function useQuizGeneration({
   const handlePromptQuizCount = useCallback(
     (topicId: string, topicName: string, unitId: string, unitTitle: string) => {
       const currentTopic = topics.find((t) => t.id === topicId);
+      const currentUnit = units.find((u) => u.id === unitId && u.topicId === topicId);
       const existingCount = questions.filter(
         (q) => q.topicId === topicId && q.unitId === unitId
       ).length;
@@ -115,12 +117,18 @@ export function useQuizGeneration({
         existingCount,
         initialLevel: currentTopic?.learnerLevel || 'basic',
         initialDifficultyLevel:
-          currentTopic?.difficultyLevel ?? legacyLevelToDifficulty(currentTopic?.learnerLevel),
+          currentUnit?.difficultyLevel ?? currentTopic?.difficultyLevel ?? legacyLevelToDifficulty(currentTopic?.learnerLevel),
       });
       setQuizCountModalVisible(true);
     },
-    [questions, topics]
+    [questions, topics, units]
   );
+
+  const handleSaveUnitDifficulty = useCallback(async (difficultyLevel: number) => {
+    if (!pendingQuizUnit) throw new Error('변경할 단원을 찾지 못했습니다.');
+    await updateUnitDifficulty(pendingQuizUnit.topicId, pendingQuizUnit.unitId, difficultyLevel);
+    setUnits(await getUnits());
+  }, [pendingQuizUnit, setUnits]);
 
   const handleQuickGenerateForUnit = useCallback(
     async (
@@ -147,11 +155,13 @@ export function useQuizGeneration({
       });
       try {
         const currentTopic = topics.find((t) => t.id === topicId);
-        const targetLevel = options?.learnerLevel || currentTopic?.learnerLevel || 'basic';
+        const currentUnit = units.find((u) => u.id === unitId && u.topicId === topicId);
         const targetDifficulty =
           options?.difficultyLevel ??
+          currentUnit?.difficultyLevel ??
           currentTopic?.difficultyLevel ??
-          legacyLevelToDifficulty(targetLevel);
+          legacyLevelToDifficulty(currentTopic?.learnerLevel);
+        const targetLevel = difficultyToLegacyLevel(targetDifficulty);
 
         const scoped = analyzeUserIntent(
           `[${topicName} - ${unitTitle}] 레벨 ${targetDifficulty} 난이도 개념 ${targetCount}문제 출제`,
@@ -263,7 +273,7 @@ export function useQuizGeneration({
         setGeneratingWaitStatus(null);
       }
     },
-    [getDocumentInputForTopic, onOpenSettings, onOpenSourceManager, setQuestions, startExam, topics]
+    [getDocumentInputForTopic, onOpenSettings, onOpenSourceManager, setQuestions, startExam, topics, units]
   );
 
   const handleSelectQuizCount = useCallback(
@@ -331,7 +341,7 @@ export function useQuizGeneration({
     }
 
     const targetUnit =
-      units.find((u) => u.id === selectedUnitId) ||
+      units.find((u) => u.id === selectedUnitId && u.topicId === currentTopic.id) ||
       units.find((u) => u.topicId === currentTopic.id);
 
     const existingQuestions = questions.filter((q) => q.topicId === currentTopic.id);
@@ -382,13 +392,13 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       const targetUnitId = targetUnit?.id || generateUUID();
       const targetUnitTitle = targetUnit?.title || `${currentTopic.name} 핵심 종합`;
 
+      const targetDifficulty = targetUnit?.difficultyLevel ?? currentTopic.difficultyLevel ?? legacyLevelToDifficulty(currentTopic.learnerLevel);
       const scoped = analyzeUserIntent(
         `[${currentTopic.name}] ${targetUnitTitle} 동일 개념 추가 심화 문제 출제`,
         currentTopic.name,
         {
-          learnerLevel: 'basic',
-          difficultyLevel:
-            currentTopic.difficultyLevel ?? legacyLevelToDifficulty(currentTopic.learnerLevel),
+          learnerLevel: difficultyToLegacyLevel(targetDifficulty),
+          difficultyLevel: targetDifficulty,
           targetCount: 3,
         }
       );
@@ -563,6 +573,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     pendingQuizUnit,
     handlePromptQuizCount,
     handleSelectQuizCount,
+    handleSaveUnitDifficulty,
     handleQuickGenerateForUnit,
     handleGenerateMoreQuestions,
     handleApplyScaffolding,

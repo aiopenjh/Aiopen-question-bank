@@ -32,7 +32,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     setBackupModalVisible, handleExportBackup, handleResetAllData, setIsUserManualOpen,
     topicModalVisible, initialTopicName, setTopicModalVisible, handleCreateTopic, unitModalVisible,
     handleCreateUnit, backupModalVisible, handleRestoreBackup, handleRestoreFromFile,
-    quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount,
+    quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount, handleSaveUnitDifficulty,
     isTopicSelectModalVisible, setIsTopicSelectModalVisible, executeStartExamForTopic,
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive,
@@ -269,6 +269,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
           pendingQuizUnit={pendingQuizUnit}
           onCloseQuizCountModal={() => setQuizCountModalVisible(false)}
           onSelectQuizCount={handleSelectQuizCount}
+          onSaveUnitDifficulty={handleSaveUnitDifficulty}
           onOpenBackup={handleExportBackup}
           isTopicSelectModalVisible={isTopicSelectModalVisible}
           topics={topics}

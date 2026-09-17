@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,6 +16,7 @@ import { colors } from '../../styles/designTokens';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { DifficultyLevelControl } from '../common/DifficultyLevelControl';
 import { quizCountModalStyles as styles } from './QuizCountModal.styles';
+import { showAlert } from '../../utils/alert';
 
 export interface QuizCountModalOptions {
   learnerLevel?: LearnerKnowledgeLevel;
@@ -32,6 +33,7 @@ interface QuizCountModalProps {
   initialDifficultyLevel?: number;
   onClose: () => void;
   onSelectCount: (count: number, options?: QuizCountModalOptions) => void;
+  onSaveDifficulty: (difficultyLevel: number) => Promise<void>;
   onOpenBackup?: () => void;
 }
 
@@ -49,26 +51,76 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   initialDifficultyLevel,
   onClose,
   onSelectCount,
+  onSaveDifficulty,
   onOpenBackup,
 }) => {
   const fixedDifficulty = initialDifficultyLevel ?? legacyLevelToDifficulty(initialLevel);
   const canAdjustDifficulty = existingCount > 0;
   const [selectedDifficulty, setSelectedDifficulty] = useState(fixedDifficulty);
-  const [shouldReplace, setShouldReplace] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
+  const closeModal = () => { if (!savingRef.current) onClose(); };
 
   useEffect(() => {
     if (visible) {
       setSelectedDifficulty(fixedDifficulty);
-      setShouldReplace(false);
     }
   }, [visible, fixedDifficulty]);
 
   const selectedProfile = getDifficultyProfile(selectedDifficulty);
   const isModifiedFromDefault = selectedDifficulty !== fixedDifficulty;
 
+  const applyLevelChange = async (count: number, replaceExisting: boolean) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setIsSaving(true);
+    try {
+      await onSaveDifficulty(selectedDifficulty);
+      onSelectCount(count, {
+        learnerLevel: difficultyToLegacyLevel(selectedDifficulty),
+        difficultyLevel: selectedDifficulty,
+        shouldReplaceExisting: replaceExisting,
+      });
+    } catch {
+      showAlert('레벨 저장 실패', '레벨을 저장하지 못했습니다. 기존 레벨과 문제는 유지됩니다. 다시 시도해 주세요.');
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
+    }
+  };
+
+  const handleSelectCount = (count: number) => {
+    if (savingRef.current) return;
+    if (!canAdjustDifficulty || selectedDifficulty === fixedDifficulty) {
+      onSelectCount(count, {
+        learnerLevel: difficultyToLegacyLevel(selectedDifficulty),
+        difficultyLevel: selectedDifficulty,
+        shouldReplaceExisting: false,
+      });
+      return;
+    }
+
+    showAlert(
+      '레벨 변경',
+      `레벨 ${fixedDifficulty}에서 레벨 ${selectedDifficulty}(으)로 변경합니다.\n\n기존문제삭제는 새 문제 생성이 성공한 뒤 이 단원의 기존 ${existingCount}문제에만 적용됩니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '기존문제유지 + 레벨변경',
+          onPress: () => { void applyLevelChange(count, false); },
+        },
+        {
+          text: '기존문제삭제 + 레벨변경',
+          style: 'destructive',
+          onPress: () => { void applyLevelChange(count, true); },
+        },
+      ]
+    );
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={closeModal}>
+      <Pressable style={styles.overlay} onPress={closeModal}>
         <Pressable style={styles.card} onPress={(event) => event.stopPropagation?.()}>
           <View style={styles.header}>
             <View style={styles.headerCopy}>
@@ -84,7 +136,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
               accessibilityRole="button"
               accessibilityLabel="출제 설정 닫기"
               style={styles.closeButton}
-              onPress={onClose}
+              onPress={closeModal}
             >
               <Text style={styles.closeButtonText}>×</Text>
             </TouchableOpacity>
@@ -114,10 +166,10 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                   <Text style={styles.sectionTitle}>추가 문제 난이도</Text>
                   {isModifiedFromDefault ? (
                     <TouchableOpacity onPress={() => setSelectedDifficulty(fixedDifficulty)}>
-                      <Text style={styles.resetText}>과목 기본값으로</Text>
+                      <Text style={styles.resetText}>저장 레벨로 되돌리기</Text>
                     </TouchableOpacity>
                   ) : (
-                    <Text style={styles.sectionHint}>이번 출제에만 적용</Text>
+                    <Text style={styles.sectionHint}>이 단원에만 저장</Text>
                   )}
                 </View>
                 <DifficultyLevelControl
@@ -126,7 +178,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                   compact
                 />
                 <Text style={styles.adjustableLevelNote}>
-                  추가 출제 난이도만 바뀌며 과목의 시작 난이도는 유지됩니다.
+                  원하는 레벨을 고른 뒤 3문제 또는 5문제를 누르면 기존 문제 처리 방식을 확인합니다.
                 </Text>
               </>
             ) : (
@@ -134,38 +186,6 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                 새 과목을 만들 때 선택한 난이도로 첫 문제가 출제됩니다.
               </Text>
             )}
-
-            {existingCount > 0 ? (
-              <View style={styles.existingSection}>
-                <View style={styles.sectionHeadingRow}>
-                  <Text style={styles.sectionTitle}>기존 {existingCount}문제</Text>
-                  <Text style={styles.sectionHint}>처리 방식</Text>
-                </View>
-                <View style={styles.replaceRow}>
-                  <TouchableOpacity
-                    style={[styles.replaceButton, !shouldReplace && styles.replaceButtonActive]}
-                    onPress={() => setShouldReplace(false)}
-                  >
-                    <Text style={[styles.replaceText, !shouldReplace && styles.replaceTextActive]}>
-                      유지하고 추가
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.replaceButton, shouldReplace && styles.replaceButtonDanger]}
-                    onPress={() => setShouldReplace(true)}
-                  >
-                    <Text style={[styles.replaceText, shouldReplace && styles.replaceTextDanger]}>
-                      지우고 교체
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                {shouldReplace ? (
-                  <Text style={styles.replaceWarning}>
-                    기존 문제를 비운 뒤 선택한 난이도로 새로 만듭니다.
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
 
             <Text style={[styles.sectionTitle, styles.countSectionTitle]}>문항 수</Text>
             <Text style={styles.privacyNote}>
@@ -175,14 +195,9 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
               {COUNT_OPTIONS.map((item) => (
                 <TouchableOpacity
                   key={item.count}
+                  disabled={isSaving}
                   style={[styles.countCard, item.recommended && styles.countCardRecommended]}
-                  onPress={() =>
-                    onSelectCount(item.count, {
-                      learnerLevel: difficultyToLegacyLevel(selectedDifficulty),
-                      difficultyLevel: selectedDifficulty,
-                      shouldReplaceExisting: shouldReplace,
-                    })
-                  }
+                  onPress={() => handleSelectCount(item.count)}
                   activeOpacity={0.82}
                 >
                   <View style={styles.countNumberBox}>
