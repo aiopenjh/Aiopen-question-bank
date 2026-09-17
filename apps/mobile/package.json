@@ -13,6 +13,7 @@
     "expo-sharing": "~57.0.19",
     "expo-status-bar": "~57.0.1",
     "fflate": "^0.8.3",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",

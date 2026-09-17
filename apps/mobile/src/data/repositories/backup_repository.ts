@@ -11,6 +11,7 @@ import {
   Source,
   SourceRevision,
   SourceChunk,
+  TopicSourceLink,
   Unit,
   LearningSpec,
   QuestionRevision,
@@ -33,6 +34,7 @@ export interface AppBackupPayload {
   sources: Source[];
   sourceRevisions: SourceRevision[];
   sourceChunks: SourceChunk[];
+  topicSourceLinks: TopicSourceLink[];
   units: Unit[];
   learningSpecs: LearningSpec[];
   questions: QuestionRevision[];
@@ -66,6 +68,7 @@ const BACKUP_STORAGE_KEYS = [
   STORAGE_KEYS.SOURCES,
   STORAGE_KEYS.SOURCE_REVISIONS,
   STORAGE_KEYS.SOURCE_CHUNKS,
+  STORAGE_KEYS.TOPIC_SOURCE_LINKS,
   STORAGE_KEYS.UNITS,
   STORAGE_KEYS.LEARNING_SPECS,
   STORAGE_KEYS.QUESTIONS,
@@ -206,6 +209,7 @@ function normalizeBackupPayload(value: unknown): AppBackupPayload {
     sources: readArray<Source>(value, 'sources'),
     sourceRevisions: readArray<SourceRevision>(value, 'sourceRevisions'),
     sourceChunks: readArray<SourceChunk>(value, 'sourceChunks'),
+    topicSourceLinks: readArray<TopicSourceLink>(value, 'topicSourceLinks'),
     units: readArray<Unit>(value, 'units'),
     learningSpecs: readArray<LearningSpec>(value, 'learningSpecs'),
     questions: readArray<QuestionRevision>(value, 'questions', true),
@@ -254,6 +258,10 @@ export async function exportBackupJSON(): Promise<string> {
     sourceChunks: parseStoredArray<SourceChunk>(
       stored.get(STORAGE_KEYS.SOURCE_CHUNKS) ?? null,
       '학습 자료 본문'
+    ),
+    topicSourceLinks: parseStoredArray<TopicSourceLink>(
+      stored.get(STORAGE_KEYS.TOPIC_SOURCE_LINKS) ?? null,
+      '과목 자료 연결'
     ),
     units: parseStoredArray<Unit>(stored.get(STORAGE_KEYS.UNITS) ?? null, '단원'),
     learningSpecs: parseStoredArray<LearningSpec>(
@@ -348,6 +356,7 @@ export async function restoreBackupJSON(
     [STORAGE_KEYS.SOURCES, JSON.stringify(payload.sources)],
     [STORAGE_KEYS.SOURCE_REVISIONS, JSON.stringify(payload.sourceRevisions)],
     [STORAGE_KEYS.SOURCE_CHUNKS, JSON.stringify(payload.sourceChunks)],
+    [STORAGE_KEYS.TOPIC_SOURCE_LINKS, JSON.stringify(payload.topicSourceLinks)],
     [STORAGE_KEYS.UNITS, JSON.stringify(payload.units)],
     [STORAGE_KEYS.LEARNING_SPECS, JSON.stringify(payload.learningSpecs)],
     [STORAGE_KEYS.QUESTIONS, JSON.stringify(payload.questions)],

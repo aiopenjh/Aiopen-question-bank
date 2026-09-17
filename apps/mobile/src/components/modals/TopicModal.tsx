@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { LearnerKnowledgeLevel } from '../../contracts/types';
+import { LearnerKnowledgeLevel, Source } from '../../contracts/types';
 import { difficultyToLegacyLevel } from '../../domain/difficulty';
 import { colors } from '../../styles/designTokens';
 import { showAlert } from '../../utils/alert';
@@ -21,6 +21,8 @@ export interface TopicModalProps {
   visible: boolean;
   onClose: () => void;
   initialTopicName?: string;
+  sources?: Source[];
+  isPdfReady?: (sourceId: string) => boolean;
   onCreateTopic: (
     name: string,
     description: string,
@@ -30,6 +32,7 @@ export interface TopicModalProps {
       difficultyLevel?: number;
       category?: string;
       customUnits?: string[];
+      sourceId?: string;
     }
   ) => Promise<void>;
 }
@@ -49,6 +52,8 @@ export const TopicModal: React.FC<TopicModalProps> = ({
   visible,
   onClose,
   initialTopicName = '',
+  sources = [],
+  isPdfReady,
   onCreateTopic,
 }) => {
   const { width } = useWindowDimensions();
@@ -56,6 +61,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({
   const [topicName, setTopicName] = useState(initialTopicName);
   const [category, setCategory] = useState('');
   const [difficultyLevel, setDifficultyLevel] = useState(10);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   React.useEffect(() => {
@@ -63,6 +69,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({
       setTopicName(initialTopicName || '');
       setCategory('');
       setDifficultyLevel(10);
+      setSelectedSourceId(undefined);
     }
   }, [visible, initialTopicName]);
 
@@ -80,6 +87,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({
         learnerLevel: difficultyToLegacyLevel(difficultyLevel),
         difficultyLevel,
         category: category.trim() || '일반',
+        sourceId: selectedSourceId,
       });
       setTopicName('');
       setCategory('');
@@ -148,6 +156,47 @@ export const TopicModal: React.FC<TopicModalProps> = ({
               editable={!isSubmitting}
               returnKeyType="next"
             />
+
+            <View style={styles.fieldHeadingRow}>
+              <Text style={styles.fieldLabel}>내 파일 불러오기</Text>
+              <Text style={styles.optionalText}>선택 사항</Text>
+            </View>
+            {sources.length === 0 ? (
+              <View style={styles.sourceEmptyCard}>
+                <Text style={styles.sourceEmptyText}>
+                  상단의 + 자료에서 PDF나 텍스트 자료를 먼저 등록할 수 있습니다.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.sourceList}>
+                {sources.map((source) => {
+                  const selected = selectedSourceId === source.id;
+                  const needsOriginal = source.kind === 'pdf' && !isPdfReady?.(source.id);
+                  return (
+                    <TouchableOpacity
+                      key={source.id}
+                      style={[styles.sourceCard, selected && styles.sourceCardSelected]}
+                      onPress={() => setSelectedSourceId(selected ? undefined : source.id)}
+                      disabled={isSubmitting}
+                    >
+                      <View style={styles.sourceCardCopy}>
+                        <Text style={[styles.sourceCardTitle, selected && styles.sourceCardTitleSelected]} numberOfLines={1}>
+                          {source.kind === 'pdf' ? '📄' : '📝'} {source.title}
+                        </Text>
+                        <Text style={styles.sourceCardMeta} numberOfLines={1}>
+                          {source.kind === 'pdf'
+                            ? `${source.selectedPageStart || 1}~${source.selectedPageEnd || source.pageCount || '?'}쪽${needsOriginal ? ' · 원본 재선택 필요' : ' · 원본 연결됨'}`
+                            : '저장된 텍스트 자료'}
+                        </Text>
+                      </View>
+                      <View style={[styles.sourceCheck, selected && styles.sourceCheckSelected]}>
+                        <Text style={styles.sourceCheckText}>{selected ? '✓' : ''}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
 
             <View style={styles.fieldHeadingRow}>
               <Text style={styles.fieldLabel}>과목 분류</Text>

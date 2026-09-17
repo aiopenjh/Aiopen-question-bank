@@ -52,7 +52,7 @@ export interface LibraryScreenProps {
   onChangeSourceTitle: (text: string) => void;
   sourceText: string;
   onChangeSourceText: (text: string) => void;
-  onSaveSource: () => Promise<void>;
+  onSaveSource: () => Promise<boolean>;
   onPickSourceFile?: () => Promise<void>;
   selectedSourceTopicId?: string | null;
   onSelectSourceTopicId?: (topicId: string | null) => void;

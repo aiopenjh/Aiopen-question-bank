@@ -8,8 +8,9 @@ export function buildQuestionGenerationPrompt(params: {
   category?: string;
   unitTitle?: string;
   customContext?: string;
+  currentInformationInstruction?: string;
 }): string {
-  const { intent, resolvedDomain, category, unitTitle, customContext } = params;
+  const { intent, resolvedDomain, category, unitTitle, customContext, currentInformationInstruction } = params;
 
   return `당신은 사용자가 선택한 어떤 학습 주제에도 대응하는 문제 출제 전문가입니다.
 아래 주제의 의미를 먼저 판정한 뒤, 지정된 JSON 중 하나만 출력하세요.
@@ -23,6 +24,7 @@ ${intent.knownScope ? `- 학습자가 밝힌 현재 도달점: ${intent.knownSco
 - 출제 기준: ${intent.levelBriefing || '학습자 수준에 맞는 난이도'}
 - 사용자의 세부 요청: ${intent.focusConcepts.join(', ')}
 ${customContext ? `- 사용자 자료 및 추가 조건:\n${customContext}` : ''}
+${currentInformationInstruction ? `\n${currentInformationInstruction}` : ''}
 
 [주제 판정]
 1. READY: 주제가 낯설거나 희귀해도 학습 의도가 일관되고 문제를 만들 수 있으면 선택합니다.
@@ -55,7 +57,14 @@ READY:
         { "text": "4번 보기", "distractorRationale": "오답인 경우 그 이유" }
       ],
       "correctOptionNumber": 3,
-      "explanation": "정답과 판단 근거를 설명하는 해설"
+      "explanation": "정답과 판단 근거를 설명하는 해설",
+      "currentReference": {
+        "referenceDate": "최신 정보 검증 주제일 때만 YYYY-MM-DD",
+        "effectiveStatus": "currently_effective",
+        "sourceAgency": "공식 기관명",
+        "sourceTitle": "공식 문서 또는 법령명",
+        "sourceUrl": "공식 원문 URL"
+      }
     }
   ]
 }

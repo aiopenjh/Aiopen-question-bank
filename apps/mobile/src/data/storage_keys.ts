@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   SOURCES: '@cogniquest:sources',
   SOURCE_REVISIONS: '@cogniquest:source_revisions',
   SOURCE_CHUNKS: '@cogniquest:source_chunks',
+  TOPIC_SOURCE_LINKS: '@cogniquest:topic_source_links',
   UNITS: '@cogniquest:units',
   LEARNING_SPECS: '@cogniquest:learning_specs',
   QUESTIONS: '@cogniquest:questions',
@@ -30,7 +31,7 @@ export const STORAGE_KEYS = {
   RANKING_SYNC_QUEUE: '@celueste:ranking_sync_queue',
 };
 
-export const CURRENT_DB_VERSION = 3;
+export const CURRENT_DB_VERSION = 4;
 
 export function generateUUID(): UUID {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {

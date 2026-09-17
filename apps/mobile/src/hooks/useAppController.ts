@@ -10,6 +10,7 @@ import {
   getIncorrectQuestions,
   getAttempts,
   getReviewStates,
+  getSourceTextForSource,
 } from '../data/db';
 import { getLocalDateString } from '../domain/routine';
 import { filterDueReviewQuestions } from '../domain/spaced_repetition';
@@ -131,10 +132,42 @@ export function useAppController() {
     setSourceText,
     sourceTopicId,
     setSourceTopicId,
+    sourceFileName,
+    sourcePageCount,
+    sourcePageStart,
+    setSourcePageStart,
+    sourcePageEnd,
+    setSourcePageEnd,
     handlePickSourceFile,
     handleSaveSource,
+    handleReconnectSource,
+    hasPdfInMemory,
+    getDocumentInputForSource,
+    getDocumentInputForTopic,
     handleDeleteSource,
   } = useSourceManager({ topics, setSources });
+
+  const handleCreateTopicWithSource: typeof handleCreateTopic = async (name, description, options) => {
+    const selectedSource = options?.sourceId
+      ? sources.find((source) => source.id === options.sourceId)
+      : undefined;
+    const sourceDocument = selectedSource?.kind === 'pdf'
+      ? await getDocumentInputForSource(selectedSource.id)
+      : undefined;
+    const selectedSourceText = selectedSource?.kind !== 'pdf'
+      ? await getSourceTextForSource(selectedSource?.id || '')
+      : undefined;
+    if (selectedSource?.kind === 'pdf' && !sourceDocument) {
+      throw new Error(
+        `“${selectedSource.fileName || selectedSource.title}” 원본을 저장하지 않았습니다. + 자료에서 원본 선택을 누른 뒤 다시 시도해 주세요.`
+      );
+    }
+    await handleCreateTopic(name, description, {
+      ...options,
+      sourceDocument: sourceDocument || undefined,
+      sourceText: selectedSourceText || undefined,
+    });
+  };
 
   // 5. Modular Exam Session Hook
   const {
@@ -199,6 +232,8 @@ export function useAppController() {
     onOpenTopicModal: () => setTopicModalVisible(true),
     setQuestions,
     setUnits,
+    getDocumentInputForTopic,
+    onOpenSourceManager: () => setIsSourceUploadModalOpen(true),
   });
 
   // 6-1. Modular Curriculum Manager Hook (5개 단원 단위 목차 설계 및 30단원 이후 확장)
@@ -214,6 +249,8 @@ export function useAppController() {
     setUnits,
     startExam,
     setGeneratingWaitStatus,
+    getDocumentInputForTopic,
+    onOpenSourceManager: () => setIsSourceUploadModalOpen(true),
   });
 
   const handleCancelGeneration = useCallback(() => {
@@ -360,12 +397,14 @@ export function useAppController() {
     lastStudiedTopicId, questions, units, completions, setUnitModalVisible, handleDeleteTopic,
     handleToggleUnitCompletion, handleDeleteUnit, handleGenerateCurriculumForTopic,
     handlePromptQuizCount, handleDeduplicateUnits, startExam, handleDeleteQuestion, sources,
-    sourceTitle, setSourceTitle, sourceText, setSourceText, handleSaveSource, handlePickSourceFile,
+    sourceTitle, setSourceTitle, sourceText, setSourceText, sourceFileName, sourcePageCount,
+    sourcePageStart, setSourcePageStart, sourcePageEnd, setSourcePageEnd,
+    handleSaveSource, handlePickSourceFile, handleReconnectSource, hasPdfInMemory,
     sourceTopicId, setSourceTopicId, handleDeleteSource, incorrectQuestions, reviewStates,
     openCustomNotebookRequest, handleSaveApiKey, handleDeleteApiKey, alarmConfig,
     handleChangeAlarmConfig, handleChangeTargetQuestionCount, backupText, setBackupText,
     setBackupModalVisible, handleExportBackup, handleResetAllData, setIsUserManualOpen,
-    topicModalVisible, initialTopicName, setTopicModalVisible, handleCreateTopic, unitModalVisible,
+    topicModalVisible, initialTopicName, setTopicModalVisible, handleCreateTopic: handleCreateTopicWithSource, unitModalVisible,
     handleCreateUnit, backupModalVisible, handleRestoreBackup, handleRestoreFromFile,
     quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount,
     isTopicSelectModalVisible, setIsTopicSelectModalVisible, executeStartExamForTopic,

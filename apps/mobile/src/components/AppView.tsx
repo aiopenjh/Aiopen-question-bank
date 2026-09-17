@@ -27,7 +27,9 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     lastStudiedTopicId, questions, units, completions, setUnitModalVisible, handleDeleteTopic,
     handleToggleUnitCompletion, handleDeleteUnit, handleGenerateCurriculumForTopic,
     handlePromptQuizCount, handleDeduplicateUnits, startExam, handleDeleteQuestion, sources,
-    sourceTitle, setSourceTitle, sourceText, setSourceText, handleSaveSource, handlePickSourceFile,
+    sourceTitle, setSourceTitle, sourceText, setSourceText, sourceFileName, sourcePageCount,
+    sourcePageStart, setSourcePageStart, sourcePageEnd, setSourcePageEnd,
+    handleSaveSource, handlePickSourceFile, handleReconnectSource, hasPdfInMemory,
     sourceTopicId, setSourceTopicId, handleDeleteSource, incorrectQuestions, reviewStates,
     openCustomNotebookRequest, handleSaveApiKey, handleDeleteApiKey, alarmConfig,
     handleChangeAlarmConfig, handleChangeTargetQuestionCount, backupText, setBackupText,
@@ -277,6 +279,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
         <AppModalsContainer
           topicModalVisible={topicModalVisible}
           initialTopicName={initialTopicName}
+          isPdfReady={hasPdfInMemory}
           onCloseTopicModal={() => setTopicModalVisible(false)}
           onCreateTopic={handleCreateTopic}
           unitModalVisible={unitModalVisible}
@@ -323,15 +326,19 @@ export function AppView({ controller }: { controller: AppController }) {  const 
           sources={sources}
           sourceTitle={sourceTitle}
           sourceText={sourceText}
+          sourceFileName={sourceFileName}
+          sourcePageCount={sourcePageCount}
+          sourcePageStart={sourcePageStart}
+          sourcePageEnd={sourcePageEnd}
+          onChangeSourcePageStart={setSourcePageStart}
+          onChangeSourcePageEnd={setSourcePageEnd}
           selectedSourceTopicId={sourceTopicId}
           onSelectSourceTopicId={setSourceTopicId}
           onChangeSourceTitle={setSourceTitle}
           onPickSourceFile={handlePickSourceFile}
-          onSaveSource={async () => {
-            await handleSaveSource();
-            setIsSourceUploadModalOpen(false);
-          }}
+          onSaveSource={handleSaveSource}
           onDeleteSource={handleDeleteSource}
+          onReconnectSource={handleReconnectSource}
           onCloseSourceUploadModal={() => setIsSourceUploadModalOpen(false)}
           onOpenUserManual={() => setIsUserManualOpen(true)}
           isUserManualOpen={isUserManualOpen}

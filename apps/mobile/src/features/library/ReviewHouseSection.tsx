@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { QuestionRevision, Topic, Unit } from '../../contracts/types';
 import { getCustomNoteQuestionIds, toggleCustomNoteQuestion } from '../../data/db';
 import { StateIllustration } from '../../components/common/StateIllustration';
+import { CurrentReferenceNotice } from '../../components/common/CurrentReferenceNotice';
 import { styles } from './libraryStyles';
 
 const ALL_TOPICS_ID = '__all_topics__';
@@ -262,6 +263,7 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
                             <Text style={styles.explText}>
                               {q.explanation || '해설 정보가 등록되어 있지 않습니다.'}
                             </Text>
+                            <CurrentReferenceNotice reference={q.currentReference} />
                             {q.deepReasoningHint ? (
                               <View style={styles.misconceptionBox}>
                                 <Text style={styles.misconceptionTitle}>빈출 오답 및 함정 분석</Text>

@@ -17,12 +17,20 @@ interface SourceUploadModalProps {
   sources: Source[];
   sourceTitle: string;
   sourceText?: string;
+  sourceFileName?: string | null;
+  sourcePageCount?: number | null;
+  sourcePageStart: number;
+  sourcePageEnd: number;
+  onChangeSourcePageStart: (page: number) => void;
+  onChangeSourcePageEnd: (page: number) => void;
   selectedSourceTopicId: string | null;
   onSelectSourceTopicId: (topicId: string | null) => void;
   onChangeSourceTitle: (title: string) => void;
   onPickSourceFile: () => Promise<void>;
-  onSaveSource: () => Promise<void>;
+  onSaveSource: () => Promise<boolean>;
   onDeleteSource?: (sourceId: string) => Promise<void>;
+  onReconnectSource?: (sourceId: string) => Promise<void>;
+  hasPdfInMemory?: (sourceId: string) => boolean;
   onClose: () => void;
 }
 
@@ -32,12 +40,20 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
   sources,
   sourceTitle,
   sourceText,
+  sourceFileName,
+  sourcePageCount,
+  sourcePageStart,
+  sourcePageEnd,
+  onChangeSourcePageStart,
+  onChangeSourcePageEnd,
   selectedSourceTopicId,
   onSelectSourceTopicId,
   onChangeSourceTitle,
   onPickSourceFile,
   onSaveSource,
   onDeleteSource,
+  onReconnectSource,
+  hasPdfInMemory,
   onClose,
 }) => {
   return (
@@ -91,15 +107,44 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
               <View style={{ flex: 1 }}>
                 <Text style={styles.uploadBtnTitle}>교재 / 문제집 파일 선택하기</Text>
                 <Text style={styles.uploadBtnSub}>
-                  {sourceText
-                    ? '✅ 파일 내용 준비 완료 (터치하여 변경)'
+                  {sourcePageCount
+                    ? `✅ ${sourceFileName || 'PDF'} · 총 ${sourcePageCount}페이지`
+                    : sourceText
+                    ? `✅ ${sourceFileName || '파일'} 내용 준비 완료`
                     : 'PDF, TXT, ZIP 파일 지원 (한글 문서는 변환 후 첨부)'}
                 </Text>
               </View>
               <View style={styles.uploadTag}>
-                <Text style={styles.uploadTagText}>{sourceText ? '변경' : '파일 탐색'}</Text>
+                <Text style={styles.uploadTagText}>{sourceText || sourcePageCount ? '변경' : '파일 탐색'}</Text>
               </View>
             </TouchableOpacity>
+
+            {sourcePageCount ? (
+              <View style={styles.pageRangeCard}>
+                <Text style={styles.pageRangeTitle}>문제 출제에 사용할 페이지</Text>
+                <Text style={styles.pageRangeGuide}>
+                  PDF 원본은 저장하지 않습니다. 30페이지가 넘으면 10~20페이지씩 나누어 출제하는 것을 권장합니다.
+                </Text>
+                <View style={styles.pageRangeRow}>
+                  <TextInput
+                    style={styles.pageInput}
+                    value={String(sourcePageStart)}
+                    onChangeText={(value) => onChangeSourcePageStart(Number(value.replace(/\D/g, '')) || 1)}
+                    keyboardType="number-pad"
+                    accessibilityLabel="시작 페이지"
+                  />
+                  <Text style={styles.pageRangeSeparator}>~</Text>
+                  <TextInput
+                    style={styles.pageInput}
+                    value={String(sourcePageEnd)}
+                    onChangeText={(value) => onChangeSourcePageEnd(Number(value.replace(/\D/g, '')) || 1)}
+                    keyboardType="number-pad"
+                    accessibilityLabel="끝 페이지"
+                  />
+                  <Text style={styles.pageRangeTotal}>/ {sourcePageCount}쪽</Text>
+                </View>
+              </View>
+            ) : null}
 
             {/* 등록 버튼 */}
             <TouchableOpacity
@@ -108,8 +153,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                 !sourceTitle.trim() && styles.saveBtnDisabled,
               ]}
               onPress={async () => {
-                await onSaveSource();
-                onClose();
+                if (await onSaveSource()) onClose();
               }}
               disabled={!sourceTitle.trim()}
               activeOpacity={0.8}
@@ -125,8 +169,22 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                   <View key={s.id} style={styles.sourceRow}>
                     <View style={{ flex: 1, paddingRight: 8 }}>
                       <Text style={styles.sourceRowTitle} numberOfLines={1}>📄 {s.title}</Text>
-                      <Text style={styles.sourceRowDate}>{s.createdAt.slice(0, 10)} 등록</Text>
+                      <Text style={styles.sourceRowDate}>
+                        {s.kind === 'pdf'
+                          ? `${s.pageCount || '?'}쪽 · ${s.selectedPageStart || 1}~${s.selectedPageEnd || s.pageCount || '?'}쪽`
+                          : `${s.createdAt.slice(0, 10)} 등록`}
+                      </Text>
                     </View>
+                    {s.kind === 'pdf' && onReconnectSource ? (
+                      <TouchableOpacity
+                        style={styles.reconnectSourceBtn}
+                        onPress={() => onReconnectSource(s.id)}
+                      >
+                        <Text style={styles.reconnectSourceBtnText}>
+                          {hasPdfInMemory?.(s.id) ? '연결됨' : '원본 선택'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
                     {onDeleteSource && (
                       <TouchableOpacity
                         style={styles.deleteSourceBtn}
@@ -232,6 +290,51 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#e11d48',
   },
+  pageRangeCard: {
+    marginTop: 8,
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#fff7fa',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pageRangeTitle: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  pageRangeGuide: {
+    marginTop: 4,
+    color: colors.inkMuted,
+    fontSize: 10.5,
+    lineHeight: 16,
+  },
+  pageRangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 7,
+  },
+  pageInput: {
+    width: 64,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    color: colors.ink,
+    textAlign: 'center',
+    paddingVertical: 8,
+    fontWeight: '700',
+  },
+  pageRangeSeparator: {
+    color: colors.inkMuted,
+    fontWeight: '700',
+  },
+  pageRangeTotal: {
+    color: colors.inkMuted,
+    fontSize: 11,
+  },
   inputField: {
     backgroundColor: '#f8fafc',
     borderRadius: 10,
@@ -292,6 +395,18 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 4,
     backgroundColor: '#fee2e2',
+  },
+  reconnectSourceBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginRight: 6,
+    borderRadius: 6,
+    backgroundColor: colors.primarySoft,
+  },
+  reconnectSourceBtnText: {
+    fontSize: 10.5,
+    color: colors.primaryPressed,
+    fontWeight: '700',
   },
   deleteSourceBtnText: {
     fontSize: 10.5,

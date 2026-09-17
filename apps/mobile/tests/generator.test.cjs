@@ -136,6 +136,32 @@ test('valid generation preserves all four options, the correct answer, and struc
   assert.equal(result.validations[0].reviewerKind, 'rule_engine');
 });
 
+test('PDF pages are attached only to the Gemini generation request', async () => {
+  let requestBody;
+  const generator = harness(async (_url, request) => {
+    requestBody = JSON.parse(request.body);
+    return response(providerPayload());
+  });
+  const result = await generator.generateFactBasedQuestions({
+    ...args(generator),
+    documentInput: {
+      mimeType: 'application/pdf',
+      base64Data: 'JVBERi0xLjQK',
+      fileName: 'study.pdf',
+      pageStart: 1,
+      pageEnd: 5,
+      sourceId: 'pdf-source',
+      sourceRevisionId: 'pdf-revision',
+    },
+  });
+
+  assert.equal(result.status, 'READY');
+  assert.deepEqual(Array.from(result.spec.sourceRevisionIds), ['pdf-revision']);
+  assert.equal(requestBody.contents[0].parts[1].inlineData.mimeType, 'application/pdf');
+  assert.equal(requestBody.contents[0].parts[1].inlineData.data, 'JVBERi0xLjQK');
+  assert.match(requestBody.contents[0].parts[0].text, /1~5페이지/);
+});
+
 test('provider HTTP failures expose neither the API key nor the provider response body', async () => {
   const providerSecret = 'secret-provider-body';
   const apiKey = 'AIza-secret-synthetic-key';
