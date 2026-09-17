@@ -51,14 +51,20 @@ function feedback(fetchImpl) {
   });
   const flatten = node => !node || typeof node !== 'object' ? [] :
     [node, ...(node.children || []).flat(Infinity).flatMap(flatten)];
-  const render = () => { cursor = 0; return flatten(exports.FeedbackCard({ compact: true })); };
+  const render = () => { cursor = 0; return flatten(exports.FeedbackModal({ visible: true, onClose() {} })); };
   const button = text => render().find(n => n.type === 'TouchableOpacity' &&
     n.children.some(child => child?.type === 'Text' && child.children.includes(text)));
   const input = () => render().find(n => n.type === 'TextInput');
-  const open = () => render().find(n => n.props.accessibilityLabel === '의견 보내기').props.onPress();
-  open();
-  return { render, button, input, open, timers, state };
+  return { render, button, input, timers, state, exports };
 }
+
+test('feedback trigger delegates opening to the screen-level modal host', () => {
+  const f = feedback(async () => ({ ok: true }));
+  let opened = false;
+  const trigger = f.exports.FeedbackCard({ compact: true, onOpen: () => { opened = true; } });
+  trigger.props.onPress();
+  assert.equal(opened, true);
+});
 
 test('feedback blocks empty input and duplicate sends before render and after success', async () => {
   const calls = []; let resolve;

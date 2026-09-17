@@ -18,10 +18,41 @@ const FEEDBACK_ENDPOINT = 'https://formspree.io/f/xgavekne';
 
 export interface FeedbackCardProps {
   compact?: boolean;
+  onOpen?: () => void;
 }
 
-export const FeedbackCard: React.FC<FeedbackCardProps> = ({ compact = false }) => {
-  const [visible, setVisible] = useState(false);
+export const FeedbackCard: React.FC<FeedbackCardProps> = ({ compact = false, onOpen }) => (
+  <TouchableOpacity
+    style={compact ? styles.compactContainer : styles.cardContainer}
+    onPress={onOpen}
+    activeOpacity={0.8}
+    accessibilityRole="button"
+    accessibilityLabel="의견 보내기"
+  >
+    {compact ? (
+      <>
+        <Text style={styles.compactIcon}>✉️</Text>
+        <Text style={styles.compactText}>의견 보내기</Text>
+        <Text style={styles.compactArrow}>›</Text>
+      </>
+    ) : (
+      <>
+        <View style={styles.copyArea}>
+          <Text style={styles.headerTitle}>의견 보내기</Text>
+          <Text style={styles.description}>불편한 점이나 필요한 기능을 알려주세요.</Text>
+        </View>
+        <Text style={styles.sendLinkText}>작성 ›</Text>
+      </>
+    )}
+  </TouchableOpacity>
+);
+
+interface FeedbackModalProps {
+  visible: boolean;
+  onClose: () => void;
+}
+
+export const FeedbackModal: React.FC<FeedbackModalProps> = ({ visible, onClose }) => {
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSent, setIsSent] = useState(false);
@@ -29,6 +60,13 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({ compact = false }) =
   const [webModalMaxHeight, setWebModalMaxHeight] = useState<number | undefined>();
   const submittingRef = useRef(false);
   const modalTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!visible || isSubmitting) return;
+    submittingRef.current = false;
+    setIsSent(false);
+    setErrorMessage('');
+  }, [visible]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined' || !visible) {
@@ -60,16 +98,8 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({ compact = false }) =
     };
   }, [modalTranslateY, visible]);
 
-  const openModal = () => {
-    if (isSubmitting) return;
-    submittingRef.current = false;
-    setIsSent(false);
-    setErrorMessage('');
-    setVisible(true);
-  };
-
   const closeModal = () => {
-    if (!isSubmitting) setVisible(false);
+    if (!isSubmitting) onClose();
   };
 
   const handleSubmit = async () => {
@@ -123,31 +153,6 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({ compact = false }) =
   };
 
   return (
-    <>
-      <TouchableOpacity
-        style={compact ? styles.compactContainer : styles.cardContainer}
-        onPress={openModal}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel="의견 보내기"
-      >
-        {compact ? (
-          <>
-            <Text style={styles.compactIcon}>✉️</Text>
-            <Text style={styles.compactText}>의견 보내기</Text>
-            <Text style={styles.compactArrow}>›</Text>
-          </>
-        ) : (
-          <>
-            <View style={styles.copyArea}>
-              <Text style={styles.headerTitle}>의견 보내기</Text>
-              <Text style={styles.description}>불편한 점이나 필요한 기능을 알려주세요.</Text>
-            </View>
-            <Text style={styles.sendLinkText}>작성 ›</Text>
-          </>
-        )}
-      </TouchableOpacity>
-
       <Modal visible={visible} transparent animationType="fade" onRequestClose={closeModal}>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
@@ -249,7 +254,6 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({ compact = false }) =
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
-    </>
   );
 };
 

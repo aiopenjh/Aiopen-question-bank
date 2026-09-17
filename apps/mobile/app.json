@@ -2,7 +2,7 @@
   "expo": {
     "name": "Celueste",
     "slug": "celueste",
-    "version": "2.3.3",
+    "version": "2.3.4",
     "orientation": "portrait",
     "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "light",

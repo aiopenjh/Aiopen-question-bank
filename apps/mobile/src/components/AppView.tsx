@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StatusBar, ActivityIndicator, Animated, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { generateUUID } from '../data/db';
@@ -10,6 +10,7 @@ import { AppAlertModal } from '../components/modals/AppAlertModal';
 import { StudyMapScreen } from '../features/study/StudyMapScreen';
 import { LibraryScreen } from '../features/library/LibraryScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
+import { FeedbackModal } from '../features/study/FeedbackCard';
 import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
 import { AppController } from '../hooks/useAppController';
 
@@ -39,6 +40,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
     appAlert, setAppAlert,
   } = controller;
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
   if (loading) {
     return (
       <SafeAreaProvider>
@@ -242,12 +244,15 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 latestVersion={appUpdate.latestVersion}
                 onCheckForUpdate={() => appUpdate.checkForUpdate(true)}
                 onApplyUpdate={appUpdate.applyUpdate}
+                onOpenFeedback={() => setFeedbackVisible(true)}
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
               />
             </View>
           </Animated.View>
         </View>
+
+        <FeedbackModal visible={feedbackVisible} onClose={() => setFeedbackVisible(false)} />
 
         {/* 공통 모달 컨테이너 (8종 모달 일원화) */}
         <AppModalsContainer
