@@ -148,23 +148,26 @@ qualifiedConsistency = newSolvedCount >= 3
 
 ### 4.4 랭킹 조회
 
-`GET /leaderboard`
+`GET /leaderboard?limit=N`
+
+`limit`은 각 항목에서 반환할 상위 인원 수다. 생략하면 `1`이며 최대값은 `50`이다. 메인 화면 카드는 기본값으로 1위만 받고, 랭킹 창(계획서 §3.3)은 `limit`을 키워 전체 목록을 받는다.
 
 공개 응답:
 
 ```json
 {
-  "mostSolved": {
-    "nickname": "공부별",
-    "totalSolved": 1240
-  },
-  "mostConsistent": {
-    "nickname": "매일세문제",
-    "currentStreak": 42
-  },
+  "mostSolved": [
+    { "rank": 1, "nickname": "공부별", "value": 1240 },
+    { "rank": 2, "nickname": "꾸준이", "value": 980 }
+  ],
+  "mostConsistent": [
+    { "rank": 1, "nickname": "매일세문제", "value": 42 }
+  ],
   "updatedAt": "2026-09-16T10:05:00Z"
 }
 ```
+
+`value`는 `mostSolved`에서 누적 완료 문제 수, `mostConsistent`에서 연속 학습일을 뜻한다. 두 목록은 서로 독립적으로 정렬하므로 같은 참여자가 양쪽에 동시에 나타날 수 있다(계획서 §10-2). 참여자가 없으면 빈 배열을 반환한다. 동점자에게 같은 순위를 부여하는 처리는 초기 범위 밖이다.
 
 초기 버전의 공개 응답에는 참여자 ID, 일별 기록과 복구 정보를 포함하지 않는다. 인증된 참여자가 자신의 순위를 조회하는 응답은 별도 `me` 항목으로 분리할 수 있다.
 

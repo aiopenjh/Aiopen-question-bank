@@ -148,16 +148,15 @@ function execute(sql, params, stores) {
 
   if (sql.includes('FROM participant_stats s') && sql.includes('JOIN participants p')) {
     const column = sql.includes('total_solved') ? 'total_solved' : 'current_streak';
-    let best = null;
+    const [limit] = params;
+    const rows = [];
     for (const stats of participantStats.values()) {
       const participant = participants.get(stats.participant_id);
       if (!participant || participant.deleted_at) continue;
-      if (!best || stats[column] > best.stats[column]) best = { stats, participant };
+      rows.push({ nickname: participant.nickname, value: stats[column] });
     }
-    return {
-      first: async () =>
-        best ? { nickname: best.participant.nickname, [column]: best.stats[column] } : null,
-    };
+    rows.sort((a, b) => b.value - a.value);
+    return { all: async () => ({ results: rows.slice(0, limit) }) };
   }
 
   if (sql.startsWith('SELECT COUNT(*) + 1 AS rank')) {

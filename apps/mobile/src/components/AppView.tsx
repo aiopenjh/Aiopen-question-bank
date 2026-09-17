@@ -12,8 +12,6 @@ import { StudyMapScreen } from '../features/study/StudyMapScreen';
 import { LibraryScreen } from '../features/library/LibraryScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
-import { RankingSyncModal } from '../components/modals/RankingSyncModal';
-import { countTodayCompletedQuestions } from '../domain/ranking';
 import { getLocalDateString } from '../domain/routine';
 import { AppController } from '../hooks/useAppController';
 
@@ -42,7 +40,6 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
     appAlert, setAppAlert,
-    rankingProfile, handleRankingProfileChange, rankingSyncModalVisible, setRankingSyncModalVisible,
   } = controller;
   if (loading) {
     return (
@@ -249,31 +246,10 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 onApplyUpdate={appUpdate.applyUpdate}
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
-                rankingProfile={rankingProfile}
-                onRankingProfileChange={handleRankingProfileChange}
-                onOpenRankingSyncModal={() => setRankingSyncModalVisible(true)}
               />
             </View>
           </Animated.View>
         </View>
-
-        <RankingSyncModal
-          visible={rankingSyncModalVisible}
-          rankingProfile={rankingProfile}
-          todaySolvedCount={countTodayCompletedQuestions(todayAttempts)}
-          localDate={getLocalDateString()}
-          onClose={() => setRankingSyncModalVisible(false)}
-          onSynced={(result) => {
-            // 계획서 §3.2: 3문제 이상/미만에 따라 안내를 나눈다.
-            const streakLine = result.qualifiedConsistency
-              ? `꾸준함 기록에도 참여해 현재 ${result.currentStreak}일 연속입니다.`
-              : `꾸준함은 오늘 ${3 - result.solvedCount}문제를 더 풀면 인정됩니다.`;
-            showAlert(
-              '연동 완료',
-              `오늘 완료 ${result.solvedCount}문제가 반영되었습니다.\n${streakLine}\n\n누적 ${result.totalSolved}문제 · 최다 문제 풀이 ${result.solvedRank}위 · 꾸준함 ${result.consistencyRank}위`
-            );
-          }}
-        />
 
         {/* 공통 모달 컨테이너 (8종 모달 일원화) */}
         <AppModalsContainer

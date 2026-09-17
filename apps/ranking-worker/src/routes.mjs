@@ -244,35 +244,45 @@ async function rankOf(env, column, participantId) {
   return row.rank;
 }
 
-// 4.4 GET /leaderboard
-export async function getLeaderboard(request, env, origin) {
-  const mostSolved = await env.DB.prepare(
-    `SELECT p.nickname, s.total_solved FROM participant_stats s
-     JOIN participants p ON p.id = s.participant_id
-     WHERE p.deleted_at IS NULL
-     ORDER BY s.total_solved DESC LIMIT 1`
-  ).first();
+// 4.4 GET /leaderboard?limit=N
+// 메인 화면 카드는 limit=1(1위만), 랭킹 창은 limit=N(전체 목록)으로 같은 엔드포인트를 쓴다.
+const DEFAULT_LEADERBOARD_LIMIT = 1;
+const MAX_LEADERBOARD_LIMIT = 50;
 
-  const mostConsistent = await env.DB.prepare(
-    `SELECT p.nickname, s.current_streak FROM participant_stats s
-     JOIN participants p ON p.id = s.participant_id
-     WHERE p.deleted_at IS NULL
-     ORDER BY s.current_streak DESC LIMIT 1`
-  ).first();
+export async function getLeaderboard(request, env, origin) {
+  let limit = DEFAULT_LEADERBOARD_LIMIT;
+  if (request) {
+    const raw = Number(new URL(request.url).searchParams.get('limit'));
+    if (Number.isInteger(raw) && raw > 0) limit = Math.min(raw, MAX_LEADERBOARD_LIMIT);
+  }
 
   return jsonResponse(
     {
-      mostSolved: mostSolved
-        ? { nickname: mostSolved.nickname, totalSolved: mostSolved.total_solved }
-        : null,
-      mostConsistent: mostConsistent
-        ? { nickname: mostConsistent.nickname, currentStreak: mostConsistent.current_streak }
-        : null,
+      mostSolved: await topRanking(env, 'total_solved', limit),
+      mostConsistent: await topRanking(env, 'current_streak', limit),
       updatedAt: isoNow(),
     },
     200,
     origin
   );
+}
+
+/** 탈퇴하지 않은 참여자만 상위 순으로 반환한다. 동점은 DB 순서를 따르며 같은 순위를 부여하지 않는다. */
+async function topRanking(env, column, limit) {
+  const rows = await env.DB.prepare(
+    `SELECT p.nickname, s.${column} AS value FROM participant_stats s
+     JOIN participants p ON p.id = s.participant_id
+     WHERE p.deleted_at IS NULL
+     ORDER BY s.${column} DESC LIMIT ?`
+  )
+    .bind(limit)
+    .all();
+
+  return (rows.results ?? []).map((row, index) => ({
+    rank: index + 1,
+    nickname: row.nickname,
+    value: row.value,
+  }));
 }
 
 // 4.6 DELETE /participants/me

@@ -106,14 +106,22 @@ export async function syncToday(
   });
 }
 
+export interface LeaderboardEntry {
+  rank: number;
+  nickname: string;
+  /** 최다 문제 풀이는 누적 문제 수, 꾸준함은 연속 학습일. */
+  value: number;
+}
+
 export interface LeaderboardResult {
-  mostSolved: { nickname: string; totalSolved: number } | null;
-  mostConsistent: { nickname: string; currentStreak: number } | null;
+  mostSolved: LeaderboardEntry[];
+  mostConsistent: LeaderboardEntry[];
   updatedAt: string;
 }
 
-export async function getLeaderboard(): Promise<LeaderboardResult> {
-  return request<LeaderboardResult>('/v1/leaderboard', { method: 'GET' });
+/** 메인 카드는 기본값(1위만), 랭킹 창은 limit을 키워 전체 목록을 받는다. */
+export async function getLeaderboard(limit = 1): Promise<LeaderboardResult> {
+  return request<LeaderboardResult>(`/v1/leaderboard?limit=${limit}`, { method: 'GET' });
 }
 
 export async function requestWithdrawal(

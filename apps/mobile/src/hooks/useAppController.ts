@@ -23,7 +23,6 @@ import { useSourceManager } from './useSourceManager';
 import { useAppBackup } from './useAppBackup';
 import { useAppUpdate } from './useAppUpdate';
 import { useBookPagerGesture } from './useBookPagerGesture';
-import { useRankingProfile } from './useRankingProfile';
 
 export function useAppController() {
   // 0. Book Pager Gesture & Navigation Hook ([0: 메인] -> [1: 과목자료함] -> [2: 설정])
@@ -282,13 +281,8 @@ export function useAppController() {
   // 9. Web PWA Auto-Update Detection
   const appUpdate = useAppUpdate();
 
-  // 8-1. Ranking Participation (선택형 공동 랭킹, docs/ranking/ 참고)
-  const {
-    rankingProfile,
-    handleRankingProfileChange,
-    rankingSyncModalVisible,
-    setRankingSyncModalVisible,
-  } = useRankingProfile();
+  // 랭킹은 별도 랭킹 창에서 자체 상태로 동작하므로 여기서 다루지 않는다
+  // (docs/ranking/RANKING_FEATURE_PLAN.md §3.3).
 
   // 9. Push Alarms & Notification Response Listener
   const handleScheduledStudyRef = useRef(handleStartScheduledStudy);
@@ -412,7 +406,6 @@ export function useAppController() {
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
     appAlert, setAppAlert,
-    rankingProfile, handleRankingProfileChange, rankingSyncModalVisible, setRankingSyncModalVisible,
   };
 }
 

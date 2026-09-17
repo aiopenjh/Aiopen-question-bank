@@ -32,6 +32,12 @@ async function register(env, nickname = '테스터') {
   return res.json();
 }
 
+/** 서버는 요청의 localDate가 아니라 자기 시계의 서울 날짜에 기록한다. 테스트도 같은 기준을 써야 한다. */
+function seoulDate(offsetDays = 0) {
+  const base = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(base);
+}
+
 test('닉네임 중복 등록은 NICKNAME_TAKEN 409', async () => {
   const env = makeEnv();
   await register(env, '중복이');
@@ -56,7 +62,7 @@ test('같은 날 재연동은 MAX 규칙으로 갱신되고 총합이 부풀지 
   assert.equal(firstBody.totalSolved, 2);
 
   // 최소 호출 간격 제한을 우회하기 위해 daily_learning의 last_sync_at을 과거로 되돌린다 (테스트 전용).
-  const key = `${participant.participantId}::2026-09-16`;
+  const key = `${participant.participantId}::${seoulDate()}`;
   env.DB._stores.dailyLearning.get(key).last_sync_at = new Date(Date.now() - 60_000).toISOString();
 
   const second = await syncToday(
@@ -118,10 +124,8 @@ test('연속 학습일: 이틀 연속 3문제 이상이면 streak 2', async () =
 
   // 서버가 todaySeoul()로 오늘 날짜를 직접 계산하므로, 연속 이틀을 만들려면
   // daily_learning에 "어제" 기록을 직접 심어 recomputeStats의 스트릭 이어붙임을 검증한다.
-  const today = new Date();
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(today);
-  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-  const yesterdayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(yesterday);
+  const todayStr = seoulDate();
+  const yesterdayStr = seoulDate(-1);
 
   env.DB._stores.dailyLearning.set(`${participant.participantId}::${yesterdayStr}`, {
     participant_id: participant.participantId,
@@ -152,10 +156,8 @@ test('연속 학습일: 어제 끊겼으면 오늘 자격을 얻어도 streak는
   const env = makeEnv();
   const participant = await register(env);
 
-  const today = new Date();
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(today);
-  const twoDaysAgo = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);
-  const twoDaysAgoStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(twoDaysAgo);
+  const todayStr = seoulDate();
+  const twoDaysAgoStr = seoulDate(-2);
 
   // 그저께는 자격을 얻었지만 어제는 기록이 없어 연속이 끊긴 상태.
   env.DB._stores.participantStats.set(participant.participantId, {
@@ -221,7 +223,7 @@ test('탈퇴: 요청 시 PENDING_DELETION이며 즉시 리더보드에서 제외
   assert.ok(delBody.scheduledDeletionAt);
 
   const board = await (await getLeaderboard(null, env, null)).json();
-  assert.equal(board.mostSolved, null, '탈퇴 요청 즉시 공개 랭킹에서 제외되어야 한다');
+  assert.equal(board.mostSolved.length, 0, '탈퇴 요청 즉시 공개 랭킹에서 제외되어야 한다');
 });
 
 test('탈퇴: 유예 기간 중 복구를 시도하면 탈퇴가 취소된다', async () => {
@@ -262,9 +264,71 @@ test('purgeExpiredDeletions: 유예 기간이 지난 참여자만 완전 삭제�
   assert.equal(env.DB._stores.participants.has(recent.participantId), true, '유예 기간 중인 참여자는 유지');
 });
 
-test('리더보드: 참여자가 없으면 mostSolved/mostConsistent가 null', async () => {
+test('리더보드: 참여자가 없으면 빈 목록을 반환한다', async () => {
   const env = makeEnv();
   const board = await (await getLeaderboard(null, env, null)).json();
-  assert.equal(board.mostSolved, null);
-  assert.equal(board.mostConsistent, null);
+  assert.deepEqual(board.mostSolved, []);
+  assert.deepEqual(board.mostConsistent, []);
+});
+
+test('리더보드: limit을 주면 상위 N명을 순위 순으로 반환한다 (랭킹 창용)', async () => {
+  const env = makeEnv();
+  // 서로 다른 누적 문제 수를 가진 참여자 3명을 만든다.
+  const fixtures = [
+    { nickname: '일등', total: 30, streak: 2 },
+    { nickname: '이등', total: 20, streak: 9 },
+    { nickname: '삼등', total: 10, streak: 5 },
+  ];
+  for (const f of fixtures) {
+    const p = await register(env, f.nickname);
+    env.DB._stores.participantStats.set(p.participantId, {
+      participant_id: p.participantId,
+      total_solved: f.total,
+      current_streak: f.streak,
+      best_streak: f.streak,
+      last_qualified_date: '2026-09-16',
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  const listRequest = new Request('https://example.test/v1/leaderboard?limit=10');
+  const board = await (await getLeaderboard(listRequest, env, null)).json();
+
+  assert.deepEqual(
+    board.mostSolved.map((r) => [r.rank, r.nickname, r.value]),
+    [
+      [1, '일등', 30],
+      [2, '이등', 20],
+      [3, '삼등', 10],
+    ],
+    '최다 문제 풀이는 누적 수 내림차순'
+  );
+  assert.deepEqual(
+    board.mostConsistent.map((r) => [r.rank, r.nickname, r.value]),
+    [
+      [1, '이등', 9],
+      [2, '삼등', 5],
+      [3, '일등', 2],
+    ],
+    '꾸준함은 연속일 내림차순으로 별도 집계 (두 항목은 서로 독립, FEATURE_PLAN §10)'
+  );
+});
+
+test('리더보드: limit 없이 호출하면 1위만 반환한다 (메인 화면 카드용)', async () => {
+  const env = makeEnv();
+  for (const [nickname, total] of [['많이푼사람', 40], ['조금푼사람', 5]]) {
+    const p = await register(env, nickname);
+    env.DB._stores.participantStats.set(p.participantId, {
+      participant_id: p.participantId,
+      total_solved: total,
+      current_streak: 1,
+      best_streak: 1,
+      last_qualified_date: '2026-09-16',
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  const board = await (await getLeaderboard(null, env, null)).json();
+  assert.equal(board.mostSolved.length, 1);
+  assert.equal(board.mostSolved[0].nickname, '많이푼사람');
 });
