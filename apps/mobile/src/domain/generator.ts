@@ -503,6 +503,7 @@ async function generateViaUniversalAiApi(params: {
       topicId,
       unitId: unitId || undefined,
       difficultyLevel: intent.difficultyLevel,
+      questionType: 'multiple_choice',
       stem: item.stem,
       conceptDefinition: item.conceptDefinition,
       options: opts,

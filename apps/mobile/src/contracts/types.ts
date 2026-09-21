@@ -201,6 +201,19 @@ export interface QuestionOption {
   distractorRationale?: string; // 오답인 이유
 }
 
+// 문항 유형. 기존 데이터/로직은 전부 'multiple_choice'를 가정하고 동작하므로
+// short_answer/essay를 실제로 생성·렌더링하는 단계(프롬프트·UI)가 붙기 전까지는
+// 이 필드가 있어도 기존 동작에 영향이 없다.
+export type QuestionType = 'multiple_choice' | 'short_answer' | 'essay';
+
+// 서술형(essay) 채점용 체크리스트 항목. "논리적 일관성"류 주관적 기준은 배제하고,
+// 모범답안의 핵심 요소 포함 여부만 판정해 배점을 합산한다(부분점수 = 100점 만점).
+export interface GradingChecklistItem {
+  id: UUID;
+  criterion: string; // 판정 기준 (모범답안 핵심 요소 하나)
+  points: number; // 이 항목의 배점 (전체 합 100)
+}
+
 export interface QuestionRevision {
   id: UUID;
   questionId: UUID;
@@ -209,10 +222,14 @@ export interface QuestionRevision {
   topicId?: UUID; // 연관 주제 ID
   unitId?: UUID;  // 연관 단원(목차) ID
   difficultyLevel?: number;
+  questionType: QuestionType;
   stem: string; // 문제 지문
   conceptDefinition?: string; // 핵심 개념 및 용어의 명확한 정의 (찍어서 맞춘 학습자를 위한 1분 개념 고정)
-  options: QuestionOption[];
-  answerOptionId: UUID; // 정답 옵션 ID
+  options: QuestionOption[]; // multiple_choice에서만 사용. short_answer/essay는 []
+  answerOptionId: UUID; // multiple_choice 정답 옵션 ID. short_answer/essay는 미사용(빈 문자열)
+  modelAnswer?: string; // short_answer/essay 모범답안 (정답 판정·해설의 근거)
+  gradingChecklist?: GradingChecklistItem[]; // essay 부분점수 채점용, 배점 합계 100
+  maxAnswerLength?: number; // essay 답안 입력 최대 글자수 (합의: 2000)
   explanation: string; // 전체 정답 해설
   deepReasoningHint?: string; // 심화 역추론 힌트 (오답 선택 시 왜 틀렸는지)
   currentReference?: {
@@ -258,16 +275,27 @@ export interface SessionItem {
   sessionId: UUID;
   ordinal: number; // 1, 2, 3...
   questionRevisionId: UUID;
-  optionOrder: UUID[]; // 무작위 셔플된 보기 ID 배열
+  optionOrder: UUID[]; // 무작위 셔플된 보기 ID 배열. short_answer/essay는 []
   draftAnswerOptionId: UUID | null;
+  draftAnswerText?: string | null; // short_answer/essay 임시 저장 답안 (타이핑 또는 터치→OCR 확정본)
 }
+
+// AI 채점 파이프라인 상태. multiple_choice는 즉시 isCorrect로 판정되므로 사용하지 않음.
+// short_answer/essay만 해당: pending(요청중) -> graded 또는 failed.
+// failed는 자동 재시도 없이 로컬 보존 + "채점 미완료" 표시, 사용자가 수동 재요청.
+export type GradingStatus = 'pending' | 'graded' | 'failed';
 
 export interface Attempt {
   id: UUID;
   sessionItemId: UUID;
   submissionKey: string; // 멱등 제출 키
-  answerOptionId: UUID;
-  isCorrect: boolean;
+  answerOptionId: UUID; // multiple_choice만 사용. short_answer/essay는 빈 문자열
+  answerText?: string; // short_answer/essay 제출 답안 (키보드 타이핑 또는 터치 손글씨 OCR 확정본), 최대 2000자
+  isCorrect: boolean; // multiple_choice 정오 판정. short_answer/essay는 채점 완료 후 gradingScore 기준으로 채움
+  gradingStatus?: GradingStatus; // short_answer/essay만 사용
+  gradingScore?: number; // 0~100. essay는 체크리스트 배점 합산, short_answer는 0 또는 100
+  gradingChecklistResult?: { id: UUID; met: boolean }[]; // essay 체크리스트 항목별 충족 여부
+  gradingFailedReason?: string; // 채점 실패 시 사용자에게 보여줄 짧은 안내
   submittedAt: ISODateTimeString;
 }
 

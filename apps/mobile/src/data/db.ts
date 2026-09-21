@@ -210,6 +210,7 @@ async function runMigrationClean(): Promise<void> {
         specId: 'spec-default',
         topicId: defaultTopicId,
         unitId: 'unit-py-async-1',
+        questionType: 'multiple_choice',
         stem: 'Python의 비동기 프로그래밍 모듈인 asyncio에서 이벤트 루프(Event Loop)의 핵심 동작 원리로 가장 알맞은 것은?',
         options: [
           { id: 'opt-1-1', text: '각 코루틴마다 별도의 OS 스레드를 생성하여 멀티스레딩으로 실행한다.', isDistractor: true },
@@ -230,6 +231,7 @@ async function runMigrationClean(): Promise<void> {
         specId: 'spec-default',
         topicId: defaultTopicId,
         unitId: 'unit-py-async-2',
+        questionType: 'multiple_choice',
         stem: "다음 중 Python에서 'async def'로 정의된 코루틴 함수를 올바르게 실행하는 방법이 아닌 것은?",
         options: [
           { id: 'opt-2-1', text: '다른 코루틴 함수 내부에서 await 키워드를 붙여 호출한다.', isDistractor: true },
@@ -250,6 +252,7 @@ async function runMigrationClean(): Promise<void> {
         specId: 'spec-default',
         topicId: defaultTopicId,
         unitId: 'unit-py-async-4',
+        questionType: 'multiple_choice',
         stem: '여러 개의 비동기 코루틴 작업을 동시에 실행하고, 그 모든 결과를 하나의 순서화된 리스트로 수집할 때 사용하는 표준 함수는?',
         options: [
           { id: 'opt-3-1', text: 'asyncio.gather()', isDistractor: false },
