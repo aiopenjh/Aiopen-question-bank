@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native';
 import { colors, radius, spacing } from '../../styles/designTokens';
-import { showAlert } from '../../utils/alert';
+import { showAlert, registerAlertListener, AlertData } from '../../utils/alert';
+import { AppAlertModal } from '../../components/modals/AppAlertModal';
 import { useRankingWindow } from '../../hooks/useRankingWindow';
 import { CONSISTENCY_MIN_QUESTIONS } from '../../domain/ranking';
 import { LeaderboardEntry, RANKING_API_BASE_URL } from '../../domain/ranking_client';
@@ -45,6 +46,10 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
   } = useRankingWindow();
   const [tab, setTab] = useState<Tab>('mostSolved');
   const [nickname, setNickname] = useState('');
+  // 랭킹 창은 useAppController를 마운트하지 않으므로(§3.3, 학습 화면과 독립),
+  // 탈퇴 확인 등 showAlert() 호출이 메인 화면과 같은 스타일로 뜨도록 이 창에서 직접 구독한다.
+  const [windowAlert, setWindowAlert] = useState<AlertData | null>(null);
+  useEffect(() => registerAlertListener((data) => setWindowAlert(data)), []);
 
   async function handleRegister() {
     const trimmed = nickname.trim();
@@ -138,7 +143,9 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
       : lastSync.killerRank);
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.pageContent}>
+    <>
+      <AppAlertModal alert={windowAlert} onClose={() => setWindowAlert(null)} />
+      <ScrollView style={styles.page} contentContainerStyle={styles.pageContent}>
       <View style={styles.headerRow}>
         <Text style={styles.pageTitle}>공동 랭킹</Text>
         {onClose && (
@@ -309,7 +316,8 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
           )}
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 };
 
