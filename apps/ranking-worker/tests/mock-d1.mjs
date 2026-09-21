@@ -49,10 +49,10 @@ function pickStatsColumn(sql) {
 function execute(sql, params, stores) {
   const { participants, dailyLearning, participantStats } = stores;
 
-  if (sql.startsWith('SELECT id FROM participants WHERE nickname')) {
+  if (sql.startsWith('SELECT id, deleted_at FROM participants WHERE nickname') || sql.startsWith('SELECT id FROM participants WHERE nickname')) {
     const [nickname] = params;
-    const found = [...participants.values()].find((p) => p.nickname === nickname && !p.deleted_at);
-    return { first: async () => (found ? { id: found.id } : null) };
+    const found = [...participants.values()].find((p) => p.nickname === nickname);
+    return { first: async () => (found ? { id: found.id, deleted_at: found.deleted_at } : null) };
   }
 
   if (sql.startsWith('SELECT * FROM participants WHERE device_token_hash')) {

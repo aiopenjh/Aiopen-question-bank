@@ -10,7 +10,7 @@ import { RankingProfile } from '../contracts/types';
 
 // 실제 배포 전까지는 빈 문자열. 화면에서는 RANKING_API_BASE_URL이 없으면
 // 랭킹 기능 진입점을 노출하지 않는다 (서버 미배포 상태 보호).
-export const RANKING_API_BASE_URL = '';
+export const RANKING_API_BASE_URL = 'http://localhost:8787';
 
 export class RankingApiRequestError extends Error {
   code: string;

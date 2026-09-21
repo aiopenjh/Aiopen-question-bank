@@ -39,12 +39,18 @@ export async function registerParticipant(request, env, origin) {
   }
 
   const existing = await env.DB.prepare(
-    'SELECT id FROM participants WHERE nickname = ? AND deleted_at IS NULL'
+    'SELECT id, deleted_at FROM participants WHERE nickname = ?'
   )
     .bind(check.nickname)
     .first();
   if (existing) {
-    return errorResponse('NICKNAME_TAKEN', '이미 사용 중인 닉네임입니다.', 409, origin);
+    if (existing.deleted_at === null) {
+      return errorResponse('NICKNAME_TAKEN', '이미 사용 중인 닉네임입니다.', 409, origin);
+    }
+    // 탈퇴/연동 해제된 이전 레코드가 남아있는 경우 깨끗이 정리하여 닉네임 재사용 허용
+    await env.DB.prepare('DELETE FROM participant_stats WHERE participant_id = ?').bind(existing.id).run().catch(() => null);
+    await env.DB.prepare('DELETE FROM daily_learning WHERE participant_id = ?').bind(existing.id).run().catch(() => null);
+    await env.DB.prepare('DELETE FROM participants WHERE id = ?').bind(existing.id).run().catch(() => null);
   }
 
   const participantId = randomToken('pt');
@@ -52,19 +58,26 @@ export async function registerParticipant(request, env, origin) {
   const recoveryToken = randomToken('rt');
   const now = isoNow();
 
-  await env.DB.prepare(
-    `INSERT INTO participants (id, nickname, recovery_token_hash, device_token_hash, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL)`
-  )
-    .bind(
-      participantId,
-      check.nickname,
-      await sha256Hex(recoveryToken),
-      await sha256Hex(deviceToken),
-      now,
-      now
+  try {
+    await env.DB.prepare(
+      `INSERT INTO participants (id, nickname, recovery_token_hash, device_token_hash, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, NULL)`
     )
-    .run();
+      .bind(
+        participantId,
+        check.nickname,
+        await sha256Hex(recoveryToken),
+        await sha256Hex(deviceToken),
+        now,
+        now
+      )
+      .run();
+  } catch (err) {
+    if (String(err).includes('UNIQUE constraint failed')) {
+      return errorResponse('NICKNAME_TAKEN', '이미 사용 중인 닉네임입니다.', 409, origin);
+    }
+    throw err;
+  }
 
   return jsonResponse(
     { participantId, nickname: check.nickname, deviceToken, recoveryToken, createdAt: now },
