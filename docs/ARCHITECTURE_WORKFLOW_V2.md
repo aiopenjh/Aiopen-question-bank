@@ -1,44 +1,52 @@
-# Celueste v2.3 아키텍처와 워크플로
+# Celueste v2.3+ 아키텍처와 워크플로
 
-이 문서는 v2.3.2 코드의 현재 구조, 실제 실행 흐름, 이후 변경 시 지켜야 할 방향을 기록한다.
+이 문서는 Celueste v2.3.4의 현재 시스템 구조, UI/UX 디자인 시스템, 실제 실행 흐름, 이후 변경 시 지켜야 할 방향을 기록한다.
 
 ![Celueste v2 코드 전체 진행 방향](./assets/celueste-v2-code-direction.svg)
 
-## 1. 제품 원칙
+## 1. 제품 및 설계 원칙
 
 1. 사용자가 자신의 API 키와 학습 주제를 직접 결정한다.
 2. 희귀하거나 예상하지 못한 주제도 학습 대상으로 인정한다.
 3. 무의미한 입력과 주제 충돌은 학습 의도를 기준으로 판별해 엉뚱한 출제를 줄인다.
 4. Gemini 기본 모델은 3.5이며, Gemini 3.5 미만으로 자동 전환하지 않는다.
-5. 문제는 항상 1~4번 4지선다로 생성·검증한다.
-6. 난이도는 1~30을 기본 범위로 하고 31 이상도 확장한다.
+5. 문제는 항상 1~4번 4지선다로 생성·검증하고, Fisher-Yates 알고리즘으로 정답 선지를 수학적으로 균등 무작위 분산한다.
+6. 난이도는 1~30을 기본 범위로 하고 31 이상도 확장한다. 단원별 레벨은 `Unit.difficultyLevel`에 독립 영구 보존된다.
 7. 정답률만으로 레벨을 자동 변경하지 않는다. 다음 단원과 추가 출제는 사용자가 선택한다.
-8. 과목·단원·문제·풀이 기록은 로컬에 저장하고, 삭제와 복원은 데이터 일관성을 우선한다.
+8. 과목·단원·문제·풀이 기록은 로컬 저장소(Web IndexedDB, Native AsyncStorage)에 보관하며, 삭제와 복원은 데이터 일관성을 우선한다.
 9. 알림은 학습 재방문을 유도하되 특정 단원이나 문제를 자동 시작하지 않는다.
-10. 사용자 문의는 설정 하단의 앱 내부 의견창으로 받고, 입력 내용만 Formspree를 통해 관리자 메일로 보낸다.
+10. 사용자 문의는 설정 하단의 인앱 의견 보내기 모달(Formspree 연동, 20초 타임아웃 방어)을 통해 처리한다.
 
-### v2.3.2 저장 및 의견 전송 흐름
+### 1-1. UI/UX 디자인 시스템 및 모바일 뷰포트 원칙
+
+- **톤앤매너**: 연분홍 블러시 파스텔 배경, 저대비 아이보리/라벤더/민트 표면, 다크 네이비 텍스트 기반의 차분하고 세련된 학습 플래너 감성.
+- **디자인 토큰**: `apps/mobile/src/styles/designTokens.ts`의 공통 색상(`colors`), 간격(`spacing`), 곡률(`radius`), 그림자(`shadows`) 토큰을 전역 재사용.
+- **안티 줌 하드닝 (Anti-Zoom Hardening)**: 모바일 브라우저(iOS Safari, Android Chrome) 포커스 시 화면 찌그러짐을 원천 방어하기 위해 모든 입력란 폰트 크기 `fontSize: 16px` 이상 고정 및 `viewport` 메타태그(`maximum-scale=1.0, user-scalable=no`) 유지.
+- **모달 및 가상 키보드**: `UniversalModal`을 통한 웹/네이티브 최적화 렌더링 및 키보드 돌출 시 입력창/저장 버튼 뷰포트 고정.
+
+### 1-2. 저장 및 상태 확정 흐름 (v2.3.4)
 
 - 과목 시작 레벨 → 첫 출제 기본값. 레벨 조작은 화면의 선택값만 바꾸며, 3문제/5문제를 누른 뒤 기존 문제 유지 또는 삭제를 선택하면 `updateUnitDifficulty(topicId, unitId, level)` → 단원 저장 → 화면 갱신 순서로 확정한다. 과목과 다른 단원은 유지한다.
 - 다음 출제와 추가 학습은 단원 레벨을 우선 사용한다. 단원에 값이 없는 기존 데이터는 과목 시작 레벨을 사용하므로 별도 데이터 이전이 필요 없다. 백업의 단원 데이터에 레벨도 포함된다.
 - 유지 선택은 신규 문제를 누적하고, 삭제 선택은 신규 문제 검증·저장이 성공할 때 해당 단원 기존 문제만 삭제한다. 확인 팝업에서 취소하거나 출제 설정창을 닫으면 선택한 레벨은 저장하지 않는다.
-- 오늘 학습 집계는 `submittedAt`을 날짜로 해석한 후 기기의 로컬 날짜와 비교한다. 한국시간 오전 9시 이전 기록도 당일에 포함된다.
+- 오늘 학습 집계는 `submittedAt`을 날짜로 해석한 후 기기의 로컬 날짜(`toLocaleDateString`)와 비교한다. 한국시간 오전 9시 이전 기록도 당일에 포함된다.
 - 의견 전송은 동기 잠금 → POST → 성공/오류 안내 순서다. 제한시간 20초 초과 시 요청 중단·입력 보존·잠금 해제. 서버가 이미 접수했을 가능성이 있어 결과 미확인으로 안내하고 자동 재전송하지 않는다.
 
 ## 2. 계층 구조
 
 | 계층 | 주요 파일 | 책임 |
 | --- | --- | --- |
-| 진입점 | `apps/mobile/App.tsx` | 컨트롤러 생성 후 뷰에 전달 |
+| 진입점 | `apps/mobile/App.tsx` | 컨트롤러 생성 후 뷰에 전달, 전역 뷰포트 보호 |
 | 화면 조합 | `src/components/AppView.tsx` | 학습·자료함·설정·시험 화면과 모달 렌더링 |
 | 앱 제어 | `src/hooks/useAppController.ts` | 화면 상태와 기능 훅 조합, 알림 진입 처리 |
-| 기능 훅 | `src/hooks/useAppData.ts`, `useQuizGeneration.ts`, `useCurriculumManager.ts`, `useExamSession.ts` | 데이터 로드, 생성, 목차, 시험 세션 흐름 |
-| 도메인 | `src/domain/intent.ts`, `difficulty.ts`, `prompts.ts`, `generator.ts` | 사용자 의도·난이도 해석, 프롬프트 구성, 응답 검증 |
-| AI 통신 | `src/domain/ai_client.ts` | Gemini 3.5 이상 호출, 제한 시간, 취소, 429 대기 |
+| 기능 훅 | `src/hooks/useAppData.ts`, `useQuizGeneration.ts`, `useCurriculumManager.ts`, `useExamSession.ts`, `useBookPagerGesture.ts` | 데이터 로드, 생성, 목차, 시험 세션, 책 넘김 제스처 흐름 |
+| 도메인 | `src/domain/intent.ts`, `difficulty.ts`, `prompts.ts`, `generator.ts`, `question_distribution.ts` | 사용자 의도·난이도 해석, 프롬프트 구성, 정답 무작위 셔플, 응답 검증 |
+| AI 통신 | `src/domain/ai_client.ts` | Gemini 3.5 이상 호출, 제한 시간, 취소, 429 대기, Claude/GPT 호환 |
 | 중복 방지 | `src/domain/question_similarity.ts`, `question_repository.ts` | 신규·기존 문제 유사도 검사와 중복 제외 |
 | 동시 생성 방지 | `src/domain/generator.ts` | 동일 생성 요청의 진행 중 Promise 공유와 완료 후 해제 |
 | 저장소 | `src/data/app_storage.ts`, `src/data/db.ts`, `src/data/repositories/*` | 웹 IndexedDB 자동 이관, 네이티브 AsyncStorage, 로컬 데이터 읽기·쓰기, 연쇄 삭제, 실패 복구 |
-| 플랫폼 | `src/utils/notifications.ts`, `src/integrations/secure_storage.ts`, `src/utils/backupArchive.ts` | 알림, API 키 보관, 백업·복원 |
+| 플랫폼 | `src/utils/notifications.ts`, `src/integrations/secure_storage.ts`, `src/utils/backupArchive.ts` | 알림, API 키 보안 보관, 백업·복원 |
+| 디자인 | `src/styles/designTokens.ts`, `src/styles/appStyles.ts` | 공통 테마 토큰, 색상, 레이아웃 규격 |
 | 배포 | `apps/mobile/public/*`, `deploy-gh-pages.ps1` | PWA 메타데이터·아이콘·버전과 GitHub Pages 게시 |
 
 `App.tsx`는 기능을 직접 구현하지 않는다. 화면은 `AppView`, 동작 조합은 `useAppController`, 개별 기능은 훅과 도메인·repository에 둔다.

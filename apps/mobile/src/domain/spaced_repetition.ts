@@ -56,18 +56,30 @@ export function calculateNextReviewState(params: {
 }
 
 /**
- * 오늘 날짜 기준으로 복습 기한이 도래한(dueDate <= 오늘) 문제 필터링
+ * 오늘 날짜 기준으로 복습 기한이 도래한 문제 필터링
+ * - 과거에 밀린 문제들이 무한정 누적되지 않도록, 전날(어제) 학습/풀이된 문제 또는 당일 복습 예정 문제만 추출합니다.
  */
 export function filterDueReviewQuestions(
   questions: QuestionRevision[],
   reviewStates: ReviewState[],
   today: ISODateString = getLocalDateString()
 ): QuestionRevision[] {
+  // 오늘 기준 전날(어제) 날짜 계산 (YYYY-MM-DD)
+  const [year, month, day] = today.split('-').map(Number);
+  const yesterdayObj = new Date(year, month - 1, day - 1);
+  const yesterday = getLocalDateString(yesterdayObj);
+
   const dueQuestionIds = new Set(
     reviewStates
-      .filter((rs) => rs.dueDate <= today)
+      .filter((rs) => {
+        const updatedDate = rs.updatedAt ? getLocalDateString(new Date(rs.updatedAt)) : '';
+        // 1) 전날(어제) 풀이/학습되어 업데이트된 문제이거나
+        // 2) 오늘(today) 복습일인 문제만 포함 (과거 날짜 dueDate < today 누적 배제)
+        return updatedDate === yesterday || rs.dueDate === today;
+      })
       .map((rs) => rs.questionRevisionId)
   );
 
   return questions.filter((q) => dueQuestionIds.has(q.id));
 }
+
