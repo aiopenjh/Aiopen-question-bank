@@ -14,7 +14,7 @@ import { useRankingWindow } from '../../hooks/useRankingWindow';
 import { CONSISTENCY_MIN_QUESTIONS } from '../../domain/ranking';
 import { LeaderboardEntry, RANKING_API_BASE_URL } from '../../domain/ranking_client';
 
-type Tab = 'mostSolved' | 'mostConsistent';
+type Tab = 'mostSolved' | 'mostConsistent' | 'mostKillerLevel';
 
 export interface RankingWindowScreenProps {
   /** 앱 안 전체화면으로 띄웠을 때만 닫기 버튼을 노출한다. 별도 창이면 생략. */
@@ -29,6 +29,7 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
   const {
     profile,
     todaySolvedCount,
+    maxKillerLevel,
     leaderboard,
     lastSync,
     loading,
@@ -73,16 +74,25 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
   async function handleSync() {
     const result = await sync();
     if (!result.ok) return;
-    const { solvedCount, qualifiedConsistency, currentStreak, totalSolved, solvedRank, consistencyRank } =
-      result.result;
+    const {
+      solvedCount,
+      qualifiedConsistency,
+      currentStreak,
+      totalSolved,
+      solvedRank,
+      consistencyRank,
+      maxKillerLevel: syncedMaxKillerLevel,
+      killerRank,
+    } = result.result;
     // 계획서 §3.2: 3문제 이상/미만에 따라 안내를 나눈다.
     const streakLine = qualifiedConsistency
       ? `꾸준함 기록에도 참여해 현재 ${currentStreak}일 연속입니다.`
       : `꾸준함은 오늘 ${CONSISTENCY_MIN_QUESTIONS - solvedCount}문제를 더 풀면 인정됩니다.`;
+    const killerLine = syncedMaxKillerLevel > 0 ? ` · 초고난도 도전 ${killerRank}위(Lv.${syncedMaxKillerLevel})` : '';
     showAlert(
       '연동 완료',
       `오늘 완료 ${solvedCount}문제가 반영되었습니다.\n${streakLine}\n\n` +
-        `누적 ${totalSolved}문제 · 최다 문제 풀이 ${solvedRank}위 · 꾸준함 ${consistencyRank}위`
+        `누적 ${totalSolved}문제 · 최다 문제 풀이 ${solvedRank}위 · 꾸준함 ${consistencyRank}위${killerLine}`
     );
   }
 
@@ -117,10 +127,15 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
     );
   }
 
-  const rows: LeaderboardEntry[] =
-    (tab === 'mostSolved' ? leaderboard?.mostSolved : leaderboard?.mostConsistent) ?? [];
-  const unit = tab === 'mostSolved' ? '문제' : '일 연속';
-  const myRank = lastSync && (tab === 'mostSolved' ? lastSync.solvedRank : lastSync.consistencyRank);
+  const rows: LeaderboardEntry[] = leaderboard?.[tab] ?? [];
+  const unit = tab === 'mostSolved' ? '문제' : tab === 'mostConsistent' ? '일 연속' : '레벨';
+  const myRank =
+    lastSync &&
+    (tab === 'mostSolved'
+      ? lastSync.solvedRank
+      : tab === 'mostConsistent'
+      ? lastSync.consistencyRank
+      : lastSync.killerRank);
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.pageContent}>
@@ -173,6 +188,9 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
                 <Text style={styles.summaryLabel}>{profile.nickname} · 오늘 완료</Text>
                 <Text style={styles.summaryValue}>{todaySolvedCount}문제</Text>
               </View>
+              {maxKillerLevel > 0 && (
+                <Text style={styles.noticeText}>최고 도달 킬러 문항: Lv.{maxKillerLevel}</Text>
+              )}
               <Text style={styles.noticeText}>
                 연동 시 오늘 완료한 문제 수와 꾸준함 참여 여부만 전송합니다. 문제 내용, 정답, 과목명과 API 키는
                 전송하지 않습니다.
@@ -199,6 +217,7 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
                 <Text style={styles.myStatText}>
                   누적 {lastSync.totalSolved}문제 · {lastSync.currentStreak}일 연속 · 최다 {lastSync.solvedRank}위 ·
                   꾸준함 {lastSync.consistencyRank}위
+                  {lastSync.maxKillerLevel > 0 ? ` · 초고난도 도전 ${lastSync.killerRank}위` : ''}
                 </Text>
               )}
             </View>
@@ -251,6 +270,15 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
                 activeOpacity={0.8}
               >
                 <Text style={[styles.tabText, tab === 'mostConsistent' && styles.tabTextActive]}>🔥 꾸준함 왕</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabButton, tab === 'mostKillerLevel' && styles.tabButtonActive]}
+                onPress={() => setTab('mostKillerLevel')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.tabText, tab === 'mostKillerLevel' && styles.tabTextActive]}>
+                  ⚔️ 초고난도 도전
+                </Text>
               </TouchableOpacity>
             </View>
 

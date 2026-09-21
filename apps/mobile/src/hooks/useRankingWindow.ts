@@ -11,6 +11,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { RankingProfile, RankingRecoverySeed, RankingSyncQueueItem } from '../contracts/types';
 import {
   getAttempts,
+  getSessionItems,
+  getQuestions,
   getRankingProfile,
   saveRankingProfile,
   clearRankingProfile,
@@ -20,7 +22,7 @@ import {
   getRankingRecoverySeed,
   clearRankingRecoverySeed,
 } from '../data/db';
-import { countTodayCompletedQuestions } from '../domain/ranking';
+import { countTodayCompletedQuestions, getMaxQualifiedKillerLevel } from '../domain/ranking';
 import { getLocalDateString } from '../domain/routine';
 import {
   getLeaderboard,
@@ -42,6 +44,8 @@ function toMessage(err: unknown): string {
 export function useRankingWindow() {
   const [profile, setProfile] = useState<RankingProfile | null>(null);
   const [todaySolvedCount, setTodaySolvedCount] = useState(0);
+  // 초고난도 도전 랭킹: 전체 기간 최고 도달 킬러 문항 레벨 (도메인 규칙: domain/ranking.ts).
+  const [maxKillerLevel, setMaxKillerLevel] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardResult | null>(null);
   const [lastSync, setLastSync] = useState<SyncTodayResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,9 +67,15 @@ export function useRankingWindow() {
   useEffect(() => {
     (async () => {
       // 오늘 완료 수는 제출 기록에서 직접 계산한다 (계획서 §5.1).
-      const [storedProfile, attempts] = await Promise.all([getRankingProfile(), getAttempts()]);
+      const [storedProfile, attempts, sessionItems, questions] = await Promise.all([
+        getRankingProfile(),
+        getAttempts(),
+        getSessionItems(),
+        getQuestions(),
+      ]);
       setProfile(storedProfile);
       setTodaySolvedCount(countTodayCompletedQuestions(attempts));
+      setMaxKillerLevel(getMaxQualifiedKillerLevel(attempts, sessionItems, questions));
       if (!storedProfile) setRecoverySeed(await getRankingRecoverySeed());
       setPendingSync(await getPendingSyncRequest());
       await refreshLeaderboard();
@@ -143,7 +153,7 @@ export function useRankingWindow() {
     setError(null);
     const localDate = getLocalDateString();
     try {
-      const result = await syncToday(profile, localDate, todaySolvedCount);
+      const result = await syncToday(profile, localDate, todaySolvedCount, maxKillerLevel);
       await clearPendingSyncRequest();
       setPendingSync(null);
       setLastSync(result);
@@ -161,7 +171,7 @@ export function useRankingWindow() {
     } finally {
       setBusy(false);
     }
-  }, [profile, todaySolvedCount, refreshLeaderboard]);
+  }, [profile, todaySolvedCount, maxKillerLevel, refreshLeaderboard]);
 
   const withdraw = useCallback(async () => {
     if (!profile) return { ok: false as const, message: '참여 정보가 없습니다.' };
@@ -186,6 +196,7 @@ export function useRankingWindow() {
   return {
     profile,
     todaySolvedCount,
+    maxKillerLevel,
     leaderboard,
     lastSync,
     loading,

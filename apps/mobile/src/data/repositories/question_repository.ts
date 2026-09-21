@@ -9,6 +9,7 @@ import {
   Attempt,
   ReviewState,
   ManualCompletion,
+  SessionItem,
   UUID,
 } from '../../contracts/types';
 import { STORAGE_KEYS, getCurrentISOTime } from '../storage_keys';
@@ -168,6 +169,12 @@ export async function toggleCustomNoteQuestion(questionId: UUID): Promise<boolea
 
 export async function getAttempts(): Promise<Attempt[]> {
   const data = await AsyncStorage.getItem(STORAGE_KEYS.ATTEMPTS);
+  return data ? JSON.parse(data) : [];
+}
+
+/** 랭킹의 "초고난도 도전" 지표(domain/ranking.ts)가 문항 난이도를 조회할 때 쓴다. */
+export async function getSessionItems(): Promise<SessionItem[]> {
+  const data = await AsyncStorage.getItem(STORAGE_KEYS.SESSION_ITEMS);
   return data ? JSON.parse(data) : [];
 }
 

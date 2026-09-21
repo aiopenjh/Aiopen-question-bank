@@ -46,6 +46,7 @@ Base URL과 실제 도메인은 서버 선택 후 확정한다.
 | `current_streak` | 현재 연속 유효 학습일 |
 | `best_streak` | 최고 연속 유효 학습일 |
 | `last_qualified_date` | 마지막 유효 학습일 |
+| `max_killer_level` | 초고난도 도전 랭킹: 전체 기간 최고 도달 킬러 문항(31레벨 이상) 레벨. 일별 기록 없이 전송값과 MAX 비교만 한다 |
 | `updated_at` | 마지막 집계 시각 |
 
 ## 3. 절대 전송하거나 저장하지 않는 값
@@ -116,11 +117,12 @@ Idempotency-Key: pt_...-2026-09-16-<random>
 {
   "localDate": "2026-09-16",
   "timezone": "Asia/Seoul",
-  "solvedCount": 10
+  "solvedCount": 10,
+  "maxKillerLevel": 33
 }
 ```
 
-`localDate`는 사용자 안내와 날짜 오류 확인용이다. 저장 날짜는 서버가 판단한 한국 날짜를 사용한다. 클라이언트가 `qualifiedConsistency`를 보내지 않으며 서버가 `solvedCount >= 3`으로 계산한다.
+`localDate`는 사용자 안내와 날짜 오류 확인용이다. 저장 날짜는 서버가 판단한 한국 날짜를 사용한다. 클라이언트가 `qualifiedConsistency`를 보내지 않으며 서버가 `solvedCount >= 3`으로 계산한다. `maxKillerLevel`은 기기가 계산한 "정답 처리된 킬러 문항(31레벨 이상)의 최고 레벨"이며 생략하면 갱신하지 않는다(0 이상 정수).
 
 응답:
 
@@ -131,8 +133,10 @@ Idempotency-Key: pt_...-2026-09-16-<random>
   "qualifiedConsistency": true,
   "totalSolved": 124,
   "currentStreak": 7,
+  "maxKillerLevel": 33,
   "solvedRank": 4,
   "consistencyRank": 2,
+  "killerRank": 6,
   "leaderboardUpdatedAt": "2026-09-16T10:05:00Z"
 }
 ```
@@ -142,7 +146,10 @@ Idempotency-Key: pt_...-2026-09-16-<random>
 ```text
 newSolvedCount = MAX(storedSolvedCount, requestedSolvedCount)
 qualifiedConsistency = newSolvedCount >= 3
+newMaxKillerLevel = MAX(storedMaxKillerLevel, requestedMaxKillerLevel)
 ```
+
+`maxKillerLevel`은 `daily_learning`처럼 날짜별로 나뉘지 않고 `participant_stats.max_killer_level`에 전체 기간 기준으로만 반영된다.
 
 같은 참여자와 날짜의 저장, 통계 갱신과 결과 조회는 하나의 논리적 트랜잭션으로 처리한다. 같은 요청이 재전송되어도 총합과 연속 일수가 한 번만 바뀌어야 한다.
 
@@ -163,11 +170,14 @@ qualifiedConsistency = newSolvedCount >= 3
   "mostConsistent": [
     { "rank": 1, "nickname": "매일세문제", "value": 42 }
   ],
+  "mostKillerLevel": [
+    { "rank": 1, "nickname": "킬러왕", "value": 40 }
+  ],
   "updatedAt": "2026-09-16T10:05:00Z"
 }
 ```
 
-`value`는 `mostSolved`에서 누적 완료 문제 수, `mostConsistent`에서 연속 학습일을 뜻한다. 두 목록은 서로 독립적으로 정렬하므로 같은 참여자가 양쪽에 동시에 나타날 수 있다(계획서 §10-2). 참여자가 없으면 빈 배열을 반환한다. 동점자에게 같은 순위를 부여하는 처리는 초기 범위 밖이다.
+`value`는 `mostSolved`에서 누적 완료 문제 수, `mostConsistent`에서 연속 학습일, `mostKillerLevel`에서 최고 도달 킬러 문항 레벨을 뜻한다. 세 목록은 서로 독립적으로 정렬하므로 같은 참여자가 여러 목록에 동시에 나타날 수 있다(계획서 §10-2). 참여자가 없으면 빈 배열을 반환한다. 동점자에게 같은 순위를 부여하는 처리는 초기 범위 밖이다.
 
 초기 버전의 공개 응답에는 참여자 ID, 일별 기록과 복구 정보를 포함하지 않는다. 인증된 참여자가 자신의 순위를 조회하는 응답은 별도 `me` 항목으로 분리할 수 있다.
 

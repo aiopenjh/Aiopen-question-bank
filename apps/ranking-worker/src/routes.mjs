@@ -126,6 +126,11 @@ export async function syncToday(request, env, origin) {
   if (solvedCount > dailyMax) {
     return errorResponse('COUNT_OUT_OF_RANGE', '완료 수가 일일 허용 범위를 초과했습니다.', 422, origin);
   }
+  // 초고난도 도전 랭킹(ROADMAP §Step 1). 미전송 시 갱신하지 않는다(구버전 클라이언트 호환).
+  const maxKillerLevel = body?.maxKillerLevel;
+  if (maxKillerLevel !== undefined && (!Number.isInteger(maxKillerLevel) || maxKillerLevel < 0)) {
+    return errorResponse('INVALID_INPUT', 'maxKillerLevel은 0 이상의 정수여야 합니다.', 400, origin);
+  }
 
   const studyDate = todaySeoul();
   const now = isoNow();
@@ -160,7 +165,7 @@ export async function syncToday(request, env, origin) {
     .bind(participant.id, studyDate, newSolvedCount, qualified ? 1 : 0, now)
     .run();
 
-  const stats = await recomputeStats(env, participant.id, studyDate, qualified, wasQualifiedBefore);
+  const stats = await recomputeStats(env, participant.id, studyDate, qualified, wasQualifiedBefore, maxKillerLevel);
 
   return jsonResponse(
     {
@@ -169,8 +174,10 @@ export async function syncToday(request, env, origin) {
       qualifiedConsistency: qualified,
       totalSolved: stats.total_solved,
       currentStreak: stats.current_streak,
+      maxKillerLevel: stats.max_killer_level,
       solvedRank: await rankOf(env, 'total_solved', participant.id),
       consistencyRank: await rankOf(env, 'current_streak', participant.id),
+      killerRank: await rankOf(env, 'max_killer_level', participant.id),
       leaderboardUpdatedAt: now,
     },
     200,
@@ -183,7 +190,7 @@ export async function syncToday(request, env, origin) {
  * solved_count의 델타(신규-기존)만 반영해 값이 부풀지 않게 한다.
  * current_streak은 "어제까지의 스트릭 + (오늘 qualified면 1)"로 계산한다.
  */
-async function recomputeStats(env, participantId, studyDate, qualifiedToday, wasQualifiedBefore) {
+async function recomputeStats(env, participantId, studyDate, qualifiedToday, wasQualifiedBefore, incomingMaxKillerLevel) {
   const statsRow = await env.DB.prepare('SELECT * FROM participant_stats WHERE participant_id = ?')
     .bind(participantId)
     .first();
@@ -209,22 +216,25 @@ async function recomputeStats(env, participantId, studyDate, qualifiedToday, was
 
   const bestStreak = Math.max(statsRow?.best_streak ?? 0, currentStreak);
   const newLastQualifiedDate = qualifiedToday ? studyDate : lastQualifiedDate;
+  // 초고난도 도전 랭킹: 전체 기간 최고 도달 레벨만 단조 증가(MAX)로 저장한다.
+  const maxKillerLevel = Math.max(statsRow?.max_killer_level ?? 0, incomingMaxKillerLevel ?? 0);
   const now = isoNow();
 
   await env.DB.prepare(
-    `INSERT INTO participant_stats (participant_id, total_solved, current_streak, best_streak, last_qualified_date, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO participant_stats (participant_id, total_solved, current_streak, best_streak, last_qualified_date, max_killer_level, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (participant_id)
      DO UPDATE SET total_solved = excluded.total_solved,
                    current_streak = excluded.current_streak,
                    best_streak = excluded.best_streak,
                    last_qualified_date = excluded.last_qualified_date,
+                   max_killer_level = excluded.max_killer_level,
                    updated_at = excluded.updated_at`
   )
-    .bind(participantId, totalSolved, currentStreak, bestStreak, newLastQualifiedDate, now)
+    .bind(participantId, totalSolved, currentStreak, bestStreak, newLastQualifiedDate, maxKillerLevel, now)
     .run();
 
-  return { total_solved: totalSolved, current_streak: currentStreak };
+  return { total_solved: totalSolved, current_streak: currentStreak, max_killer_level: maxKillerLevel };
 }
 
 function addDaysToDateString(dateStr, delta) {
@@ -260,6 +270,7 @@ export async function getLeaderboard(request, env, origin) {
     {
       mostSolved: await topRanking(env, 'total_solved', limit),
       mostConsistent: await topRanking(env, 'current_streak', limit),
+      mostKillerLevel: await topRanking(env, 'max_killer_level', limit),
       updatedAt: isoNow(),
     },
     200,

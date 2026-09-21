@@ -39,6 +39,13 @@ export function createMockD1() {
   return { prepare, batch, _stores: { participants, dailyLearning, participantStats } };
 }
 
+/** participant_stats 컬럼 3종(total_solved/current_streak/max_killer_level) 중 SQL에 쓰인 것을 고른다. */
+function pickStatsColumn(sql) {
+  if (sql.includes('total_solved')) return 'total_solved';
+  if (sql.includes('max_killer_level')) return 'max_killer_level';
+  return 'current_streak';
+}
+
 function execute(sql, params, stores) {
   const { participants, dailyLearning, participantStats } = stores;
 
@@ -134,20 +141,21 @@ function execute(sql, params, stores) {
   }
 
   if (sql.startsWith('INSERT INTO participant_stats')) {
-    const [participantId, totalSolved, currentStreak, bestStreak, lastQualifiedDate, updatedAt] = params;
+    const [participantId, totalSolved, currentStreak, bestStreak, lastQualifiedDate, maxKillerLevel, updatedAt] = params;
     participantStats.set(participantId, {
       participant_id: participantId,
       total_solved: totalSolved,
       current_streak: currentStreak,
       best_streak: bestStreak,
       last_qualified_date: lastQualifiedDate,
+      max_killer_level: maxKillerLevel,
       updated_at: updatedAt,
     });
     return { run: async () => ({ success: true }) };
   }
 
   if (sql.includes('FROM participant_stats s') && sql.includes('JOIN participants p')) {
-    const column = sql.includes('total_solved') ? 'total_solved' : 'current_streak';
+    const column = pickStatsColumn(sql);
     const [limit] = params;
     const rows = [];
     for (const stats of participantStats.values()) {
@@ -160,7 +168,7 @@ function execute(sql, params, stores) {
   }
 
   if (sql.startsWith('SELECT COUNT(*) + 1 AS rank')) {
-    const column = sql.includes('total_solved') ? 'total_solved' : 'current_streak';
+    const column = pickStatsColumn(sql);
     const [participantId] = params;
     const mine = participantStats.get(participantId);
     const myValue = mine ? mine[column] : 0;

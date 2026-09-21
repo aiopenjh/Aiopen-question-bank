@@ -64,6 +64,7 @@ export {
   toggleCustomNoteQuestion,
   getAttempts,
   saveAttempt,
+  getSessionItems,
   getReviewStates,
   saveReviewState,
   getIncorrectQuestions,

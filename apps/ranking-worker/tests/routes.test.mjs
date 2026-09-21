@@ -77,6 +77,35 @@ test('같은 날 재연동은 MAX 규칙으로 갱신되고 총합이 부풀지 
   assert.equal(secondBody.currentStreak, 1, '꾸준함 1일이 반영되어야 한다 (계획서 §8 완료 기준)');
 });
 
+test('초고난도 도전 랭킹: maxKillerLevel은 전체 기간 최고값(MAX)으로만 갱신된다', async () => {
+  const env = makeEnv();
+  const participant = await register(env);
+
+  const first = await syncToday(
+    jsonRequest(
+      { localDate: '2026-09-16', solvedCount: 1, maxKillerLevel: 33 },
+      { Authorization: `Bearer ${participant.deviceToken}` }
+    ),
+    env,
+    null
+  );
+  assert.equal((await first.json()).maxKillerLevel, 33);
+
+  const key = `${participant.participantId}::${seoulDate()}`;
+  env.DB._stores.dailyLearning.get(key).last_sync_at = new Date(Date.now() - 60_000).toISOString();
+
+  // 다음 날 연동에서 더 낮은 레벨을 보내도 기존 최고값이 유지되어야 한다.
+  const second = await syncToday(
+    jsonRequest(
+      { localDate: '2026-09-16', solvedCount: 2, maxKillerLevel: 25 },
+      { Authorization: `Bearer ${participant.deviceToken}` }
+    ),
+    env,
+    null
+  );
+  assert.equal((await second.json()).maxKillerLevel, 33, '더 낮은 값을 보내도 기존 최고 도달 레벨이 내려가지 않아야 한다');
+});
+
 test('같은 날 짧은 간격 재연동은 RATE_LIMITED 429', async () => {
   const env = makeEnv();
   const participant = await register(env);
@@ -311,6 +340,35 @@ test('리더보드: limit을 주면 상위 N명을 순위 순으로 반환한다
       [3, '일등', 2],
     ],
     '꾸준함은 연속일 내림차순으로 별도 집계 (두 항목은 서로 독립, FEATURE_PLAN §10)'
+  );
+});
+
+test('리더보드: 초고난도 도전 랭킹도 세 번째 목록으로 독립 집계된다', async () => {
+  const env = makeEnv();
+  const fixtures = [
+    { nickname: '킬러왕', level: 40 },
+    { nickname: '도전자', level: 31 },
+  ];
+  for (const f of fixtures) {
+    const p = await register(env, f.nickname);
+    env.DB._stores.participantStats.set(p.participantId, {
+      participant_id: p.participantId,
+      total_solved: 0,
+      current_streak: 0,
+      best_streak: 0,
+      last_qualified_date: null,
+      max_killer_level: f.level,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  const board = await (await getLeaderboard(new Request('https://example.test/v1/leaderboard?limit=10'), env, null)).json();
+  assert.deepEqual(
+    board.mostKillerLevel.map((r) => [r.rank, r.nickname, r.value]),
+    [
+      [1, '킬러왕', 40],
+      [2, '도전자', 31],
+    ]
   );
 });
 

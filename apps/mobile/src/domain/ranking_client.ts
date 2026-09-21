@@ -86,15 +86,19 @@ export interface SyncTodayResult {
   qualifiedConsistency: boolean;
   totalSolved: number;
   currentStreak: number;
+  /** 초고난도 도전 랭킹: 전체 기간 최고 도달 킬러 문항 레벨(0이면 아직 없음). */
+  maxKillerLevel: number;
   solvedRank: number;
   consistencyRank: number;
+  killerRank: number;
   leaderboardUpdatedAt: string;
 }
 
 export async function syncToday(
   profile: RankingProfile,
   localDate: string,
-  solvedCount: number
+  solvedCount: number,
+  maxKillerLevel: number
 ): Promise<SyncTodayResult> {
   return request<SyncTodayResult>('/v1/sync/today', {
     method: 'POST',
@@ -102,20 +106,21 @@ export async function syncToday(
       Authorization: `Bearer ${profile.deviceToken}`,
       'Idempotency-Key': `${profile.participantId}-${localDate}-${Date.now()}`,
     },
-    body: JSON.stringify({ localDate, timezone: 'Asia/Seoul', solvedCount }),
+    body: JSON.stringify({ localDate, timezone: 'Asia/Seoul', solvedCount, maxKillerLevel }),
   });
 }
 
 export interface LeaderboardEntry {
   rank: number;
   nickname: string;
-  /** 최다 문제 풀이는 누적 문제 수, 꾸준함은 연속 학습일. */
+  /** 최다 문제 풀이는 누적 문제 수, 꾸준함은 연속 학습일, 초고난도 도전은 최고 도달 레벨. */
   value: number;
 }
 
 export interface LeaderboardResult {
   mostSolved: LeaderboardEntry[];
   mostConsistent: LeaderboardEntry[];
+  mostKillerLevel: LeaderboardEntry[];
   updatedAt: string;
 }
 
