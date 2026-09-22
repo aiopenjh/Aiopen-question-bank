@@ -1,6 +1,15 @@
 # Celueste Developer & Maintainer Guide
 
-이 문서는 개발자와 저장소 관리자를 위한 기술 문서입니다. 사용자 기능과 사용법은 [README.md](README.md), AI 협업 불변 규칙은 [AGENTS.md](AGENTS.md)를 참고합니다.
+이 문서는 개발자와 저장소 관리자가 가장 먼저 보는 **공식 기술 입구**입니다. 사용자 기능과 사용법은 [README.md](README.md), 변경 불가 원칙은 [AGENTS.md](AGENTS.md), 상세 흐름은 [docs/ARCHITECTURE_WORKFLOW_V2.md](docs/ARCHITECTURE_WORKFLOW_V2.md)를 참고합니다.
+
+문서별 책임은 다음처럼 구분합니다.
+
+- `README.md`: 사용자용 설치·기능·사용법
+- `DEVELOPER.md`: 현재 구현의 개발자용 요약과 작업 기준
+- `AGENTS.md`: 어떤 AI와 개발자도 지켜야 할 9대 불변 규칙
+- `docs/ARCHITECTURE_WORKFLOW_V2.md`: 계층, 데이터 흐름, 외부 연결, 실패 처리의 상세 기준
+- `AI_SHARED_CONTEXT.md`: 다른 AI에게 넘기는 짧은 인수인계문
+- `docs/PRODUCT_ROADMAP_AND_BETA_PLAN.md`: 완료 기능과 다음 출시 과제
 
 ## 1. 현재 구성
 
@@ -12,6 +21,8 @@
 - 배포 대상: GitHub Pages 정적 웹, EAS Android 빌드
 
 중앙 서버 없이도 기본 학습 기능이 동작하는 로컬 퍼스트 구조입니다. 네트워크는 AI 문제 생성, 업데이트 확인, 선택형 랭킹·의견 전송처럼 명시적인 기능에서만 사용합니다.
+
+핵심 흐름은 `App.tsx → AppView/useAppController → 기능 훅 → domain → repository → app_storage → IndexedDB/AsyncStorage`입니다. 화면은 저장소나 외부 API를 직접 다루지 않고 각 계층의 책임을 거칩니다.
 
 ## 2. 로컬 개발
 
@@ -253,3 +264,12 @@ npx eas-cli build -p android --profile preview
 - [CHANGELOG.md](CHANGELOG.md): 버전별 변경 이력
 - [docs/ARCHITECTURE_WORKFLOW_V2.md](docs/ARCHITECTURE_WORKFLOW_V2.md): 상세 아키텍처
 - [docs/PRODUCT_ROADMAP_AND_BETA_PLAN.md](docs/PRODUCT_ROADMAP_AND_BETA_PLAN.md): 제품 로드맵
+
+## 12. 현재 운영 제약과 다음 우선순위
+
+- 주관식 채점은 AI 통신이 필요합니다. 현재 채점 실패 답안은 보존되지만 자동 재채점 화면은 없습니다.
+- 여러 주관식 문항은 병렬 채점되므로 공급자 제한과 비용을 Beta에서 관찰해야 합니다.
+- 백업은 최상위 스키마를 검사하지만 중첩 객체 검증을 더 강화할 여지가 있습니다.
+- 웹 자동 회귀는 도메인 테스트 중심이며 실제 브라우저 E2E는 아직 별도 구축 대상입니다.
+- 랭킹 클라이언트는 개발용 Worker 주소를 사용하고 D1 설정도 운영값 확정이 필요하므로, 운영 배포 전 URL·DB·개인정보 범위를 다시 확인해야 합니다.
+- 앱 릴리스 표시는 아직 `v2.3.4`입니다. `v2.4.0-beta.1` 배포 전 `buildInfo.ts`, 변경 이력, 태그를 함께 갱신해야 합니다.

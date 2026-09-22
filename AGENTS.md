@@ -66,9 +66,14 @@
 | **출제 프롬프트** | `apps/mobile/src/domain/prompts.ts` | 공인 시험 출제위원 프롬프트, 도메인 고정, 교차 충돌 우선순위, 9대 헌법 정의 |
 | **AI 통신 엔진** | `apps/mobile/src/domain/ai_client.ts` | Gemini 3.5 이상 모델 내 캐스케이드 및 타임아웃 방어, Claude 3.5 Sonnet(`sk-ant-`), OpenAI GPT-4o(`sk-`) 멀티 프로바이더 통합 |
 | **출제 파이프라인**| `apps/mobile/src/domain/generator.ts` | 문제 출제 오케스트레이션, JSON 무결성 검증, Fisher-Yates 정답 분산 호출 |
+| **문항 유형 계획** | `apps/mobile/src/domain/question_type_plan.ts` | 객관식·주관식·빈칸형을 문항별 독립 추첨하고 AI 응답 순서 일치 검증 |
+| **응답 검증** | `apps/mobile/src/domain/generator_validation.ts` | 객관식·단답형·서술형·빈칸형의 유형별 필수 필드와 값 검증 |
 | **정답 셔플러** | `apps/mobile/src/domain/question_distribution.ts` | 4지선다 정답 위치(0~3) 균등 무작위 분산 및 연속 정답 방지 수학적 알고리즘 |
+| **채점 엔진** | `apps/mobile/src/domain/grading.ts` | 빈칸형 로컬 채점과 단답형·서술형 AI 채점 |
 | **영구 저장소** | `apps/mobile/src/data/app_storage.ts`, `apps/mobile/src/data/db.ts` | 웹 IndexedDB 자동 생성·기존 데이터 이관, 네이티브 AsyncStorage, 과목·단원·문제·오답노트 영구 보관 |
 | **CBT 시험장** | `apps/mobile/src/features/exam/ExamSessionScreen.tsx` | 전체화면 오버레이 시험장, 4단계 입체 해설지, 복습 완료 후 과목자료함(Page 1) 직행 복귀 |
+| **풀이공간** | `apps/mobile/src/features/exam/ScratchpadPanel.tsx`, `ScratchpadCanvas.*` | 문제별 필기, 마지막 획 되돌리기, 전체 지우기, 문제 이동 시 초기화 |
+| **랭킹 연동** | `apps/mobile/src/domain/ranking_client.ts`, `apps/ranking-worker/` | 사용자가 선택한 경우에만 최소 랭킹 데이터 동기화, 순위 조회 API 제공 |
 | **과목자료함** | `apps/mobile/src/features/library/LibraryScreen.tsx` | 과목 목록, 소단원 목록, 교재 텍스트 첨부, 문제은행 누적 보관 및 시험 응시 |
 | **출제 설정 팝업**| `apps/mobile/src/components/modals/QuizCountModal.tsx` | 과목 등록 시 선택한 난이도(입문/기본/실전/심화) 자동 고정 표시, 난이도 변경 영역, 3/5/10문제 선택 |
 | **과목 추가 팝업**| `apps/mobile/src/components/modals/TopicModal.tsx` | 과목명, 카테고리 칩, 시작 난이도 4단계 선택, 등록 즉시 과목자료함 직행 |
@@ -94,6 +99,11 @@
    - 첫 실행 시 기존 AsyncStorage/localStorage 학습 데이터를 IndexedDB로 자동 복사하고 값 검증 후 전환.
    - API 키와 구형 보안 저장 키는 일반 학습 DB 이관에서 제외.
    - 이관 실패 시 기존 저장소를 유지하고, 전체 초기화 시 IndexedDB와 구형 앱 데이터를 함께 정리.
+5. **복수 문항 유형과 풀이공간 통합**:
+   - 객관식 외 `short_answer`, `essay`, `cloze` 생성·검증·응시·결과 표시를 `main`에 통합.
+   - 문제마다 객관식/주관식 범주/빈칸형을 독립 추첨하며 고정 비율을 강제하지 않음.
+   - 객관식 정답 위치 분산(헌법 6)과 문항 유형 무작위 추첨은 서로 다른 단계로 유지.
+   - 웹·네이티브 풀이공간에 연속 필기, 마지막 획 되돌리기, 전체 지우기와 문제별 초기화를 적용.
 
 ---
 
