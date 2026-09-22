@@ -169,7 +169,7 @@ export function validateGeneratedQuestions(
     knownStems.add(normalizedStem);
 
     const questionType = readQuestionType(question.questionType, number);
-    // cloze는 난이도와 무관하게 항상 허용. short_answer/essay만 인지수준 게이트 대상.
+    // 호출자가 허용한 유형인지 검증한다. 일반 출제는 모든 레벨에서 주관식을 허용한다.
     if ((questionType === 'short_answer' || questionType === 'essay') && !subjectiveAllowed) {
       throw new Error(`AI가 이번 난이도에서 허용되지 않는 문제 유형(${questionType})을 반환했습니다. 다시 시도해 주세요.`);
     }

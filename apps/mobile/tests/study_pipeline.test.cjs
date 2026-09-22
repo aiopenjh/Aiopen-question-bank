@@ -41,7 +41,9 @@ function appSession({ data = new Map(), secure = new Map(), response } = {}) {
       exports: module.exports,
       console,
       Date,
-      Math,
+      // 이 저장소 통합 테스트의 객관식 fixture에 맞춘 결정적 추첨.
+      Math: filename.endsWith('question_type_plan.ts')
+        ? Object.assign(Object.create(Math), { random: () => 0 }) : Math,
       Set,
       Map,
       Promise,

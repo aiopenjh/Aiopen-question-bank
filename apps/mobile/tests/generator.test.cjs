@@ -34,6 +34,9 @@ function harness(fetchImpl = async () => { throw new Error('unexpected provider 
       module,
       exports: module.exports,
       AbortController,
+      // 기존 객관식 fixture와 일치하는 추첨을 재현한다. 다른 추첨은 별도 케이스로 검증한다.
+      Math: filename.endsWith('question_type_plan.ts')
+        ? Object.assign(Object.create(Math), { random: options.planRandom || (() => 0) }) : Math,
       clearTimeout,
       console: {
         error: (...args) => options.logs?.push(args.join(' ')),
@@ -190,6 +193,42 @@ test('PDF pages are attached only to the Gemini generation request', async () =>
   assert.equal(requestBody.contents[0].parts[1].inlineData.mimeType, 'application/pdf');
   assert.equal(requestBody.contents[0].parts[1].inlineData.data, 'JVBERi0xLjQK');
   assert.match(requestBody.contents[0].parts[0].text, /1~5페이지/);
+});
+
+test('generation follows all-subjective or all-cloze draws even at entry difficulty', async () => {
+  for (const [draws, type] of [
+    [[0.45, 0.1], 'short_answer'], [[0.45, 0.8], 'essay'], [[0.9], 'cloze'],
+  ]) {
+    let cursor = 0;
+    let sentPrompt;
+    const questions = Array.from({ length: 3 }, (_, i) => ({
+      questionType: type,
+      stem: type === 'cloze' ? `수도 ${i + 1}: {{1}}` : `수도 문제 ${i + 1}`,
+      modelAnswer: '서울',
+      blanks: [{ correctAnswers: ['서울'] }],
+      gradingChecklist: [{ criterion: '국가 식별', points: 50 }, { criterion: '도시 식별', points: 50 }],
+      explanation: '대한민국의 수도는 서울입니다.',
+      deepReasoningHint: '나라의 행정 중심지를 떠올려 보세요.',
+    }));
+    const generator = harness(async (_url, request) => {
+      sentPrompt = JSON.parse(request.body).contents[0].parts[0].text;
+      return response(providerPayload(questions));
+    }, { planRandom: () => draws[cursor++ % draws.length] });
+    const params = args(generator, 3);
+    params.intent = generator.analyzeUserIntent('덧셈', undefined, { difficultyLevel: 1, targetCount: 3 });
+    const result = await generator.generateFactBasedQuestions(params);
+    assert.equal(result.status, 'READY', result.message);
+    assert.deepEqual(Array.from(result.questions, question => question.questionType), Array(3).fill(type));
+    assert.ok(sentPrompt.includes(JSON.stringify(Array(3).fill(type))));
+    assert.ok(!sentPrompt.includes('30%'));
+  }
+});
+
+test('generation rejects an AI response replacing the drawn cloze type with multiple choice', async () => {
+  const generator = harness(async () => response(providerPayload()), { planRandom: () => 0.9 });
+  const result = await generator.generateFactBasedQuestions(args(generator));
+  assert.equal(result.status, 'FAILED');
+  assert.match(result.message, /추첨된 문제 유형/);
 });
 
 test('provider HTTP failures expose neither the API key nor the provider response body', async () => {

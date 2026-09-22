@@ -14,7 +14,8 @@ import {
 } from '../contracts/types';
 import { generateUUID, getCurrentISOTime, getGeminiApiKey, getAttempts } from '../data/db';
 import { CHALLENGE_START_LEVEL, getChallengeGenerationError, getUnlockedChallengeLevel } from './challenge_progress';
-import { buildQuestionGenerationPrompt, isSubjectiveEligible } from './prompts';
+import { buildQuestionGenerationPrompt } from './prompts';
+import { createQuestionTypePlan, matchesQuestionTypePlan } from './question_type_plan';
 import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
 import {
   ScopedIntent,
@@ -505,7 +506,9 @@ async function generateViaUniversalAiApi(params: {
   );
   const referenceDate = currentInformationRequired ? getKoreanReferenceDate() : undefined;
 
+  const questionTypePlan = createQuestionTypePlan(intent.targetCount);
   const prompt = buildQuestionGenerationPrompt({
+    questionTypePlan,
     intent,
     resolvedDomain,
     category,
@@ -545,8 +548,11 @@ async function generateViaUniversalAiApi(params: {
     currentInformationRequired,
     referenceDate,
     completion.groundingSources.length > 0,
-    isSubjectiveEligible(intent)
+    true
   );
+  if (!matchesQuestionTypePlan(generatedQuestions, questionTypePlan)) {
+    throw new GenerationContentError('AI가 추첨된 문제 유형을 따르지 않았습니다. 다시 출제해 주세요.');
+  }
   const questions: QuestionRevision[] = [];
   const validations: ValidationRecord[] = [];
 

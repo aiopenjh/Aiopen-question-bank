@@ -113,14 +113,20 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
 
   function handlePrevQuestion() {
     if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
+      handleJumpToQuestion(currentIndex - 1);
     }
   }
 
   function handleNextQuestion() {
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      handleJumpToQuestion(currentIndex + 1);
     }
+  }
+
+  function handleJumpToQuestion(index: number) {
+    if (index === currentIndex) return;
+    setShowScratchpad(false);
+    setCurrentIndex(index);
   }
 
   async function handleSubmitExam() {
@@ -250,7 +256,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
           onSelectOption={handleSelectOption}
           onAnswerTextChange={handleSelectOption}
           onClozeAnswerChange={handleClozeAnswerChange}
-          onJumpToIndex={setCurrentIndex}
+          onJumpToIndex={handleJumpToQuestion}
           onPrevQuestion={handlePrevQuestion}
           onNextQuestion={handleNextQuestion}
           onSubmitExam={handleSubmitExam}
@@ -279,7 +285,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
 
       {/* 풀이공간(Scratchpad) — 계산/풀이 보조용, 채점 미반영 */}
       {!isSubmitted && (
-        <ScratchpadPanel visible={showScratchpad} onClose={() => setShowScratchpad(false)} />
+        <ScratchpadPanel key={q.id} visible={showScratchpad} onClose={() => setShowScratchpad(false)} />
       )}
     </SafeAreaView>
   );
