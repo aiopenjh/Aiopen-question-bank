@@ -13,7 +13,7 @@ import {
   UUID,
 } from '../contracts/types';
 import { generateUUID, getCurrentISOTime, getGeminiApiKey } from '../data/db';
-import { buildQuestionGenerationPrompt } from './prompts';
+import { buildQuestionGenerationPrompt, isSubjectiveEligible } from './prompts';
 import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
 import {
   ScopedIntent,
@@ -27,11 +27,10 @@ import { distributeQuestionAnswersRandomly } from './question_distribution';
 import { GeneratedUnitItem, generateCurriculumUnits } from './curriculum_generator';
 import {
   buildCurrentInformationInstruction,
-  CurrentInformationReference,
   getKoreanReferenceDate,
-  isTrustedOfficialSourceUrl,
   requiresCurrentOfficialSources,
 } from './current_information';
+import { MAX_ESSAY_ANSWER_LENGTH, readOptionalText, validateGeneratedQuestions } from './generator_validation';
 
 // 100% 하위 호환성을 위한 re-export
 export {
@@ -43,6 +42,7 @@ export {
   distributeQuestionAnswersRandomly,
   GeneratedUnitItem,
   generateCurriculumUnits,
+  validateGeneratedQuestions,
 };
 
 export type GenerationOutcome =
@@ -103,27 +103,6 @@ function getGenerationRequestKey(params: GenerationParams): string {
   });
 }
 
-interface GeneratedQuestionInput {
-  stem: string;
-  conceptDefinition?: string;
-  options: Array<{
-    text: string;
-    distractorRationale?: string;
-  }>;
-  correctOptionNumber: number;
-  explanation: string;
-  deepReasoningHint?: string;
-  currentReference?: CurrentInformationReference;
-}
-
-function normalizeComparableText(value: string): string {
-  return value.trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-function readOptionalText(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
-}
-
 function readStudyIntentDecision(value: unknown): StudyIntentDecision {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
@@ -147,138 +126,6 @@ function readStudyIntentDecision(value: unknown): StudyIntentDecision {
     message: readOptionalText(result.message),
     clarificationChoices,
   };
-}
-
-export function validateGeneratedQuestions(
-  value: unknown,
-  expectedCount: number,
-  currentInformationRequired = false,
-  expectedReferenceDate?: string,
-  groundingWasUsed = false
-): GeneratedQuestionInput[] {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
-  }
-
-  const questions = (value as { questions?: unknown }).questions;
-  if (!Array.isArray(questions) || questions.length !== expectedCount) {
-    throw new Error(
-      `AI가 요청한 ${expectedCount}문항을 완전하게 반환하지 않았습니다. 다시 시도해 주세요.`
-    );
-  }
-
-  const knownStems = new Set<string>();
-
-  if (currentInformationRequired && !groundingWasUsed) {
-    throw new Error('최신 공식 자료 검색 결과를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
-  }
-
-  return questions.map((rawQuestion, questionIndex) => {
-    const number = questionIndex + 1;
-    if (typeof rawQuestion !== 'object' || rawQuestion === null || Array.isArray(rawQuestion)) {
-      throw new Error(`AI 응답의 ${number}번 문제 형식이 올바르지 않습니다. 다시 시도해 주세요.`);
-    }
-
-    const question = rawQuestion as Record<string, unknown>;
-    const stem = typeof question.stem === 'string' ? question.stem.trim() : '';
-    if (!stem) {
-      throw new Error(`AI 응답의 ${number}번 문제 지문이 비어 있습니다. 다시 시도해 주세요.`);
-    }
-
-    const normalizedStem = normalizeComparableText(stem);
-    if (knownStems.has(normalizedStem)) {
-      throw new Error(`AI 응답에 동일한 문제 지문이 반복되었습니다. 다시 시도해 주세요.`);
-    }
-    knownStems.add(normalizedStem);
-
-    if (!Array.isArray(question.options) || question.options.length !== 4) {
-      throw new Error(`AI 응답의 ${number}번 문제 보기가 4개가 아닙니다. 다시 시도해 주세요.`);
-    }
-
-    const knownOptions = new Set<string>();
-    const options = question.options.map((rawOption, optionIndex) => {
-      if (typeof rawOption !== 'object' || rawOption === null || Array.isArray(rawOption)) {
-        throw new Error(
-          `AI 응답의 ${number}번 문제 ${optionIndex + 1}번 보기 형식이 올바르지 않습니다. 다시 시도해 주세요.`
-        );
-      }
-
-      const option = rawOption as Record<string, unknown>;
-      const text = typeof option.text === 'string' ? option.text.trim() : '';
-      if (!text) {
-        throw new Error(
-          `AI 응답의 ${number}번 문제 ${optionIndex + 1}번 보기가 비어 있습니다. 다시 시도해 주세요.`
-        );
-      }
-
-      const normalizedOption = normalizeComparableText(text);
-      if (knownOptions.has(normalizedOption)) {
-        throw new Error(`AI 응답의 ${number}번 문제에 중복 보기가 있습니다. 다시 시도해 주세요.`);
-      }
-      knownOptions.add(normalizedOption);
-
-      return {
-        text,
-        distractorRationale: readOptionalText(option.distractorRationale),
-      };
-    });
-
-    if (
-      typeof question.correctOptionNumber !== 'number' ||
-      !Number.isInteger(question.correctOptionNumber) ||
-      question.correctOptionNumber < 1 ||
-      question.correctOptionNumber > options.length
-    ) {
-      throw new Error(`AI 응답의 ${number}번 문제 정답 번호가 올바르지 않습니다. 다시 시도해 주세요.`);
-    }
-
-    const explanation =
-      typeof question.explanation === 'string' ? question.explanation.trim() : '';
-    if (!explanation) {
-      throw new Error(`AI 응답의 ${number}번 문제 해설이 비어 있습니다. 다시 시도해 주세요.`);
-    }
-
-    let currentReference: CurrentInformationReference | undefined;
-    if (currentInformationRequired) {
-      const rawReference = question.currentReference;
-      if (typeof rawReference !== 'object' || rawReference === null || Array.isArray(rawReference)) {
-        throw new Error(`AI가 ${number}번 문제의 최신 공식 출처를 확인하지 못했습니다. 다시 시도해 주세요.`);
-      }
-      const reference = rawReference as Record<string, unknown>;
-      const referenceDate = readOptionalText(reference.referenceDate);
-      const sourceAgency = readOptionalText(reference.sourceAgency);
-      const sourceTitle = readOptionalText(reference.sourceTitle);
-      const sourceUrl = readOptionalText(reference.sourceUrl);
-      if (
-        !referenceDate ||
-        referenceDate !== expectedReferenceDate ||
-        reference.effectiveStatus !== 'currently_effective' ||
-        !sourceAgency ||
-        !sourceTitle ||
-        !sourceUrl ||
-        !isTrustedOfficialSourceUrl(sourceUrl)
-      ) {
-        throw new Error(`AI가 ${number}번 문제에 현재 시행 중인 공식 근거를 제시하지 못했습니다. 다시 시도해 주세요.`);
-      }
-      currentReference = {
-        referenceDate,
-        effectiveStatus: 'currently_effective',
-        sourceAgency,
-        sourceTitle,
-        sourceUrl,
-      };
-    }
-
-    return {
-      stem,
-      conceptDefinition: readOptionalText(question.conceptDefinition),
-      options,
-      correctOptionNumber: question.correctOptionNumber,
-      explanation,
-      deepReasoningHint: readOptionalText(question.deepReasoningHint),
-      currentReference,
-    };
-  });
 }
 
 /**
@@ -464,35 +311,45 @@ async function generateViaUniversalAiApi(params: {
     intent.targetCount,
     currentInformationRequired,
     referenceDate,
-    completion.groundingSources.length > 0
+    completion.groundingSources.length > 0,
+    isSubjectiveEligible(intent)
   );
   const questions: QuestionRevision[] = [];
   const validations: ValidationRecord[] = [];
 
   for (const item of generatedQuestions) {
     const qId = generateUUID();
-    const opts = item.options.map((o) => ({
-      id: generateUUID(),
-      text: o.text,
-      isDistractor: true,
-      distractorRationale: o.distractorRationale,
-    }));
 
-    const correctIdx = item.correctOptionNumber - 1;
+    let opts: QuestionRevision['options'] = [];
+    let answerId = '';
+    let maxAnswerLength: number | undefined;
 
-    opts.forEach((o: any, idx: number) => {
-      o.isDistractor = idx !== correctIdx;
-      if (!o.isDistractor) {
-        delete o.distractorRationale;
+    if (item.questionType === 'multiple_choice') {
+      opts = item.options.map((o) => ({
+        id: generateUUID(),
+        text: o.text,
+        isDistractor: true,
+        distractorRationale: o.distractorRationale,
+      }));
+
+      const correctIdx = item.correctOptionNumber - 1;
+
+      opts.forEach((o: any, idx: number) => {
+        o.isDistractor = idx !== correctIdx;
+        if (!o.isDistractor) {
+          delete o.distractorRationale;
+        }
+      });
+
+      answerId = opts[correctIdx].id;
+
+      // 셔플: 정답이 1번에 고정되지 않도록 4지선다 보기를 무작위로 섞음 (answerId가 정답 보기를 계속 추적)
+      for (let i = opts.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [opts[i], opts[j]] = [opts[j], opts[i]];
       }
-    });
-
-    const answerId = opts[correctIdx].id;
-
-    // 셔플: 정답이 1번에 고정되지 않도록 4지선다 보기를 무작위로 섞음 (answerId가 정답 보기를 계속 추적)
-    for (let i = opts.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [opts[i], opts[j]] = [opts[j], opts[i]];
+    } else if (item.questionType === 'essay') {
+      maxAnswerLength = MAX_ESSAY_ANSWER_LENGTH;
     }
 
     const q: QuestionRevision = {
@@ -503,11 +360,14 @@ async function generateViaUniversalAiApi(params: {
       topicId,
       unitId: unitId || undefined,
       difficultyLevel: intent.difficultyLevel,
-      questionType: 'multiple_choice',
+      questionType: item.questionType,
       stem: item.stem,
       conceptDefinition: item.conceptDefinition,
       options: opts,
       answerOptionId: answerId,
+      modelAnswer: item.modelAnswer,
+      gradingChecklist: item.gradingChecklist,
+      maxAnswerLength,
       explanation: item.explanation,
       deepReasoningHint: item.deepReasoningHint,
       currentReference: item.currentReference,
@@ -522,12 +382,17 @@ async function generateViaUniversalAiApi(params: {
       checkType: 'syntax_integrity',
       result: 'pass',
       reviewerKind: 'rule_engine',
-      reason: '문항 수, 지문, 보기, 정답 번호, 해설 형식 검사 통과',
+      reason: '문항 수, 지문, 보기/모범답안, 정답 형식, 해설 형식 검사 통과',
       createdAt: getCurrentISOTime(),
     });
   }
 
-  // 정답 위치 균등 무작위 분산 강제 적용
-  const distributedQuestions = distributeQuestionAnswersRandomly(questions);
+  // 정답 위치 균등 무작위 분산 강제 적용 (4지선다 문항에만 적용. 서술형/단답형은 options가 없어 대상 아님)
+  const mcQuestions = questions.filter((q) => q.questionType === 'multiple_choice');
+  const distributedMc = distributeQuestionAnswersRandomly(mcQuestions);
+  let mcCursor = 0;
+  const distributedQuestions = questions.map((q) =>
+    q.questionType === 'multiple_choice' ? distributedMc[mcCursor++] : q
+  );
   return { status: 'READY', spec, questions: distributedQuestions, validations };
 }

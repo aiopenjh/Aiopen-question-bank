@@ -76,8 +76,13 @@ export function useExamSession({
         saveLastStudiedTopicId(firstQTopicId);
       }
 
-      // 정답 번호가 한곳에 편중되지 않도록 균등 무작위 분산 배치 적용
-      const randomizedQuestions = distributeQuestionAnswersRandomly(list);
+      // 정답 번호가 한곳에 편중되지 않도록 균등 무작위 분산 배치 적용 (4지선다만 대상. 서술형/단답형은 options가 없어 그대로 유지)
+      const mcList = list.filter((q) => q.questionType === 'multiple_choice');
+      const distributedMc = distributeQuestionAnswersRandomly(mcList);
+      let mcCursor = 0;
+      const randomizedQuestions = list.map((q) =>
+        q.questionType === 'multiple_choice' ? distributedMc[mcCursor++] : q
+      );
 
       setExamQuestions(randomizedQuestions);
       setExamSessionActive(true);
@@ -87,7 +92,16 @@ export function useExamSession({
 
   const handleCompleteExam = useCallback(
     async (
-      results: Array<{ question: QuestionRevision; selectedOptionId: string; isCorrect: boolean }>
+      results: Array<{
+        question: QuestionRevision;
+        selectedOptionId: string;
+        isCorrect: boolean;
+        answerText?: string;
+        gradingStatus?: 'pending' | 'graded' | 'failed';
+        gradingScore?: number;
+        gradingChecklistResult?: { id: string; met: boolean }[];
+        gradingFailedReason?: string;
+      }>
     ) => {
       for (const item of results) {
         const attemptId = generateUUID();
@@ -96,7 +110,12 @@ export function useExamSession({
           sessionItemId: generateUUID(),
           submissionKey: `sub-${item.question.id}-${getLocalDateString()}-${attemptId.slice(0, 6)}`,
           answerOptionId: item.selectedOptionId,
+          answerText: item.answerText,
           isCorrect: item.isCorrect,
+          gradingStatus: item.gradingStatus,
+          gradingScore: item.gradingScore,
+          gradingChecklistResult: item.gradingChecklistResult,
+          gradingFailedReason: item.gradingFailedReason,
           submittedAt: getCurrentISOTime(),
         };
         await saveAttempt(attempt);

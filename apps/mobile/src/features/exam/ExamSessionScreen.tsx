@@ -8,13 +8,23 @@ import { ExamActiveView } from './ExamActiveView';
 import { ExamResultView } from './ExamResultView';
 import { ExamHintModal } from './ExamHintModal';
 import { ScratchpadPanel } from './ScratchpadPanel';
+import { gradeSubjectiveAnswer } from '../../domain/grading';
+
+export interface ExamAnswerResult {
+  question: QuestionRevision;
+  selectedOptionId: string; // multiple_choice만 사용. 그 외 유형은 빈 문자열
+  isCorrect: boolean; // multiple_choice 정오 판정. 그 외 유형은 gradingScore 기준(아래)으로 계산됨
+  answerText?: string; // short_answer/essay 제출 답안
+  gradingStatus?: 'pending' | 'graded' | 'failed'; // short_answer/essay만 사용
+  gradingScore?: number; // 0~100
+  gradingChecklistResult?: { id: string; met: boolean }[];
+  gradingFailedReason?: string;
+}
 
 interface ExamSessionScreenProps {
   questions: QuestionRevision[];
   onExitExam: () => void;
-  onCompleteExam: (
-    results: Array<{ question: QuestionRevision; selectedOptionId: string; isCorrect: boolean }>
-  ) => Promise<void>;
+  onCompleteExam: (results: ExamAnswerResult[]) => Promise<void>;
   onReinforceIncorrectConcepts?: () => Promise<void> | void;
 }
 
@@ -30,6 +40,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   const [showHintModal, setShowHintModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showScratchpad, setShowScratchpad] = useState(false);
+  const [submittedResults, setSubmittedResults] = useState<ExamAnswerResult[] | null>(null);
 
   if (!questions || questions.length === 0) return null;
 
@@ -92,17 +103,35 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   async function executeSubmission() {
     setIsSaving(true);
     try {
-      const results = questions.map((item, idx) => {
-        const selectedId = userAnswers[idx] || '';
-        const isCorrect = selectedId === item.answerOptionId;
-        return {
-          question: item,
-          selectedOptionId: selectedId,
-          isCorrect,
-        };
-      });
+      const results: ExamAnswerResult[] = await Promise.all(
+        questions.map(async (item, idx): Promise<ExamAnswerResult> => {
+          const answer = userAnswers[idx] || '';
+
+          if (item.questionType === 'multiple_choice') {
+            return {
+              question: item,
+              selectedOptionId: answer,
+              isCorrect: answer === item.answerOptionId,
+            };
+          }
+
+          // short_answer / essay: AI 재호출로 채점 (실패 시 재시도 없이 로컬 보존)
+          const grading = await gradeSubjectiveAnswer(item, answer);
+          return {
+            question: item,
+            selectedOptionId: '',
+            isCorrect: grading.gradingStatus === 'graded' && (grading.gradingScore || 0) >= 100,
+            answerText: answer,
+            gradingStatus: grading.gradingStatus,
+            gradingScore: grading.gradingScore,
+            gradingChecklistResult: grading.gradingChecklistResult,
+            gradingFailedReason: grading.gradingFailedReason,
+          };
+        })
+      );
 
       await onCompleteExam(results);
+      setSubmittedResults(results);
       setIsSubmitted(true);
       setCurrentIndex(0);
     } catch (err: any) {
@@ -153,6 +182,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
           currentIndex={currentIndex}
           userAnswers={userAnswers}
           onSelectOption={handleSelectOption}
+          onAnswerTextChange={handleSelectOption}
           onJumpToIndex={setCurrentIndex}
           onPrevQuestion={handlePrevQuestion}
           onNextQuestion={handleNextQuestion}
@@ -163,6 +193,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
         <ExamResultView
           questions={questions}
           userAnswers={userAnswers}
+          results={submittedResults || undefined}
           onExitExam={onExitExam}
           onReinforceIncorrectConcepts={onReinforceIncorrectConcepts}
         />

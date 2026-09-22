@@ -2,6 +2,12 @@ import { LearnerKnowledgeLevel } from '../contracts/types';
 import { ScopedIntent } from './intent';
 import { getDifficultyProfile, legacyLevelToDifficulty, normalizeDifficultyLevel } from './difficulty';
 
+// 서술형/단답형(주관식) 출제 허용 여부. 인지수준(difficulty.ts) 기준이며 도메인 화이트리스트가 아니다.
+// recall/comprehend/apply(레벨 20 미만)는 4지선다만, analyze/synthesize(레벨 20 이상)부터 주관식 혼합을 허용한다.
+export function isSubjectiveEligible(intent: Pick<ScopedIntent, 'level' | 'difficultyLevel'>): boolean {
+  return intent.difficultyLevel >= 20 && (intent.level === 'analyze' || intent.level === 'synthesize');
+}
+
 export function buildQuestionGenerationPrompt(params: {
   intent: ScopedIntent;
   resolvedDomain: string;
@@ -11,6 +17,7 @@ export function buildQuestionGenerationPrompt(params: {
   currentInformationInstruction?: string;
 }): string {
   const { intent, resolvedDomain, category, unitTitle, customContext, currentInformationInstruction } = params;
+  const subjectiveAllowed = isSubjectiveEligible(intent);
 
   return `당신은 사용자가 선택한 어떤 학습 주제에도 대응하는 문제 출제 전문가입니다.
 아래 주제의 의미를 먼저 판정한 뒤, 지정된 JSON 중 하나만 출력하세요.
@@ -37,18 +44,24 @@ ${currentInformationInstruction ? `\n${currentInformationInstruction}` : ''}
 
 [READY일 때 문제 작성 규칙]
 1. 정확히 ${intent.targetCount}문항을 작성합니다.
-2. 각 문제는 보기 1번, 2번, 3번, 4번의 4지선다이며 정답은 하나만 존재해야 합니다.
-3. correctOptionNumber에는 사용자에게 보이는 정답 번호 1, 2, 3, 4 중 하나를 기록합니다. 0부터 시작하는 번호를 사용하지 마세요.
-4. 오답은 실제로 혼동하기 쉬운 인접 개념으로 만들고, 각 오답 이유를 설명합니다.
-5. 기존 문제와 지문·핵심 질문·정답 개념이 사실상 같은 문제를 반복하지 않습니다.
-6. 해설에는 정답의 근거와 오답을 구분하는 기준을 분명하게 적습니다.
+2. 각 문제는 questionType을 가집니다. ${
+    subjectiveAllowed
+      ? `기본은 "multiple_choice"(4지선다)이며, 이번 학습자 수준(${intent.levelLabel})에서는 서술형·개념 설명이 4지선다보다 더 정확히 이해도를 확인할 수 있는 문제에 한해 "short_answer"(단답형) 또는 "essay"(서술형)를 섞어 출제할 수 있습니다. 강제가 아니며, 주제 특성상 전부 4지선다가 더 적절하면 전부 "multiple_choice"로 출제해도 됩니다. 섞는 경우 전체 문항의 약 30%를 넘지 않게 합니다.`
+      : `이번 학습자 수준(${intent.levelLabel})에서는 아직 서술형 판단력을 요구하기 이릅니다. 모든 문항의 questionType은 반드시 "multiple_choice"로만 작성합니다.`
+  }
+3. questionType이 "multiple_choice"인 문제는 보기 1번, 2번, 3번, 4번의 4지선다이며 정답은 하나만 존재해야 합니다. correctOptionNumber에는 사용자에게 보이는 정답 번호 1, 2, 3, 4 중 하나를 기록합니다. 0부터 시작하는 번호를 사용하지 마세요. 오답은 실제로 혼동하기 쉬운 인접 개념으로 만들고, 각 오답 이유를 설명합니다.
+4. questionType이 "short_answer"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(핵심 키워드 중심의 짧은 모범답안 한 문장)만 작성합니다. 답이 여러 표현으로 가능하면 modelAnswer에 핵심 키워드를 명시합니다.
+5. questionType이 "essay"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(모범답안 전체)와 gradingChecklist(모범답안의 핵심 요소 2~5개, 각 항목의 판정 기준 criterion과 배점 points, 배점 합계는 반드시 100)를 작성합니다. "논리적 일관성" 같은 주관적 기준이 아니라, 답안에 그 핵심 요소가 실제로 포함되었는지로만 판정 가능한 기준을 씁니다.
+6. 기존 문제와 지문·핵심 질문·정답 개념이 사실상 같은 문제를 반복하지 않습니다.
+7. 해설에는 정답의 근거와 오답을 구분하는 기준을 분명하게 적습니다(단답형/서술형은 modelAnswer의 핵심 근거를 설명).
 
 [출력 JSON]
-READY:
+READY (questionType별로 필드가 다름에 유의):
 {
   "intentStatus": "READY",
   "questions": [
     {
+      "questionType": "multiple_choice",
       "stem": "문제 지문",
       "options": [
         { "text": "1번 보기", "distractorRationale": "오답인 경우 그 이유" },
@@ -65,6 +78,27 @@ READY:
         "sourceTitle": "공식 문서 또는 법령명",
         "sourceUrl": "공식 원문 URL"
       }
+    }${
+      subjectiveAllowed
+        ? `,
+    {
+      "questionType": "short_answer",
+      "stem": "단답형 문제 지문",
+      "modelAnswer": "핵심 키워드 중심 모범답안",
+      "explanation": "정답 근거 해설"
+    },
+    {
+      "questionType": "essay",
+      "stem": "서술형 문제 지문",
+      "modelAnswer": "모범답안 전체",
+      "gradingChecklist": [
+        { "criterion": "핵심 요소 1 포함 여부", "points": 40 },
+        { "criterion": "핵심 요소 2 포함 여부", "points": 30 },
+        { "criterion": "핵심 요소 3 포함 여부", "points": 30 }
+      ],
+      "explanation": "정답 근거 해설"
+    }`
+        : ''
     }
   ]
 }
