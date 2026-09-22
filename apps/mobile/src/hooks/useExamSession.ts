@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { QuestionRevision, ReviewState, Unit, Attempt, Topic } from '../contracts/types';
-import { distributeQuestionAnswersRandomly } from '../domain/generator';
+import { distributeQuestionAnswersRandomly } from '../domain/question_distribution';
 import { calculateNextReviewState } from '../domain/spaced_repetition';
 import {
   saveAttempt,

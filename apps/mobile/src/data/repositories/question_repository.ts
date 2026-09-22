@@ -14,6 +14,7 @@ import {
 } from '../../contracts/types';
 import { STORAGE_KEYS, getCurrentISOTime } from '../storage_keys';
 import { areQuestionStemsTooSimilar } from '../../domain/question_similarity';
+import { selectIncorrectQuestions } from '../../domain/question_history';
 
 export async function getManualCompletions(): Promise<ManualCompletion[]> {
   const data = await AsyncStorage.getItem(STORAGE_KEYS.MANUAL_COMPLETIONS);
@@ -221,19 +222,5 @@ export async function saveReviewState(reviewState: ReviewState): Promise<void> {
  */
 export async function getIncorrectQuestions(): Promise<QuestionRevision[]> {
   const [questions, attempts] = await Promise.all([getQuestions(), getAttempts()]);
-  const incorrectQIds = new Set<string>();
-
-  // 문제별 최근 attempt 확인
-  for (const q of questions) {
-    const qAttempts = attempts.filter((a) => a.submissionKey.includes(q.id));
-    if (qAttempts.length > 0) {
-      // 가장 최근 시도
-      const latest = qAttempts[qAttempts.length - 1];
-      if (!latest.isCorrect) {
-        incorrectQIds.add(q.id);
-      }
-    }
-  }
-
-  return questions.filter((q) => incorrectQIds.has(q.id));
+  return selectIncorrectQuestions(questions, attempts);
 }

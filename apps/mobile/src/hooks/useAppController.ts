@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { selectIncorrectQuestions } from '../domain/question_history';
 import { QuestionRevision, Topic } from '../contracts/types';
 import { showAlert, registerAlertListener, AlertData } from '../utils/alert';
 import {
@@ -186,14 +187,13 @@ export function useAppController() {
     setSelectedTopicId,
     setLastStudiedTopicId,
     onRefreshData: async () => {
-      const [updatedAttempts, updatedRS, updatedInQ] = await Promise.all([
+      const [updatedAttempts, updatedRS] = await Promise.all([
         getAttempts(),
         getReviewStates(),
-        getIncorrectQuestions(),
       ]);
       setAttempts(updatedAttempts);
       setReviewStates(updatedRS);
-      setIncorrectQuestions(updatedInQ);
+      setIncorrectQuestions(selectIncorrectQuestions(questions, updatedAttempts));
     },
   });
 
@@ -332,11 +332,15 @@ export function useAppController() {
   }, []);
 
   // 10. 파생 상태
-  const dueQuestions = filterDueReviewQuestions(questions, reviewStates);
-  const todayAttempts = attempts.filter((att) => {
+  const today = getLocalDateString();
+  const dueQuestions = useMemo(
+    () => filterDueReviewQuestions(questions, reviewStates, today),
+    [questions, reviewStates, today]
+  );
+  const todayAttempts = useMemo(() => attempts.filter((att) => {
     const submittedAt = new Date(att.submittedAt);
-    return !Number.isNaN(submittedAt.getTime()) && getLocalDateString(submittedAt) === getLocalDateString();
-  });
+    return !Number.isNaN(submittedAt.getTime()) && getLocalDateString(submittedAt) === today;
+  }), [attempts, today]);
 
   async function handleStartExamWithAutoGenerate() {
     if (topics.length === 0) {

@@ -9,7 +9,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 // The bundled ESM build avoids Metro's production-only interop failure in pdf-lib's
 // unbundled tslib dependency while keeping PDF work local to the device.
-import { PDFDocument } from 'pdf-lib/dist/pdf-lib.esm.js';
+// Resolve the same bundled ESM build only when PDF work is requested.
+const loadPdfLibrary = () => import('pdf-lib/dist/pdf-lib.esm.js');
 import {
   AiDocumentInput,
   Source,
@@ -140,6 +141,7 @@ export function useSourceManager(params: {
       setSourceFileName(fileName);
 
       if (ext === 'pdf') {
+        const { PDFDocument } = await loadPdfLibrary();
         const bytes = await readPickedBytes(file);
         const pdf = await PDFDocument.load(bytes, { ignoreEncryption: false });
         const pageCount = pdf.getPageCount();
@@ -283,6 +285,7 @@ export function useSourceManager(params: {
         showAlert('다른 PDF입니다', `처음 등록한 “${source.fileName || source.title}” 파일을 선택해 주세요.`);
         return;
       }
+      const { PDFDocument } = await loadPdfLibrary();
       const pdf = await PDFDocument.load(bytes, { ignoreEncryption: false });
       pdfMemoryCache.set(sourceId, { bytes, fingerprint, fileName: file.name, pageCount: pdf.getPageCount() });
       showAlert('원본 PDF 연결 완료', 'PDF는 저장하지 않고 이번 실행 중에만 목차와 문제 출제에 사용합니다.');
@@ -307,6 +310,7 @@ export function useSourceManager(params: {
 
     const start = Math.max(1, Math.min(pageStart ?? source.selectedPageStart ?? 1, cached.pageCount));
     const end = Math.max(start, Math.min(pageEnd ?? source.selectedPageEnd ?? cached.pageCount, cached.pageCount));
+    const { PDFDocument } = await loadPdfLibrary();
     const original = await PDFDocument.load(cached.bytes, { ignoreEncryption: false });
     const sliced = await PDFDocument.create();
     const indexes = Array.from({ length: end - start + 1 }, (_, index) => start - 1 + index);

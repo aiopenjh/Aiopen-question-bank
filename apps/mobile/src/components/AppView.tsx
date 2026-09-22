@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StatusBar, ActivityIndicator, Animated, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { generateUUID } from '../data/db';
@@ -45,6 +45,12 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     appAlert, setAppAlert,
   } = controller;
   const [feedbackVisible, setFeedbackVisible] = useState(false);
+  // Retain visited pages so paging and modal state survive navigation.
+  const [visitedPages, setVisitedPages] = useState(() => new Set([currentPage]));
+  useEffect(() => {
+    setVisitedPages(previous => previous.has(currentPage)
+      ? previous : new Set([...previous, currentPage]));
+  }, [currentPage]);
   if (loading) {
     return (
       <SafeAreaProvider>
@@ -132,7 +138,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                   : {}),
               }}
             >
-              <StudyMapScreen
+              {(currentPage === 0 || visitedPages.has(0)) && <StudyMapScreen
                 routine={routine}
                 todayAttemptsCount={todayAttempts.length}
                 dueQuestionsCount={dueQuestions.length}
@@ -143,7 +149,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 onOpenCustomNotebook={handleOpenCustomNotebook}
                 onOpenTopicModal={handleOpenTopicModal}
                 topicName={topics.find((t) => t.id === (selectedTopicId || lastStudiedTopicId))?.name}
-              />
+              />}
             </View>
 
             {/* 2. Page 1: 과목자료함 (중간 페이지) */}
@@ -164,7 +170,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                   : {}),
               }}
             >
-              <LibraryScreen
+              {(currentPage === 1 || visitedPages.has(1)) && <LibraryScreen
                 isActive={currentPage === 1}
                 questions={questions}
                 topics={topics}
@@ -201,7 +207,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 onOpenSourceModal={() => setIsSourceUploadModalOpen(true)}
                 onOpenSettings={() => goToPage(2, true)}
                 openCustomNotebookRequest={openCustomNotebookRequest}
-              />
+              />}
             </View>
 
             {/* 3. Page 2: 설정 (맨 오른쪽 고정, 마지막 페이지) */}
@@ -222,7 +228,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                   : {}),
               }}
             >
-              <SettingsScreen
+              {(currentPage === 2 || visitedPages.has(2)) && <SettingsScreen
                 apiKey={apiKey}
                 onChangeApiKey={setApiKey}
                 onSaveApiKey={handleSaveApiKey}
@@ -246,7 +252,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 onOpenFeedback={() => setFeedbackVisible(true)}
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
-              />
+              />}
             </View>
           </Animated.View>
         </View>

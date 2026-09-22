@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuestionRevision } from '../../contracts/types';
@@ -8,21 +8,12 @@ import { ExamActiveView } from './ExamActiveView';
 import { ExamResultView } from './ExamResultView';
 import { ExamHintModal } from './ExamHintModal';
 import { ScratchpadPanel } from './ScratchpadPanel';
-import { gradeSubjectiveAnswer, gradeClozeAnswers } from '../../domain/grading';
+import { gradeExamAnswers } from '../../domain/exam_grading';
+import type { ExamAnswerResult } from '../../domain/exam_grading';
+export type { ExamAnswerResult } from '../../domain/exam_grading';
 import { updateQuestionHint } from '../../data/db';
 import { generateHintForExistingQuestion } from '../../domain/hint_generator';
 
-export interface ExamAnswerResult {
-  question: QuestionRevision;
-  selectedOptionId: string; // multiple_choice만 사용. 그 외 유형은 빈 문자열
-  isCorrect: boolean; // multiple_choice 정오 판정. 그 외 유형은 gradingScore 기준(아래)으로 계산됨
-  answerText?: string; // short_answer/essay 제출 답안
-  clozeAnswers?: string[]; // cloze 제출 답안. clozeBlanks와 배열 순서로 대응
-  gradingStatus?: 'pending' | 'graded' | 'failed'; // short_answer/essay/cloze만 사용
-  gradingScore?: number; // 0~100
-  gradingChecklistResult?: { id: string; met: boolean }[];
-  gradingFailedReason?: string;
-}
 
 interface ExamSessionScreenProps {
   questions: QuestionRevision[];
@@ -48,6 +39,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showHintModal, setShowHintModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const submissionInFlight = useRef(false);
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [submittedResults, setSubmittedResults] = useState<ExamAnswerResult[] | null>(null);
   // 온디맨드로 생성한 힌트를 세션 중 즉시 반영하기 위한 로컬 오버레이.
@@ -157,49 +149,11 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   }
 
   async function executeSubmission() {
+    if (submissionInFlight.current) return;
+    submissionInFlight.current = true;
     setIsSaving(true);
     try {
-      const results: ExamAnswerResult[] = await Promise.all(
-        questions.map(async (item, idx): Promise<ExamAnswerResult> => {
-          const answer = userAnswers[idx] || '';
-
-          if (item.questionType === 'multiple_choice') {
-            return {
-              question: item,
-              selectedOptionId: answer,
-              isCorrect: answer === item.answerOptionId,
-            };
-          }
-
-          if (item.questionType === 'cloze') {
-            // 빈칸형: AI 재호출 없이 로컬에서 즉시 채점
-            const clozeAnswers = userClozeAnswers[idx] || [];
-            const grading = gradeClozeAnswers(item.clozeBlanks || [], clozeAnswers);
-            return {
-              question: item,
-              selectedOptionId: '',
-              isCorrect: grading.gradingStatus === 'graded' && (grading.gradingScore || 0) >= 100,
-              clozeAnswers,
-              gradingStatus: grading.gradingStatus,
-              gradingScore: grading.gradingScore,
-              gradingChecklistResult: grading.gradingChecklistResult,
-            };
-          }
-
-          // short_answer / essay: AI 재호출로 채점 (실패 시 재시도 없이 로컬 보존)
-          const grading = await gradeSubjectiveAnswer(item, answer);
-          return {
-            question: item,
-            selectedOptionId: '',
-            isCorrect: grading.gradingStatus === 'graded' && (grading.gradingScore || 0) >= 100,
-            answerText: answer,
-            gradingStatus: grading.gradingStatus,
-            gradingScore: grading.gradingScore,
-            gradingChecklistResult: grading.gradingChecklistResult,
-            gradingFailedReason: grading.gradingFailedReason,
-          };
-        })
-      );
+      const results = await gradeExamAnswers(questions, userAnswers, userClozeAnswers);
 
       await onCompleteExam(results);
       setSubmittedResults(results);
@@ -208,6 +162,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
     } catch (err: any) {
       showAlert('오류', `채점 결과 저장 실패: ${err.message}`);
     } finally {
+      submissionInFlight.current = false;
       setIsSaving(false);
     }
   }

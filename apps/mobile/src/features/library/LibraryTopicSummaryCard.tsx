@@ -6,15 +6,17 @@ import { styles } from './libraryStyles';
 export interface LibraryTopicSummaryCardProps {
   topic: Topic;
   units: Unit[];
+  unitCount?: number;
   onPress: () => void;
 }
 
 export const LibraryTopicSummaryCard: React.FC<LibraryTopicSummaryCardProps> = ({
   topic,
   units,
+  unitCount: suppliedUnitCount,
   onPress,
 }) => {
-  const unitCount = units.filter((unit) => unit.topicId === topic.id).length;
+  const unitCount = suppliedUnitCount ?? units.filter((unit) => unit.topicId === topic.id).length;
 
   return (
     <TouchableOpacity

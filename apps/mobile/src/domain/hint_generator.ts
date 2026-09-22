@@ -11,7 +11,7 @@
 import { QuestionRevision } from '../contracts/types';
 import { getGeminiApiKey } from '../data/db';
 import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
-import { containsAnswerLeak, MAX_HINT_LENGTH } from './generator';
+import { containsAnswerLeak, MAX_HINT_LENGTH } from './generator_validation';
 
 export class HintGenerationError extends Error {
   constructor(message: string) {

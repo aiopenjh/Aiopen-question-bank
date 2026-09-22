@@ -114,6 +114,11 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   });
 
   // 카테고리 목록
+  const unitCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const unit of units) counts.set(unit.topicId, (counts.get(unit.topicId) || 0) + 1);
+    return counts;
+  }, [units]);
   const categories = React.useMemo(() => {
     const set = new Set<string>();
     topics.forEach((t) => {
@@ -366,6 +371,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
                     key={topic.id}
                     topic={topic}
                     units={units}
+                    unitCount={unitCounts.get(topic.id) || 0}
                     onPress={() => showTopicDetail(topic.id)}
                   />
                 ))}

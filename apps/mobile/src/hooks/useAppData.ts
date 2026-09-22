@@ -50,6 +50,7 @@ import {
   saveAlarmConfig,
 } from '../utils/notifications';
 import { showAlert } from '../utils/alert';
+import { selectIncorrectQuestions } from '../domain/question_history';
 
 export function useAppData(callbacks?: {
   onAfterTopicCreated?: (created: Topic, generatedCount: number) => void;
@@ -84,7 +85,7 @@ export function useAppData(callbacks?: {
       }
       await initializeDatabase();
 
-      const [r, t, u, c, q, a, rStates, inQ, key, s, savedLastTId, aConfig] = await Promise.all([
+      const [r, t, u, c, q, a, rStates, key, s, savedLastTId, aConfig] = await Promise.all([
         getRoutine(),
         getTopics(),
         getUnits(),
@@ -92,7 +93,6 @@ export function useAppData(callbacks?: {
         getQuestions(),
         getAttempts(),
         getReviewStates(),
-        getIncorrectQuestions(),
         getEncryptedApiKey(),
         getSources(),
         getLastStudiedTopicId(),
@@ -117,7 +117,7 @@ export function useAppData(callbacks?: {
       setQuestions(q);
       setAttempts(a);
       setReviewStates(rStates);
-      setIncorrectQuestions(inQ);
+      setIncorrectQuestions(selectIncorrectQuestions(q, a));
       setApiKey(key || '');
       setSources(s);
       setAlarmConfig(aConfig);

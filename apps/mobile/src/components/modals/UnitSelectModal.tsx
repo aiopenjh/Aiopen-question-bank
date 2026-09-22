@@ -32,7 +32,7 @@ export const UnitSelectModal: React.FC<UnitSelectModalProps> = ({
   onStartExamWithExistingQuestions,
   onClose,
 }) => {
-  if (!topic) return null;
+  if (!visible || !topic) return null;
 
   const topicUnits = units.filter((unit) => unit.topicId === topic.id);
   const topicQuestions = questions.filter((question) => question.topicId === topic.id);
