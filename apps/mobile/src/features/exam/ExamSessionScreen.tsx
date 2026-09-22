@@ -164,7 +164,6 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
         onClose={() => setShowHintModal(false)}
         questionIndex={currentIndex}
         hintText={q?.deepReasoningHint}
-        explanationText={q?.explanation}
       />
     </SafeAreaView>
   );

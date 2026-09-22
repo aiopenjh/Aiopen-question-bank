@@ -7,21 +7,20 @@ export interface ExamHintModalProps {
   onClose: () => void;
   questionIndex: number;
   hintText?: string;
-  explanationText?: string;
 }
 
+// 해설(explanationText)에는 정답 도출 과정이 그대로 담겨 있어 힌트 대신 보여주면
+// 사실상 정답을 알려주는 셈이 된다. 전용 힌트가 없을 때는 정답을 노출하지 않는
+// 중립적인 기본 안내만 표시한다(해설로 폴백하지 않음).
 export const ExamHintModal: React.FC<ExamHintModalProps> = ({
   visible,
   onClose,
   questionIndex,
   hintText,
-  explanationText,
 }) => {
   const content =
-    (hintText && hintText.trim().length > 0)
+    hintText && hintText.trim().length > 0
       ? hintText.trim()
-      : (explanationText && explanationText.trim().length > 0)
-      ? explanationText.trim()
       : '지문과 보기를 꼼꼼히 다시 읽고 핵심 키워드를 찾아보세요.';
 
   return (
