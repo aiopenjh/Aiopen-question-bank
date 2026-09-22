@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Pressable,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -68,6 +68,42 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const savingRef = useRef(false);
   const closeModal = () => { if (!savingRef.current) onClose(); };
+  const cardRef = useRef<any>(null);
+
+  // 모달이 열려 있는 동안 배경 요소가 키보드 Tab 포커스를 받지 않도록 모달 안으로만 순환시킨다.
+  // (웹 전용. UniversalModal 자체는 건드리지 않고 이 모달 범위에서만 적용)
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'web') return;
+    const cardEl = cardRef.current;
+    if (!cardEl || typeof cardEl.querySelectorAll !== 'function') return;
+
+    const focusableSelector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const getFocusable = () => Array.from(cardEl.querySelectorAll(focusableSelector)) as HTMLElement[];
+
+    const first = getFocusable()[0];
+    first?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const firstEl = focusable[0];
+      const lastEl = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && document.activeElement === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      } else if (!cardEl.contains(document.activeElement)) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [visible]);
 
   useEffect(() => {
     if (!visible || !topicId) return;
@@ -141,8 +177,8 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={closeModal}>
-      <Pressable style={styles.overlay} onPress={closeModal}>
-        <Pressable style={styles.card} onPress={(event) => event.stopPropagation?.()}>
+      <View style={styles.overlay}>
+        <View style={styles.card} ref={cardRef}>
           <View style={styles.header}>
             <View style={styles.headerCopy}>
               <Text style={styles.eyebrow}>QUIZ SETUP</Text>
@@ -217,7 +253,9 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
             {loadingProgress || progressError ? <Text style={styles.privacyNote}>{progressError ? '도전 기록을 읽지 못했습니다. 창을 닫고 다시 열어 주세요.' : '도전 기록을 확인하고 있어요.'}</Text> : null}
             {!canAdjustDifficulty && selectedDifficulty >= CHALLENGE_START_LEVEL ? <Text style={styles.privacyNote}>레벨 31부터는 과목별로 3문제 중 2문제 이상 맞히면 다음 레벨이 열립니다.</Text> : null}
             <Text style={styles.privacyNote}>
-              API 요청 제한을 줄이기 위해 한 번에 3~5문항을 권장하며, 하루 누적 15문항을 넘기면 추가 확인을 받습니다.
+              {selectedDifficulty >= CHALLENGE_START_LEVEL
+                ? '순차 도전은 3문제로 고정됩니다.'
+                : 'API 요청 제한을 줄이기 위해 한 번에 3~5문항을 권장하며, 하루 누적 15문항을 넘기면 추가 확인을 받습니다.'}
             </Text>
             <View style={styles.countList}>
               {COUNT_OPTIONS.filter(item => selectedDifficulty < CHALLENGE_START_LEVEL || item.count === 3).map((item) => (
@@ -266,8 +304,8 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
 
             <Text style={styles.privacyNote}>생성된 문제는 이 기기의 개인 문제은행에만 보관됩니다.</Text>
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 };
