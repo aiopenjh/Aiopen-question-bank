@@ -323,6 +323,7 @@ async function generateViaUniversalAiApi(params: {
     let opts: QuestionRevision['options'] = [];
     let answerId = '';
     let maxAnswerLength: number | undefined;
+    let clozeBlanks: QuestionRevision['clozeBlanks'];
 
     if (item.questionType === 'multiple_choice') {
       opts = item.options.map((o) => ({
@@ -350,6 +351,8 @@ async function generateViaUniversalAiApi(params: {
       }
     } else if (item.questionType === 'essay') {
       maxAnswerLength = MAX_ESSAY_ANSWER_LENGTH;
+    } else if (item.questionType === 'cloze') {
+      clozeBlanks = item.clozeBlanks?.map((b) => ({ id: generateUUID(), correctAnswers: b.correctAnswers }));
     }
 
     const q: QuestionRevision = {
@@ -368,6 +371,7 @@ async function generateViaUniversalAiApi(params: {
       modelAnswer: item.modelAnswer,
       gradingChecklist: item.gradingChecklist,
       maxAnswerLength,
+      clozeBlanks,
       explanation: item.explanation,
       deepReasoningHint: item.deepReasoningHint,
       currentReference: item.currentReference,

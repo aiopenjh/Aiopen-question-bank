@@ -8,8 +8,10 @@ export interface ExamActiveViewProps {
   questions: QuestionRevision[];
   currentIndex: number;
   userAnswers: Record<number, string>;
+  userClozeAnswers: Record<number, string[]>;
   onSelectOption: (optionId: string) => void;
   onAnswerTextChange: (text: string) => void;
+  onClozeAnswerChange: (blankIndex: number, text: string) => void;
   onJumpToIndex: (index: number) => void;
   onPrevQuestion: () => void;
   onNextQuestion: () => void;
@@ -17,12 +19,19 @@ export interface ExamActiveViewProps {
   isSaving: boolean;
 }
 
+// cloze 지문의 {{1}},{{2}}... 마커를 읽기 좋은 빈칸 표시로 바꿔서 보여준다(입력은 아래 별도 칸에서).
+function renderClozeStemPreview(stem: string): string {
+  return stem.replace(/\{\{(\d+)\}\}/g, (_match, n) => `( ${n} )`);
+}
+
 export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
   questions,
   currentIndex,
   userAnswers,
+  userClozeAnswers,
   onSelectOption,
   onAnswerTextChange,
+  onClozeAnswerChange,
   onJumpToIndex,
   onPrevQuestion,
   onNextQuestion,
@@ -31,6 +40,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
 }) => {
   const q = questions[currentIndex];
   const currentSelectedOptionId = userAnswers[currentIndex] || null;
+  const currentClozeAnswers = userClozeAnswers[currentIndex] || [];
 
   return (
     <>
@@ -39,7 +49,10 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
         <View style={styles.quickNavRow}>
           {questions.map((_, idx) => {
             const isCurrent = currentIndex === idx;
-            const isAnswered = !!userAnswers[idx];
+            const isAnswered =
+              questions[idx].questionType === 'cloze'
+                ? (userClozeAnswers[idx] || []).some((a) => (a || '').trim().length > 0)
+                : !!userAnswers[idx];
             return (
               <TouchableOpacity
                 key={idx}
@@ -67,7 +80,9 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
         {/* 문제 지문 */}
         <View style={styles.questionCard}>
           <Text style={styles.questionIndexLabel}>Q{currentIndex + 1}.</Text>
-          <Text style={styles.questionStem}>{q.stem}</Text>
+          <Text style={styles.questionStem}>
+            {q.questionType === 'cloze' ? renderClozeStemPreview(q.stem) : q.stem}
+          </Text>
         </View>
 
         {/* 4지선다 보기 (선택 마킹만, 정답 미노출) */}
@@ -94,6 +109,33 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
                 </TouchableOpacity>
               );
             })}
+          </View>
+        ) : q.questionType === 'cloze' ? (
+          // 빈칸형: 지문 안의 {{N}} 순서대로 빈칸마다 별도 입력칸. fontSize 16 고정(Law #6/#7)
+          <View style={{ gap: 10 }}>
+            {(q.clozeBlanks || []).map((blank, idx) => (
+              <View key={blank.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.optionIndexBadge}>
+                  <Text style={styles.optionIndexText}>{idx + 1}</Text>
+                </View>
+                <TextInput
+                  style={{
+                    flex: 1,
+                    minHeight: 48,
+                    borderWidth: 1.5,
+                    borderColor: colors.border,
+                    borderRadius: 14,
+                    padding: 14,
+                    fontSize: 16,
+                    color: colors.ink,
+                    backgroundColor: colors.surface,
+                  }}
+                  placeholder={`${idx + 1}번 빈칸 답안`}
+                  value={currentClozeAnswers[idx] || ''}
+                  onChangeText={(text) => onClozeAnswerChange(idx, text)}
+                />
+              </View>
+            ))}
           </View>
         ) : (
           // 주관식(단답형/서술형): 자유 텍스트 입력. fontSize 16 고정(Law #6, 모바일 확대 방지)

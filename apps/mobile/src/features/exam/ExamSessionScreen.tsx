@@ -8,14 +8,15 @@ import { ExamActiveView } from './ExamActiveView';
 import { ExamResultView } from './ExamResultView';
 import { ExamHintModal } from './ExamHintModal';
 import { ScratchpadPanel } from './ScratchpadPanel';
-import { gradeSubjectiveAnswer } from '../../domain/grading';
+import { gradeSubjectiveAnswer, gradeClozeAnswers } from '../../domain/grading';
 
 export interface ExamAnswerResult {
   question: QuestionRevision;
   selectedOptionId: string; // multiple_choice만 사용. 그 외 유형은 빈 문자열
   isCorrect: boolean; // multiple_choice 정오 판정. 그 외 유형은 gradingScore 기준(아래)으로 계산됨
   answerText?: string; // short_answer/essay 제출 답안
-  gradingStatus?: 'pending' | 'graded' | 'failed'; // short_answer/essay만 사용
+  clozeAnswers?: string[]; // cloze 제출 답안. clozeBlanks와 배열 순서로 대응
+  gradingStatus?: 'pending' | 'graded' | 'failed'; // short_answer/essay/cloze만 사용
   gradingScore?: number; // 0~100
   gradingChecklistResult?: { id: string; met: boolean }[];
   gradingFailedReason?: string;
@@ -36,6 +37,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [userClozeAnswers, setUserClozeAnswers] = useState<Record<number, string[]>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showHintModal, setShowHintModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -52,6 +54,15 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
       ...prev,
       [currentIndex]: optionId,
     }));
+  }
+
+  function handleClozeAnswerChange(blankIndex: number, text: string) {
+    if (isSubmitted) return;
+    setUserClozeAnswers((prev) => {
+      const next = [...(prev[currentIndex] || [])];
+      next[blankIndex] = text;
+      return { ...prev, [currentIndex]: next };
+    });
   }
 
   function handlePressExit() {
@@ -78,7 +89,11 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   }
 
   async function handleSubmitExam() {
-    const answeredCount = Object.keys(userAnswers).length;
+    const answeredCount = questions.filter((item, idx) =>
+      item.questionType === 'cloze'
+        ? (userClozeAnswers[idx] || []).some((a) => (a || '').trim().length > 0)
+        : !!userAnswers[idx]
+    ).length;
     const unansweredCount = questions.length - answeredCount;
 
     if (unansweredCount > 0) {
@@ -112,6 +127,21 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
               question: item,
               selectedOptionId: answer,
               isCorrect: answer === item.answerOptionId,
+            };
+          }
+
+          if (item.questionType === 'cloze') {
+            // 빈칸형: AI 재호출 없이 로컬에서 즉시 채점
+            const clozeAnswers = userClozeAnswers[idx] || [];
+            const grading = gradeClozeAnswers(item.clozeBlanks || [], clozeAnswers);
+            return {
+              question: item,
+              selectedOptionId: '',
+              isCorrect: grading.gradingStatus === 'graded' && (grading.gradingScore || 0) >= 100,
+              clozeAnswers,
+              gradingStatus: grading.gradingStatus,
+              gradingScore: grading.gradingScore,
+              gradingChecklistResult: grading.gradingChecklistResult,
             };
           }
 
@@ -181,8 +211,10 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
           questions={questions}
           currentIndex={currentIndex}
           userAnswers={userAnswers}
+          userClozeAnswers={userClozeAnswers}
           onSelectOption={handleSelectOption}
           onAnswerTextChange={handleSelectOption}
+          onClozeAnswerChange={handleClozeAnswerChange}
           onJumpToIndex={setCurrentIndex}
           onPrevQuestion={handlePrevQuestion}
           onNextQuestion={handleNextQuestion}

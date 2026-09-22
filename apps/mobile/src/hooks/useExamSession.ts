@@ -97,6 +97,7 @@ export function useExamSession({
         selectedOptionId: string;
         isCorrect: boolean;
         answerText?: string;
+        clozeAnswers?: string[];
         gradingStatus?: 'pending' | 'graded' | 'failed';
         gradingScore?: number;
         gradingChecklistResult?: { id: string; met: boolean }[];
@@ -111,6 +112,7 @@ export function useExamSession({
           submissionKey: `sub-${item.question.id}-${getLocalDateString()}-${attemptId.slice(0, 6)}`,
           answerOptionId: item.selectedOptionId,
           answerText: item.answerText,
+          clozeAnswers: item.clozeAnswers,
           isCorrect: item.isCorrect,
           gradingStatus: item.gradingStatus,
           gradingScore: item.gradingScore,

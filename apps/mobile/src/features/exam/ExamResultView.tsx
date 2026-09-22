@@ -58,16 +58,18 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
       {/* 문제별 정답 및 해설 종합 제공 */}
       {questions.map((item, qIdx) => {
-        const isSubjective = item.questionType !== 'multiple_choice';
+        const isCloze = item.questionType === 'cloze';
+        const isSubjective = item.questionType === 'short_answer' || item.questionType === 'essay';
+        const isNonMc = item.questionType !== 'multiple_choice';
         const r = results?.[qIdx];
         const chosenId = userAnswers[qIdx] || '';
         const chosenOpt = item.options.find((o) => o.id === chosenId);
 
-        const isQCorrect = isSubjective
+        const isQCorrect = isNonMc
           ? !!r && r.gradingStatus === 'graded' && (r.gradingScore || 0) >= 100
           : chosenId === item.answerOptionId;
-        const isPartial = isSubjective && r?.gradingStatus === 'graded' && !isQCorrect && (r.gradingScore || 0) > 0;
-        const isGradingFailed = isSubjective && r?.gradingStatus === 'failed';
+        const isPartial = isNonMc && r?.gradingStatus === 'graded' && !isQCorrect && (r.gradingScore || 0) > 0;
+        const isGradingFailed = isSubjective && r?.gradingStatus === 'failed'; // cloze는 로컬 채점이라 항상 성공
 
         return (
           <View key={`${item.id}-${qIdx}`} style={styles.reviewItemCard}>
@@ -90,7 +92,25 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
             {/* 지문 */}
             <Text style={styles.reviewStem}>{item.stem}</Text>
 
-            {isSubjective ? (
+            {isCloze ? (
+              <View style={{ gap: 8 }}>
+                {(item.clozeBlanks || []).map((blank, bIdx) => {
+                  const submitted = r?.clozeAnswers?.[bIdx] || '';
+                  const met = r?.gradingChecklistResult?.find((cr) => cr.id === blank.id)?.met;
+                  return (
+                    <View key={blank.id} style={styles.reviewOptionRow}>
+                      <Text style={{ fontSize: 13, color: met ? colors.mint : colors.danger, fontWeight: '700' }}>
+                        {met ? '✓' : '✗'} {bIdx + 1}번 빈칸
+                      </Text>
+                      <Text style={styles.reviewOptionText}>내 답안: {submitted || '(답안 없음)'}</Text>
+                      {!met && (
+                        <Text style={styles.wrongAnalysisText}>정답: {blank.correctAnswers.join(' / ')}</Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : isSubjective ? (
               <View style={{ gap: 10 }}>
                 <View style={styles.reviewOptionRow}>
                   <Text style={styles.wrongAnalysisTitle}>✍️ 내 답안</Text>

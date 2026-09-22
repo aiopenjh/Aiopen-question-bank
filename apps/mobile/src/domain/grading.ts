@@ -1,16 +1,18 @@
 /**
- * 주관식(단답형/서술형) 채점 파이프라인
+ * 주관식(단답형/서술형/빈칸형) 채점 파이프라인
  * Reference: claude/subjective-input-feature-design-notes.md (합의된 설계)
  *
- * - 채점은 AI 재호출로 모범답안/체크리스트 대비 사용자 답안을 객관적으로 판정합니다.
- * - "논리적 일관성" 같은 주관적 기준은 쓰지 않고, 핵심 요소 포함 여부만 판정합니다.
- * - 실패 시 자동 재시도하지 않습니다. 호출 측에서 로컬에 "채점 미완료" 상태로 보존하고
- *   사용자가 수동으로 재요청하도록 합니다.
+ * - short_answer/essay: AI 재호출로 모범답안/체크리스트 대비 사용자 답안을 객관적으로 판정.
+ *   "논리적 일관성" 같은 주관적 기준은 쓰지 않고, 핵심 요소 포함 여부만 판정. 실패 시 자동
+ *   재시도하지 않고 호출 측에서 로컬에 "채점 미완료" 상태로 보존, 사용자가 수동 재요청.
+ * - cloze(빈칸형): AI 재호출 없이 로컬에서 정규화 후 정확 일치로 즉시 판정(짧고 이산적인
+ *   답이라 AI보다 빠르고 비용이 없으며 Law #2 로컬 우선 원칙에 더 부합).
  */
 
-import { QuestionRevision } from '../contracts/types';
+import { ClozeBlank, QuestionRevision } from '../contracts/types';
 import { getGeminiApiKey } from '../data/db';
 import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
+import { normalizeComparableText } from './generator_validation';
 
 export interface SubjectiveGradingResult {
   gradingStatus: 'graded' | 'failed';
@@ -117,4 +119,22 @@ export async function gradeSubjectiveAnswer(
     const detail = typeof err?.message === 'string' && err.message.trim().length > 0 ? err.message.trim() : 'AI 채점 요청이 실패했습니다.';
     return { gradingStatus: 'failed', gradingFailedReason: detail };
   }
+}
+
+/**
+ * 빈칸형(cloze) 답안 채점. AI 호출 없이 로컬에서 즉시 정확 일치로 판정한다(항상 성공).
+ * submittedAnswers는 blanks와 배열 순서로 대응한다.
+ */
+export function gradeClozeAnswers(
+  blanks: ClozeBlank[],
+  submittedAnswers: string[]
+): SubjectiveGradingResult {
+  const checklistResult = blanks.map((blank, idx) => {
+    const submitted = normalizeComparableText(submittedAnswers[idx] || '');
+    const met = submitted.length > 0 && blank.correctAnswers.some((a) => normalizeComparableText(a) === submitted);
+    return { id: blank.id, met };
+  });
+  const metCount = checklistResult.filter((r) => r.met).length;
+  const gradingScore = blanks.length > 0 ? Math.round((metCount / blanks.length) * 100) : 0;
+  return { gradingStatus: 'graded', gradingScore, gradingChecklistResult: checklistResult };
 }

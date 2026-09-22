@@ -44,17 +44,18 @@ ${currentInformationInstruction ? `\n${currentInformationInstruction}` : ''}
 
 [READY일 때 문제 작성 규칙]
 1. 정확히 ${intent.targetCount}문항을 작성합니다.
-2. 각 문제는 questionType을 가집니다. ${
+2. 각 문제는 questionType을 가집니다. 기본은 "multiple_choice"(4지선다)입니다. 정의·핵심 용어·수치처럼 정확히 기억하는지 확인하기 좋은 문제는 난이도와 무관하게 "cloze"(빈칸형)로 섞어 출제할 수 있습니다(강제 아님). ${
     subjectiveAllowed
-      ? `기본은 "multiple_choice"(4지선다)이며, 이번 학습자 수준(${intent.levelLabel})에서는 서술형·개념 설명이 4지선다보다 더 정확히 이해도를 확인할 수 있는 문제에 한해 "short_answer"(단답형) 또는 "essay"(서술형)를 섞어 출제할 수 있습니다. 강제가 아니며, 주제 특성상 전부 4지선다가 더 적절하면 전부 "multiple_choice"로 출제해도 됩니다. 섞는 경우 전체 문항의 약 30%를 넘지 않게 합니다.`
-      : `이번 학습자 수준(${intent.levelLabel})에서는 아직 서술형 판단력을 요구하기 이릅니다. 모든 문항의 questionType은 반드시 "multiple_choice"로만 작성합니다.`
-  }
+      ? `이번 학습자 수준(${intent.levelLabel})에서는 추가로, 서술형·개념 설명이 4지선다보다 더 정확히 이해도를 확인할 수 있는 문제에 한해 "short_answer"(단답형) 또는 "essay"(서술형)도 섞어 출제할 수 있습니다. 강제가 아니며, 주제 특성상 전부 4지선다가 더 적절하면 전부 "multiple_choice"로 출제해도 됩니다.`
+      : `이번 학습자 수준(${intent.levelLabel})에서는 아직 서술형 판단력을 요구하기 이릅니다. "short_answer"/"essay"는 사용하지 말고, "multiple_choice"와 "cloze"만 사용합니다.`
+  } 4지선다가 아닌 유형(cloze+short_answer+essay 합계)이 전체 문항의 약 30%를 넘지 않게 합니다.
 3. questionType이 "multiple_choice"인 문제는 보기 1번, 2번, 3번, 4번의 4지선다이며 정답은 하나만 존재해야 합니다. correctOptionNumber에는 사용자에게 보이는 정답 번호 1, 2, 3, 4 중 하나를 기록합니다. 0부터 시작하는 번호를 사용하지 마세요. 오답은 실제로 혼동하기 쉬운 인접 개념으로 만들고, 각 오답 이유를 설명합니다.
-4. questionType이 "short_answer"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(핵심 키워드 중심의 짧은 모범답안 한 문장)만 작성합니다. 답이 여러 표현으로 가능하면 modelAnswer에 핵심 키워드를 명시합니다.
-5. questionType이 "essay"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(모범답안 전체)와 gradingChecklist(모범답안의 핵심 요소 2~5개, 각 항목의 판정 기준 criterion과 배점 points, 배점 합계는 반드시 100)를 작성합니다. "논리적 일관성" 같은 주관적 기준이 아니라, 답안에 그 핵심 요소가 실제로 포함되었는지로만 판정 가능한 기준을 씁니다.
-6. 기존 문제와 지문·핵심 질문·정답 개념이 사실상 같은 문제를 반복하지 않습니다.
-7. 해설에는 정답의 근거와 오답을 구분하는 기준을 분명하게 적습니다(단답형/서술형은 modelAnswer의 핵심 근거를 설명).
-8. questions 배열 안에서 questionType 순서를 절대 유형별로 뭉치거나 고정하지 마세요(예: multiple_choice를 전부 앞에 몰아두고 short_answer/essay를 맨 뒤에 몰아두는 배치 금지). 아래 출력 예시는 각 유형의 필드 형태를 보여주기 위한 것일 뿐 실제 등장 순서와는 무관하며, 실제로는 문항 순서 전체에 무작위로 섞어서 배치하세요.
+4. questionType이 "cloze"인 문제는 options/correctOptionNumber를 생략합니다. stem 안에 빈칸을 {{1}}, {{2}}... 순서대로(1부터, 건너뛰지 않고) 표시하고, blanks 배열에 그 순서와 정확히 대응하는 항목을 각각 작성합니다. blanks 각 항목의 correctAnswers는 그 빈칸에 들어갈 정답 표현들의 배열입니다(표기가 여러 개 가능하면 모두 나열, 최소 1개). 한 문제에 빈칸은 1~3개로 합니다.
+5. questionType이 "short_answer"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(핵심 키워드 중심의 짧은 모범답안 한 문장)만 작성합니다. 답이 여러 표현으로 가능하면 modelAnswer에 핵심 키워드를 명시합니다.
+6. questionType이 "essay"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(모범답안 전체)와 gradingChecklist(모범답안의 핵심 요소 2~5개, 각 항목의 판정 기준 criterion과 배점 points, 배점 합계는 반드시 100)를 작성합니다. "논리적 일관성" 같은 주관적 기준이 아니라, 답안에 그 핵심 요소가 실제로 포함되었는지로만 판정 가능한 기준을 씁니다.
+7. 기존 문제와 지문·핵심 질문·정답 개념이 사실상 같은 문제를 반복하지 않습니다.
+8. 해설에는 정답의 근거와 오답을 구분하는 기준을 분명하게 적습니다(단답형/서술형/빈칸형은 모범답안의 핵심 근거를 설명).
+9. questions 배열 안에서 questionType 순서를 절대 유형별로 뭉치거나 고정하지 마세요(예: multiple_choice를 전부 앞에 몰아두고 나머지 유형을 맨 뒤에 몰아두는 배치 금지). 아래 출력 예시는 각 유형의 필드 형태를 보여주기 위한 것일 뿐 실제 등장 순서와는 무관하며, 실제로는 문항 순서 전체에 무작위로 섞어서 배치하세요.
 
 [출력 JSON]
 READY (questionType별로 필드가 다름에 유의):
@@ -79,6 +80,15 @@ READY (questionType별로 필드가 다름에 유의):
         "sourceTitle": "공식 문서 또는 법령명",
         "sourceUrl": "공식 원문 URL"
       }
+    },
+    {
+      "questionType": "cloze",
+      "stem": "{{1}}은 대한민국의 수도이며, {{2}}년에 대한민국 정부가 수립되었다.",
+      "blanks": [
+        { "correctAnswers": ["서울", "서울특별시"] },
+        { "correctAnswers": ["1948"] }
+      ],
+      "explanation": "정답 근거 해설"
     }${
       subjectiveAllowed
         ? `,

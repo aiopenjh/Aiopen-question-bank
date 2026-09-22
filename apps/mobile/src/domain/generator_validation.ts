@@ -2,7 +2,7 @@
  * AI 출제 응답 검증 (generator.ts에서 분리, 500줄 제한 준수)
  * Reference: AGENTS.md & CogniQuest_개발명세_v1
  *
- * questionType(multiple_choice/short_answer/essay)별로 필요한 필드가 다르므로
+ * questionType(multiple_choice/short_answer/essay/cloze)별로 필요한 필드가 다르므로
  * 유형에 따라 분기하여 검증합니다.
  */
 
@@ -21,6 +21,7 @@ export interface GeneratedQuestionInput {
   correctOptionNumber: number;
   modelAnswer?: string;
   gradingChecklist?: GradingChecklistItem[];
+  clozeBlanks?: { correctAnswers: string[] }[];
   explanation: string;
   deepReasoningHint?: string;
   currentReference?: CurrentInformationReference;
@@ -37,10 +38,44 @@ export function readOptionalText(value: unknown): string | undefined {
 }
 
 function readQuestionType(value: unknown, number: number): QuestionType {
-  if (value === 'multiple_choice' || value === 'short_answer' || value === 'essay') {
+  if (value === 'multiple_choice' || value === 'short_answer' || value === 'essay' || value === 'cloze') {
     return value;
   }
   throw new Error(`AI 응답의 ${number}번 문제 유형(questionType)이 올바르지 않습니다. 다시 시도해 주세요.`);
+}
+
+// cloze: stem 안의 {{1}},{{2}}...가 1부터 건너뛰지 않고 순서대로 등장하고,
+// blanks 배열 길이와 정확히 일치해야 한다(1~3개).
+function readClozeBlanks(value: unknown, stem: string, number: number): { correctAnswers: string[] }[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 3) {
+    throw new Error(`AI 응답의 ${number}번 빈칸형 문제 blanks가 1~3개가 아닙니다. 다시 시도해 주세요.`);
+  }
+
+  const blanks = value.map((raw, idx) => {
+    if (typeof raw !== 'object' || raw === null) {
+      throw new Error(`AI 응답의 ${number}번 문제 빈칸 ${idx + 1}번 형식이 올바르지 않습니다. 다시 시도해 주세요.`);
+    }
+    const item = raw as Record<string, unknown>;
+    const rawAnswers = Array.isArray(item.correctAnswers) ? item.correctAnswers : [];
+    const correctAnswers = rawAnswers
+      .filter((a): a is string => typeof a === 'string' && a.trim().length > 0)
+      .map((a) => a.trim());
+    if (correctAnswers.length === 0) {
+      throw new Error(`AI 응답의 ${number}번 문제 빈칸 ${idx + 1}번 정답(correctAnswers)이 비어 있습니다. 다시 시도해 주세요.`);
+    }
+    return { correctAnswers };
+  });
+
+  for (let i = 0; i < blanks.length; i++) {
+    if (!stem.includes(`{{${i + 1}}}`)) {
+      throw new Error(`AI 응답의 ${number}번 문제 지문에 {{${i + 1}}} 빈칸 마커가 없습니다. 다시 시도해 주세요.`);
+    }
+  }
+  if (stem.includes(`{{${blanks.length + 1}}}`)) {
+    throw new Error(`AI 응답의 ${number}번 문제 지문에 blanks 배열보다 많은 빈칸 마커가 있습니다. 다시 시도해 주세요.`);
+  }
+
+  return blanks;
 }
 
 function readGradingChecklist(value: unknown, number: number): GradingChecklistItem[] {
@@ -110,7 +145,8 @@ export function validateGeneratedQuestions(
     knownStems.add(normalizedStem);
 
     const questionType = readQuestionType(question.questionType, number);
-    if (questionType !== 'multiple_choice' && !subjectiveAllowed) {
+    // cloze는 난이도와 무관하게 항상 허용. short_answer/essay만 인지수준 게이트 대상.
+    if ((questionType === 'short_answer' || questionType === 'essay') && !subjectiveAllowed) {
       throw new Error(`AI가 이번 난이도에서 허용되지 않는 문제 유형(${questionType})을 반환했습니다. 다시 시도해 주세요.`);
     }
 
@@ -118,6 +154,7 @@ export function validateGeneratedQuestions(
     let correctOptionNumber = 0;
     let modelAnswer: string | undefined;
     let gradingChecklist: GradingChecklistItem[] | undefined;
+    let clozeBlanks: { correctAnswers: string[] }[] | undefined;
 
     if (questionType === 'multiple_choice') {
       if (!Array.isArray(question.options) || question.options.length !== 4) {
@@ -161,6 +198,8 @@ export function validateGeneratedQuestions(
         throw new Error(`AI 응답의 ${number}번 문제 정답 번호가 올바르지 않습니다. 다시 시도해 주세요.`);
       }
       correctOptionNumber = question.correctOptionNumber;
+    } else if (questionType === 'cloze') {
+      clozeBlanks = readClozeBlanks(question.blanks, stem, number);
     } else {
       // short_answer / essay: 4지선다 없이 모범답안(+서술형은 채점 체크리스트) 기반
       modelAnswer = readOptionalText(question.modelAnswer);
@@ -217,6 +256,7 @@ export function validateGeneratedQuestions(
       correctOptionNumber,
       modelAnswer,
       gradingChecklist,
+      clozeBlanks,
       explanation,
       deepReasoningHint: readOptionalText(question.deepReasoningHint),
       currentReference,
