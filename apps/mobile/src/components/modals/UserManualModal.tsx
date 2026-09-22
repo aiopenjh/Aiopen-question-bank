@@ -155,21 +155,22 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
       id: 'settings',
       icon: '⚙️',
       title: '학습 목표 & 알림 설정',
-      subtitle: '일일 문항 저장, 아침·저녁 알림, 당겨서 새로고침',
+      subtitle: '목표 자동 저장, 다중 시간 알람과 새로고침',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>🎯 1. 일일 학습 목표 저장</Text>
             <Text style={styles.tipText}>
               • <Text style={styles.bold}>[설정 ➔ 학습 루틴]</Text>에서 1~30 사이의 목표 문항 수를 입력하거나 화살표로 조절합니다.{'\n'}
-              • 숫자를 바꾼 뒤 <Text style={styles.bold}>[목표 n문항 저장]</Text>을 누르면 메인 화면의 일일 달성 기준에 반영됩니다.
+              • 숫자를 바꾸면 별도의 저장 버튼 없이 메인 화면의 일일 달성 기준에 바로 반영됩니다.
             </Text>
           </View>
 
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>⏰ 2. 아침·저녁 학습 알림</Text>
+            <Text style={styles.tipTitle}>⏰ 2. 원하는 시간에 학습 알림</Text>
             <Text style={styles.tipText}>
-              • 알림 요일과 아침·저녁 시간을 직접 선택합니다. 기기 또는 브라우저의 알림 권한이 허용되어야 합니다.{'\n'}
+              • 공통 요일을 고른 뒤 <Text style={styles.bold}>07:20, 13:00, 22:15</Text>처럼 분 단위 알람을 최대 8개까지 추가할 수 있습니다.{'\n'}
+              • 시간 카드를 누르면 시각을 수정하고 ×를 누르면 개별 삭제합니다. 기기 또는 브라우저의 알림 권한이 허용되어야 합니다.{'\n'}
               • 알림을 누르면 앱으로 이동하지만 단원이나 문제를 자동 시작하지 않습니다. 자료함에서 원하는 학습 대상을 직접 선택하세요.
             </Text>
           </View>
@@ -240,13 +241,14 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           style={styles.modalCard}
           onPress={(e) => e.stopPropagation?.()}
         >
-          {/* 모달 헤더 */}
           <View style={styles.headerRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 22 }}>📖</Text>
-              <View>
-                <Text style={styles.title}>앱 공식 이용 가이드</Text>
-                <Text style={styles.subtitle}>궁금한 항목을 터치하면 상세 설명이 펼쳐집니다</Text>
+            <View style={styles.headerCopyRow}>
+              <View style={styles.headerIconBadge}>
+                <Text style={styles.headerIcon}>📖</Text>
+              </View>
+              <View style={styles.headerCopy}>
+                <Text style={styles.title}>사용설명서</Text>
+                <Text style={styles.subtitle}>필요한 항목을 눌러 확인하세요</Text>
               </View>
             </View>
             <TouchableOpacity
@@ -254,12 +256,15 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
               onPress={onClose}
               activeOpacity={0.7}
             >
-              <Text style={styles.closeBtnText}>← 뒤로</Text>
+              <Text style={styles.closeBtnText}>닫기 ×</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 아코디언 메뉴 목록 */}
-          <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.menuScroll}
+            contentContainerStyle={styles.menuScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             {sections.map((sec) => {
               const isExpanded = expandedSection === sec.id;
               return (
@@ -270,34 +275,25 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
                     activeOpacity={0.7}
                   >
                     <View style={styles.menuLeft}>
-                      <Text style={styles.menuIcon}>{sec.icon}</Text>
-                      <View style={{ flex: 1 }}>
+                      <View style={styles.menuIconBadge}>
+                        <Text style={styles.menuIcon}>{sec.icon}</Text>
+                      </View>
+                      <View style={styles.menuCopy}>
                         <Text style={styles.menuTitle}>{sec.title}</Text>
                         <Text style={styles.menuSubtitle} numberOfLines={1}>{sec.subtitle}</Text>
                       </View>
                     </View>
-                    <View style={[styles.arrowBadge, isExpanded && styles.arrowBadgeExpanded]}>
-                      <Text style={[styles.arrowText, isExpanded && styles.arrowTextExpanded]}>
-                        {isExpanded ? '접기 ▲' : '열기 ▼'}
-                      </Text>
-                    </View>
+                    <Text style={[styles.arrowText, isExpanded && styles.arrowTextExpanded]}>
+                      {isExpanded ? '⌃' : '⌄'}
+                    </Text>
                   </TouchableOpacity>
 
-                  {/* 펼쳤을 때 나오는 상세 설명 내용 */}
                   {isExpanded && sec.content}
                 </View>
               );
             })}
           </ScrollView>
 
-          {/* 하단 확인 닫기 버튼 */}
-          <TouchableOpacity
-            style={styles.confirmBtn}
-            onPress={onClose}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.confirmBtnText}>닫기</Text>
-          </TouchableOpacity>
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
@@ -315,19 +311,43 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '92%',
-    padding: 20,
-    paddingBottom: 28,
-    borderTopWidth: 2,
+    paddingBottom: 12,
+    borderTopWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerCopyRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 12,
+  },
+  headerIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+    marginRight: 10,
+  },
+  headerIcon: {
+    fontSize: 17,
+  },
+  headerCopy: {
+    flex: 1,
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.ink,
   },
@@ -337,100 +357,105 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   closeBtnText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.inkMuted,
   },
   menuScroll: {
-    maxHeight: 520,
+    maxHeight: 590,
+  },
+  menuScrollContent: {
+    paddingBottom: 4,
   },
   menuItemCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    marginBottom: 10,
-    overflow: 'hidden',
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   menuItemCardExpanded: {
-    borderColor: colors.primary,
     backgroundColor: colors.surfaceMuted,
   },
   menuItemHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    minHeight: 62,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
   },
   menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
     flex: 1,
-    paddingRight: 8,
+    paddingRight: 10,
+  },
+  menuIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+    marginRight: 10,
   },
   menuIcon: {
-    fontSize: 22,
+    fontSize: 16,
+  },
+  menuCopy: {
+    flex: 1,
   },
   menuTitle: {
-    fontSize: 14.5,
+    fontSize: 13,
     fontWeight: '800',
-    color: '#881337',
+    color: colors.ink,
   },
   menuSubtitle: {
-    fontSize: 11,
-    color: '#9f1239',
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.inkMuted,
     marginTop: 2,
   },
-  arrowBadge: {
-    backgroundColor: '#fff1f4',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#fda4af',
-  },
-  arrowBadgeExpanded: {
-    backgroundColor: colors.primaryPressed,
-    borderColor: '#f43f5e',
-  },
   arrowText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#be123c',
+    fontSize: 17,
+    lineHeight: 19,
+    fontWeight: '800',
+    color: colors.primary,
   },
   arrowTextExpanded: {
-    color: '#ffffff',
+    color: colors.primaryPressed,
   },
   detailContainer: {
-    paddingHorizontal: 14,
-    paddingBottom: 14,
-    gap: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
     borderTopWidth: 1,
-    borderTopColor: '#ffe4e6',
-    paddingTop: 12,
+    borderTopColor: colors.border,
+    paddingTop: 2,
   },
   tipBox: {
-    backgroundColor: '#fff7f8',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#ffe4e6',
+    backgroundColor: 'transparent',
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   cautionBox: {
     backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
+    borderBottomColor: '#fecaca',
+    marginHorizontal: -10,
+    paddingHorizontal: 10,
   },
   tipTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#881337',
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.ink,
     marginBottom: 4,
   },
   tipText: {
@@ -441,17 +466,5 @@ const styles = StyleSheet.create({
   bold: {
     fontWeight: 'bold',
     color: '#1f2937',
-  },
-  confirmBtn: {
-    backgroundColor: colors.primaryPressed,
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: 'center',
-    marginTop: 14,
-  },
-  confirmBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
 });
