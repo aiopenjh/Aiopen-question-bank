@@ -116,8 +116,11 @@ export async function gradeSubjectiveAnswer(
     const correct = parsed.correct === true;
     return { gradingStatus: 'graded', gradingScore: correct ? 100 : 0 };
   } catch (err: any) {
-    const detail = typeof err?.message === 'string' && err.message.trim().length > 0 ? err.message.trim() : 'AI 채점 요청이 실패했습니다.';
-    return { gradingStatus: 'failed', gradingFailedReason: detail };
+    // 제공자/네트워크 예외 원문에는 키·요청 정보가 섞일 수 있으므로 사용자 기록에 보존하지 않는다.
+    return {
+      gradingStatus: 'failed',
+      gradingFailedReason: 'AI 채점 요청을 완료하지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.',
+    };
   }
 }
 

@@ -307,6 +307,15 @@ export interface Attempt {
   gradingChecklistResult?: { id: UUID; met: boolean }[]; // essay 체크리스트 항목별 / cloze 빈칸별 충족 여부
   gradingFailedReason?: string; // 채점 실패 시 사용자에게 보여줄 짧은 안내
   submittedAt: ISODateTimeString;
+  /** v1 순차 도전: 완료한 3문항 회차를 재구성하는 로컬 전용 기록. 구형 기록에는 없음. */
+  challenge?: {
+    version: 1;
+    runId: UUID;
+    topicId: UUID;
+    level: number;
+    questionId: UUID;
+    startedAt: ISODateTimeString;
+  };
 }
 
 export interface ReviewState {
@@ -336,6 +345,45 @@ export interface ManualCompletion {
   unitId: UUID;
   completed: boolean;
   changedAt: ISODateTimeString;
+}
+
+// -------------------------------------------------------------
+// Ranking (선택형 공동 랭킹, docs/ranking/ 참고)
+// -------------------------------------------------------------
+
+/**
+ * 기기에 저장하는 랭킹 참여 자격 정보.
+ * deviceToken/recoveryToken은 백업에는 포함되지만 개인 API 키와 달리
+ * 화면에는 평문으로 계속 노출하지 않는다.
+ */
+export interface RankingProfile {
+  nickname: string;
+  participantId: string;
+  deviceToken: string;
+  recoveryToken: string;
+  lastSyncedDate?: ISODateString;
+  lastSyncedSolvedCount?: number;
+}
+
+/**
+ * 연동 실패 시 기기에 대기시키는 요청 1건.
+ * 계획서 §6: 실패한 연동 요청은 기기에 한 건만 대기시킨다.
+ */
+export interface RankingSyncQueueItem {
+  localDate: ISODateString;
+  solvedCount: number;
+  queuedAt: ISODateTimeString;
+}
+
+/**
+ * 백업 복원 직후, deviceToken 없이 임시로 보관하는 랭킹 복구 재료.
+ * 탈퇴하지 않았다면 서버 계정은 그대로 있으므로, 랭킹 창에서
+ * POST /participants/recover로 새 deviceToken을 받아 RankingProfile을 완성한다.
+ */
+export interface RankingRecoverySeed {
+  nickname: string;
+  participantId: string;
+  recoveryToken: string;
 }
 
 export function detectCategoryForTopic(text: string): string {

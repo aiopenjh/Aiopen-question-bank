@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StatusBar, ActivityIndicator, Animated, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { generateUUID } from '../data/db';
+import { showAlert } from '../utils/alert';
 import { appStyles as styles } from '../styles/appStyles';
 import { Header } from '../components/common/Header';
 import { UpdateNotificationBanner } from '../components/common/UpdateNotificationBanner';
@@ -12,6 +13,7 @@ import { LibraryScreen } from '../features/library/LibraryScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { FeedbackModal } from '../features/study/FeedbackCard';
 import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
+import { getLocalDateString } from '../domain/routine';
 import { AppController } from '../hooks/useAppController';
 
 export function AppView({ controller }: { controller: AppController }) {  const {

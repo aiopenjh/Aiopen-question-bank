@@ -1,0 +1,21 @@
+name = "celueste-ranking-api"
+main = "src/index.mjs"
+compatibility_date = "2026-09-01"
+
+# 문서 단계에서는 배포하지 않는다 (RANKING_SERVER_OPTIONS.md §3, §5).
+# 실제 배포 전 아래 값을 운영 계정 기준으로 채운다.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "celueste-ranking"
+database_id = "REPLACE_WITH_REAL_D1_DATABASE_ID"
+
+[vars]
+# 운영 GitHub Pages 주소와 승인된 로컬 개발 주소만 (API_SPEC §1).
+ALLOWED_ORIGINS = "https://aiopenjh.github.io,http://localhost:8081,http://localhost:19006"
+DAILY_SOLVED_COUNT_MAX = "500"
+DELETION_GRACE_PERIOD_DAYS = "3"
+
+[triggers]
+# 매일 04:00 UTC(한국 13:00)에 유예 기간이 지난 탈퇴 참여자를 정리한다.
+crons = ["0 4 * * *"]

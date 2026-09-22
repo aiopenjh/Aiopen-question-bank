@@ -54,6 +54,15 @@ function readRestoredAlarmConfig(jsonString: string): AlarmConfig | null {
   }
 }
 
+/** 백업에 랭킹 복구 토큰이 실려 있는지 확인한다 (계획서 §3.1: 유출 시 랭킹 계정 복구에 쓰일 수 있는 민감 파일). */
+function includesRankingRecoveryToken(jsonString: string): boolean {
+  try {
+    return !!JSON.parse(jsonString)?.rankingRecoveryToken;
+  } catch {
+    return false;
+  }
+}
+
 export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
   const { onRefreshData } = params;
 
@@ -67,6 +76,9 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
       const dateStr = new Date().toISOString().slice(0, 10);
       const zipFileName = `Celueste_Study_Backup_${dateStr}.zip`;
       const zipBytes = compressBackupToZip(json);
+      const rankingWarning = includesRankingRecoveryToken(json)
+        ? '\n\n⚠️ 이 백업에는 랭킹 계정 복구 정보가 포함되어 있습니다. 유출되면 타인이 내 랭킹 계정에 접근할 수 있으니 안전하게 보관해 주세요.'
+        : '';
 
       if (Platform.OS === 'web') {
         // 웹 브라우저: .zip 압축 파일 직접 다운로드
@@ -86,7 +98,8 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
           `1. 📝 전체 문제지.html\n   (브라우저에서 열어 인쇄/PDF 저장 가능)\n` +
           `2. 🎯 정답과 해설.html\n   (빠른 정답표 및 상세 해설 수록)\n` +
           `3. 📓 나만의 오답노트.html\n   (직접 저장한 문제와 손필기 공간)\n` +
-          `4. 💾 backup_data.json\n   (API 키를 제외한 전체 학습 데이터 복원용 원본)`
+          `4. 💾 backup_data.json\n   (API 키를 제외한 전체 학습 데이터 복원용 원본)` +
+          rankingWarning
         );
       } else {
         // 모바일 (Android/iOS): 압축 파일 생성 후 공유 시트로 전송 (카톡/메일/클라우드 저장 등)
@@ -97,6 +110,9 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
         });
 
         if (await Sharing.isAvailableAsync()) {
+          if (rankingWarning) {
+            showAlert('백업 파일 안내', `공유/저장할 파일에 랭킹 계정 복구 정보가 포함됩니다.${rankingWarning}`);
+          }
           await Sharing.shareAsync(fileUri, {
             mimeType: 'application/zip',
             dialogTitle: '전체 학습 데이터 백업 & 인쇄용 문제집 ZIP 공유/저장',

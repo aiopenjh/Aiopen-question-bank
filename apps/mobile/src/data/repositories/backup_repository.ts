@@ -20,6 +20,8 @@ import {
   Attempt,
   ReviewState,
   ManualCompletion,
+  RankingProfile,
+  RankingRecoverySeed,
 } from '../../contracts/types';
 import type { AlarmConfig } from '../../utils/notifications';
 import { STORAGE_KEYS, CURRENT_DB_VERSION, getCurrentISOTime } from '../storage_keys';
@@ -46,6 +48,14 @@ export interface AppBackupPayload {
   lastStudiedTopicId: string | null;
   customNoteQuestionIds: string[];
   alarmConfig?: AlarmConfig | null;
+  /**
+   * 랭킹 참여 복구 정보. rankingRecoveryToken이 포함된 백업 파일은
+   * 랭킹 계정을 복구할 수 있는 민감한 파일이다 (내보내기 안내에 표시할 것).
+   * deviceToken은 제외: 새 기기 복구 시 POST /participants/recover로 재발급받는다.
+   */
+  rankingNickname: string | null;
+  rankingParticipantId: string | null;
+  rankingRecoveryToken: string | null;
 }
 
 type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
@@ -72,11 +82,14 @@ const BACKUP_STORAGE_KEYS = [
   STORAGE_KEYS.LAST_STUDIED_TOPIC,
   STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS,
   STORAGE_KEYS.ALARM_CONFIG,
+  STORAGE_KEYS.RANKING_PROFILE,
 ] as const;
 
 const RESTORE_STORAGE_KEYS: StorageKey[] = [
   STORAGE_KEYS.DB_VERSION,
   ...BACKUP_STORAGE_KEYS,
+  // 백업에는 포함되지 않지만(수출 대상 아님) 복원 중에 새로 쓰므로 롤백 스냅샷에 넣는다.
+  STORAGE_KEYS.RANKING_RECOVERY_SEED,
 ];
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -216,6 +229,9 @@ function normalizeBackupPayload(value: unknown): AppBackupPayload {
       'customNoteQuestions'
     ),
     alarmConfig: readAlarmConfig(value),
+    rankingNickname: readOptionalString(value, 'rankingNickname'),
+    rankingParticipantId: readOptionalString(value, 'rankingParticipantId'),
+    rankingRecoveryToken: readOptionalString(value, 'rankingRecoveryToken'),
   };
 }
 
@@ -225,6 +241,11 @@ function normalizeBackupPayload(value: unknown): AppBackupPayload {
 export async function exportBackupJSON(): Promise<string> {
   const entries = await AsyncStorage.multiGet([...BACKUP_STORAGE_KEYS]);
   const stored = new Map(entries);
+
+  const rankingProfile = parseStoredObject<RankingProfile>(
+    stored.get(STORAGE_KEYS.RANKING_PROFILE) ?? null,
+    '랭킹 참여 정보'
+  );
 
   const payload: AppBackupPayload = {
     version: CURRENT_DB_VERSION,
@@ -281,6 +302,9 @@ export async function exportBackupJSON(): Promise<string> {
       stored.get(STORAGE_KEYS.ALARM_CONFIG) ?? null,
       '알람 설정'
     ),
+    rankingNickname: rankingProfile?.nickname ?? null,
+    rankingParticipantId: rankingProfile?.participantId ?? null,
+    rankingRecoveryToken: rankingProfile?.recoveryToken ?? null,
   };
 
   return JSON.stringify(payload, null, 2);
@@ -363,11 +387,29 @@ export async function restoreBackupJSON(
   if (payload.alarmConfig !== undefined) {
     addOptionalValue(STORAGE_KEYS.ALARM_CONFIG, payload.alarmConfig);
   }
+  // rankingRecoveryToken은 로컬 프로필을 직접 복원하지 않는다 (deviceToken이 백업에 없음).
+  // 대신 복구 재료를 남겨두면, 랭킹 창이 POST /participants/recover로
+  // 새 deviceToken을 발급받아 참여자 복구를 완료한다 (탈퇴하지 않았다면 서버 계정은 그대로다).
+  if (payload.rankingParticipantId && payload.rankingRecoveryToken) {
+    const seed: RankingRecoverySeed = {
+      nickname: payload.rankingNickname ?? '',
+      participantId: payload.rankingParticipantId,
+      recoveryToken: payload.rankingRecoveryToken,
+    };
+    valuesToWrite.push([STORAGE_KEYS.RANKING_RECOVERY_SEED, JSON.stringify(seed)]);
+  }
 
   try {
     await AsyncStorage.multiSet(valuesToWrite);
     if (keysToRemove.length > 0) await AsyncStorage.multiRemove(keysToRemove);
-    return { success: true, message: 'API 키를 제외한 전체 학습 데이터가 복원되었습니다.' };
+    const rankingNote =
+      payload.rankingParticipantId && payload.rankingRecoveryToken
+        ? ' 랭킹 창을 열면 이 백업의 랭킹 계정을 복구할 수 있습니다.'
+        : '';
+    return {
+      success: true,
+      message: `API 키를 제외한 전체 학습 데이터가 복원되었습니다.${rankingNote}`,
+    };
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : '알 수 없는 저장 오류';
     try {

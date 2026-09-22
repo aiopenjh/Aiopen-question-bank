@@ -65,6 +65,7 @@ export {
   toggleCustomNoteQuestion,
   getAttempts,
   saveAttempt,
+  getSessionItems,
   getReviewStates,
   saveReviewState,
   getIncorrectQuestions,
@@ -87,6 +88,18 @@ export {
   exportBackupJSON,
   restoreBackupJSON,
 } from './repositories/backup_repository';
+
+export {
+  getRankingProfile,
+  saveRankingProfile,
+  clearRankingProfile,
+  getPendingSyncRequest,
+  setPendingSyncRequest,
+  clearPendingSyncRequest,
+  getRankingRecoverySeed,
+  saveRankingRecoverySeed,
+  clearRankingRecoverySeed,
+} from './repositories/ranking_repository';
 
 export { getEncryptedApiKey, saveEncryptedApiKey, deleteEncryptedApiKey };
 

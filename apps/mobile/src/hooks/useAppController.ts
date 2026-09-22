@@ -282,6 +282,9 @@ export function useAppController() {
   // 9. Web PWA Auto-Update Detection
   const appUpdate = useAppUpdate();
 
+  // 랭킹은 별도 랭킹 창에서 자체 상태로 동작하므로 여기서 다루지 않는다
+  // (docs/ranking/RANKING_FEATURE_PLAN.md §3.3).
+
   // 9. Push Alarms & Notification Response Listener
   const handleScheduledStudyRef = useRef(handleStartScheduledStudy);
   useEffect(() => {

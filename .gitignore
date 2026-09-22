@@ -28,6 +28,10 @@ node_modules/
 apps/*/node_modules/
 .pnpm-store/
 
+# Cloudflare Workers 로컬 개발
+.wrangler/
+apps/ranking-worker/.dev.vars
+
 # ==========================================
 # 🚀 Expo & 빌드 산출물 (Build Outputs)
 # ==========================================

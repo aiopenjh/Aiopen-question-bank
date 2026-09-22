@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function setupModal() {
+function setupModal(overrides = {}) {
   const state = [];
   const alerts = [];
   const saved = [];
@@ -43,6 +43,7 @@ function setupModal() {
       if (name.includes('DifficultyLevelControl')) return { DifficultyLevelControl: 'DifficultyLevelControl' };
       if (name.includes('QuizCountModal.styles')) return { quizCountModalStyles: {} };
       if (name.includes('../../utils/alert')) return { showAlert: (...args) => alerts.push(args) };
+      if (name.includes('../../domain/challenge_progress')) return { CHALLENGE_START_LEVEL: 31 };
       if (name.includes('../../domain/difficulty')) return {
         difficultyToLegacyLevel: () => 'basic',
         getDifficultyProfile: level => ({ bandLabel: `band-${level}` }),
@@ -62,6 +63,7 @@ function setupModal() {
     onClose() {},
     onSaveDifficulty: async level => { saved.push(level); },
     onSelectCount: (count, options) => { selected.push({ count, options }); },
+    ...overrides,
   };
   const flatten = node => !node || typeof node !== 'object'
     ? []
@@ -119,4 +121,26 @@ test('delete choice applies only after count selection and old status copy is ab
   assert.deepEqual(modal.saved, [5]);
   assert.equal(modal.selected[0].count, 5);
   assert.equal(modal.selected[0].options.shouldReplaceExisting, true);
+});
+
+test('challenge selection shows only 3 questions; normal selection restores 5 without saving', () => {
+  const modal = setupModal({ initialDifficultyLevel: 31 });
+  const countButtons = () => modal.render().filter(node => node.type === 'TouchableOpacity')
+    .map(modal.textOf).filter(text => text.includes('3문제') || text.includes('5문제'));
+  assert.equal(countButtons().length, 1);
+  assert.ok(countButtons()[0].includes('3문제'));
+  assert.equal(modal.render().find(node => node.type === 'DifficultyLevelControl').props.maxLevel, 31);
+  modal.changeLevel(30);
+  assert.equal(countButtons().length, 2);
+  assert.equal(modal.saved.length, 0);
+});
+
+test('old level 50 is preserved with explanation while first sequential challenge offers 31', () => {
+  const modal = setupModal({ initialDifficultyLevel: 50 });
+  assert.equal(modal.render().find(node => node.type === 'DifficultyLevelControl').props.value, 31);
+  assert.ok(modal.render().some(node => modal.textOf(node).includes('저장된 레벨 50은 유지됩니다')));
+  modal.pressCount('3문제');
+  assert.equal(modal.selected[0].options.difficultyLevel, 31);
+  assert.equal(modal.selected[0].options.shouldReplaceExisting, false);
+  assert.equal(modal.saved.length, 0);
 });

@@ -27,6 +27,9 @@ export const STORAGE_KEYS = {
   LAST_STUDIED_TOPIC: '@cogniquest:last_studied_topic',
   CUSTOM_NOTE_QUESTIONS: '@cogniquest:custom_note_questions',
   ALARM_CONFIG: '@celueste:alarm_config_v2',
+  RANKING_PROFILE: '@celueste:ranking_profile',
+  RANKING_SYNC_QUEUE: '@celueste:ranking_sync_queue',
+  RANKING_RECOVERY_SEED: '@celueste:ranking_recovery_seed',
 };
 
 export const CURRENT_DB_VERSION = 4;

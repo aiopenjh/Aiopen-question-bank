@@ -38,6 +38,8 @@ export function readOptionalText(value: unknown): string | undefined {
 }
 
 function readQuestionType(value: unknown, number: number): QuestionType {
+  // 기존 AI 응답에는 questionType이 없다. 비어 있으면 기존 기본형인 객관식으로 해석한다.
+  if (value === undefined || value === null || value === '') return 'multiple_choice';
   if (value === 'multiple_choice' || value === 'short_answer' || value === 'essay' || value === 'cloze') {
     return value;
   }

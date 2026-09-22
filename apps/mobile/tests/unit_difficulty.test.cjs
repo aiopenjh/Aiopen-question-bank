@@ -26,6 +26,7 @@ test('generation and reopen use each saved unit level; untouched units inherit t
     useCallback: callback => callback,
   };
   const db = {
+    getAttempts: async () => [],
     getUnits: async () => units.map(u => ({ ...u })),
     updateUnitDifficulty: async (topic, id, level) => { units.find(u => u.topicId === topic && u.id === id).difficultyLevel = level; },
     getQuestions: async () => [],

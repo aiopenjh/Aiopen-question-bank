@@ -12,7 +12,8 @@ import {
   ValidationRecord,
   UUID,
 } from '../contracts/types';
-import { generateUUID, getCurrentISOTime, getGeminiApiKey } from '../data/db';
+import { generateUUID, getCurrentISOTime, getGeminiApiKey, getAttempts } from '../data/db';
+import { CHALLENGE_START_LEVEL, getChallengeGenerationError, getUnlockedChallengeLevel } from './challenge_progress';
 import { buildQuestionGenerationPrompt, isSubjectiveEligible } from './prompts';
 import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
 import {
@@ -86,6 +87,17 @@ type GenerationParams = {
   signal?: AbortSignal;
 };
 
+/**
+ * 앱이 직접 만든 문항 검증 안내만 사용자 화면에 전달한다.
+ * 네트워크/SDK/JSON 해독 예외 원문은 이 타입이 아니므로 화면과 로그에 노출하지 않는다.
+ */
+class GenerationContentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GenerationContentError';
+  }
+}
+
 const inFlightGenerations = new Map<string, Promise<GenerationOutcome>>();
 
 function getGenerationRequestKey(params: GenerationParams): string {
@@ -105,13 +117,13 @@ function getGenerationRequestKey(params: GenerationParams): string {
 
 function readStudyIntentDecision(value: unknown): StudyIntentDecision {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
+    throw new GenerationContentError('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
   }
 
   const result = value as Record<string, unknown>;
   const status = result.intentStatus;
   if (status !== 'READY' && status !== 'NEEDS_CLARIFICATION' && status !== 'REJECTED') {
-    throw new Error('AI가 주제 판정 상태를 올바르게 반환하지 않았습니다. 다시 시도해 주세요.');
+    throw new GenerationContentError('AI가 주제 판정 상태를 올바르게 반환하지 않았습니다. 다시 시도해 주세요.');
   }
 
   const clarificationChoices = Array.isArray(result.clarificationChoices)
@@ -128,6 +140,141 @@ function readStudyIntentDecision(value: unknown): StudyIntentDecision {
   };
 }
 
+/* 최신 main의 구형 인라인 객관식 검증기는 주관식/빈칸형을 지원하는
+ * generator_validation.ts로 대체되었으므로 통합 과정에서 사용하지 않는다.
+export function validateGeneratedQuestions(
+  value: unknown,
+  expectedCount: number,
+  currentInformationRequired = false,
+  expectedReferenceDate?: string,
+  groundingWasUsed = false
+): GeneratedQuestionInput[] {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new GenerationContentError('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
+  }
+
+  const questions = (value as { questions?: unknown }).questions;
+  if (!Array.isArray(questions) || questions.length !== expectedCount) {
+    throw new GenerationContentError(
+      `AI가 요청한 ${expectedCount}문항을 완전하게 반환하지 않았습니다. 다시 시도해 주세요.`
+    );
+  }
+
+  const knownStems = new Set<string>();
+
+  if (currentInformationRequired && !groundingWasUsed) {
+    throw new GenerationContentError('최신 공식 자료 검색 결과를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  }
+
+  return questions.map((rawQuestion, questionIndex) => {
+    const number = questionIndex + 1;
+    if (typeof rawQuestion !== 'object' || rawQuestion === null || Array.isArray(rawQuestion)) {
+      throw new GenerationContentError(`AI 응답의 ${number}번 문제 형식이 올바르지 않습니다. 다시 시도해 주세요.`);
+    }
+
+    const question = rawQuestion as Record<string, unknown>;
+    const stem = typeof question.stem === 'string' ? question.stem.trim() : '';
+    if (!stem) {
+      throw new GenerationContentError(`AI 응답의 ${number}번 문제 지문이 비어 있습니다. 다시 시도해 주세요.`);
+    }
+
+    const normalizedStem = normalizeComparableText(stem);
+    if (knownStems.has(normalizedStem)) {
+      throw new GenerationContentError(`AI 응답에 동일한 문제 지문이 반복되었습니다. 다시 시도해 주세요.`);
+    }
+    knownStems.add(normalizedStem);
+
+    if (!Array.isArray(question.options) || question.options.length !== 4) {
+      throw new GenerationContentError(`AI 응답의 ${number}번 문제 보기가 4개가 아닙니다. 다시 시도해 주세요.`);
+    }
+
+    const knownOptions = new Set<string>();
+    const options = question.options.map((rawOption, optionIndex) => {
+      if (typeof rawOption !== 'object' || rawOption === null || Array.isArray(rawOption)) {
+        throw new GenerationContentError(
+          `AI 응답의 ${number}번 문제 ${optionIndex + 1}번 보기 형식이 올바르지 않습니다. 다시 시도해 주세요.`
+        );
+      }
+
+      const option = rawOption as Record<string, unknown>;
+      const text = typeof option.text === 'string' ? option.text.trim() : '';
+      if (!text) {
+        throw new GenerationContentError(
+          `AI 응답의 ${number}번 문제 ${optionIndex + 1}번 보기가 비어 있습니다. 다시 시도해 주세요.`
+        );
+      }
+
+      const normalizedOption = normalizeComparableText(text);
+      if (knownOptions.has(normalizedOption)) {
+        throw new GenerationContentError(`AI 응답의 ${number}번 문제에 중복 보기가 있습니다. 다시 시도해 주세요.`);
+      }
+      knownOptions.add(normalizedOption);
+
+      return {
+        text,
+        distractorRationale: readOptionalText(option.distractorRationale),
+      };
+    });
+
+    if (
+      typeof question.correctOptionNumber !== 'number' ||
+      !Number.isInteger(question.correctOptionNumber) ||
+      question.correctOptionNumber < 1 ||
+      question.correctOptionNumber > options.length
+    ) {
+      throw new GenerationContentError(`AI 응답의 ${number}번 문제 정답 번호가 올바르지 않습니다. 다시 시도해 주세요.`);
+    }
+
+    const explanation =
+      typeof question.explanation === 'string' ? question.explanation.trim() : '';
+    if (!explanation) {
+      throw new GenerationContentError(`AI 응답의 ${number}번 문제 해설이 비어 있습니다. 다시 시도해 주세요.`);
+    }
+
+    let currentReference: CurrentInformationReference | undefined;
+    if (currentInformationRequired) {
+      const rawReference = question.currentReference;
+      if (typeof rawReference !== 'object' || rawReference === null || Array.isArray(rawReference)) {
+        throw new GenerationContentError(`AI가 ${number}번 문제의 최신 공식 출처를 확인하지 못했습니다. 다시 시도해 주세요.`);
+      }
+      const reference = rawReference as Record<string, unknown>;
+      const referenceDate = readOptionalText(reference.referenceDate);
+      const sourceAgency = readOptionalText(reference.sourceAgency);
+      const sourceTitle = readOptionalText(reference.sourceTitle);
+      const sourceUrl = readOptionalText(reference.sourceUrl);
+      if (
+        !referenceDate ||
+        referenceDate !== expectedReferenceDate ||
+        reference.effectiveStatus !== 'currently_effective' ||
+        !sourceAgency ||
+        !sourceTitle ||
+        !sourceUrl ||
+        !isTrustedOfficialSourceUrl(sourceUrl)
+      ) {
+        throw new GenerationContentError(`AI가 ${number}번 문제에 현재 시행 중인 공식 근거를 제시하지 못했습니다. 다시 시도해 주세요.`);
+      }
+      currentReference = {
+        referenceDate,
+        effectiveStatus: 'currently_effective',
+        sourceAgency,
+        sourceTitle,
+        sourceUrl,
+      };
+    }
+
+    return {
+      stem,
+      conceptDefinition: readOptionalText(question.conceptDefinition),
+      options,
+      correctOptionNumber: question.correctOptionNumber,
+      explanation,
+      deepReasoningHint: readOptionalText(question.deepReasoningHint),
+      currentReference,
+    };
+  });
+}
+
+*/
 /**
  * 문제 출제 및 무결성 검증 파이프라인
  * - API Key가 없으면 가짜 문제를 내지 않고 NEEDS_CONNECTION을 반환합니다.
@@ -153,6 +300,12 @@ export function generateFactBasedQuestions(params: GenerationParams): Promise<Ge
 
 async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise<GenerationOutcome> {
   const { intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, documentInput, signal } = params;
+  // 모든 출제 진입점(자유 입력·추가 학습 포함)에 동일한 순차 규칙 적용. API 호출 전에 검사한다.
+  if ((intent.difficultyLevel ?? 0) >= CHALLENGE_START_LEVEL) {
+    const error = getChallengeGenerationError(intent.difficultyLevel!, intent.targetCount,
+      getUnlockedChallengeLevel(await getAttempts(), topicId));
+    if (error) return { status: 'FAILED', message: error };
+  }
   const obviousInvalid = detectObviousInvalidStudyInput(topicName || intent.domain);
   if (obviousInvalid && obviousInvalid.status !== 'READY') {
     return {
@@ -200,13 +353,23 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
       validations: generated.validations,
     };
   } catch (err: any) {
-    console.error('AI 출제 API 통신 실패:', err);
-    const detail = typeof err?.message === 'string' && err.message.trim().length > 0
-      ? `\n\n${err.message.trim()}`
-      : '';
+    let safeMessage = 'API 서버와 통신할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.';
+    let failureCategory = 'connection_or_provider';
+    if (err instanceof GenerationContentError) {
+      safeMessage = err.message;
+      failureCategory = 'generated_content_validation';
+    } else if (err?.name === 'GenerationCancelledError') {
+      safeMessage = '문제 출제가 취소되었습니다.';
+      failureCategory = 'cancelled';
+    } else if (err?.name === 'GeminiRateLimitError') {
+      safeMessage = 'AI 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.';
+      failureCategory = 'rate_limited';
+    }
+    // 원본 예외에는 API 키, 요청 URL, 제공자 응답 등이 섞일 수 있어 기록하지 않는다.
+    console.warn(`AI 출제 실패 범주: ${failureCategory}`);
     return {
       status: 'FAILED',
-      message: `[AI 출제 실패]\n요청한 문제를 안전하게 생성하지 못했습니다.${detail}\n\n기존 문제와 학습 데이터는 그대로 유지됩니다.`,
+      message: `[AI 출제 실패]\n${safeMessage}\n\n기존 문제와 학습 데이터는 그대로 유지됩니다.`,
     };
   }
 }

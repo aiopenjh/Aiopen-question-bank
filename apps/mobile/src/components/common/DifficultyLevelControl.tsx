@@ -8,6 +8,7 @@ interface DifficultyLevelControlProps {
   onChange: (level: number) => void;
   disabled?: boolean;
   compact?: boolean;
+  maxLevel?: number;
 }
 
 const QUICK_LEVELS = [1, 5, 10, 15, 20, 25, 30] as const;
@@ -17,6 +18,7 @@ export const DifficultyLevelControl: React.FC<DifficultyLevelControlProps> = ({
   onChange,
   disabled = false,
   compact = false,
+  maxLevel = 31,
 }) => {
   const level = normalizeDifficultyLevel(value);
   const profile = getDifficultyProfile(level);
@@ -40,9 +42,9 @@ export const DifficultyLevelControl: React.FC<DifficultyLevelControlProps> = ({
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="난이도 한 단계 높이기"
-          style={styles.stepButton}
-          onPress={() => onChange(level + 1)}
-          disabled={disabled}
+          style={[styles.stepButton, level >= maxLevel && styles.stepButtonDisabled]}
+          onPress={() => onChange(Math.min(maxLevel, level + 1))}
+          disabled={disabled || level >= maxLevel}
         >
           <Text style={styles.stepButtonText}>＋</Text>
         </TouchableOpacity>
@@ -65,7 +67,7 @@ export const DifficultyLevelControl: React.FC<DifficultyLevelControlProps> = ({
           );
         })}
       </View>
-      <Text style={styles.helpText}>1~30에서 고르고, ＋를 누르면 30 이후도 계속 확장할 수 있습니다.</Text>
+      <Text style={styles.helpText}>1~30은 자유 선택 · 31부터 3문제 중 2문제 이상 정답이면 다음 레벨이 열려요. 현재 Lv.{maxLevel}까지 선택할 수 있어요.</Text>
     </View>
   );
 };
