@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { QuestionRevision } from '../../contracts/types';
 import { styles } from './examStyles';
+import { MathText } from '../../components/common/MathText';
 
 export interface ExamActiveViewProps {
   questions: QuestionRevision[];
@@ -64,7 +65,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
         {/* 문제 지문 */}
         <View style={styles.questionCard}>
           <Text style={styles.questionIndexLabel}>Q{currentIndex + 1}.</Text>
-          <Text style={styles.questionStem}>{q.stem}</Text>
+          <MathText style={styles.questionStem} text={q.stem} />
         </View>
 
         {/* 4지선다 보기 (선택 마킹만, 정답 미노출) */}
@@ -83,9 +84,10 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
                     {idx + 1}
                   </Text>
                 </View>
-                <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
-                  {opt.text}
-                </Text>
+                <MathText
+                  style={[styles.optionText, isSelected && styles.optionTextSelected]}
+                  text={opt.text}
+                />
                 {isSelected && <Text style={styles.checkMark}>✓</Text>}
               </TouchableOpacity>
             );

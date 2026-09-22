@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { styles } from './examStyles';
 import { colors } from '../../styles/designTokens';
+import { MathText } from '../../components/common/MathText';
 
 export interface ExamHintModalProps {
   visible: boolean;
@@ -42,7 +43,7 @@ export const ExamHintModal: React.FC<ExamHintModalProps> = ({
             showsVerticalScrollIndicator={true}
           >
             {trimmedHint ? (
-              <Text style={styles.hintModalContent}>{trimmedHint}</Text>
+              <MathText style={styles.hintModalContent} text={trimmedHint} />
             ) : (
               <View>
                 <Text style={styles.hintEmptyText}>

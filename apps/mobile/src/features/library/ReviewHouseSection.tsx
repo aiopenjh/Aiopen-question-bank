@@ -4,6 +4,7 @@ import { QuestionRevision, Topic, Unit } from '../../contracts/types';
 import { getCustomNoteQuestionIds, toggleCustomNoteQuestion } from '../../data/db';
 import { StateIllustration } from '../../components/common/StateIllustration';
 import { CurrentReferenceNotice } from '../../components/common/CurrentReferenceNotice';
+import { MathText } from '../../components/common/MathText';
 import { styles } from './libraryStyles';
 
 const ALL_TOPICS_ID = '__all_topics__';
@@ -223,7 +224,7 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
                           )}
                         </View>
 
-                        <Text style={styles.questionStemText}>{q.stem}</Text>
+                        <MathText style={styles.questionStemText} text={q.stem} />
 
                         <View style={styles.optionsReviewBox}>
                           {q.options.map((opt, oIdx) => {
@@ -260,14 +261,15 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
                         {isExplOpen && (
                           <View style={styles.explContentBox}>
                             <Text style={styles.explTitle}>[공식 정답 및 상세 해설]</Text>
-                            <Text style={styles.explText}>
-                              {q.explanation || '해설 정보가 등록되어 있지 않습니다.'}
-                            </Text>
+                            <MathText
+                              style={styles.explText}
+                              text={q.explanation || '해설 정보가 등록되어 있지 않습니다.'}
+                            />
                             <CurrentReferenceNotice reference={q.currentReference} />
                             {q.deepReasoningHint ? (
                               <View style={styles.misconceptionBox}>
                                 <Text style={styles.misconceptionTitle}>빈출 오답 및 함정 분석</Text>
-                                <Text style={styles.misconceptionText}>{q.deepReasoningHint}</Text>
+                                <MathText style={styles.misconceptionText} text={q.deepReasoningHint} />
                               </View>
                             ) : null}
                           </View>

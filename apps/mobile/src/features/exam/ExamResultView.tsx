@@ -4,6 +4,7 @@ import { QuestionRevision } from '../../contracts/types';
 import { styles } from './examStyles';
 import { StateIllustration } from '../../components/common/StateIllustration';
 import { CurrentReferenceNotice } from '../../components/common/CurrentReferenceNotice';
+import { MathText } from '../../components/common/MathText';
 
 export interface ExamResultViewProps {
   questions: QuestionRevision[];
@@ -67,7 +68,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
             </View>
 
             {/* 지문 */}
-            <Text style={styles.reviewStem}>{item.stem}</Text>
+            <MathText style={styles.reviewStem} text={item.stem} />
 
             {/* 4지선다 분석 목록 */}
             <View style={styles.reviewOptionsList}>
@@ -86,9 +87,10 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                   >
                     <View style={styles.reviewOptionTop}>
                       <Text style={styles.reviewOptionIndex}>{oIdx + 1}.</Text>
-                      <Text style={[styles.reviewOptionText, isTheAnswer && styles.reviewOptionTextCorrect]}>
-                        {opt.text}
-                      </Text>
+                      <MathText
+                        style={[styles.reviewOptionText, isTheAnswer && styles.reviewOptionTextCorrect]}
+                        text={opt.text}
+                      />
                       {isTheAnswer && (
                         <Text style={styles.correctTag}>[공식 정답]</Text>
                       )}
@@ -129,12 +131,13 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
             {/* 정답 해설 및 도출 과정 */}
             <View style={styles.explanationBox}>
               <Text style={styles.explanationTitle}>💡 정답 해설 및 도출 과정</Text>
-              <Text style={styles.explanationText}>
-                {item.explanation
+              <MathText
+                style={styles.explanationText}
+                text={item.explanation
                   .replace(/\[출제\s*근거\s*팩트\s*:[^\]]*\]/gi, '')
                   .replace(/출제\s*근거\s*팩트\s*:[^\n]*/gi, '')
                   .trim()}
-              </Text>
+              />
               <CurrentReferenceNotice reference={item.currentReference} />
             </View>
           </View>
