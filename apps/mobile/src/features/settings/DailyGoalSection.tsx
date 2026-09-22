@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { styles } from './settingsStyles';
+import { DAILY_GOAL_MAX } from '../../domain/daily_goal';
 
 export interface DailyGoalSectionProps {
   targetCount: number;
@@ -18,7 +19,7 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
   }, [targetCount]);
 
   const parsedInput = Number.parseInt(inputText, 10);
-  const isValidInput = Number.isInteger(parsedInput) && parsedInput >= 1 && parsedInput <= 10;
+  const isValidInput = Number.isInteger(parsedInput) && parsedInput >= 1 && parsedInput <= DAILY_GOAL_MAX;
   const hasChanges = isValidInput && parsedInput !== targetCount;
 
   const handleChangeNumber = (text: string) => {
@@ -27,7 +28,7 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
 
   const handleStep = (delta: number) => {
     const current = isValidInput ? parsedInput : targetCount;
-    const next = Math.min(10, Math.max(1, current + delta));
+    const next = Math.min(DAILY_GOAL_MAX, Math.max(1, current + delta));
     setInputText(String(next));
   };
 
@@ -77,18 +78,18 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
         </View>
 
         <TouchableOpacity
-          style={[styles.stepperArrowBtn, parsedInput >= 10 && styles.stepperArrowBtnDisabled]}
+          style={[styles.stepperArrowBtn, parsedInput >= DAILY_GOAL_MAX && styles.stepperArrowBtnDisabled]}
           onPress={() => handleStep(1)}
-          disabled={parsedInput >= 10}
+          disabled={parsedInput >= DAILY_GOAL_MAX}
           activeOpacity={0.7}
         >
-          <Text style={[styles.stepperArrowText, parsedInput >= 10 && styles.stepperArrowTextDisabled]}>
+          <Text style={[styles.stepperArrowText, parsedInput >= DAILY_GOAL_MAX && styles.stepperArrowTextDisabled]}>
             ▶
           </Text>
         </TouchableOpacity>
       </View>
 
-      {!isValidInput && <Text style={styles.goalValidationText}>1~10 사이의 문항 수를 입력해 주세요.</Text>}
+      {!isValidInput && <Text style={styles.goalValidationText}>1~{DAILY_GOAL_MAX} 사이의 문항 수를 입력해 주세요.</Text>}
     </View>
   );
 };

@@ -161,7 +161,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>🎯 1. 일일 학습 목표 저장</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>[설정 ➔ 학습 루틴]</Text>에서 1~10 사이의 목표 문항 수를 입력하거나 화살표로 조절합니다.{'\n'}
+              • <Text style={styles.bold}>[설정 ➔ 학습 루틴]</Text>에서 1~30 사이의 목표 문항 수를 입력하거나 화살표로 조절합니다.{'\n'}
               • 숫자를 바꾼 뒤 <Text style={styles.bold}>[목표 n문항 저장]</Text>을 누르면 메인 화면의 일일 달성 기준에 반영됩니다.
             </Text>
           </View>

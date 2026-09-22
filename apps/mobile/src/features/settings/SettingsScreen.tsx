@@ -10,6 +10,7 @@ import { DailyGoalSection } from './DailyGoalSection';
 import { DataBackupSection } from './DataBackupSection';
 import { AppVersionSection } from './AppVersionSection';
 import { FeedbackCard } from '../study/FeedbackCard';
+import { DAILY_GOAL_DEFAULT } from '../../domain/daily_goal';
 
 interface SettingsGroupProps {
   index: string;
@@ -66,7 +67,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onDeleteApiKey,
   alarmConfig = DEFAULT_ALARM_CONFIG,
   onChangeAlarmConfig,
-  targetQuestionCount = 3,
+  targetQuestionCount = DAILY_GOAL_DEFAULT,
   onChangeTargetQuestionCount,
   onExportBackup,
   onOpenRestoreModal,

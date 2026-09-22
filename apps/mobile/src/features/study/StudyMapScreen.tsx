@@ -17,6 +17,7 @@ import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicat
 import { StateIllustration } from '../../components/common/StateIllustration';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { colors, radius, shadows, spacing } from '../../styles/designTokens';
+import { DAILY_GOAL_DEFAULT } from '../../domain/daily_goal';
 
 export interface StudyMapScreenProps {
   // 통합 학습 현황 & 복습 연동
@@ -71,7 +72,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
     onRefresh,
   });
 
-  const targetCount = routine?.targetQuestionCount || 3;
+  const targetCount = routine?.targetQuestionCount || DAILY_GOAL_DEFAULT;
   const progressPercent = Math.min(100, Math.round((todayAttemptsCount / targetCount) * 100));
 
   const handleAddTopic = () => {

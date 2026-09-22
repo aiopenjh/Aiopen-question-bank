@@ -13,6 +13,7 @@ import {
   QuestionRevision,
 } from '../contracts/types';
 import { getLocalDateString } from '../domain/routine';
+import { DAILY_GOAL_DEFAULT } from '../domain/daily_goal';
 import { saveLastStudiedTopicId } from './repositories/topic_unit_repository';
 import {
   getEncryptedApiKey,
@@ -143,7 +144,7 @@ async function runMigrationClean(): Promise<void> {
       activeDays: [1, 2, 3, 4, 5, 6, 0], // 월~일 전 요일
       preferredTime: '09:00',
       timezone: 'Asia/Seoul',
-      targetQuestionCount: 3, // 기본 일일 3문제
+      targetQuestionCount: DAILY_GOAL_DEFAULT, // 신규 사용자 기본 일일 목표 문항 수
       effectiveDate: getLocalDateString(),
     };
     await AsyncStorage.setItem(STORAGE_KEYS.ROUTINE, JSON.stringify(initialRoutine));

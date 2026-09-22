@@ -14,6 +14,7 @@ import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { FeedbackModal } from '../features/study/FeedbackCard';
 import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
 import { getLocalDateString } from '../domain/routine';
+import { DAILY_GOAL_DEFAULT } from '../domain/daily_goal';
 import { AppController } from '../hooks/useAppController';
 
 export function AppView({ controller }: { controller: AppController }) {  const {
@@ -232,7 +233,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 onDeleteApiKey={handleDeleteApiKey}
                 alarmConfig={alarmConfig}
                 onChangeAlarmConfig={handleChangeAlarmConfig}
-                targetQuestionCount={routine?.targetQuestionCount ?? 3}
+                targetQuestionCount={routine?.targetQuestionCount ?? DAILY_GOAL_DEFAULT}
                 onChangeTargetQuestionCount={handleChangeTargetQuestionCount}
                 onExportBackup={handleExportBackup}
                 onOpenRestoreModal={() => {
