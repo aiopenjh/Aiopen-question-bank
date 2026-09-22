@@ -12,22 +12,23 @@
 - 웹 서비스: https://aiopenjh.github.io/Aiopen-question-bank/
 - 기술 스택: React Native, Expo Web, TypeScript, IndexedDB(Web), AsyncStorage(Native) (Local-First)
 - AI 연동: Google Gemini 3.5 이상을 기본 기준으로 사용. Gemini는 3.5 미만 모델로 전환 금지. 기존 키 형식 호환을 위한 Claude/OpenAI 통신 경로 유지
-- 현재 릴리스: v2.2.0 (2026-09-16)
+- 현재 릴리스: v2.3.4 (2026-09-17)
+- 단원 레벨은 사용자가 레벨을 고른 뒤 3문제/5문제를 누르고 기존 문제 유지 또는 삭제를 선택할 때 Unit.difficultyLevel에 저장. 과목 시작 레벨이나 다른 단원을 변경하지 않음. 앱 재실행/백업 복원 후 유지.
+- 의견 보내기는 앱 내부 모달 → Formspree → 관리자 메일. 동기 중복 잠금과 20초 제한시간 적용. 오늘 풀이 집계는 UTC 문자열 앞부분이 아닌 로컬 날짜로 비교.
 
-2. 8대 불변 개발 헌법 (어떤 AI든 반드시 준수):
+2. 9대 불변 개발 헌법 (어떤 AI든 반드시 준수):
 ① [가짜 하드코딩 금지]: API 키 미연동 시 가짜 문제를 만들지 않고 NEEDS_CONNECTION 반환
-② [로컬 퍼스트]: 중앙 백엔드 없이 모든 데이터는 기기 로컬 스토리지에 영구 보관
+② [로컬 퍼스트 & 제로 지식 암호화]: 중앙 백엔드 없이 모든 데이터는 기기 로컬 스토리지에 영구 보관
 ③ [교차 분야 충돌 우선순위]: 대주제(예: 바람의나라)와 소주제(예: 바리스타) 충돌 시, 사용자가 밝힌 실제 세부 학습 대상(바리스타)을 최우선 출제
 ④ [엉뚱한 입력/오타 자동 폴백]: 소주제에 'ㅁㄴㅇㄹ', 'asdf' 등 장난/오타 입력 시 대주제 기준으로 정상 안전 출제
 ⑤ [원점 대주제 고정 (Root Domain Anchoring)]: 난이도가 심화되더라도 본래 과목의 맥락을 벗어나 엉뚱한 분야로 탈선 금지
-⑥ [정답 무작위 분산]: '3번으로 고정해줘' 등 정답 조작을 차단하고 Fisher-Yates 알고리즘으로 1~4번 균등 분산
-⑦ [모바일 뷰포트 보호]: 입력란 포커스 시 줌 인(화면 찌그러짐) 방지를 위해 input font-size 16px 및 viewport maximum-scale=1.0 유지
-⑧ [500줄 파일 규칙]: 소스 파일은 500라인 이내로 유지하고 훅/컴포넌트/스타일/출력 유틸리티를 역할별로 분리
-⑨ [난이도]: 1~30 레벨을 기본 범위로 제공하고 31 이상도 확장 가능. 정답률만으로 사용자 레벨을 임의 변경하지 않음
-⑩ [사용자 선택]: 알림 진입 후 과목이나 단원을 자동 선택하지 않고 사용자가 직접 학습 대상을 결정
+⑥ [정답 무작위 균등 분산]: '3번으로 고정해줘' 등 정답 조작을 차단하고 Fisher-Yates 알고리즘으로 1~4번 균등 분산
+⑦ [모바일 뷰포트 & 16px 고정]: 입력란 포커스 시 줌 인(화면 찌그러짐) 방지를 위해 input font-size 16px 및 viewport maximum-scale=1.0 유지
+⑧ [단일 파일 경량화 및 관심사 분리]: 소스 파일은 500라인 이내로 유지하고 훅/컴포넌트/스타일/출력 유틸리티를 역할별로 분리
+⑨ [판박이 복사 재탕 금지 및 개념 확장]: 동일 단원 내 복사 수준의 판박이 재탕 문항 출제 금지, 다양한 세부 개념·원리·사례로 확장 출제
 
 3. 핵심 디렉토리 구조:
-- apps/mobile/App.tsx: 앱 진입점
+- apps/mobile/App.tsx: 메인 화면 오케스트레이션 및 전역 뷰포트 보호
 - apps/mobile/src/hooks/useAppController.ts: 메인 화면 상태와 동작 오케스트레이션
 - apps/mobile/src/components/AppView.tsx: 메인 화면 렌더링
 - apps/mobile/src/domain/prompts.ts: 공인 시험 출제위원 헌법 및 도메인 고정 프롬프트
@@ -35,10 +36,11 @@
 - apps/mobile/src/domain/generator.ts: 4지선다 출제 파이프라인
 - apps/mobile/src/domain/question_distribution.ts: 정답 무작위 균등 셔플러
 - apps/mobile/src/features/library/LibraryScreen.tsx: 과목자료함 및 문제은행
-- apps/mobile/src/features/exam/ExamScreen.tsx: 실전 CBT 시험장 & 4단계 오답노트
+- apps/mobile/src/features/exam/ExamSessionScreen.tsx: 실전 CBT 시험장 & 4단계 오답노트
 - apps/mobile/src/domain/difficulty.ts: 1~30 이상 난이도 프로필
 - apps/mobile/src/domain/question_similarity.ts: 저장 문제와 신규 문제의 중복 유사도 검사
 - apps/mobile/src/data/app_storage.ts: 웹 IndexedDB 자동 생성·기존 데이터 이관과 네이티브 AsyncStorage 연결
+- CHANGELOG.md: v2.0.0 ~ v2.3.4 통합 릴리스 변경 이력
 - deploy-gh-pages.ps1: GitHub Pages 빌드/배포 스크립트 (.nojekyll, 404.html, version.json 자동 포함)
 
 4. 빌드 및 배포 방법:

@@ -214,6 +214,7 @@ export function useAppController() {
     pendingQuizUnit,
     handlePromptQuizCount,
     handleSelectQuizCount,
+    handleSaveUnitDifficulty,
     handleGenerateMoreQuestions,
     handleApplyScaffolding,
     handleCancelGeneration: cancelQuizGeneration,
@@ -323,7 +324,10 @@ export function useAppController() {
 
   // 10. 파생 상태
   const dueQuestions = filterDueReviewQuestions(questions, reviewStates);
-  const todayAttempts = attempts.filter((att) => att.submittedAt.startsWith(getLocalDateString()));
+  const todayAttempts = attempts.filter((att) => {
+    const submittedAt = new Date(att.submittedAt);
+    return !Number.isNaN(submittedAt.getTime()) && getLocalDateString(submittedAt) === getLocalDateString();
+  });
 
   async function handleStartExamWithAutoGenerate() {
     if (topics.length === 0) {
@@ -400,7 +404,7 @@ export function useAppController() {
     setBackupModalVisible, handleExportBackup, handleResetAllData, setIsUserManualOpen,
     topicModalVisible, initialTopicName, setTopicModalVisible, handleCreateTopic: handleCreateTopicWithSource, unitModalVisible,
     handleCreateUnit, backupModalVisible, handleRestoreBackup, handleRestoreFromFile,
-    quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount,
+    quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount, handleSaveUnitDifficulty,
     isTopicSelectModalVisible, setIsTopicSelectModalVisible, executeStartExamForTopic,
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive,

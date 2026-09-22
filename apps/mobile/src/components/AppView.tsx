@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StatusBar, ActivityIndicator, Animated, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { generateUUID } from '../data/db';
@@ -11,6 +11,7 @@ import { AppAlertModal } from '../components/modals/AppAlertModal';
 import { StudyMapScreen } from '../features/study/StudyMapScreen';
 import { LibraryScreen } from '../features/library/LibraryScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
+import { FeedbackModal } from '../features/study/FeedbackCard';
 import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
 import { getLocalDateString } from '../domain/routine';
 import { AppController } from '../hooks/useAppController';
@@ -34,13 +35,14 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     setBackupModalVisible, handleExportBackup, handleResetAllData, setIsUserManualOpen,
     topicModalVisible, initialTopicName, setTopicModalVisible, handleCreateTopic, unitModalVisible,
     handleCreateUnit, backupModalVisible, handleRestoreBackup, handleRestoreFromFile,
-    quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount,
+    quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount, handleSaveUnitDifficulty,
     isTopicSelectModalVisible, setIsTopicSelectModalVisible, executeStartExamForTopic,
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
     appAlert, setAppAlert,
   } = controller;
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
   if (loading) {
     return (
       <SafeAreaProvider>
@@ -244,12 +246,15 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 latestVersion={appUpdate.latestVersion}
                 onCheckForUpdate={() => appUpdate.checkForUpdate(true)}
                 onApplyUpdate={appUpdate.applyUpdate}
+                onOpenFeedback={() => setFeedbackVisible(true)}
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
               />
             </View>
           </Animated.View>
         </View>
+
+        <FeedbackModal visible={feedbackVisible} onClose={() => setFeedbackVisible(false)} />
 
         {/* 공통 모달 컨테이너 (8종 모달 일원화) */}
         <AppModalsContainer
@@ -271,6 +276,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
           pendingQuizUnit={pendingQuizUnit}
           onCloseQuizCountModal={() => setQuizCountModalVisible(false)}
           onSelectQuizCount={handleSelectQuizCount}
+          onSaveUnitDifficulty={handleSaveUnitDifficulty}
           onOpenBackup={handleExportBackup}
           isTopicSelectModalVisible={isTopicSelectModalVisible}
           topics={topics}

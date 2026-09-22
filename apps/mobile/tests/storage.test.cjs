@@ -133,6 +133,49 @@ test('complete backup round trip contains sources, progress and settings but nev
   assert.equal(session.data.get(key('secure_vault_v1')), 'SECRET');
 });
 
+test('unit difficulty survives restart and backup without changing siblings, topic or questions', async () => {
+  const session = setup();
+  await session.db.initializeDatabase();
+  const { topic, units } = await session.db.createTopicWithUnits({ name: 'math', difficultyLevel: 3, units: [{ title: 'A' }, { title: 'B' }] });
+  await session.db.addQuestions([{ ...question, topicId: topic.id, unitId: units[0].id }]);
+  const beforeQuestions = JSON.stringify(await session.db.getQuestions());
+  await session.db.updateUnitDifficulty(topic.id, units[0].id, 20);
+  const restarted = setup(session.data);
+  assert.equal((await restarted.db.getUnits()).find(u => u.id === units[0].id).difficultyLevel, 20);
+  assert.equal((await restarted.db.getUnits()).find(u => u.id === units[1].id).difficultyLevel, undefined);
+  assert.equal((await restarted.db.getTopics()).find(t => t.id === topic.id).difficultyLevel, 3);
+  assert.equal(JSON.stringify(await restarted.db.getQuestions()), beforeQuestions);
+  const backup = await restarted.db.exportBackupJSON();
+  const restored = setup();
+  assert.equal((await restored.db.restoreBackupJSON(backup)).success, true);
+  assert.equal((await restored.db.getUnits()).find(u => u.id === units[0].id).difficultyLevel, 20);
+  const before = JSON.stringify(await restored.db.getUnits());
+  await assert.rejects(restored.db.updateUnitDifficulty('wrong-topic', units[0].id, 4));
+  assert.equal(JSON.stringify(await restored.db.getUnits()), before);
+  restored.setFailure(k => k === key('units'));
+  await assert.rejects(restored.db.updateUnitDifficulty(topic.id, units[0].id, 4));
+  assert.equal(JSON.stringify(await restored.db.getUnits()), before);
+});
+
+test('question replacement keeps new and other-unit questions and preserves old on failure', async () => {
+  const session = setup();
+  const old = { ...question, topicId: 't', unitId: 'u' };
+  const other = { ...question, id: 'q2', questionId: 'q2', stem: '대한민국의 수도는?', topicId: 't', unitId: 'other' };
+  const fresh = { ...question, id: 'q3', questionId: 'q3', stem: '식물의 광합성에 필요한 기체는?', topicId: 't', unitId: 'u' };
+  await session.db.addQuestions([old, other]);
+  assert.equal((await session.db.saveQuestionsForUnit('t', 'u', [fresh], false)).committed, true);
+  assert.equal((await session.db.getQuestions()).length, 3);
+  const next = { ...fresh, id: 'q4', questionId: 'q4', stem: '표준 기압에서 물의 끓는점은?' };
+  session.setFailure(k => k === key('questions'));
+  await assert.rejects(session.db.saveQuestionsForUnit('t', 'u', [next], true));
+  assert.equal((await session.db.getQuestions()).length, 3);
+  session.setFailure(null);
+  assert.equal((await session.db.saveQuestionsForUnit('t', 'u', [next], true)).committed, true);
+  assert.deepEqual(Array.from(await session.db.getQuestions(), q => q.id).sort(), ['q2', 'q4']);
+  assert.equal((await session.db.saveQuestionsForUnit('t', 'u', [next], true)).committed, false);
+  assert.equal((await session.db.getQuestions()).length, 2);
+});
+
 test('topic-source links select only the explicitly connected material', async () => {
   const session = setup();
   await session.db.initializeDatabase();

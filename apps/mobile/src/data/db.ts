@@ -41,6 +41,7 @@ export {
   createTopic,
   createTopicWithUnits,
   addTopic,
+  updateUnitDifficulty,
   deleteTopic,
   getUnits,
   createUnit,

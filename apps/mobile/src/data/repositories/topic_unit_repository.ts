@@ -148,6 +148,18 @@ export async function addTopic(topic: Topic): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(topics));
 }
 
+export async function updateUnitDifficulty(
+  topicId: UUID,
+  unitId: UUID,
+  difficultyLevel: number
+): Promise<void> {
+  const units = await getUnits();
+  const unit = units.find((item) => item.id === unitId && item.topicId === topicId);
+  if (!unit) throw new Error('난이도를 변경할 단원을 찾지 못했습니다.');
+  unit.difficultyLevel = normalizeDifficultyLevel(difficultyLevel);
+  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(units));
+}
+
 export async function deleteTopic(topicId: UUID): Promise<void> {
   const keys = [
     STORAGE_KEYS.TOPICS,

@@ -118,7 +118,9 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
               • <Text style={styles.bold}>레벨 1~10</Text>: 필수 용어와 핵심 차이를 작은 간격으로 익힙니다.{'\n'}
               • <Text style={styles.bold}>레벨 11~20</Text>: 기본 적용에서 응용 판단까지 점진적으로 넓힙니다.{'\n'}
               • <Text style={styles.bold}>레벨 21~30</Text>: 세부 조건, 오개념 판별, 종합 추론을 다룹니다.{'\n'}
-              • <Text style={styles.bold}>레벨 31 이상</Text>: 난이도만 올리지 않고 새로운 사례와 관점으로 범위를 확장합니다. 정답률로 레벨이 자동 변경되지는 않습니다.
+              • <Text style={styles.bold}>레벨 31 이상</Text>: 난이도만 올리지 않고 새로운 사례와 관점으로 범위를 확장합니다. 정답률로 레벨이 자동 변경되지는 않습니다.{'\n'}
+              • <Text style={styles.bold}>단원별 레벨 유지</Text>: 첫 출제는 과목의 시작 레벨을 사용합니다. 이후 원하는 레벨을 고르고 3문제 또는 5문제를 누른 뒤 변경 방식을 선택하면 해당 단원에 저장되어 앱을 다시 열어도 유지됩니다.{'\n'}
+              • <Text style={styles.bold}>문제 유지·삭제</Text>: <Text style={styles.bold}>기존문제유지 + 레벨변경</Text>은 새 문제를 누적하고, <Text style={styles.bold}>기존문제삭제 + 레벨변경</Text>은 새 문제 저장이 성공한 뒤 해당 단원의 이전 문제만 삭제합니다. 취소하거나 설정창을 닫으면 선택한 레벨은 저장되지 않습니다.
             </Text>
           </View>
         </View>

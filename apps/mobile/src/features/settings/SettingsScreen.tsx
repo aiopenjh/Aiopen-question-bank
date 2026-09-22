@@ -54,6 +54,7 @@ interface SettingsScreenProps {
   latestVersion?: string;
   onCheckForUpdate?: () => void;
   onApplyUpdate?: () => void;
+  onOpenFeedback?: () => void;
   refreshing?: boolean;
   onRefresh?: () => Promise<void> | void;
 }
@@ -76,6 +77,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   latestVersion,
   onCheckForUpdate,
   onApplyUpdate,
+  onOpenFeedback,
   refreshing = false,
   onRefresh,
 }) => {
@@ -193,7 +195,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         )}
       </SettingsGroup>
 
-      <FeedbackCard compact />
+      <FeedbackCard compact onOpen={onOpenFeedback} />
     </ScrollView>
   );
 };
