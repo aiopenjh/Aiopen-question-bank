@@ -196,10 +196,10 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
                 <Text style={styles.summaryValue}>{todaySolvedCount}문제</Text>
               </View>
               {maxKillerLevel > 0 && (
-                <Text style={styles.noticeText}>최고 도달 킬러 문항: Lv.{maxKillerLevel}</Text>
+                <Text style={styles.noticeText}>최고 순차 통과 레벨: Lv.{maxKillerLevel}</Text>
               )}
               <Text style={styles.noticeText}>
-                연동 시 오늘 완료한 문제 수와 꾸준함 참여 여부만 전송합니다. 문제 내용, 정답, 과목명과 API 키는
+                연동 시 오늘 완료한 문제 수와 최고 순차 통과 레벨을 전송하며, 하루 3문제 이상이면 꾸준함에 반영됩니다. 문제 내용, 정답, 과목명과 API 키는
                 전송하지 않습니다.
               </Text>
               {pendingSync && (

@@ -197,6 +197,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
 
       <QuizCountModal
         visible={quizCountModalVisible}
+        topicId={pendingQuizUnit?.topicId}
         topicName={pendingQuizUnit?.topicName}
         unitTitle={pendingQuizUnit?.unitTitle}
         existingCount={pendingQuizUnit?.existingCount}

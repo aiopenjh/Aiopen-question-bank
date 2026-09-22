@@ -15,11 +15,13 @@ import {
   getSourceTextForTopic,
   getLinkedSourceForTopic,
   updateUnitDifficulty,
+  getAttempts,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
 import { difficultyToLegacyLevel, legacyLevelToDifficulty } from '../domain/difficulty';
 import { buildUnitGenerationContext, formatIntentMessage } from './quizGenerationContext';
 import { getLocalDateString } from '../domain/routine';
+import { CHALLENGE_START_LEVEL, getUnlockedChallengeLevel } from '../domain/challenge_progress';
 
 const DAILY_FREE_QUESTION_GUIDE = 15;
 
@@ -126,6 +128,10 @@ export function useQuizGeneration({
 
   const handleSaveUnitDifficulty = useCallback(async (difficultyLevel: number) => {
     if (!pendingQuizUnit) throw new Error('변경할 단원을 찾지 못했습니다.');
+    if (difficultyLevel >= CHALLENGE_START_LEVEL &&
+        difficultyLevel > getUnlockedChallengeLevel(await getAttempts(), pendingQuizUnit.topicId)) {
+      throw new Error('이전 레벨을 먼저 통과해 주세요.');
+    }
     await updateUnitDifficulty(pendingQuizUnit.topicId, pendingQuizUnit.unitId, difficultyLevel);
     setUnits(await getUnits());
   }, [pendingQuizUnit, setUnits]);

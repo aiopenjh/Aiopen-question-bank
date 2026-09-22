@@ -37,6 +37,7 @@ export const RankingLeaderboardCard: React.FC = () => {
 
   const topSolved = leaderboard?.mostSolved?.[0];
   const topConsistent = leaderboard?.mostConsistent?.[0];
+  const topChallenge = leaderboard?.mostKillerLevel?.[0];
 
   function handleOpen() {
     if (!openRankingWindow()) setFallbackVisible(true);
@@ -71,6 +72,16 @@ export const RankingLeaderboardCard: React.FC = () => {
           {topConsistent ? (
             <Text style={styles.entryValue} numberOfLines={1}>
               {topConsistent.nickname} · {topConsistent.value}일 연속
+            </Text>
+          ) : (
+            <Text style={styles.entryEmpty}>아직 참여자 없음</Text>
+          )}
+        </View>
+        <View style={styles.entryRow}>
+          <Text style={styles.entryLabel}>⚔️ 초고난도 도전</Text>
+          {topChallenge ? (
+            <Text style={styles.entryValue} numberOfLines={1}>
+              {topChallenge.nickname} · Lv.{topChallenge.value}
             </Text>
           ) : (
             <Text style={styles.entryEmpty}>아직 참여자 없음</Text>

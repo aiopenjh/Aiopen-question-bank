@@ -3,18 +3,19 @@
  * Reference: docs/ranking/RANKING_FEATURE_PLAN.md §5
  */
 
-import { Attempt, ISODateString, QuestionRevision, SessionItem } from '../contracts/types';
+import { Attempt, ISODateString } from '../contracts/types';
+import { CHALLENGE_START_LEVEL, getTopicChallengeLevels } from './challenge_progress';
 import { getLocalDateString } from './routine';
 
 export const CONSISTENCY_MIN_QUESTIONS = 3;
 /** 초고난도 도전 랭킹(PRODUCT_ROADMAP_AND_BETA_PLAN.md §Step 1)의 킬러 문항 기준. difficulty.ts의 "확장 학습" 구간 시작값과 같다. */
-export const KILLER_LEVEL_THRESHOLD = 31;
+export const KILLER_LEVEL_THRESHOLD = CHALLENGE_START_LEVEL;
 
 /**
  * 기기에 저장된 오늘(로컬 날짜 기준) 완료 문제 수.
  * submissionKey(`sub-{questionId}-{date}-...`, question_repository.saveAttempt 참고)
  * 기준으로 같은 문제의 중복 제출을 한 번만 센다.
- * 최종 값 판정은 서버가 한국 날짜 기준으로 다시 계산하며, 이 값은 안내용이다.
+ * 서버에는 이 집계값만 전송한다. 문제 내용이나 개별 제출 기록은 전송하지 않는다.
  */
 export function countTodayCompletedQuestions(
   attempts: Attempt[],
@@ -34,24 +35,12 @@ export function isConsistencyQualified(solvedCount: number): boolean {
 }
 
 /**
- * 초고난도 도전 랭킹: 정답으로 맞춘 문제 중 difficultyLevel이 킬러 문항 기준(31) 이상인
- * 문제의 전체 기간 최고 도달 레벨. Attempt는 문항 난이도를 직접 갖지 않으므로
- * sessionItemId -> SessionItem.questionRevisionId -> QuestionRevision.difficultyLevel로 조인한다.
+ * 과목별로 31부터 순차 통과한 레벨 중 최댓값. 구형 단일 정답 기록은 소급하지 않는다.
  */
 export function getMaxQualifiedKillerLevel(
-  attempts: Attempt[],
-  sessionItems: SessionItem[],
-  questions: QuestionRevision[]
+  attempts: Attempt[]
 ): number {
-  const revisionIdBySessionItemId = new Map(sessionItems.map((item) => [item.id, item.questionRevisionId]));
-  const difficultyByRevisionId = new Map(questions.map((q) => [q.id, q.difficultyLevel ?? 0]));
-
   let maxLevel = 0;
-  for (const attempt of attempts) {
-    if (!attempt.isCorrect) continue;
-    const revisionId = revisionIdBySessionItemId.get(attempt.sessionItemId);
-    const level = revisionId ? difficultyByRevisionId.get(revisionId) ?? 0 : 0;
-    if (level >= KILLER_LEVEL_THRESHOLD && level > maxLevel) maxLevel = level;
-  }
+  for (const level of getTopicChallengeLevels(attempts).values()) maxLevel = Math.max(maxLevel, level);
   return maxLevel;
 }

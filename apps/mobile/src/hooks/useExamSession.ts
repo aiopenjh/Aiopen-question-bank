@@ -1,8 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { QuestionRevision, ReviewState, Unit, Attempt, Topic } from '../contracts/types';
 import { distributeQuestionAnswersRandomly } from '../domain/generator';
 import { calculateNextReviewState } from '../domain/spaced_repetition';
-import { getLocalDateString } from '../domain/routine';
 import {
   saveAttempt,
   saveReviewState,
@@ -10,8 +9,10 @@ import {
   generateUUID,
   getCurrentISOTime,
   saveLastStudiedTopicId,
+  getAttempts,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
+import { CHALLENGE_QUESTION_COUNT, CHALLENGE_START_LEVEL, getTopicChallengeLevels } from '../domain/challenge_progress';
 
 export interface UseExamSessionProps {
   questions: QuestionRevision[];
@@ -38,6 +39,7 @@ export function useExamSession({
 }: UseExamSessionProps) {
   const [examSessionActive, setExamSessionActive] = useState(false);
   const [examQuestions, setExamQuestions] = useState<QuestionRevision[]>([]);
+  const runRef = useRef<{ id: string; startedAt: string; saving: boolean; completed: boolean } | null>(null);
 
   const startExam = useCallback(
     (filteredQuestions?: QuestionRevision[]) => {
@@ -78,7 +80,7 @@ export function useExamSession({
 
       // 정답 번호가 한곳에 편중되지 않도록 균등 무작위 분산 배치 적용
       const randomizedQuestions = distributeQuestionAnswersRandomly(list);
-
+      runRef.current = { id: generateUUID(), startedAt: getCurrentISOTime(), saving: false, completed: false };
       setExamQuestions(randomizedQuestions);
       setExamSessionActive(true);
     },
@@ -89,38 +91,65 @@ export function useExamSession({
     async (
       results: Array<{ question: QuestionRevision; selectedOptionId: string; isCorrect: boolean }>
     ) => {
-      for (const item of results) {
-        const attemptId = generateUUID();
-        const attempt: Attempt = {
-          id: attemptId,
-          sessionItemId: generateUUID(),
-          submissionKey: `sub-${item.question.id}-${getLocalDateString()}-${attemptId.slice(0, 6)}`,
-          answerOptionId: item.selectedOptionId,
-          isCorrect: item.isCorrect,
-          submittedAt: getCurrentISOTime(),
-        };
-        await saveAttempt(attempt);
+      const run = runRef.current;
+      if (!run || run.saving || run.completed) return;
+      run.saving = true;
+      try {
+        const first = results[0]?.question;
+        const isChallenge = results.length === CHALLENGE_QUESTION_COUNT &&
+          examQuestions.length === CHALLENGE_QUESTION_COUNT && !!first?.topicId &&
+          Number.isSafeInteger(first.difficultyLevel) && first.difficultyLevel! >= CHALLENGE_START_LEVEL &&
+          new Set(results.map(item => item.question.id)).size === CHALLENGE_QUESTION_COUNT &&
+          results.every(item => item.question.topicId === first.topicId &&
+            item.question.difficultyLevel === first.difficultyLevel &&
+            examQuestions.some(q => q.id === item.question.id));
+        const before = isChallenge
+          ? getTopicChallengeLevels(await getAttempts()).get(first.topicId!) ?? CHALLENGE_START_LEVEL - 1
+          : 0;
+        for (const [index, item] of results.entries()) {
+          const attemptId = `${run.id}-${index}`;
+          const attempt: Attempt = {
+            id: attemptId,
+            sessionItemId: generateUUID(),
+            submissionKey: `sub-${item.question.id}-${run.id}`,
+            answerOptionId: item.selectedOptionId,
+            isCorrect: item.isCorrect,
+            submittedAt: getCurrentISOTime(),
+            ...(isChallenge ? { challenge: {
+              version: 1 as const, runId: run.id, topicId: first.topicId!, level: first.difficultyLevel!,
+              questionId: item.question.questionId || item.question.id, startedAt: run.startedAt,
+            } } : {}),
+          };
+          await saveAttempt(attempt);
 
-        const currentRS = reviewStates.find((rs) => rs.questionRevisionId === item.question.id);
-        const nextRS = calculateNextReviewState({
-          ownerId: 'owner-default',
-          questionRevisionId: item.question.id,
-          currentReviewState: currentRS,
-          isCorrect: item.isCorrect,
-          attemptId,
-        });
-        await saveReviewState(nextRS);
+          const currentRS = reviewStates.find((rs) => rs.questionRevisionId === item.question.id);
+          const nextRS = calculateNextReviewState({
+            ownerId: 'owner-default',
+            questionRevisionId: item.question.id,
+            currentReviewState: currentRS,
+            isCorrect: item.isCorrect,
+            attemptId,
+          });
+          await saveReviewState(nextRS);
+        }
+
+        const sessionUnitId = results[0]?.question.unitId;
+        const targetUnit = units.find((u) => u.id === sessionUnitId);
+        if (targetUnit) await markUnitAsCompleted(targetUnit.id);
+
+        await onRefreshData();
+        if (isChallenge) {
+          const cleared = getTopicChallengeLevels(await getAttempts()).get(first.topicId!) ?? CHALLENGE_START_LEVEL - 1;
+          if (cleared > before) {
+            showAlert('도전 통과', `레벨 ${cleared}을 통과했습니다. 이제 이 과목에서 레벨 ${cleared + 1}에 도전할 수 있어요.`);
+          }
+        }
+        run.completed = true;
+      } finally {
+        run.saving = false;
       }
-
-      const sessionUnitId = results[0]?.question.unitId;
-      const targetUnit = units.find((u) => u.id === sessionUnitId);
-      if (targetUnit) {
-        await markUnitAsCompleted(targetUnit.id);
-      }
-
-      await onRefreshData();
     },
-    [reviewStates, units, onRefreshData]
+    [reviewStates, units, onRefreshData, examQuestions]
   );
 
   const exitExamSession = useCallback(() => {

@@ -35,7 +35,11 @@ function harness(fetchImpl = async () => { throw new Error('unexpected provider 
       exports: module.exports,
       AbortController,
       clearTimeout,
-      console: { error() {}, log() {}, warn() {} },
+      console: {
+        error: (...args) => options.logs?.push(args.join(' ')),
+        log: (...args) => options.logs?.push(args.join(' ')),
+        warn: (...args) => options.logs?.push(args.join(' ')),
+      },
       fetch: fetchImpl,
       setTimeout,
       require: (name) => name === '../data/db'
@@ -44,6 +48,7 @@ function harness(fetchImpl = async () => { throw new Error('unexpected provider 
             generateUUID: () => String(++id),
             getCurrentISOTime: () => '2026-09-14T00:00:00.000Z',
             getGeminiApiKey: async () => key,
+            getAttempts: async () => options.attempts || [],
             getPreferredAiModel: async () => model,
             isSupportedGeminiModel,
           }
@@ -65,6 +70,17 @@ function question(overrides = {}) {
     ...overrides,
   };
 }
+
+test('all generation calls gate locked challenge levels and 5-question challenges before provider access', async () => {
+  const generator = harness(); // unexpected provider calls throw
+  for (const [difficultyLevel, targetCount] of [[50, 3], [32, 3], [31, 5]]) {
+    const params = args(generator, targetCount);
+    params.intent = generator.analyzeUserIntent('덧셈', undefined, { difficultyLevel, targetCount });
+    const outcome = await generator.generateFactBasedQuestions(params);
+    assert.equal(outcome.status, 'FAILED');
+    assert.match(outcome.message, /3문제/);
+  }
+});
 
 function args(generator, targetCount = 1) {
   return {
@@ -258,12 +274,15 @@ test('transport and JSON decoder exceptions do not expose raw provider secrets',
   ];
 
   for (const { secret, fetchImpl } of cases) {
-    const generator = harness(fetchImpl);
+    const logs = [];
+    const generator = harness(fetchImpl, { logs });
     const result = await generator.generateFactBasedQuestions(args(generator));
 
     assert.equal(result.status, 'FAILED');
     assert.ok(!result.message.includes(secret));
+    assert.ok(!logs.join('\n').includes(secret));
     assert.match(result.message, /API 서버와 통신할 수 없습니다/);
+    assert.match(logs.join('\n'), /connection_or_provider/);
   }
 });
 

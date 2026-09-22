@@ -11,8 +11,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { RankingProfile, RankingRecoverySeed, RankingSyncQueueItem } from '../contracts/types';
 import {
   getAttempts,
-  getSessionItems,
-  getQuestions,
   getRankingProfile,
   saveRankingProfile,
   clearRankingProfile,
@@ -67,15 +65,13 @@ export function useRankingWindow() {
   useEffect(() => {
     (async () => {
       // 오늘 완료 수는 제출 기록에서 직접 계산한다 (계획서 §5.1).
-      const [storedProfile, attempts, sessionItems, questions] = await Promise.all([
+      const [storedProfile, attempts] = await Promise.all([
         getRankingProfile(),
         getAttempts(),
-        getSessionItems(),
-        getQuestions(),
       ]);
       setProfile(storedProfile);
       setTodaySolvedCount(countTodayCompletedQuestions(attempts));
-      setMaxKillerLevel(getMaxQualifiedKillerLevel(attempts, sessionItems, questions));
+      setMaxKillerLevel(getMaxQualifiedKillerLevel(attempts));
       if (!storedProfile) setRecoverySeed(await getRankingRecoverySeed());
       setPendingSync(await getPendingSyncRequest());
       await refreshLeaderboard();
@@ -152,8 +148,15 @@ export function useRankingWindow() {
     setBusy(true);
     setError(null);
     const localDate = getLocalDateString();
+    let solvedCount = todaySolvedCount;
     try {
-      const result = await syncToday(profile, localDate, todaySolvedCount, maxKillerLevel);
+      // 별도 랭킹 창을 열어 둔 동안 완료한 도전도 전송 직전에 다시 읽는다.
+      const attempts = await getAttempts();
+      solvedCount = countTodayCompletedQuestions(attempts, localDate);
+      const clearedLevel = getMaxQualifiedKillerLevel(attempts);
+      setTodaySolvedCount(solvedCount);
+      setMaxKillerLevel(clearedLevel);
+      const result = await syncToday(profile, localDate, solvedCount, clearedLevel);
       await clearPendingSyncRequest();
       setPendingSync(null);
       setLastSync(result);
@@ -164,14 +167,14 @@ export function useRankingWindow() {
       setError(message);
       // 서버/네트워크 장애(0, 429, 5xx)만 기기에 대기시킨다 (계획서 §6).
       if (err instanceof RankingApiRequestError && (err.status === 0 || err.status === 429 || err.status >= 500)) {
-        await setPendingSyncRequest(localDate, todaySolvedCount);
-        setPendingSync({ localDate, solvedCount: todaySolvedCount, queuedAt: new Date().toISOString() });
+        await setPendingSyncRequest(localDate, solvedCount);
+        setPendingSync({ localDate, solvedCount, queuedAt: new Date().toISOString() });
       }
       return { ok: false as const, message };
     } finally {
       setBusy(false);
     }
-  }, [profile, todaySolvedCount, maxKillerLevel, refreshLeaderboard]);
+  }, [profile, todaySolvedCount, refreshLeaderboard]);
 
   const withdraw = useCallback(async () => {
     if (!profile) return { ok: false as const, message: '참여 정보가 없습니다.' };

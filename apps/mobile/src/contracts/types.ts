@@ -269,6 +269,15 @@ export interface Attempt {
   answerOptionId: UUID;
   isCorrect: boolean;
   submittedAt: ISODateTimeString;
+  /** v1 순차 도전: 완료한 3문항 회차를 재구성하는 로컬 전용 기록. 구형 기록에는 없음. */
+  challenge?: {
+    version: 1;
+    runId: UUID;
+    topicId: UUID;
+    level: number;
+    questionId: UUID;
+    startedAt: ISODateTimeString;
+  };
 }
 
 export interface ReviewState {

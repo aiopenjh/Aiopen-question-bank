@@ -17,6 +17,8 @@ import { UniversalModal as Modal } from '../common/UniversalModal';
 import { DifficultyLevelControl } from '../common/DifficultyLevelControl';
 import { quizCountModalStyles as styles } from './QuizCountModal.styles';
 import { showAlert } from '../../utils/alert';
+import { getAttempts } from '../../data/db';
+import { getUnlockedChallengeLevel, CHALLENGE_START_LEVEL } from '../../domain/challenge_progress';
 
 export interface QuizCountModalOptions {
   learnerLevel?: LearnerKnowledgeLevel;
@@ -26,6 +28,7 @@ export interface QuizCountModalOptions {
 
 interface QuizCountModalProps {
   visible: boolean;
+  topicId?: string;
   unitTitle?: string;
   topicName?: string;
   existingCount?: number;
@@ -44,6 +47,7 @@ const COUNT_OPTIONS = [
 
 export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   visible,
+  topicId,
   unitTitle,
   topicName,
   existingCount = 0,
@@ -54,12 +58,29 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   onSaveDifficulty,
   onOpenBackup,
 }) => {
-  const fixedDifficulty = initialDifficultyLevel ?? legacyLevelToDifficulty(initialLevel);
+  const [unlockedLevel, setUnlockedLevel] = useState(CHALLENGE_START_LEVEL);
+  const [loadingProgress, setLoadingProgress] = useState(false);
+  const [progressError, setProgressError] = useState(false);
+  const storedDifficulty = initialDifficultyLevel ?? legacyLevelToDifficulty(initialLevel);
+  const fixedDifficulty = Math.min(storedDifficulty, unlockedLevel);
   const canAdjustDifficulty = existingCount > 0;
   const [selectedDifficulty, setSelectedDifficulty] = useState(fixedDifficulty);
   const [isSaving, setIsSaving] = useState(false);
   const savingRef = useRef(false);
   const closeModal = () => { if (!savingRef.current) onClose(); };
+
+  useEffect(() => {
+    if (!visible || !topicId) return;
+    let active = true;
+    setLoadingProgress(true);
+    setProgressError(false);
+    getAttempts().then(attempts => {
+      if (active) setUnlockedLevel(getUnlockedChallengeLevel(attempts, topicId));
+    }).catch(() => {
+      if (active) setProgressError(true);
+    }).finally(() => { if (active) setLoadingProgress(false); });
+    return () => { active = false; };
+  }, [visible, topicId]);
 
   useEffect(() => {
     if (visible) {
@@ -71,7 +92,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   const isModifiedFromDefault = selectedDifficulty !== fixedDifficulty;
 
   const applyLevelChange = async (count: number, replaceExisting: boolean) => {
-    if (savingRef.current) return;
+    if (savingRef.current || loadingProgress || progressError) return;
     savingRef.current = true;
     setIsSaving(true);
     try {
@@ -90,7 +111,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   };
 
   const handleSelectCount = (count: number) => {
-    if (savingRef.current) return;
+    if (savingRef.current || loadingProgress || progressError) return;
     if (!canAdjustDifficulty || selectedDifficulty === fixedDifficulty) {
       onSelectCount(count, {
         learnerLevel: difficultyToLegacyLevel(selectedDifficulty),
@@ -175,10 +196,14 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                 <DifficultyLevelControl
                   value={selectedDifficulty}
                   onChange={setSelectedDifficulty}
+                  maxLevel={unlockedLevel}
+                  disabled={isSaving || loadingProgress || progressError}
                   compact
                 />
                 <Text style={styles.adjustableLevelNote}>
-                  원하는 레벨을 고른 뒤 3문제 또는 5문제를 누르면 기존 문제 처리 방식을 확인합니다.
+                  {selectedDifficulty >= CHALLENGE_START_LEVEL
+                    ? '통과 기록은 이 과목에만 적용됩니다.'
+                    : '원하는 레벨을 고른 뒤 3문제 또는 5문제를 누르면 기존 문제 처리 방식을 확인합니다.'}
                 </Text>
               </>
             ) : (
@@ -188,14 +213,17 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
             )}
 
             <Text style={[styles.sectionTitle, styles.countSectionTitle]}>문항 수</Text>
+            {storedDifficulty > unlockedLevel && !loadingProgress ? <Text style={styles.privacyNote}>저장된 레벨 {storedDifficulty}은 유지됩니다. 순차 도전은 레벨 {unlockedLevel}부터 진행해 주세요.</Text> : null}
+            {loadingProgress || progressError ? <Text style={styles.privacyNote}>{progressError ? '도전 기록을 읽지 못했습니다. 창을 닫고 다시 열어 주세요.' : '도전 기록을 확인하고 있어요.'}</Text> : null}
+            {!canAdjustDifficulty && selectedDifficulty >= CHALLENGE_START_LEVEL ? <Text style={styles.privacyNote}>레벨 31부터는 과목별로 3문제 중 2문제 이상 맞히면 다음 레벨이 열립니다.</Text> : null}
             <Text style={styles.privacyNote}>
               API 요청 제한을 줄이기 위해 한 번에 3~5문항을 권장하며, 하루 누적 15문항을 넘기면 추가 확인을 받습니다.
             </Text>
             <View style={styles.countList}>
-              {COUNT_OPTIONS.map((item) => (
+              {COUNT_OPTIONS.filter(item => selectedDifficulty < CHALLENGE_START_LEVEL || item.count === 3).map((item) => (
                 <TouchableOpacity
                   key={item.count}
-                  disabled={isSaving}
+                  disabled={isSaving || loadingProgress || progressError}
                   style={[styles.countCard, item.recommended && styles.countCardRecommended]}
                   onPress={() => handleSelectCount(item.count)}
                   activeOpacity={0.82}

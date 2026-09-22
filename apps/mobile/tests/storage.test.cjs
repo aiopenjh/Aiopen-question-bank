@@ -117,6 +117,7 @@ test('complete backup round trip contains sources, progress and settings but nev
   await session.db.saveAttempt({
     id: 'attempt-1', sessionItemId: 'item-1', submissionKey: 'submit-q1',
     answerOptionId: 'a', isCorrect: true, submittedAt: now,
+    challenge: { version: 1, runId: 'run1', topicId: topic.id, level: 31, questionId: 'q1', startedAt: now },
   });
   await session.db.savePreferredAiModel('gemini-3.5-pro');
   session.data.set(key('secure_vault_v1'), 'SECRET');
@@ -129,6 +130,8 @@ test('complete backup round trip contains sources, progress and settings but nev
   assert.equal((await session.db.restoreBackupJSON(backup)).success, true);
   assert.equal((await session.db.getSources()).length, 1);
   assert.equal((await session.db.getAttempts()).length, 1);
+  assert.equal((await session.db.getAttempts())[0].challenge.level, 31);
+  assert.equal((await session.db.getAttempts())[0].challenge.topicId, topic.id);
   assert.equal(await session.db.getPreferredAiModel(), 'gemini-3.5-pro');
   assert.equal(session.data.get(key('secure_vault_v1')), 'SECRET');
 });
