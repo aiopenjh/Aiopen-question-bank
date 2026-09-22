@@ -202,6 +202,14 @@ export function useAppController() {
     goToPage(1, false);
   }, [exitExamSession]);
 
+  // 기존 문제에 온디맨드로 생성한 AI 힌트는 저장소(question_repository.updateQuestionHint)뿐
+  // 아니라 앱이 들고 있는 questions 상태도 즉시 갱신해야 한다. 그렇지 않으면 시험을 나갔다가
+  // 다시 들어올 때 startExam()이 갱신 전 questions 배열을 그대로 스냅샷하여, 이미 저장된
+  // 힌트가 다시 "AI 힌트 만들기" 버튼으로 보이고 중복 API 호출로 이어질 수 있다.
+  const handleQuestionHintSaved = useCallback((questionId: string, hint: string) => {
+    setQuestions((prev) => prev.map((q) => (q.id === questionId ? { ...q, deepReasoningHint: hint } : q)));
+  }, [setQuestions]);
+
   // 6. Modular AI Quiz Generation Hook (단원 문제 출제 전담)
   const {
     isGenerating,
@@ -409,6 +417,7 @@ export function useAppController() {
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
+    handleQuestionHintSaved,
     appAlert, setAppAlert,
   };
 }
