@@ -7,6 +7,7 @@ import { styles } from './examStyles';
 import { ExamActiveView } from './ExamActiveView';
 import { ExamResultView } from './ExamResultView';
 import { ExamHintModal } from './ExamHintModal';
+import { ScratchpadPanel } from './ScratchpadPanel';
 
 interface ExamSessionScreenProps {
   questions: QuestionRevision[];
@@ -28,6 +29,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showHintModal, setShowHintModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showScratchpad, setShowScratchpad] = useState(false);
 
   if (!questions || questions.length === 0) return null;
 
@@ -126,12 +128,20 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           {!isSubmitted && (
-            <TouchableOpacity
-              style={styles.hintHeaderBtn}
-              onPress={() => setShowHintModal(true)}
-            >
-              <Text style={styles.hintHeaderBtnText}>💡 힌트</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.hintHeaderBtn}
+                onPress={() => setShowScratchpad((prev) => !prev)}
+              >
+                <Text style={styles.hintHeaderBtnText}>📐 풀이공간</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.hintHeaderBtn}
+                onPress={() => setShowHintModal(true)}
+              >
+                <Text style={styles.hintHeaderBtnText}>💡 힌트</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </View>
@@ -166,6 +176,11 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
         hintText={q?.deepReasoningHint}
         explanationText={q?.explanation}
       />
+
+      {/* 풀이공간(Scratchpad) — 계산/풀이 보조용, 채점 미반영 */}
+      {!isSubmitted && (
+        <ScratchpadPanel visible={showScratchpad} onClose={() => setShowScratchpad(false)} />
+      )}
     </SafeAreaView>
   );
 };
