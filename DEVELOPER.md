@@ -76,9 +76,17 @@ node --test tests/*.cjs
 ### 시험
 
 - `apps/mobile/src/features/exam/ExamSessionScreen.tsx`
-  - 전체 화면 CBT 시험과 힌트 표시
+  - 전체 화면 CBT 시험, 힌트, 문제별 풀이공간 상태 조정
+- `apps/mobile/src/features/exam/ExamActiveView.tsx`
+  - 객관식 선택, 빈칸별 입력, 단답형·서술형 텍스트 입력
 - `apps/mobile/src/features/exam/ExamResultView.tsx`
-  - 채점 결과, 오답 원인, 개념, 풀이 과정
+  - 유형별 제출 답안과 채점 결과, 오답 원인, 개념, 해설
+- `apps/mobile/src/features/exam/ScratchpadPanel.tsx`
+- `apps/mobile/src/features/exam/ScratchpadCanvas.web.tsx`
+- `apps/mobile/src/features/exam/ScratchpadCanvas.tsx`
+- `apps/mobile/src/features/exam/scratchpadDrawing.ts`
+  - 웹 SVG 연속 경로와 네이티브 연결 선분 기반 필기
+  - 마지막 획 되돌리기, 전체 지우기, 문제 이동 시 컴포넌트 재생성
 - `apps/mobile/src/components/MathText.tsx`
 - `apps/mobile/src/domain/math_notation.ts`
   - 저장 원문을 변경하지 않고 화면 렌더링 단계에서 수학 표기 처리
@@ -99,13 +107,37 @@ node --test tests/*.cjs
 ## 5. AI 생성 파이프라인
 
 - `apps/mobile/src/domain/ai_client.ts`: 키 형식 감지와 AI 제공사 통신
-- `apps/mobile/src/domain/prompts.ts`: 출제 규칙과 응답 형식
-- `apps/mobile/src/domain/generator.ts`: 생성 결과 검증과 문제 변환
+- `apps/mobile/src/domain/question_type_plan.ts`: 문항별 문제 유형 독립 추첨과 AI 응답 일치 검사
+- `apps/mobile/src/domain/prompts.ts`: 추첨 결과를 포함한 출제 규칙과 유형별 응답 형식
+- `apps/mobile/src/domain/generator_validation.ts`: 객관식·단답형·서술형·빈칸형별 AI 응답 구조 검증
+- `apps/mobile/src/domain/generator.ts`: 생성 호출, 추첨 결과 검증, 저장 모델 변환
 - `apps/mobile/src/domain/question_distribution.ts`: 정답 위치 셔플
+- `apps/mobile/src/domain/grading.ts`: 단답형·서술형 AI 채점과 빈칸형 로컬 채점
 - `apps/mobile/src/domain/hint_generator.ts`: 기존 문제의 요청형 AI 힌트 생성
 - `apps/mobile/src/hooks/useQuizGeneration.ts`: 화면에서 출제 흐름 조정
 
 API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체하지 않습니다. 연결 필요 또는 오류 상태를 반환해 사용자가 원인을 확인할 수 있게 합니다.
+
+### 문제 유형 추첨
+
+`createQuestionTypePlan()`은 문항마다 서로 독립적으로 다음 범주를 같은 확률로 추첨합니다.
+
+- `multiple_choice`: 객관식, 확률 1/3
+- 주관식 범주: 확률 1/3. 범주 안에서 `short_answer`와 `essay`를 다시 1/2 확률로 선택
+- `cloze`: 빈칸형, 확률 1/3
+
+문항 구성 비율과 연속 유형을 보정하지 않으므로 3문항 모두 객관식·주관식·빈칸형인 결과도 허용합니다. 모든 난이도에서 네 유형을 사용할 수 있으며, 프롬프트가 답안 길이와 요구 지식을 학습자 난이도에 맞춥니다.
+
+추첨 배열은 프롬프트에 정확한 순서로 전달됩니다. AI 응답의 `questionType` 배열이 추첨 결과와 다르면 `matchesQuestionTypePlan()`에서 생성 실패로 처리해 의도하지 않은 유형 대체를 저장하지 않습니다. 이후 객관식 정답 위치를 분산하고 전체 문항 순서를 Fisher-Yates 방식으로 섞습니다.
+
+### 유형별 채점
+
+- `multiple_choice`: 저장된 정답 옵션 ID와 로컬 비교
+- `cloze`: 허용 정답을 공백·대소문자 기준으로 정규화해 로컬 비교하며, 여러 빈칸은 부분 점수를 계산
+- `short_answer`: 모범답안의 핵심 의미 일치를 AI에 요청해 0점 또는 100점 판정
+- `essay`: 2~5개의 체크리스트와 총 100점 배점을 기준으로 AI가 항목별 충족 여부를 반환
+
+주관식 AI 채점에 실패해도 제공자 예외 원문을 저장하지 않습니다. 고정 안내와 사용자의 제출 답안을 보존하며 자동 재시도하지 않습니다.
 
 ## 6. 저장소와 백업
 
@@ -173,6 +205,21 @@ interface AlarmConfig {
 4. 기존 사용자 데이터와 백업 마이그레이션 보존
 5. 입력 폰트 16px 이상 유지
 6. `cmd.exe /c npx tsc --noEmit` 통과
+
+현재 전체 회귀 테스트는 다음 명령으로 실행하며, 2026-09-22 기준 86개입니다.
+
+```powershell
+cd apps/mobile
+node --test tests/*.cjs
+```
+
+문제 유형이나 풀이공간을 변경할 때 함께 확인할 테스트:
+
+- `tests/question_type_plan.test.cjs`
+- `tests/generator.test.cjs`
+- `tests/cloze.test.cjs`
+- `tests/scratchpad.test.cjs`
+- `tests/study_pipeline.test.cjs`
 
 ## 10. 커밋과 배포
 
