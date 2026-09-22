@@ -171,24 +171,36 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
                     </TouchableOpacity>
                   </View>
 
-                  {/* 하단: 보관 문항 수 + 우측 [출제/풀기] 버튼 */}
+                  {/* 하단: 보관 문항 수 + [기존 문제 풀기]/[새 문제 만들기] 버튼 */}
                   <View style={styles.unitFooterRow}>
                     <Text style={styles.unitQuestionCountText}>
                       {unitQuestions.length > 0 ? `보관 문제 ${unitQuestions.length}문항` : '출제 대기'}
                     </Text>
 
-                    <TouchableOpacity
-                      style={styles.unitQuizBtn}
-                      onPress={() => onUnitPress(topic, unit)}
-                      disabled={isAiGenerating}
-                      activeOpacity={0.8}
-                    >
-                      {isThisUnitGenerating ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                      ) : (
-                        <Text style={styles.unitQuizBtnText}>출제 / 풀기</Text>
+                    <View style={styles.unitFooterButtonsRow}>
+                      {unitQuestions.length > 0 && (
+                        <TouchableOpacity
+                          style={styles.unitExistingQuizBtn}
+                          onPress={() => onStartExamWithQuestions(unitQuestions)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.unitExistingQuizBtnText}>기존 문제 풀기</Text>
+                        </TouchableOpacity>
                       )}
-                    </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.unitQuizBtn}
+                        onPress={() => onUnitPress(topic, unit)}
+                        disabled={isAiGenerating}
+                        activeOpacity={0.8}
+                      >
+                        {isThisUnitGenerating ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <Text style={styles.unitQuizBtnText}>새 문제 만들기</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               );

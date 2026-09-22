@@ -169,7 +169,9 @@ function containsAnswerLeak(hint: string, correctOptionText?: string): boolean {
 
 // "1~2개의 짧은 문장"이라는 지침을 느슨하게 강제하는 길이 상한. 너무 빡빡하게 잡으면
 // 정상적인 짧은 힌트까지 오탐할 수 있어 넉넉한 상한(200자)만 둔다.
-const MAX_HINT_LENGTH = 200;
+// hint_generator.ts(기존 문제의 온디맨드 힌트 생성)에서도 동일 기준을 재사용한다.
+export const MAX_HINT_LENGTH = 200;
+export { containsAnswerLeak };
 
 function readOptionalText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
@@ -325,19 +327,24 @@ export function validateGeneratedQuestions(
       };
     }
 
+    // 신규 출제에서는 힌트를 선택값으로 두지 않는다: 누락 시 조용히 저장하지 않고
+    // 기존 생성 실패 처리 방식과 동일하게 명확한 오류를 반환한다.
     const deepReasoningHint = readOptionalText(question.deepReasoningHint);
-    if (deepReasoningHint) {
-      if (deepReasoningHint.length > MAX_HINT_LENGTH) {
-        throw new GenerationContentError(
-          `AI 응답의 ${number}번 문제 힌트가 너무 깁니다(정답 도출 과정처럼 작성됨). 다시 시도해 주세요.`
-        );
-      }
-      const correctOptionText = options[question.correctOptionNumber - 1]?.text;
-      if (containsAnswerLeak(deepReasoningHint, correctOptionText)) {
-        throw new GenerationContentError(
-          `AI 응답의 ${number}번 문제 힌트에 정답이 그대로 노출되었습니다. 다시 시도해 주세요.`
-        );
-      }
+    if (!deepReasoningHint) {
+      throw new GenerationContentError(
+        `AI 응답의 ${number}번 문제에 힌트(deepReasoningHint)가 누락되었습니다. 다시 시도해 주세요.`
+      );
+    }
+    if (deepReasoningHint.length > MAX_HINT_LENGTH) {
+      throw new GenerationContentError(
+        `AI 응답의 ${number}번 문제 힌트가 너무 깁니다(정답 도출 과정처럼 작성됨). 다시 시도해 주세요.`
+      );
+    }
+    const correctOptionText = options[question.correctOptionNumber - 1]?.text;
+    if (containsAnswerLeak(deepReasoningHint, correctOptionText)) {
+      throw new GenerationContentError(
+        `AI 응답의 ${number}번 문제 힌트에 정답이 그대로 노출되었습니다. 다시 시도해 주세요.`
+      );
     }
 
     return {

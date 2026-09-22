@@ -60,6 +60,7 @@ export {
   getQuestions,
   addQuestions,
   saveQuestionsForUnit,
+  updateQuestionHint,
   deleteQuestion,
   deleteQuestionsForUnit,
   getCustomNoteQuestionIds,
