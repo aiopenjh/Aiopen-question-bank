@@ -39,6 +39,7 @@ export function useExamSession({
 }: UseExamSessionProps) {
   const [examSessionActive, setExamSessionActive] = useState(false);
   const [examQuestions, setExamQuestions] = useState<QuestionRevision[]>([]);
+  const [examSessionRunId, setExamSessionRunId] = useState<string | null>(null);
   const runRef = useRef<{ id: string; startedAt: string; saving: boolean; completed: boolean } | null>(null);
 
   const startExam = useCallback(
@@ -80,7 +81,9 @@ export function useExamSession({
 
       // 정답 번호가 한곳에 편중되지 않도록 균등 무작위 분산 배치 적용
       const randomizedQuestions = distributeQuestionAnswersRandomly(list);
-      runRef.current = { id: generateUUID(), startedAt: getCurrentISOTime(), saving: false, completed: false };
+      const runId = generateUUID();
+      runRef.current = { id: runId, startedAt: getCurrentISOTime(), saving: false, completed: false };
+      setExamSessionRunId(runId);
       setExamQuestions(randomizedQuestions);
       setExamSessionActive(true);
     },
@@ -158,6 +161,7 @@ export function useExamSession({
 
   return {
     examSessionActive,
+    examSessionRunId,
     examQuestions,
     startExam,
     handleCompleteExam,

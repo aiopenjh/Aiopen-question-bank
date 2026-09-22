@@ -14,7 +14,7 @@ interface ExamSessionScreenProps {
   onCompleteExam: (
     results: Array<{ question: QuestionRevision; selectedOptionId: string; isCorrect: boolean }>
   ) => Promise<void>;
-  onReinforceIncorrectConcepts?: () => Promise<void> | void;
+  onReinforceIncorrectConcepts?: (questions: QuestionRevision[]) => Promise<void> | void;
 }
 
 export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({

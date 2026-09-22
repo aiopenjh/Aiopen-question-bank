@@ -9,7 +9,7 @@ export interface ExamResultViewProps {
   questions: QuestionRevision[];
   userAnswers: Record<number, string>;
   onExitExam: () => void;
-  onReinforceIncorrectConcepts?: () => Promise<void> | void;
+  onReinforceIncorrectConcepts?: (questions: QuestionRevision[]) => Promise<void> | void;
 }
 
 export const ExamResultView: React.FC<ExamResultViewProps> = ({
@@ -22,6 +22,9 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
     (item, idx) => userAnswers[idx] === item.answerOptionId
   ).length;
   const incorrectCount = questions.length - correctCount;
+  const incorrectQuestions = questions.filter(
+    (item, idx) => userAnswers[idx] !== item.answerOptionId
+  );
   const scorePercent = Math.round((correctCount / questions.length) * 100);
 
   return (
@@ -144,7 +147,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
       {incorrectCount > 0 && onReinforceIncorrectConcepts ? (
         <TouchableOpacity
           style={styles.reinforceConceptBtn}
-          onPress={onReinforceIncorrectConcepts}
+          onPress={() => onReinforceIncorrectConcepts(incorrectQuestions)}
           activeOpacity={0.82}
         >
           <Text style={styles.reinforceConceptBtnTitle}>틀린 {incorrectCount}문항 개념 보강</Text>

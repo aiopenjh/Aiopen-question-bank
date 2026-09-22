@@ -39,7 +39,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount, handleSaveUnitDifficulty,
     isTopicSelectModalVisible, setIsTopicSelectModalVisible, executeStartExamForTopic,
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
-    isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive,
+    isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive, examSessionRunId,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
     appAlert, setAppAlert,
   } = controller;
@@ -335,6 +335,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
       {examSessionActive && examQuestions.length > 0 && (
         <View style={[StyleSheet.absoluteFill, { zIndex: 9999, backgroundColor: '#ffffff' }]}>
           <ExamSessionScreen
+            key={examSessionRunId}
             questions={examQuestions}
             onExitExam={handleExitExam}
             onCompleteExam={handleCompleteExam}

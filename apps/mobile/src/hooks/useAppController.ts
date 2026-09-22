@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Topic } from '../contracts/types';
+import { QuestionRevision, Topic } from '../contracts/types';
 import { showAlert, registerAlertListener, AlertData } from '../utils/alert';
 import {
   scheduleWeekdayStudyAlarms,
@@ -171,6 +171,7 @@ export function useAppController() {
   // 5. Modular Exam Session Hook
   const {
     examSessionActive,
+    examSessionRunId,
     examQuestions,
     startExam,
     handleCompleteExam,
@@ -369,9 +370,8 @@ export function useAppController() {
     goToPage(1, true);
   };
 
-  const handleReinforceIncorrectConcepts = async () => {
-    exitExamSession();
-    await handleApplyScaffolding();
+  const handleReinforceIncorrectConcepts = async (currentExamMistakes: QuestionRevision[]) => {
+    await handleApplyScaffolding(currentExamMistakes);
   };
 
   // 어플 이름 터치 시 메인(홈) 화면으로 완전 복귀
@@ -407,7 +407,7 @@ export function useAppController() {
     quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount, handleSaveUnitDifficulty,
     isTopicSelectModalVisible, setIsTopicSelectModalVisible, executeStartExamForTopic,
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
-    isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive,
+    isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive, examSessionRunId,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
     appAlert, setAppAlert,
   };

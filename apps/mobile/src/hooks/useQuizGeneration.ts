@@ -553,11 +553,15 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
     onOpenSourceManager,
   ]);
 
-  const handleApplyScaffolding = useCallback(async () => {
+  const handleApplyScaffolding = useCallback(async (currentExamMistakes?: QuestionRevision[]) => {
     const topicIncorrect = selectedTopicId
       ? incorrectQuestions.filter((q) => q.topicId === selectedTopicId)
       : incorrectQuestions;
-    const targetMistakes = topicIncorrect.length > 0 ? topicIncorrect : incorrectQuestions;
+    const targetMistakes = currentExamMistakes?.length
+      ? currentExamMistakes
+      : topicIncorrect.length > 0
+        ? topicIncorrect
+        : incorrectQuestions;
 
     if (!targetMistakes || targetMistakes.length === 0) {
       showAlert('알림', '현재 등록된 오답 문제가 없습니다. 모든 문제를 완벽히 맞히셨습니다!');
