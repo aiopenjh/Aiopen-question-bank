@@ -19,28 +19,25 @@ export const AppVersionSection: React.FC<AppVersionSectionProps> = ({
   onApplyUpdate,
 }) => {
   return (
-    <View style={styles.compactCard}>
-      <View style={styles.compactCardHeader}>
-        <View style={{ flex: 1, paddingRight: 8 }}>
-          <Text style={styles.compactCardTitle}>앱 버전 및 최신 갱신</Text>
-          <Text style={styles.compactCardSubtitle}>
-            현재 버전: {APP_BUILD_INFO.buildLabel}
-            {hasUpdate && ` → ${latestVersion || '새 버전'} 발견!`}
-          </Text>
-        </View>
+    <View style={styles.versionFooter}>
+      <View style={styles.versionFooterRow}>
+        <Text style={styles.versionFooterInlineText}>
+          버전 v{APP_BUILD_INFO.version}
+          {hasUpdate && ` · ${latestVersion || '새 버전'} 갱신 가능`}
+        </Text>
 
         <View style={styles.compactBtnGroup}>
           {hasUpdate ? (
             <TouchableOpacity
-              style={[styles.miniBtnPrimary, styles.updateButton]}
+              style={[styles.versionFooterButton, styles.updateButton]}
               onPress={onApplyUpdate}
               activeOpacity={0.7}
             >
-              <Text style={styles.miniBtnPrimaryText}>1초 갱신</Text>
+              <Text style={styles.versionFooterButtonTextActive}>갱신</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={styles.miniBtnSecondary}
+              style={styles.versionFooterButton}
               onPress={onCheckForUpdate}
               disabled={isChecking}
               activeOpacity={0.7}
@@ -48,7 +45,7 @@ export const AppVersionSection: React.FC<AppVersionSectionProps> = ({
               {isChecking ? (
                 <ActivityIndicator size="small" color="#64748b" />
               ) : (
-                <Text style={styles.miniBtnSecondaryText}>갱신 확인</Text>
+                <Text style={styles.versionFooterButtonText}>갱신</Text>
               )}
             </TouchableOpacity>
           )}

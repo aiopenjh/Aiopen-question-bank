@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  Image,
 } from 'react-native';
 import { Source, QuestionRevision, Topic, Unit, ManualCompletion, ReviewState } from '../../contracts/types';
 import { styles } from './libraryStyles';
@@ -197,8 +198,32 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
       >
         {/* 화면 위로 당겨서 새로고침 인디케이터 (버튼 없는 자연스러운 제스처) */}
         <PullRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
-        {/* 자료함 요약 */}
-        <View style={styles.headerCard}>
+        <View style={styles.libraryPanel}>
+          <View style={styles.libraryWatermarkStage} pointerEvents="none">
+            <Image
+              source={require('../../../assets/android-icon-foreground-v2.png')}
+              resizeMode="contain"
+              style={styles.libraryWatermarkImage}
+              accessible={false}
+            />
+            <View style={styles.libraryWatermarkLetters}>
+              {Array.from('Celueste').map((letter, index) => (
+                <Text
+                  key={`${letter}-${index}`}
+                  style={[
+                    styles.libraryWatermarkLetter,
+                    { transform: [{ translateY: index * 32 }] },
+                  ]}
+                >
+                  {letter}
+                </Text>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.libraryPanelContent}>
+            {/* 자료함 요약 */}
+            <View style={styles.headerCard}>
           <View style={styles.headerTopRow}>
             <View style={styles.headerCopy}>
               <Text style={styles.headerEyebrow}>MY LIBRARY</Text>
@@ -239,9 +264,10 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
               <Text style={styles.summaryLabel}>단원</Text>
             </View>
           </View>
-        </View>
+            </View>
 
-        {isQuestionBankOpen ? (
+            <View style={styles.libraryPanelBody}>
+            {isQuestionBankOpen ? (
           <View>
             <View style={styles.topicDetailNavigation}>
               <TouchableOpacity
@@ -347,7 +373,10 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
             )}
 
           </View>
-        )}
+            )}
+            </View>
+          </View>
+        </View>
       </ScrollView>
 
       {/* 나만의 오답노트 전용 창 (조용하고 쾌적한 학습 공간) */}

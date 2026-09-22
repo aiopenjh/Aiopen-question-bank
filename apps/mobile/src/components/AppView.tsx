@@ -22,7 +22,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     handleGoHome, appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
     handleTouchMove, handleTouchEnd, onLayoutContainer, routine, todayAttempts, dueQuestions,
     refreshing, handlePullRefresh, handleStartExamWithAutoGenerate,
-    handleStartDueReview, handleOpenCustomNotebook, handleOpenTopicModal, handleQuickPromptGenerate,
+    handleStartDueReview, handleOpenCustomNotebook, handleOpenTopicModal,
     isCurriculumGenerating, generatingUnitId, isGenerating, topics, selectedTopicId,
     lastStudiedTopicId, questions, units, completions, setUnitModalVisible, handleDeleteTopic,
     handleToggleUnitCompletion, handleDeleteUnit, handleGenerateCurriculumForTopic,
@@ -142,11 +142,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 onStartDueReview={handleStartDueReview}
                 onOpenCustomNotebook={handleOpenCustomNotebook}
                 onOpenTopicModal={handleOpenTopicModal}
-                onQuickPromptGenerate={handleQuickPromptGenerate}
-                isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
-                apiKey={apiKey}
                 topicName={topics.find((t) => t.id === (selectedTopicId || lastStudiedTopicId))?.name}
-                onOpenSettings={() => goToPage(2, true)}
               />
             </View>
 

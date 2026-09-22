@@ -1,21 +1,21 @@
 import { StyleSheet } from 'react-native';
-import { colors, radius, shadows, spacing } from '../../styles/designTokens';
+import { colors, radius, spacing } from '../../styles/designTokens';
 
 export const libraryNavigationStyles = StyleSheet.create({
   topicList: {
-    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   topicSummaryCard: {
-    minHeight: 104,
+    minHeight: 96,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    ...shadows.soft,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: 2,
   },
   topicSummaryCopy: {
     flex: 1,
