@@ -198,9 +198,17 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
               {maxKillerLevel > 0 && (
                 <Text style={styles.noticeText}>최고 순차 통과 레벨: Lv.{maxKillerLevel}</Text>
               )}
+              <Text style={[styles.noticeText, styles.manualSyncNotice]}>
+                ⚠️ 문제를 푸는 것만으로는 서버에 자동 전송되지 않습니다. 아래 [지금 연동하기]를 눌러야 이번 기록이 랭킹에 반영됩니다.
+              </Text>
               <Text style={styles.noticeText}>
                 연동 시 오늘 완료한 문제 수와 최고 순차 통과 레벨을 전송하며, 하루 3문제 이상이면 꾸준함에 반영됩니다. 문제 내용, 정답, 과목명과 API 키는
                 전송하지 않습니다.
+              </Text>
+              <Text style={styles.syncStatusText}>
+                {profile.lastSyncedDate
+                  ? `마지막 연동: ${profile.lastSyncedDate} (${profile.lastSyncedSolvedCount ?? 0}문제)`
+                  : '아직 한 번도 연동하지 않았습니다.'}
               </Text>
               {pendingSync && (
                 <Text style={styles.pendingText}>
@@ -343,6 +351,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 15, fontWeight: '800', color: colors.ink, marginBottom: 6 },
   noticeText: { fontSize: 12, color: colors.inkMuted, lineHeight: 18, marginBottom: 10 },
+  manualSyncNotice: { color: colors.primaryPressed, fontWeight: '700' },
+  syncStatusText: { fontSize: 11.5, color: colors.inkMuted, marginBottom: 10, fontStyle: 'italic' },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

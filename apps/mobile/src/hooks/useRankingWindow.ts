@@ -160,6 +160,11 @@ export function useRankingWindow() {
       await clearPendingSyncRequest();
       setPendingSync(null);
       setLastSync(result);
+      // 마지막 연동 시각을 프로필에 남겨, 창을 새로 열었을 때도 "아직 연동 안 함"과
+      // 구분해 보여줄 수 있게 한다(계획서 §3.2, 수동 연동 방식 안내 보완).
+      const syncedProfile: RankingProfile = { ...profile, lastSyncedDate: localDate, lastSyncedSolvedCount: solvedCount };
+      await saveRankingProfile(syncedProfile);
+      setProfile(syncedProfile);
       await refreshLeaderboard();
       return { ok: true as const, result };
     } catch (err) {
