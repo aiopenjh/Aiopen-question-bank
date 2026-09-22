@@ -30,28 +30,35 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
       id: 'start',
       icon: '✨',
       title: '처음 시작 & 문제 출제',
-      subtitle: 'API 키 등록부터 자유 주제 4지선다 문제 만들기까지',
+      subtitle: 'AI 연결, 과목 생성, 첫 문제 풀이까지',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>🔑 1. 내 API 키 연결하기</Text>
+            <Text style={styles.tipTitle}>🔑 1. AI 연결하기</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>[설정 ➔ AI 연결]</Text>에서 본인의 API 키를 저장합니다. 키가 없으면 가짜 문제를 만들지 않고 연결 안내를 표시합니다.{'\n'}
-              • Gemini는 3.5 이상 모델만 사용하며 일반 화면에는 모델명을 별도 표시하지 않습니다.
+              • <Text style={styles.bold}>[설정 ➔ AI 연결]</Text>을 열고 Google Gemini, Anthropic Claude 또는 OpenAI의 본인 API 키를 저장합니다.{'\n'}
+              • 키는 학습 데이터와 분리해 현재 기기에 보관하며 일반 백업에는 포함하지 않습니다. 연결되지 않으면 가짜 문제를 대신 만들지 않고 설정 안내를 표시합니다.
             </Text>
           </View>
 
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>🧩 2. 자유 주제로 문제 만들기</Text>
+            <Text style={styles.tipTitle}>🧩 2. 새 학습 과목 만들기</Text>
             <Text style={styles.tipText}>
-              • 메인 화면 또는 <Text style={styles.bold}>[자료함 ➔ 과목 추가]</Text>에서 자격증, 언어, 게임, 동식물 등 원하는 주제를 입력합니다.{'\n'}
-              • 과목과 시작 레벨을 정하면 첫 5개 단원이 구성됩니다. 단원을 고른 뒤 문항 수와 레벨을 확인하면 1~4번 4지선다 문제가 생성됩니다.{'\n'}
-              • 출제 중 취소하면 진행 중인 요청과 저장을 중단합니다. 요청 한도(429)나 무응답이 발생하면 잠시 기다린 뒤 다시 시도해 주세요.
+              • 메인의 <Text style={styles.bold}>[새 주제로 학습하기]</Text> 또는 자료함의 <Text style={styles.bold}>[+ 과목 추가]</Text>를 누릅니다. 과목 이름, 분류, 시작 레벨을 정하면 첫 5개 단원이 만들어집니다.{'\n'}
+              • 자료를 먼저 등록했다면 <Text style={styles.bold}>[내 파일 불러오기]</Text>에서 연결할 수 있습니다. 분류는 선택 사항이며 직접 입력하거나 추천 분류를 고르면 됩니다.
             </Text>
           </View>
 
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>🏛️ 3. 최신 세율·법령 문제</Text>
+            <Text style={styles.tipTitle}>📝 3. 문제 만들고 풀기</Text>
+            <Text style={styles.tipText}>
+              • 자료함에서 과목을 열고 단원의 <Text style={styles.bold}>[새 문제 만들기]</Text>를 누른 뒤 레벨과 3문제 또는 5문제를 선택합니다. 저장된 문제는 <Text style={styles.bold}>[기존 문제 풀기]</Text>로 AI 호출 없이 바로 시작합니다.{'\n'}
+              • 문제 순서와 객관식 정답 위치는 코드에서 무작위로 분산합니다. 출제 중 취소하면 진행 중인 요청과 저장을 중단합니다. 요청 한도(429)가 나오면 안내된 시간 뒤 다시 시도해 주세요.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>🏛️ 4. 최신 세율·법령 문제</Text>
             <Text style={styles.tipText}>
               • 세율, 부동산법, 법령처럼 바뀔 수 있는 주제는 출제할 때 공식 정부 자료를 검색해 현재 시행 중인 내용만 사용합니다.{`\n`}
               • 풀이 결과와 문제 보관함에서 기준일, 공식 기관과 원문 링크를 확인할 수 있습니다.{`\n`}
@@ -65,14 +72,14 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
       id: 'upload',
       icon: '📁',
       title: '교재 업로드 가이드',
-      subtitle: '내 파일 연결, PDF 페이지 분할과 API 사용 안내',
+      subtitle: '상단 + 자료 등록과 과목 연결 방법',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>📲 1. 스마트폰에 교재 파일 쉽게 넣는 법</Text>
+            <Text style={styles.tipTitle}>📲 1. 자료 먼저 등록하기</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>클라우드 파일 선택</Text>: PC에서 구글 드라이브, OneDrive 또는 카카오톡 '나와의 채팅'에 교재를 보관한 뒤 기기의 파일 선택 화면에서 불러올 수 있습니다.{'\n'}
-              • <Text style={styles.bold}>다운로드 폴더</Text>: 스마트폰 웹에서 다운받은 파일은 [다운로드] 폴더에서 즉시 선택할 수 있습니다.
+              • 화면 상단의 <Text style={styles.bold}>[+ 자료]</Text>에서 파일 또는 텍스트 자료를 등록합니다. 등록한 자료는 새 과목을 만들 때 <Text style={styles.bold}>[내 파일 불러오기]</Text>에서 선택합니다.{'\n'}
+              • 스마트폰에서는 다운로드 폴더뿐 아니라 Google Drive, OneDrive 등 기기의 파일 선택 화면에 연결된 위치에서도 불러올 수 있습니다.
             </Text>
           </View>
 
@@ -81,8 +88,8 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipText}>
               • <Text style={styles.bold}>TXT, MD, CSV, JSON</Text>: 실제 본문을 읽어 등록하므로 문제 출제 자료로 가장 적합합니다.{'\n'}
               • <Text style={styles.bold}>ZIP</Text>: 압축 안의 TXT, MD, CSV, JSON 텍스트 파일을 함께 불러옵니다.{'\n'}
-              • <Text style={styles.bold}>PDF</Text>: 기기에서 페이지 수를 확인하고 선택한 페이지를 목차·문제 생성 요청에 함께 전달합니다. 파일 원본과 전체 본문은 저장하지 않습니다.{'\n'}
-              • <Text style={styles.bold}>자료함 ➔ 과목 추가 ➔ 내 파일 불러오기</Text>에서 등록한 자료를 과목에 연결하면 해당 자료를 기준으로 단원과 문제를 만듭니다. 앱을 다시 연 뒤 PDF를 사용할 때는 같은 원본 파일을 다시 선택해야 합니다.{'\n'}
+              • <Text style={styles.bold}>PDF</Text>: 선택한 페이지를 목차·문제 생성 요청에 전달합니다. PDF 직접 출제는 Gemini 연결에서 지원하며 파일 원본과 전체 본문은 저장하지 않습니다.{'\n'}
+              • 텍스트 자료는 다시 사용할 수 있지만, 앱을 다시 연 뒤 PDF를 사용할 때는 보안을 위해 같은 원본 파일을 다시 선택해야 합니다.{'\n'}
               • 30페이지가 넘는 PDF는 10~20페이지씩 나누고, 문제도 한 번에 3~5문항씩 생성하는 것을 권장합니다. 하루 누적 15문항을 넘기면 무료 할당량 소진이나 429 제한이 발생할 수 있습니다.
             </Text>
           </View>
@@ -100,20 +107,28 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
     {
       id: 'curriculum',
       icon: '🎯',
-      title: '30단원 이상 목차 학습법',
-      subtitle: '5개 단원씩 확장하는 방법과 1~30 이상 난이도 레벨 가이드',
+      title: '자료함 & 단계별 목차',
+      subtitle: '과목 선택, 단원 확장과 난이도 관리',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>🪜 1. 30단원 이상 촘촘한 학습 목차</Text>
+            <Text style={styles.tipTitle}>📚 1. 과목과 문제 찾기</Text>
             <Text style={styles.tipText}>
-              • 한 번에 많은 양을 공부하다 지치지 않도록, 5개 단원씩 '촘촘한 계단(Micro-Step)'으로 분할 설계됩니다.{'\n'}
-              • 01~05단원을 마치면 [🚀 다음 5개 단원 생성]을 눌러 30단원 이후까지 계속 진도를 확장하세요.
+              • 자료함 상단에서 전체 또는 분류를 선택한 뒤 과목 카드를 눌러 단원 목록을 엽니다. 각 단원에는 보관 문항 수와 <Text style={styles.bold}>[기존 문제 풀기] / [새 문제 만들기]</Text>가 표시됩니다.{'\n'}
+              • 과목의 문제 보관함에서는 출제한 문제를 단원별로 확인하고 필요한 문제를 오답노트에 저장할 수 있습니다.
             </Text>
           </View>
 
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>🎯 2. 문제 난이도 레벨 선택 가이드</Text>
+            <Text style={styles.tipTitle}>🪜 2. 목차를 5개씩 확장하기</Text>
+            <Text style={styles.tipText}>
+              • 학습량이 한꺼번에 몰리지 않도록 목차는 5개 단위의 작은 단계로 구성됩니다. 현재 단계를 마친 뒤 <Text style={styles.bold}>[다음 5개 단원 생성]</Text>으로 30단원 이후까지 계속 확장할 수 있습니다.{'\n'}
+              • 이미 존재하는 단원과 비슷한 이름은 정리하고, 같은 단원에 문제를 추가할 때도 기존 문항과 지나치게 유사하면 저장하지 않습니다.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>🎯 3. 문제 난이도 레벨 선택</Text>
             <Text style={styles.tipText}>
               • <Text style={styles.bold}>레벨 1~10</Text>: 필수 용어와 핵심 차이를 작은 간격으로 익힙니다.{'\n'}
               • <Text style={styles.bold}>레벨 11~20</Text>: 기본 적용에서 응용 판단까지 점진적으로 넓힙니다.{'\n'}
@@ -130,22 +145,30 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
       id: 'exam',
       icon: '📝',
       title: 'CBT & 오답노트 활용법',
-      subtitle: '나만의 오답노트 찜하기 및 전체 CBT 검증 모의고사',
+      subtitle: '시험, 해설, 복습 예정과 오답노트',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>⭐ 1. 나만의 오답노트 활용법</Text>
+            <Text style={styles.tipTitle}>📝 1. CBT 시험과 결과 확인</Text>
             <Text style={styles.tipText}>
-              • 문제 보관함에서 다시 보고 싶은 문제의 <Text style={styles.bold}>[오답노트 저장]</Text>을 누르세요.{'\n'}
-              • 메인 화면의 <Text style={styles.bold}>[나만의 오답노트]</Text>에서 저장한 문제만 모아 집중 복습할 수 있습니다.
+              • 답을 고른 뒤 제출하면 점수와 문항별 정답, 오답 원인, 핵심 개념, 풀이 과정을 확인할 수 있습니다. 미답변 문항이 있으면 제출 전에 다시 알려줍니다.{'\n'}
+              • 저장된 전용 힌트가 없는 문제는 <Text style={styles.bold}>[AI 힌트 만들기]</Text>를 눌렀을 때만 생성합니다. 만들어진 힌트는 해당 문제에 저장되어 다시 사용할 수 있습니다.
             </Text>
           </View>
 
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>📝 2. 전체 CBT 검증 후 넘어가기</Text>
+            <Text style={styles.tipTitle}>⭐ 2. 복습 예정과 나만의 오답노트</Text>
             <Text style={styles.tipText}>
-              • 다음 단계 단원을 추가하기 전, 지금까지 풀고 쌓아둔 해당 과목의 모든 기존 문제들을 실전 CBT 시험장 형태로 한 번에 총정리 복습할 수 있습니다.
-              {'\n'}• 과목 전체 삭제는 과목 카드의 <Text style={styles.bold}>[과목 삭제]</Text>, 단원 삭제는 목차를 펼친 뒤 해당 단원의 삭제 버튼에서 실행합니다. 삭제한 데이터는 복구할 수 없으므로 먼저 백업하세요.
+              • 틀린 문제는 메인의 <Text style={styles.bold}>[복습 예정]</Text>에서 다시 확인할 수 있습니다. 직접 오래 보관할 문제는 문제 보관함에서 <Text style={styles.bold}>[오답노트 저장]</Text>을 누릅니다.{'\n'}
+              • 메인의 <Text style={styles.bold}>[나만의 오답노트]</Text>에서는 직접 고른 문제만 과목별로 모아 집중 복습하고 필요하면 보관을 해제할 수 있습니다.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>✅ 3. 과목 전체 CBT와 삭제</Text>
+            <Text style={styles.tipText}>
+              • 다음 목차 단계로 넘어가기 전 지금까지 해당 과목에 저장한 문제를 전체 CBT로 총정리할 수 있습니다. 시험을 마치면 자료함으로 돌아옵니다.{'\n'}
+              • 과목과 단원 삭제는 해당 카드의 삭제 버튼에서 실행합니다. 삭제한 학습 데이터는 복구할 수 없으므로 먼저 백업하세요.
             </Text>
           </View>
         </View>
@@ -155,7 +178,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
       id: 'settings',
       icon: '⚙️',
       title: '학습 목표 & 알림 설정',
-      subtitle: '목표 자동 저장, 다중 시간 알람과 새로고침',
+      subtitle: '목표, 다중 알람과 접이식 설정 관리',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
@@ -181,6 +204,13 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
               • 메인, 자료함, 설정 화면의 맨 위에서 아래로 당기면 저장된 최신 학습 데이터를 다시 불러옵니다.
             </Text>
           </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>⌄ 4. AI 연결과 데이터 관리</Text>
+            <Text style={styles.tipText}>
+              • 설정 화면은 필요한 항목만 펼쳐 쓰도록 구성되어 있습니다. <Text style={styles.bold}>[AI 연결]</Text>에서 키 상태를 관리하고, <Text style={styles.bold}>[데이터 관리]</Text>에서 백업·복원·초기화를 실행합니다. 행의 어느 곳을 눌러도 열고 닫을 수 있습니다.
+            </Text>
+          </View>
         </View>
       ),
     },
@@ -188,7 +218,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
       id: 'backup',
       icon: '💾',
       title: '백업 & 데이터 보안',
-      subtitle: '로컬 저장, ZIP/JSON 백업과 홈 화면 추가 방법',
+      subtitle: '로컬 저장, 백업·복원과 앱 초기화',
       content: (
         <View style={styles.detailContainer}>
           <View style={styles.tipBox}>
@@ -202,8 +232,8 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>💾 2. 스마트폰 변경 시 데이터 이동 방법</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>[설정 ➔ 백업/출력]</Text>은 API 키를 제외한 학습 데이터와 인쇄용 문제지·해설지를 ZIP으로 저장합니다.{'\n'}
-              • 새 기기의 <Text style={styles.bold}>[설정 ➔ 복원]</Text>에서 ZIP 또는 JSON을 선택하면 형식을 검사한 뒤 학습 기록을 복원합니다. API 키는 새 기기에서 다시 등록합니다.
+              • <Text style={styles.bold}>[설정 ➔ 데이터 관리 ➔ 백업/출력]</Text>은 API 키를 제외한 학습 데이터와 인쇄용 문제지·해설지·오답노트를 ZIP으로 저장합니다.{'\n'}
+              • 새 기기의 <Text style={styles.bold}>[복원]</Text>에서 ZIP 또는 JSON을 선택하면 무결성을 확인한 뒤 학습 기록을 복원합니다. 현재 기기의 API 키는 바꾸지 않으며 새 기기에서는 직접 다시 등록합니다.
             </Text>
           </View>
 
