@@ -105,12 +105,6 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                   </View>
                 ) : (
                   <>
-                    {item.modelAnswer && (
-                      <View style={styles.reviewOptionRow}>
-                        <Text style={styles.wrongAnalysisTitle}>✅ 모범답안</Text>
-                        <Text style={styles.reviewOptionText}>{item.modelAnswer}</Text>
-                      </View>
-                    )}
                     {item.questionType === 'essay' && item.gradingChecklist && r?.gradingChecklistResult && (
                       <View style={{ gap: 4 }}>
                         {item.gradingChecklist.map((c) => {
@@ -187,9 +181,17 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
               </View>
             ) : null}
 
-            {/* 정답 해설 및 도출 과정 */}
+            {/* 모범답안(주관식) + 정답 해설 및 도출 과정: 별도 카드로 나누지 않고 한 곳에 합쳐서
+                모범답안 한 단어와 해설 문장이 서로 다른 박스에서 같은 내용을 반복하는 느낌을 없앤다. */}
             <View style={styles.explanationBox}>
-              <Text style={styles.explanationTitle}>💡 정답 해설 및 도출 과정</Text>
+              <Text style={styles.explanationTitle}>
+                {item.modelAnswer ? '💡 모범답안 및 해설' : '💡 정답 해설 및 도출 과정'}
+              </Text>
+              {item.modelAnswer && !isGradingFailed ? (
+                <Text style={[styles.explanationText, { fontWeight: '800', marginBottom: 4 }]}>
+                  {item.modelAnswer}
+                </Text>
+              ) : null}
               <Text style={styles.explanationText}>
                 {item.explanation
                   .replace(/\[출제\s*근거\s*팩트\s*:[^\]]*\]/gi, '')

@@ -54,6 +54,7 @@ ${currentInformationInstruction ? `\n${currentInformationInstruction}` : ''}
 5. questionType이 "essay"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(모범답안 전체)와 gradingChecklist(모범답안의 핵심 요소 2~5개, 각 항목의 판정 기준 criterion과 배점 points, 배점 합계는 반드시 100)를 작성합니다. "논리적 일관성" 같은 주관적 기준이 아니라, 답안에 그 핵심 요소가 실제로 포함되었는지로만 판정 가능한 기준을 씁니다.
 6. 기존 문제와 지문·핵심 질문·정답 개념이 사실상 같은 문제를 반복하지 않습니다.
 7. 해설에는 정답의 근거와 오답을 구분하는 기준을 분명하게 적습니다(단답형/서술형은 modelAnswer의 핵심 근거를 설명).
+8. questions 배열 안에서 questionType 순서를 절대 유형별로 뭉치거나 고정하지 마세요(예: multiple_choice를 전부 앞에 몰아두고 short_answer/essay를 맨 뒤에 몰아두는 배치 금지). 아래 출력 예시는 각 유형의 필드 형태를 보여주기 위한 것일 뿐 실제 등장 순서와는 무관하며, 실제로는 문항 순서 전체에 무작위로 섞어서 배치하세요.
 
 [출력 JSON]
 READY (questionType별로 필드가 다름에 유의):

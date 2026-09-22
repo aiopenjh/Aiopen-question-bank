@@ -394,5 +394,14 @@ async function generateViaUniversalAiApi(params: {
   const distributedQuestions = questions.map((q) =>
     q.questionType === 'multiple_choice' ? distributedMc[mcCursor++] : q
   );
+
+  // 문항 순서 무작위 셔플: AI가 프롬프트 지침에도 불구하고 questionType별로 뭉쳐서
+  // 반환하는 경우(예: multiple_choice를 앞에, short_answer/essay를 뒤에)를 시스템 코드
+  // 레벨에서 강제로 방지한다(AGENTS.md 6번 법칙과 동일한 원칙: 지침 + 코드 이중 안전장치).
+  for (let i = distributedQuestions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [distributedQuestions[i], distributedQuestions[j]] = [distributedQuestions[j], distributedQuestions[i]];
+  }
+
   return { status: 'READY', spec, questions: distributedQuestions, validations };
 }
