@@ -89,12 +89,14 @@ const providerQuestions = [
     options: ['3', '4', '5', '6'].map(text => ({ text })),
     correctOptionNumber: 2,
     explanation: '2에 2를 더하면 4입니다.',
+    deepReasoningHint: '두 수를 순서대로 하나씩 더해 보세요.',
   },
   {
     stem: '3 + 3 = ?',
     options: ['3', '4', '5', '6'].map(text => ({ text })),
     correctOptionNumber: 4,
     explanation: '3에 3을 더하면 6입니다.',
+    deepReasoningHint: '같은 수를 두 번 더하는 상황임을 떠올려 보세요.',
   },
 ];
 

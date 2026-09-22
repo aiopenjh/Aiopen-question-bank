@@ -7,6 +7,8 @@ import { styles } from './examStyles';
 import { ExamActiveView } from './ExamActiveView';
 import { ExamResultView } from './ExamResultView';
 import { ExamHintModal } from './ExamHintModal';
+import { updateQuestionHint } from '../../data/db';
+import { generateHintForExistingQuestion } from '../../domain/hint_generator';
 
 interface ExamSessionScreenProps {
   questions: QuestionRevision[];
@@ -28,10 +30,37 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showHintModal, setShowHintModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // 온디맨드로 생성한 힌트를 세션 중 즉시 반영하기 위한 로컬 오버레이.
+  // 영구 저장은 updateQuestionHint(question_repository)가 담당한다.
+  const [hintOverrides, setHintOverrides] = useState<Record<string, string>>({});
+  const [isGeneratingHint, setIsGeneratingHint] = useState(false);
+  const [hintError, setHintError] = useState<string | null>(null);
 
   if (!questions || questions.length === 0) return null;
 
   const q = questions[currentIndex];
+  const activeHintText = q ? hintOverrides[q.id] ?? q.deepReasoningHint : undefined;
+
+  function handleCloseHintModal() {
+    setShowHintModal(false);
+    setHintError(null);
+  }
+
+  async function handleGenerateHint() {
+    if (!q || isGeneratingHint) return;
+    setIsGeneratingHint(true);
+    setHintError(null);
+    try {
+      const hint = await generateHintForExistingQuestion(q);
+      await updateQuestionHint(q.id, hint);
+      setHintOverrides((prev) => ({ ...prev, [q.id]: hint }));
+    } catch (err: any) {
+      // 실패해도 문제와 답안은 그대로 유지되며, 오류만 안내한다.
+      setHintError(err?.message || 'AI 힌트를 생성하지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      setIsGeneratingHint(false);
+    }
+  }
 
   function handleSelectOption(optionId: string) {
     if (isSubmitted) return;
@@ -161,9 +190,12 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
       {/* 힌트 모달 */}
       <ExamHintModal
         visible={showHintModal}
-        onClose={() => setShowHintModal(false)}
+        onClose={handleCloseHintModal}
         questionIndex={currentIndex}
-        hintText={q?.deepReasoningHint}
+        hintText={activeHintText}
+        onGenerateHint={handleGenerateHint}
+        isGeneratingHint={isGeneratingHint}
+        generateHintError={hintError}
       />
     </SafeAreaView>
   );
