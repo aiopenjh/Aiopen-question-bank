@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -20,6 +20,10 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
 }) => {
   // 처음에는 제목만 깔끔하게 보이고, 누르면 해당 항목이 열림
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) setExpandedSection(null);
+  }, [visible]);
 
   const toggleSection = (id: string) => {
     setExpandedSection((prev) => (prev === id ? null : id));

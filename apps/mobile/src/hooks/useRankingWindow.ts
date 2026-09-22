@@ -33,7 +33,7 @@ import {
   SyncTodayResult,
 } from '../domain/ranking_client';
 
-const LEADERBOARD_LIMIT = 50;
+const LEADERBOARD_LIMIT = 20;
 
 function toMessage(err: unknown): string {
   return err instanceof RankingApiRequestError ? err.message : '알 수 없는 오류가 발생했습니다.';
