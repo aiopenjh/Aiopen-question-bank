@@ -20,7 +20,6 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
 
   const parsedInput = Number.parseInt(inputText, 10);
   const isValidInput = Number.isInteger(parsedInput) && parsedInput >= 1 && parsedInput <= DAILY_GOAL_MAX;
-  const hasChanges = isValidInput && parsedInput !== targetCount;
 
   const handleChangeNumber = (text: string) => {
     setInputText(text.replace(/[^0-9]/g, ''));
@@ -30,27 +29,23 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
     const current = isValidInput ? parsedInput : targetCount;
     const next = Math.min(DAILY_GOAL_MAX, Math.max(1, current + delta));
     setInputText(String(next));
+    void onChangeTargetCount(next);
   };
 
-  const handleSave = async () => {
-    if (!hasChanges) return;
-    await onChangeTargetCount(parsedInput);
+  const handleCommitInput = () => {
+    if (!isValidInput) {
+      setInputText(String(targetCount));
+      return;
+    }
+    if (parsedInput !== targetCount) {
+      void onChangeTargetCount(parsedInput);
+    }
   };
 
   return (
     <View style={[styles.card, styles.goalCard]}>
       <View style={styles.goalHeaderRow}>
         <Text style={[styles.cardSectionTitle, styles.goalCardTitle]}>일일 학습 목표</Text>
-        <TouchableOpacity
-          style={[styles.goalSaveButton, !hasChanges && styles.goalSaveButtonDisabled]}
-          onPress={handleSave}
-          disabled={!hasChanges}
-          activeOpacity={0.75}
-        >
-          <Text style={[styles.goalSaveButtonText, !hasChanges && styles.goalSaveButtonTextDisabled]}>
-            목표 {isValidInput ? parsedInput : targetCount}문항 저장
-          </Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.goalInputRow}>
@@ -70,6 +65,8 @@ export const DailyGoalSection: React.FC<DailyGoalSectionProps> = ({
             style={styles.goalInputField}
             value={inputText}
             onChangeText={handleChangeNumber}
+            onBlur={handleCommitInput}
+            onSubmitEditing={handleCommitInput}
             keyboardType="number-pad"
             maxLength={2}
             selectTextOnFocus

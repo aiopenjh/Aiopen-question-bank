@@ -25,7 +25,6 @@ export interface StudyMapScreenProps {
   todayAttemptsCount?: number;
   dueQuestionsCount?: number;
   onStartExam?: () => void;
-  onStartMoreQuestions?: () => void;
   onStartDueReview?: () => void;
   onOpenCustomNotebook?: () => void;
 
@@ -53,7 +52,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   todayAttemptsCount = 0,
   dueQuestionsCount = 0,
   onStartExam,
-  onStartMoreQuestions,
   onStartDueReview,
   onOpenCustomNotebook,
   refreshing = false,
@@ -166,17 +164,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
           </TouchableOpacity>
         )}
 
-        {progressPercent >= 100 && (onStartMoreQuestions || onStartExam) && (
-          <TouchableOpacity
-            style={styles.extraPracticeBtn}
-            onPress={onStartMoreQuestions || onStartExam}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.extraPracticeBtnText}>
-              같은 범위에서 문제 더 풀기
-            </Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       <RankingLeaderboardCard />

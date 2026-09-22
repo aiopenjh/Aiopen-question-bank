@@ -21,7 +21,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     loading, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
     handleGoHome, appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
     handleTouchMove, handleTouchEnd, onLayoutContainer, routine, todayAttempts, dueQuestions,
-    refreshing, handlePullRefresh, handleStartExamWithAutoGenerate, handleGenerateMoreQuestions,
+    refreshing, handlePullRefresh, handleStartExamWithAutoGenerate,
     handleStartDueReview, handleOpenCustomNotebook, handleOpenTopicModal, handleQuickPromptGenerate,
     isCurriculumGenerating, generatingUnitId, isGenerating, topics, selectedTopicId,
     lastStudiedTopicId, questions, units, completions, setUnitModalVisible, handleDeleteTopic,
@@ -138,7 +138,6 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
                 onStartExam={handleStartExamWithAutoGenerate}
-                onStartMoreQuestions={handleGenerateMoreQuestions}
                 onStartDueReview={handleStartDueReview}
                 onOpenCustomNotebook={handleOpenCustomNotebook}
                 onOpenTopicModal={handleOpenTopicModal}
