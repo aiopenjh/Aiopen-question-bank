@@ -2,7 +2,7 @@
 > This document instructs Anthropic Claude (Claude Code, Claude 3.5 Sonnet, Claude Desktop) to collaborate seamlessly with Gemini and GPT.
 
 ## 📌 Master Instructions
-- Please read and strictly adhere to **`AGENTS.md`** at the project root for the 9 Invariant Laws, file responsibility map, and AI collaboration protocol.
+- Please read and strictly adhere to **`AGENTS.md`** at the project root for the product constitution, engineering safety rules, file responsibility map, and AI collaboration protocol.
 - For recent releases and architectural history, refer to **`CHANGELOG.md`** and **`docs/ARCHITECTURE_WORKFLOW_V2.md`**.
 
 ## 🚀 Key Commands

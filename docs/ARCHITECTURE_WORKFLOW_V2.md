@@ -7,13 +7,73 @@
 ## 1. 문서 권한과 불변 원칙
 
 - 개발 시작점은 루트 `DEVELOPER.md`입니다.
-- 변경할 수 없는 제품·개발 원칙은 루트 `AGENTS.md`의 9대 헌법이 최우선입니다.
+- 변경할 수 없는 제품 헌법과 개발 안전 규칙은 루트 `AGENTS.md`가 최우선입니다.
 - 이 문서는 코드 계층, 실행 흐름, 외부 연결, 실패 처리를 설명합니다.
 - 제품 일정과 미완료 항목은 `PRODUCT_ROADMAP_AND_BETA_PLAN.md`에서 관리합니다.
 
 핵심 원칙은 자유 주제 지원, 가짜 문제 금지, 로컬 퍼스트, 도메인 고정, 중복 방지, 사용자 주도 난이도, 모바일 16px 입력, 관심사 분리입니다. 객관식 정답 위치 분산과 문항 유형 추첨은 별도 단계입니다.
 
 ## 2. 전체 계층 구조
+
+GitHub에서는 아래 Mermaid 블록이 아키텍처 그림으로 렌더링됩니다.
+
+```mermaid
+flowchart TB
+    User[사용자]
+
+    subgraph App["Celueste 앱 · Web / Android / iOS"]
+        UI[화면과 모달<br/>AppView]
+        Controller[앱 제어<br/>useAppController]
+        Hooks[기능 훅<br/>커리큘럼 · 생성 · 시험 · 백업]
+        Domain[도메인<br/>유형 계획 · 검증 · 채점]
+        Repos[Repository<br/>과목 · 문제 · 자료 · 랭킹]
+        Secure[API 키 보안 저장]
+
+        UI --> Controller --> Hooks --> Domain
+        Hooks --> Repos
+    end
+
+    subgraph Local["사용자 기기 로컬 데이터"]
+        IDB[(IndexedDB<br/>Web)]
+        Async[(AsyncStorage<br/>Native)]
+        KeyStore[(Web AES-GCM /<br/>OS SecureStore)]
+    end
+
+    subgraph QuestionAccess["문제 생성·주관식 채점 통로 · 교체 가능"]
+        BYOK[현재: 사용자 API 키<br/>BYOK]
+        Proxy[향후 선택: 관리형 AI 프록시<br/>인증 · 할당량 · 비용 제한]
+        OnDevice[향후 선택: 온디바이스 모델]
+        Providers[Gemini · Claude · OpenAI]
+
+        BYOK --> Providers
+        Proxy --> Providers
+    end
+
+    subgraph Ranking["선택형 랭킹 경계"]
+        Worker[Cloudflare Worker]
+        D1[(Cloudflare D1)]
+        Worker --> D1
+    end
+
+    Feedback[Formspree<br/>의견 보내기]
+
+    User --> UI
+    Repos --> IDB
+    Repos --> Async
+    Secure --> KeyStore
+    Domain --> BYOK
+    Domain -. 대안 .-> Proxy
+    Domain -. 향후 .-> OnDevice
+    Repos -- 사용자 동의 시 최소 랭킹 데이터 --> Worker
+    UI -- 사용자가 작성한 의견 --> Feedback
+```
+
+핵심 경계는 다음과 같습니다.
+
+- 학습 데이터의 기준 저장소는 사용자 기기입니다.
+- 문제 생성 통로는 교체 가능하며 앱 내부에 운영자 비밀키를 포함하지 않습니다.
+- 랭킹 서버는 문제 생성 서버가 아니며 문제·교재·API 키를 받지 않습니다.
+- 외부 전송은 해당 기능을 사용자가 실행하거나 동의했을 때만 발생합니다.
 
 ```text
 App.tsx

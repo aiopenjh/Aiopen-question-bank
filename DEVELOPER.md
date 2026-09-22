@@ -6,7 +6,7 @@
 
 - `README.md`: 사용자용 설치·기능·사용법
 - `DEVELOPER.md`: 현재 구현의 개발자용 요약과 작업 기준
-- `AGENTS.md`: 어떤 AI와 개발자도 지켜야 할 9대 불변 규칙
+- `AGENTS.md`: 어떤 AI와 개발자도 지켜야 할 제품 헌법과 개발 안전 규칙
 - `docs/ARCHITECTURE_WORKFLOW_V2.md`: 계층, 데이터 흐름, 외부 연결, 실패 처리의 상세 기준
 - `AI_SHARED_CONTEXT.md`: 다른 AI에게 넘기는 짧은 인수인계문
 - `docs/PRODUCT_ROADMAP_AND_BETA_PLAN.md`: 완료 기능과 다음 출시 과제
@@ -210,7 +210,7 @@ interface AlarmConfig {
 
 ## 9. 변경 전 확인 사항
 
-1. 루트 `AGENTS.md`의 9대 불변 규칙 확인
+1. 루트 `AGENTS.md`의 제품 헌법과 개발 안전 규칙 확인
 2. 관련 화면과 데이터 흐름만 최소 범위로 수정
 3. 새 라이브러리 도입 전 승인
 4. 기존 사용자 데이터와 백업 마이그레이션 보존
