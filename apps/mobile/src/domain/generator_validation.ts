@@ -28,9 +28,28 @@ export interface GeneratedQuestionInput {
 }
 
 export const MAX_ESSAY_ANSWER_LENGTH = 2000; // 합의된 서술형 답안 최대 글자수
+export const MAX_HINT_LENGTH = 200;
+
+const META_QUESTION_LEAK_PATTERNS = [
+  '판단 기준은', '판단 기준이', '어떻게 접근해야', '접근 방법은', '추가 정보가 필요하다면',
+];
+const ANSWER_LEAK_PATTERNS = [/정답은/, /정답:/, /답은\s*\d/, /\d\s*번(이|입니다|이다|이며)/];
 
 export function normalizeComparableText(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function containsMetaQuestionLeak(stem: string): boolean {
+  return META_QUESTION_LEAK_PATTERNS.some((pattern) => stem.includes(pattern));
+}
+
+export function containsAnswerLeak(hint: string, correctAnswerText?: string): boolean {
+  if (ANSWER_LEAK_PATTERNS.some((pattern) => pattern.test(hint))) return true;
+  return Boolean(
+    correctAnswerText &&
+    correctAnswerText.trim().length >= 2 &&
+    normalizeComparableText(hint).includes(normalizeComparableText(correctAnswerText))
+  );
 }
 
 export function readOptionalText(value: unknown): string | undefined {
@@ -139,6 +158,9 @@ export function validateGeneratedQuestions(
     if (!stem) {
       throw new Error(`AI 응답의 ${number}번 문제 지문이 비어 있습니다. 다시 시도해 주세요.`);
     }
+    if (containsMetaQuestionLeak(stem)) {
+      throw new Error(`AI 응답의 ${number}번 문제 지문이 완결된 질문이 아닙니다. 다시 시도해 주세요.`);
+    }
 
     const normalizedStem = normalizeComparableText(stem);
     if (knownStems.has(normalizedStem)) {
@@ -219,6 +241,20 @@ export function validateGeneratedQuestions(
       throw new Error(`AI 응답의 ${number}번 문제 해설이 비어 있습니다. 다시 시도해 주세요.`);
     }
 
+    const deepReasoningHint = readOptionalText(question.deepReasoningHint);
+    if (!deepReasoningHint) {
+      throw new Error(`AI 응답의 ${number}번 문제에 힌트(deepReasoningHint)가 누락되었습니다. 다시 시도해 주세요.`);
+    }
+    if (deepReasoningHint.length > MAX_HINT_LENGTH) {
+      throw new Error(`AI 응답의 ${number}번 문제 힌트가 너무 깁니다. 다시 시도해 주세요.`);
+    }
+    const correctAnswerText = questionType === 'multiple_choice'
+      ? options[correctOptionNumber - 1]?.text
+      : modelAnswer ?? clozeBlanks?.[0]?.correctAnswers[0];
+    if (containsAnswerLeak(deepReasoningHint, correctAnswerText)) {
+      throw new Error(`AI 응답의 ${number}번 문제 힌트에 정답이 노출되었습니다. 다시 시도해 주세요.`);
+    }
+
     let currentReference: CurrentInformationReference | undefined;
     if (currentInformationRequired) {
       const rawReference = question.currentReference;
@@ -260,7 +296,7 @@ export function validateGeneratedQuestions(
       gradingChecklist,
       clozeBlanks,
       explanation,
-      deepReasoningHint: readOptionalText(question.deepReasoningHint),
+      deepReasoningHint,
       currentReference,
     };
   });

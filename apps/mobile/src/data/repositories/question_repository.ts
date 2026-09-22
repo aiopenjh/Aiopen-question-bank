@@ -133,6 +133,18 @@ export async function saveQuestionsForUnit(
   return { saved: uniqueQuestions, skippedCount, committed: true };
 }
 
+/**
+ * 기존 저장 문제에 사용자가 명시적으로 요청해 생성한 전용 힌트를 영구 저장한다.
+ * (API 비용 발생을 막기 위해 자동 생성하지 않으며, 저장 후에는 재사용한다.)
+ */
+export async function updateQuestionHint(questionId: UUID, deepReasoningHint: string): Promise<void> {
+  const questions = await getQuestions();
+  const idx = questions.findIndex((q) => q.id === questionId);
+  if (idx < 0) return;
+  questions[idx] = { ...questions[idx], deepReasoningHint };
+  await AsyncStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(questions));
+}
+
 export async function deleteQuestion(questionId: UUID): Promise<void> {
   const questions = await getQuestions();
   const updated = questions.filter((q) => q.id !== questionId);

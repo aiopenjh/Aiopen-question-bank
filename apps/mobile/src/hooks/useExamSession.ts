@@ -39,6 +39,7 @@ export function useExamSession({
 }: UseExamSessionProps) {
   const [examSessionActive, setExamSessionActive] = useState(false);
   const [examQuestions, setExamQuestions] = useState<QuestionRevision[]>([]);
+  const [examSessionRunId, setExamSessionRunId] = useState<string | null>(null);
   const runRef = useRef<{ id: string; startedAt: string; saving: boolean; completed: boolean } | null>(null);
 
   const startExam = useCallback(
@@ -86,7 +87,9 @@ export function useExamSession({
         q.questionType === 'multiple_choice' ? distributedMc[mcCursor++] : q
       );
 
-      runRef.current = { id: generateUUID(), startedAt: getCurrentISOTime(), saving: false, completed: false };
+      const runId = generateUUID();
+      runRef.current = { id: runId, startedAt: getCurrentISOTime(), saving: false, completed: false };
+      setExamSessionRunId(runId);
       setExamQuestions(randomizedQuestions);
       setExamSessionActive(true);
     },
@@ -180,6 +183,7 @@ export function useExamSession({
 
   return {
     examSessionActive,
+    examSessionRunId,
     examQuestions,
     startExam,
     handleCompleteExam,

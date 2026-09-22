@@ -67,6 +67,7 @@ function question(overrides = {}) {
     explanation: '2에 2를 더하면 4입니다.',
     correctOptionNumber: 2,
     options: ['3', '4', '5', '6'].map((text) => ({ text })),
+    deepReasoningHint: '두 수를 순서대로 하나씩 더해 보세요.',
     ...overrides,
   };
 }
@@ -120,6 +121,19 @@ test('rejects incomplete, duplicate, and invalid generated questions', () => {
     () => ({ questions: [question({ correctOptionNumber: 0 })] }),
     () => ({ questions: [question({ correctOptionNumber: 5 })] }),
     () => ({ questions: [{ ...question(), correctOptionNumber: undefined }] }),
+    () => ({ questions: [question({ deepReasoningHint: undefined })] }),
+    () => ({ questions: [question({ deepReasoningHint: '   ' })] }),
+    () => ({ questions: [question({ deepReasoningHint: 'x'.repeat(201) })] }),
+    () => ({ questions: [question({ deepReasoningHint: '정답은 2번입니다.' })] }),
+    () => ({
+      questions: [
+        question({
+          options: ['덧셈', '뺄셈', '곱셈', '나눗셈'].map((text) => ({ text })),
+          correctOptionNumber: 1,
+          deepReasoningHint: '핵심 연산 개념은 덧셈과 관련됩니다.',
+        }),
+      ],
+    }),
   ];
 
   for (const makeValue of variants) {

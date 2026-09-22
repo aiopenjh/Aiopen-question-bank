@@ -245,6 +245,33 @@ export const examReviewStyles = StyleSheet.create({
     alignItems: 'center',
   },
   closeHintBtnText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
+  hintEmptyText: {
+    fontSize: 13,
+    color: colors.inkMuted,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  generateHintBtn: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: colors.primaryPressed,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  generateHintBtnText: { color: colors.primaryPressed, fontSize: 14, fontWeight: 'bold' },
+  hintLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  hintErrorText: {
+    fontSize: 12,
+    color: '#dc2626',
+    lineHeight: 18,
+  },
 
 });
 

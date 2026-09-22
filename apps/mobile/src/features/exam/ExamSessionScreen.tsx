@@ -9,6 +9,8 @@ import { ExamResultView } from './ExamResultView';
 import { ExamHintModal } from './ExamHintModal';
 import { ScratchpadPanel } from './ScratchpadPanel';
 import { gradeSubjectiveAnswer, gradeClozeAnswers } from '../../domain/grading';
+import { updateQuestionHint } from '../../data/db';
+import { generateHintForExistingQuestion } from '../../domain/hint_generator';
 
 export interface ExamAnswerResult {
   question: QuestionRevision;
@@ -26,7 +28,11 @@ interface ExamSessionScreenProps {
   questions: QuestionRevision[];
   onExitExam: () => void;
   onCompleteExam: (results: ExamAnswerResult[]) => Promise<void>;
-  onReinforceIncorrectConcepts?: () => Promise<void> | void;
+  onReinforceIncorrectConcepts?: (questions: QuestionRevision[]) => Promise<void> | void;
+  // 온디맨드로 생성한 힌트를 저장소뿐 아니라 앱 상단의 questions 상태에도 즉시 반영한다.
+  // 그렇지 않으면 시험을 나갔다가 다시 들어올 때 갱신 전 스냅샷을 다시 사용하게 되어
+  // 이미 저장된 힌트가 다시 "AI 힌트 만들기"로 보이고 중복 API 호출이 발생할 수 있다.
+  onHintSaved?: (questionId: string, hint: string) => void;
 }
 
 export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
@@ -34,6 +40,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   onExitExam,
   onCompleteExam,
   onReinforceIncorrectConcepts,
+  onHintSaved,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
@@ -43,10 +50,38 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [submittedResults, setSubmittedResults] = useState<ExamAnswerResult[] | null>(null);
+  // 온디맨드로 생성한 힌트를 세션 중 즉시 반영하기 위한 로컬 오버레이.
+  // 영구 저장은 updateQuestionHint(question_repository)가 담당한다.
+  const [hintOverrides, setHintOverrides] = useState<Record<string, string>>({});
+  const [isGeneratingHint, setIsGeneratingHint] = useState(false);
+  const [hintError, setHintError] = useState<string | null>(null);
 
   if (!questions || questions.length === 0) return null;
 
   const q = questions[currentIndex];
+  const activeHintText = q ? hintOverrides[q.id] ?? q.deepReasoningHint : undefined;
+
+  function handleCloseHintModal() {
+    setShowHintModal(false);
+    setHintError(null);
+  }
+
+  async function handleGenerateHint() {
+    if (!q || isGeneratingHint) return;
+    setIsGeneratingHint(true);
+    setHintError(null);
+    try {
+      const hint = await generateHintForExistingQuestion(q);
+      await updateQuestionHint(q.id, hint);
+      setHintOverrides((prev) => ({ ...prev, [q.id]: hint }));
+      onHintSaved?.(q.id, hint);
+    } catch (err: any) {
+      // 실패해도 문제와 답안은 그대로 유지되며, 오류만 안내한다.
+      setHintError(err?.message || 'AI 힌트를 생성하지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      setIsGeneratingHint(false);
+    }
+  }
 
   function handleSelectOption(optionId: string) {
     if (isSubmitted) return;
@@ -234,10 +269,12 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
       {/* 힌트 모달 */}
       <ExamHintModal
         visible={showHintModal}
-        onClose={() => setShowHintModal(false)}
+        onClose={handleCloseHintModal}
         questionIndex={currentIndex}
-        hintText={q?.deepReasoningHint}
-        explanationText={q?.explanation}
+        hintText={activeHintText}
+        onGenerateHint={handleGenerateHint}
+        isGeneratingHint={isGeneratingHint}
+        generateHintError={hintError}
       />
 
       {/* 풀이공간(Scratchpad) — 계산/풀이 보조용, 채점 미반영 */}

@@ -115,6 +115,51 @@ function getGenerationRequestKey(params: GenerationParams): string {
   });
 }
 
+function normalizeComparableText(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+// 지문이 완결된 질문이 아니라 출제자가 스스로에게 되묻는 듯한 메타 질문으로
+// 생성된 경우를 최소 범위(명백한 패턴만)로 걸러낸다. 과도한 오탐을 피하기 위해
+// 실제로 관찰된 문제 패턴에 해당하는 구체적인 문구만 검사한다.
+const META_QUESTION_LEAK_PATTERNS = [
+  '판단 기준은',
+  '판단 기준이',
+  '어떻게 접근해야',
+  '접근 방법은',
+  '추가 정보가 필요하다면',
+];
+
+function containsMetaQuestionLeak(stem: string): boolean {
+  return META_QUESTION_LEAK_PATTERNS.some((pattern) => stem.includes(pattern));
+}
+
+// 힌트에 정답 번호나 정답 문구가 그대로 노출되는지, 지나치게 길어 사실상
+// 해설이 되어버렸는지를 최소 범위로 방어한다. 프롬프트 지침(짧게, 정답 미노출)이
+// 있어도 AI가 지키지 않을 수 있으므로 시스템 코드 레벨의 이중 안전장치로 둔다.
+const ANSWER_LEAK_PATTERNS = [
+  /정답은/,
+  /정답:/,
+  /답은\s*\d/,
+  /\d\s*번(이|입니다|이다|이며)/,
+];
+
+function containsAnswerLeak(hint: string, correctOptionText?: string): boolean {
+  if (ANSWER_LEAK_PATTERNS.some((pattern) => pattern.test(hint))) return true;
+  if (correctOptionText && correctOptionText.trim().length >= 2) {
+    const normalizedHint = normalizeComparableText(hint);
+    const normalizedAnswer = normalizeComparableText(correctOptionText);
+    if (normalizedHint.includes(normalizedAnswer)) return true;
+  }
+  return false;
+}
+
+// "1~2개의 짧은 문장"이라는 지침을 느슨하게 강제하는 길이 상한. 너무 빡빡하게 잡으면
+// 정상적인 짧은 힌트까지 오탐할 수 있어 넉넉한 상한(200자)만 둔다.
+// hint_generator.ts(기존 문제의 온디맨드 힌트 생성)에서도 동일 기준을 재사용한다.
+export const MAX_HINT_LENGTH = 200;
+export { containsAnswerLeak };
+
 function readStudyIntentDecision(value: unknown): StudyIntentDecision {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new GenerationContentError('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
@@ -176,6 +221,11 @@ export function validateGeneratedQuestions(
     const stem = typeof question.stem === 'string' ? question.stem.trim() : '';
     if (!stem) {
       throw new GenerationContentError(`AI 응답의 ${number}번 문제 지문이 비어 있습니다. 다시 시도해 주세요.`);
+    }
+    if (containsMetaQuestionLeak(stem)) {
+      throw new GenerationContentError(
+        `AI 응답의 ${number}번 문제 지문이 완결된 질문이 아니라 출제자용 메타 질문(예: "판단 기준은?")으로 생성되었습니다. 다시 시도해 주세요.`
+      );
     }
 
     const normalizedStem = normalizeComparableText(stem);
@@ -262,13 +312,33 @@ export function validateGeneratedQuestions(
       };
     }
 
+    // 신규 출제에서는 힌트를 선택값으로 두지 않는다: 누락 시 조용히 저장하지 않고
+    // 기존 생성 실패 처리 방식과 동일하게 명확한 오류를 반환한다.
+    const deepReasoningHint = readOptionalText(question.deepReasoningHint);
+    if (!deepReasoningHint) {
+      throw new GenerationContentError(
+        `AI 응답의 ${number}번 문제에 힌트(deepReasoningHint)가 누락되었습니다. 다시 시도해 주세요.`
+      );
+    }
+    if (deepReasoningHint.length > MAX_HINT_LENGTH) {
+      throw new GenerationContentError(
+        `AI 응답의 ${number}번 문제 힌트가 너무 깁니다(정답 도출 과정처럼 작성됨). 다시 시도해 주세요.`
+      );
+    }
+    const correctOptionText = options[question.correctOptionNumber - 1]?.text;
+    if (containsAnswerLeak(deepReasoningHint, correctOptionText)) {
+      throw new GenerationContentError(
+        `AI 응답의 ${number}번 문제 힌트에 정답이 그대로 노출되었습니다. 다시 시도해 주세요.`
+      );
+    }
+
     return {
       stem,
       conceptDefinition: readOptionalText(question.conceptDefinition),
       options,
       correctOptionNumber: question.correctOptionNumber,
       explanation,
-      deepReasoningHint: readOptionalText(question.deepReasoningHint),
+      deepReasoningHint,
       currentReference,
     };
   });

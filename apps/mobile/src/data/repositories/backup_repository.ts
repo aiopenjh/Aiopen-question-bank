@@ -169,7 +169,28 @@ function readAlarmConfig(source: JsonRecord): AlarmConfig | null | undefined {
 
   const allowedDays = new Set(['월', '화', '수', '목', '금', '토', '일']);
   const selectedDays = value.selectedDays;
-  const isValid =
+  const hasMultipleTimes =
+    typeof value.enabled === 'boolean' &&
+    Array.isArray(value.times) &&
+    value.times.every(
+      (time) =>
+        isRecord(time) &&
+        Number.isInteger(time.hour) &&
+        Number.isInteger(time.minute) &&
+        (time.hour as number) >= 0 &&
+        (time.hour as number) <= 23 &&
+        (time.minute as number) >= 0 &&
+        (time.minute as number) <= 59
+    );
+  const hasUnifiedTime =
+    typeof value.enabled === 'boolean' &&
+    Number.isInteger(value.hour) &&
+    Number.isInteger(value.minute) &&
+    (value.hour as number) >= 0 &&
+    (value.hour as number) <= 23 &&
+    (value.minute as number) >= 0 &&
+    (value.minute as number) <= 59;
+  const hasLegacyTime =
     typeof value.morningEnabled === 'boolean' &&
     typeof value.eveningEnabled === 'boolean' &&
     Number.isInteger(value.morningHour) &&
@@ -177,7 +198,9 @@ function readAlarmConfig(source: JsonRecord): AlarmConfig | null | undefined {
     (value.morningHour as number) >= 0 &&
     (value.morningHour as number) <= 23 &&
     (value.eveningHour as number) >= 0 &&
-    (value.eveningHour as number) <= 23 &&
+    (value.eveningHour as number) <= 23;
+  const isValid =
+    (hasMultipleTimes || hasUnifiedTime || hasLegacyTime) &&
     Array.isArray(selectedDays) &&
     selectedDays.every((day) => typeof day === 'string' && allowedDays.has(day));
 

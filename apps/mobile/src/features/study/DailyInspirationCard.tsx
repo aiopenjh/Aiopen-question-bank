@@ -56,11 +56,7 @@ function getRandomLocalMessage(): string {
   return LOCAL_INSPIRATIONS[randomIndex];
 }
 
-export interface DailyInspirationCardProps {
-  embedded?: boolean;
-}
-
-export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({ embedded = false }) => {
+export const DailyInspirationCard: React.FC = () => {
   const [currentMessage, setCurrentMessage] = useState<string>(getRandomLocalMessage);
 
   const handleRefresh = () => {
@@ -72,80 +68,54 @@ export const DailyInspirationCard: React.FC<DailyInspirationCardProps> = ({ embe
   };
 
   return (
-    <View style={[styles.cardContainer, embedded && styles.cardContainerEmbedded]}>
-      <View style={styles.cardHeader}>
-        <View style={styles.badgeRow}>
-          <Text style={styles.badgeIcon}>✦</Text>
-          <Text style={styles.badgeTitle}>당신을 위한 Celueste의 한마디</Text>
-        </View>
-        <TouchableOpacity
-          onPress={handleRefresh}
-          style={styles.refreshBtn}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel="새 응원 받기"
-        >
-          <Text style={styles.refreshBtnText}>↻</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.messageText}>
+    <View style={styles.cardContainer}>
+      <View style={styles.refreshSpacer} />
+      <Text style={styles.messageText} numberOfLines={2}>
         {currentMessage || '오늘도 당신의 꿈을 향해 힘차게 나아가세요! 🌟'}
       </Text>
+      <TouchableOpacity
+        onPress={handleRefresh}
+        style={styles.refreshBtn}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel="새 응원 받기"
+      >
+        <Text style={styles.refreshBtnText}>↻</Text>
+      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  cardContainerEmbedded: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    marginBottom: 0,
-  },
-  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    minHeight: 30,
     marginBottom: spacing.xs,
   },
-  badgeRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  badgeIcon: {
-    color: colors.gold,
-    fontSize: 14,
-  },
-  badgeTitle: {
-    flexShrink: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.ink,
+  refreshSpacer: {
+    width: 24,
+    height: 24,
   },
   refreshBtn: {
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   refreshBtnText: {
     color: colors.gold,
-    fontSize: 17,
+    fontSize: 16,
   },
   messageText: {
-    fontSize: 13,
+    flex: 1,
+    paddingHorizontal: 2,
+    fontSize: 12.5,
     fontWeight: '600',
-    color: colors.ink,
-    lineHeight: 20,
+    color: colors.inkMuted,
+    lineHeight: 19,
+    textAlign: 'center',
   },
 });

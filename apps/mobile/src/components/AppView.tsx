@@ -14,14 +14,15 @@ import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { FeedbackModal } from '../features/study/FeedbackCard';
 import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
 import { getLocalDateString } from '../domain/routine';
+import { DAILY_GOAL_DEFAULT } from '../domain/daily_goal';
 import { AppController } from '../hooks/useAppController';
 
 export function AppView({ controller }: { controller: AppController }) {  const {
     loading, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
     handleGoHome, appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
     handleTouchMove, handleTouchEnd, onLayoutContainer, routine, todayAttempts, dueQuestions,
-    refreshing, handlePullRefresh, handleStartExamWithAutoGenerate, handleGenerateMoreQuestions,
-    handleStartDueReview, handleOpenCustomNotebook, handleOpenTopicModal, handleQuickPromptGenerate,
+    refreshing, handlePullRefresh, handleStartExamWithAutoGenerate,
+    handleStartDueReview, handleOpenCustomNotebook, handleOpenTopicModal,
     isCurriculumGenerating, generatingUnitId, isGenerating, topics, selectedTopicId,
     lastStudiedTopicId, questions, units, completions, setUnitModalVisible, handleDeleteTopic,
     handleToggleUnitCompletion, handleDeleteUnit, handleGenerateCurriculumForTopic,
@@ -38,8 +39,9 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     quizCountModalVisible, pendingQuizUnit, setQuizCountModalVisible, handleSelectQuizCount, handleSaveUnitDifficulty,
     isTopicSelectModalVisible, setIsTopicSelectModalVisible, executeStartExamForTopic,
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
-    isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive,
+    isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive, examSessionRunId,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
+    handleQuestionHintSaved,
     appAlert, setAppAlert,
   } = controller;
   const [feedbackVisible, setFeedbackVisible] = useState(false);
@@ -137,15 +139,10 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
                 onStartExam={handleStartExamWithAutoGenerate}
-                onStartMoreQuestions={handleGenerateMoreQuestions}
                 onStartDueReview={handleStartDueReview}
                 onOpenCustomNotebook={handleOpenCustomNotebook}
                 onOpenTopicModal={handleOpenTopicModal}
-                onQuickPromptGenerate={handleQuickPromptGenerate}
-                isAiGenerating={isCurriculumGenerating || generatingUnitId !== null || isGenerating}
-                apiKey={apiKey}
                 topicName={topics.find((t) => t.id === (selectedTopicId || lastStudiedTopicId))?.name}
-                onOpenSettings={() => goToPage(2, true)}
               />
             </View>
 
@@ -232,7 +229,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 onDeleteApiKey={handleDeleteApiKey}
                 alarmConfig={alarmConfig}
                 onChangeAlarmConfig={handleChangeAlarmConfig}
-                targetQuestionCount={routine?.targetQuestionCount ?? 3}
+                targetQuestionCount={routine?.targetQuestionCount ?? DAILY_GOAL_DEFAULT}
                 onChangeTargetQuestionCount={handleChangeTargetQuestionCount}
                 onExportBackup={handleExportBackup}
                 onOpenRestoreModal={() => {
@@ -334,10 +331,12 @@ export function AppView({ controller }: { controller: AppController }) {  const 
       {examSessionActive && examQuestions.length > 0 && (
         <View style={[StyleSheet.absoluteFill, { zIndex: 9999, backgroundColor: '#ffffff' }]}>
           <ExamSessionScreen
+            key={examSessionRunId}
             questions={examQuestions}
             onExitExam={handleExitExam}
             onCompleteExam={handleCompleteExam}
             onReinforceIncorrectConcepts={handleReinforceIncorrectConcepts}
+            onHintSaved={handleQuestionHintSaved}
           />
         </View>
       )}

@@ -1,6 +1,12 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { AlarmConfig, DayOfWeek, ALL_DAYS } from '../../utils/notifications';
+import React, { useEffect, useState } from 'react';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  AlarmConfig,
+  AlarmTime,
+  ALL_DAYS,
+  DayOfWeek,
+  normalizeAlarmConfig,
+} from '../../utils/notifications';
 import { styles } from './settingsStyles';
 
 export interface AlarmConfigSectionProps {
@@ -8,87 +14,78 @@ export interface AlarmConfigSectionProps {
   onChangeAlarmConfig?: (config: AlarmConfig) => void;
 }
 
-interface AlarmTimeSlotRowProps {
-  icon: string;
-  title: string;
-  subText: string;
-  enabled: boolean;
-  hour: number;
-  minHour: number;
-  maxHour: number;
-  periodLabel: string;
-  onToggle: () => void;
-  onChangeHour: (h: number) => void;
+interface AlarmTimeInputProps {
+  value: AlarmTime;
+  disabled: boolean;
+  onCommit: (time: AlarmTime) => boolean;
 }
 
-const AlarmTimeSlotRow: React.FC<AlarmTimeSlotRowProps> = ({
-  icon,
-  title,
-  subText,
-  enabled,
-  hour,
-  minHour,
-  maxHour,
-  periodLabel,
-  onToggle,
-  onChangeHour,
-}) => {
-  const displayHourText = hour > 12 ? `${periodLabel} ${hour - 12}시` : `${periodLabel} ${hour}시`;
-  const timeFormatted = `${String(hour).padStart(2, '0')}:00`;
+const MAX_ALARM_TIMES = 8;
+
+function formatTime(time: AlarmTime): string {
+  return `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`;
+}
+
+function parseTime(text: string): AlarmTime | null {
+  const trimmed = text.trim();
+  let hour: number;
+  let minute: number;
+
+  if (trimmed.includes(':')) {
+    const [hourPart, minutePart] = trimmed.split(':');
+    hour = Number.parseInt(hourPart, 10);
+    minute = Number.parseInt(minutePart, 10);
+  } else {
+    const digits = trimmed.replace(/\D/g, '');
+    if (!digits) return null;
+    if (digits.length <= 2) {
+      hour = Number.parseInt(digits, 10);
+      minute = 0;
+    } else if (digits.length === 3) {
+      hour = Number.parseInt(digits.slice(0, 1), 10);
+      minute = Number.parseInt(digits.slice(1), 10);
+    } else {
+      hour = Number.parseInt(digits.slice(0, 2), 10);
+      minute = Number.parseInt(digits.slice(2, 4), 10);
+    }
+  }
+
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  return {
+    hour: Math.min(23, Math.max(0, hour)),
+    minute: Math.min(59, Math.max(0, minute)),
+  };
+}
+
+const AlarmTimeInput: React.FC<AlarmTimeInputProps> = ({ value, disabled, onCommit }) => {
+  const [draft, setDraft] = useState(formatTime(value));
+
+  useEffect(() => {
+    setDraft(formatTime(value));
+  }, [value.hour, value.minute]);
+
+  function commit() {
+    const parsed = parseTime(draft);
+    if (!parsed || !onCommit(parsed)) {
+      setDraft(formatTime(value));
+      return;
+    }
+    setDraft(formatTime(parsed));
+  }
 
   return (
-    <View style={[styles.alarmItemBlock, !enabled && styles.alarmItemBlockDisabled]}>
-      <View style={styles.alarmItemTopRow}>
-        <View style={styles.alarmItemLeft}>
-          <Text style={styles.alarmPeriodMarker}>{icon}</Text>
-          <View>
-            <Text style={[styles.alarmItemTitle, !enabled && styles.disabledText]}>{title}</Text>
-            <Text style={styles.alarmItemSubText}>{subText}</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.alarmToggleBtn, enabled ? styles.alarmToggleOn : styles.alarmToggleOff]}
-          onPress={onToggle}
-          activeOpacity={0.8}
-        >
-          <Text style={enabled ? styles.alarmToggleTextOn : styles.alarmToggleTextOff}>
-            {enabled ? '활성화' : '끔'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.alarmControlRow, !enabled && styles.alarmControlRowDisabled]}>
-        <TouchableOpacity
-          style={[styles.stepperArrowBtn, (!enabled || hour <= minHour) && styles.stepperArrowBtnDisabled]}
-          onPress={() => {
-            if (hour > minHour) onChangeHour(hour - 1);
-          }}
-          disabled={!enabled || hour <= minHour}
-        >
-          <Text style={[styles.stepperArrowText, (!enabled || hour <= minHour) && styles.stepperArrowTextDisabled]}>
-            ◀
-          </Text>
-        </TouchableOpacity>
-
-        <View style={styles.timeDisplayCenter}>
-          <Text style={[styles.timeDisplayText, !enabled && styles.disabledText]}>{timeFormatted}</Text>
-          <Text style={[styles.timeDisplaySub, !enabled && styles.disabledText]}>{displayHourText}</Text>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.stepperArrowBtn, (!enabled || hour >= maxHour) && styles.stepperArrowBtnDisabled]}
-          onPress={() => {
-            if (hour < maxHour) onChangeHour(hour + 1);
-          }}
-          disabled={!enabled || hour >= maxHour}
-        >
-          <Text style={[styles.stepperArrowText, (!enabled || hour >= maxHour) && styles.stepperArrowTextDisabled]}>
-            ▶
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <TextInput
+      value={draft}
+      onChangeText={(text) => setDraft(text.replace(/[^\d:]/g, '').slice(0, 5))}
+      onBlur={commit}
+      onSubmitEditing={commit}
+      editable={!disabled}
+      keyboardType="numbers-and-punctuation"
+      maxLength={5}
+      selectTextOnFocus
+      style={[styles.alarmTimeInput, disabled && styles.timeInputDisabled]}
+      accessibilityLabel={`알람 시간 ${formatTime(value)}`}
+    />
   );
 };
 
@@ -96,105 +93,184 @@ export const AlarmConfigSection: React.FC<AlarmConfigSectionProps> = ({
   alarmConfig,
   onChangeAlarmConfig,
 }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [duplicateError, setDuplicateError] = useState('');
+  const currentConfig = normalizeAlarmConfig(alarmConfig);
+
   function updateAlarm(patch: Partial<AlarmConfig>) {
-    if (onChangeAlarmConfig) {
-      onChangeAlarmConfig({ ...alarmConfig, ...patch });
-    }
+    onChangeAlarmConfig?.(normalizeAlarmConfig({ ...currentConfig, ...patch }));
   }
 
-  const selectedDays: DayOfWeek[] =
-    alarmConfig.selectedDays && alarmConfig.selectedDays.length > 0
-      ? alarmConfig.selectedDays
-      : alarmConfig.weekendEnabled
-      ? ALL_DAYS
-      : ['월', '화', '수', '목', '금'];
+  const selectedDays: DayOfWeek[] = Array.isArray(currentConfig.selectedDays)
+    ? currentConfig.selectedDays
+    : currentConfig.weekendEnabled === false
+    ? ['월', '화', '수', '목', '금']
+    : ALL_DAYS;
 
   function toggleDay(day: DayOfWeek) {
-    const isSelected = selectedDays.includes(day);
-    const nextDays = isSelected
-      ? selectedDays.filter((d) => d !== day)
+    const nextDays = selectedDays.includes(day)
+      ? selectedDays.filter((selectedDay) => selectedDay !== day)
       : [...selectedDays, day];
-
-    // 요일 순서대로 정렬 (월~일)
     nextDays.sort((a, b) => ALL_DAYS.indexOf(a) - ALL_DAYS.indexOf(b));
-
     updateAlarm({
+      enabled: nextDays.length > 0 && currentConfig.times.length > 0 ? currentConfig.enabled : false,
       selectedDays: nextDays,
       weekendEnabled: nextDays.includes('토') || nextDays.includes('일'),
     });
   }
 
-  const getBadgeText = () => {
-    if (selectedDays.length === 0) return '알람 꺼짐';
-    if (selectedDays.length === 7) return '매일(월~일)';
-    const isStandardWeekday =
-      selectedDays.length === 5 &&
-      ['월', '화', '수', '목', '금'].every((d) => selectedDays.includes(d as DayOfWeek));
-    if (isStandardWeekday) return '평일(월~금)';
-    return `${selectedDays.join('·')} 선택됨`;
-  };
+  function changeTime(index: number, nextTime: AlarmTime): boolean {
+    const isDuplicate = currentConfig.times.some(
+      (time, timeIndex) =>
+        timeIndex !== index && time.hour === nextTime.hour && time.minute === nextTime.minute
+    );
+    if (isDuplicate) {
+      setDuplicateError('이미 추가된 시간입니다.');
+      return false;
+    }
+    setDuplicateError('');
+    updateAlarm({
+      times: currentConfig.times.map((time, timeIndex) => (timeIndex === index ? nextTime : time)),
+    });
+    return true;
+  }
+
+  function addTime() {
+    if (currentConfig.times.length >= MAX_ALARM_TIMES) return;
+    const now = new Date();
+    let minuteOfDay = (Math.ceil((now.getHours() * 60 + now.getMinutes()) / 5) * 5) % (24 * 60);
+    const used = new Set(currentConfig.times.map((time) => time.hour * 60 + time.minute));
+    while (used.has(minuteOfDay)) minuteOfDay = (minuteOfDay + 5) % (24 * 60);
+
+    setDuplicateError('');
+    updateAlarm({
+      enabled: selectedDays.length > 0,
+      times: [
+        ...currentConfig.times,
+        { hour: Math.floor(minuteOfDay / 60), minute: minuteOfDay % 60 },
+      ],
+    });
+  }
+
+  function removeTime(index: number) {
+    const nextTimes = currentConfig.times.filter((_, timeIndex) => timeIndex !== index);
+    setDuplicateError('');
+    updateAlarm({ times: nextTimes, enabled: nextTimes.length > 0 ? currentConfig.enabled : false });
+  }
+
+  function toggleEnabled() {
+    if (!currentConfig.enabled) {
+      updateAlarm({
+        enabled: true,
+        times: currentConfig.times.length > 0 ? currentConfig.times : [{ hour: 8, minute: 0 }],
+        selectedDays: selectedDays.length > 0 ? selectedDays : [...ALL_DAYS],
+      });
+      return;
+    }
+    updateAlarm({ enabled: false });
+  }
+
+  const daySummary =
+    selectedDays.length === 7
+      ? '매일'
+      : selectedDays.length === 5 &&
+        ['월', '화', '수', '목', '금'].every((day) => selectedDays.includes(day as DayOfWeek))
+      ? '평일'
+      : selectedDays.length > 0
+      ? selectedDays.join('·')
+      : '요일 없음';
+  const firstTime = currentConfig.times[0];
+  const timeSummary = firstTime
+    ? `${formatTime(firstTime)}${currentConfig.times.length > 1 ? ` 외 ${currentConfig.times.length - 1}개` : ''}`
+    : '시간 없음';
 
   return (
-    <View style={styles.card}>
-      {/* 1. 카드 헤더 */}
-      <View style={styles.alarmCardHeader}>
-        <View style={{ flex: 1, paddingRight: 8 }}>
-          <Text style={styles.cardSectionTitle}>정기 학습 알람</Text>
-          <Text style={styles.alarmSubGuide}>
-            원하는 요일을 탭하여 자유롭게 알람 요일을 설정하세요.
+    <View style={styles.alarmSection}>
+      <TouchableOpacity
+        style={styles.alarmSummaryButton}
+        onPress={() => setExpanded((current) => !current)}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+      >
+        <View style={styles.alarmSummaryCopy}>
+          <Text style={styles.alarmSummaryTitle}>알람 설정</Text>
+          <Text style={styles.alarmSummaryText}>
+            {currentConfig.enabled ? `${daySummary} · ${timeSummary}` : '꺼짐'}
           </Text>
         </View>
-        <View style={styles.alarmActiveBadge}>
-          <Text style={styles.alarmActiveBadgeText}>{getBadgeText()}</Text>
-        </View>
-      </View>
+        <Text style={styles.alarmSummaryChevron}>{expanded ? '⌃' : '⌄'}</Text>
+      </TouchableOpacity>
 
-      {/* 2. 월~일 7개 요일 직접 선택 버튼 (깔끔한 한 줄 배치) */}
-      <View style={styles.dayChipsContainer}>
-        {ALL_DAYS.map((day) => {
-          const isSelected = selectedDays.includes(day);
-          return (
+      {expanded && (
+        <View style={styles.alarmExpandedBody}>
+          <View style={styles.alarmEnabledRow}>
+            <Text style={styles.alarmEnabledTitle}>사용 요일</Text>
             <TouchableOpacity
-              key={day}
-              style={[styles.dayChipBtn, isSelected ? styles.dayChipBtnActive : styles.dayChipBtnInactive]}
-              onPress={() => toggleDay(day)}
-              activeOpacity={0.7}
+              style={[styles.alarmToggleBtn, currentConfig.enabled ? styles.alarmToggleOn : styles.alarmToggleOff]}
+              onPress={toggleEnabled}
+              activeOpacity={0.8}
             >
-              <Text style={isSelected ? styles.dayChipBtnTextActive : styles.dayChipBtnTextInactive}>
-                {day}
+              <Text style={currentConfig.enabled ? styles.alarmToggleTextOn : styles.alarmToggleTextOff}>
+                {currentConfig.enabled ? '켜짐' : '꺼짐'}
               </Text>
             </TouchableOpacity>
-          );
-        })}
-      </View>
+          </View>
 
-      {/* 3. 오전 알람 */}
-      <AlarmTimeSlotRow
-        icon="AM"
-        title="오전 알람"
-        subText="선택 가능: 08:00 ~ 11:00"
-        enabled={alarmConfig.morningEnabled}
-        hour={alarmConfig.morningHour}
-        minHour={8}
-        maxHour={11}
-        periodLabel="오전"
-        onToggle={() => updateAlarm({ morningEnabled: !alarmConfig.morningEnabled })}
-        onChangeHour={(h) => updateAlarm({ morningHour: h })}
-      />
+          <View style={[styles.compactDayRow, !currentConfig.enabled && styles.alarmControlsDisabled]}>
+            {ALL_DAYS.map((day) => {
+              const isSelected = selectedDays.includes(day);
+              return (
+                <TouchableOpacity
+                  key={day}
+                  style={[styles.dayChipBtn, isSelected ? styles.dayChipBtnActive : styles.dayChipBtnInactive]}
+                  onPress={() => toggleDay(day)}
+                  activeOpacity={0.7}
+                  disabled={!currentConfig.enabled}
+                  hitSlop={{ top: 5, bottom: 5, left: 4, right: 4 }}
+                >
+                  <Text style={isSelected ? styles.dayChipBtnTextActive : styles.dayChipBtnTextInactive}>{day}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-      {/* 4. 저녁 알람 */}
-      <AlarmTimeSlotRow
-        icon="PM"
-        title="저녁 알람"
-        subText="선택 가능: 19:00 ~ 21:00"
-        enabled={alarmConfig.eveningEnabled}
-        hour={alarmConfig.eveningHour}
-        minHour={19}
-        maxHour={21}
-        periodLabel="저녁"
-        onToggle={() => updateAlarm({ eveningEnabled: !alarmConfig.eveningEnabled })}
-        onChangeHour={(h) => updateAlarm({ eveningHour: h })}
-      />
+          <View style={styles.alarmTimesHeader}>
+            <Text style={styles.alarmTimesTitle}>알람 시간</Text>
+            <Text style={styles.alarmTimesGuide}>24시간 기준 · {currentConfig.times.length}/{MAX_ALARM_TIMES}</Text>
+          </View>
+
+          <View style={styles.alarmTimeChipGrid}>
+            {currentConfig.times.map((time, index) => (
+              <View key={`${time.hour}-${time.minute}-${index}`} style={styles.alarmMiniCard}>
+                <View style={styles.alarmMiniCardHeader}>
+                  <Text style={styles.alarmMiniCardLabel}>ALARM {index + 1}</Text>
+                  <TouchableOpacity
+                    style={styles.removeAlarmTimeButton}
+                    onPress={() => removeTime(index)}
+                    activeOpacity={0.7}
+                    accessibilityLabel={`${formatTime(time)} 알람 삭제`}
+                  >
+                    <Text style={styles.removeAlarmTimeText}>×</Text>
+                  </TouchableOpacity>
+                </View>
+                  <AlarmTimeInput
+                    value={time}
+                    disabled={!currentConfig.enabled}
+                    onCommit={(nextTime) => changeTime(index, nextTime)}
+                  />
+              </View>
+            ))}
+            {currentConfig.times.length < MAX_ALARM_TIMES && (
+              <TouchableOpacity style={styles.addAlarmMiniCard} onPress={addTime} activeOpacity={0.75}>
+                <Text style={styles.addAlarmMiniIcon}>＋</Text>
+                <Text style={styles.addAlarmTimeText}>알람 추가</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {!!duplicateError && <Text style={styles.alarmTimeError}>{duplicateError}</Text>}
+        </View>
+      )}
     </View>
   );
 };

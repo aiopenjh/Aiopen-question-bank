@@ -44,6 +44,7 @@ function multipleChoice(overrides = {}) {
     options: ['3', '4', '5', '6'].map(text => ({ text })),
     correctOptionNumber: 2,
     explanation: '정답은 4입니다.',
+    deepReasoningHint: '두 수를 직접 더해 보세요.',
     ...overrides,
   };
 }
@@ -64,6 +65,7 @@ test('cloze is allowed at every difficulty and validates consecutive 1-3 markers
       { correctAnswers: ['1948'] },
     ],
     explanation: '서울과 1948년을 확인합니다.',
+    deepReasoningHint: '수도와 정부 수립 연도를 각각 떠올려 보세요.',
   }] }, 1, false, undefined, false, false);
   assert.equal(question.questionType, 'cloze');
   assert.deepEqual(Array.from(question.clozeBlanks, blank => Array.from(blank.correctAnswers)), [

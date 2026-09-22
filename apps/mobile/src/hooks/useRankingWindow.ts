@@ -33,7 +33,7 @@ import {
   SyncTodayResult,
 } from '../domain/ranking_client';
 
-const LEADERBOARD_LIMIT = 50;
+const LEADERBOARD_LIMIT = 20;
 
 function toMessage(err: unknown): string {
   return err instanceof RankingApiRequestError ? err.message : '알 수 없는 오류가 발생했습니다.';
@@ -160,6 +160,11 @@ export function useRankingWindow() {
       await clearPendingSyncRequest();
       setPendingSync(null);
       setLastSync(result);
+      // 마지막 연동 시각을 프로필에 남겨, 창을 새로 열었을 때도 "아직 연동 안 함"과
+      // 구분해 보여줄 수 있게 한다(계획서 §3.2, 수동 연동 방식 안내 보완).
+      const syncedProfile: RankingProfile = { ...profile, lastSyncedDate: localDate, lastSyncedSolvedCount: solvedCount };
+      await saveRankingProfile(syncedProfile);
+      setProfile(syncedProfile);
       await refreshLeaderboard();
       return { ok: true as const, result };
     } catch (err) {

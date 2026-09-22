@@ -6,13 +6,14 @@ import { StateIllustration } from '../../components/common/StateIllustration';
 import { CurrentReferenceNotice } from '../../components/common/CurrentReferenceNotice';
 import { colors } from '../../styles/designTokens';
 import type { ExamAnswerResult } from './ExamSessionScreen';
+import { MathText } from '../../components/common/MathText';
 
 export interface ExamResultViewProps {
   questions: QuestionRevision[];
   userAnswers: Record<number, string>;
   results?: ExamAnswerResult[]; // short_answer/essay 채점 결과 포함 (없으면 multiple_choice 기준으로만 표시)
   onExitExam: () => void;
-  onReinforceIncorrectConcepts?: () => Promise<void> | void;
+  onReinforceIncorrectConcepts?: (questions: QuestionRevision[]) => Promise<void> | void;
 }
 
 export const ExamResultView: React.FC<ExamResultViewProps> = ({
@@ -30,6 +31,12 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
     return userAnswers[idx] === item.answerOptionId;
   }).length;
   const incorrectCount = questions.length - correctCount;
+  const incorrectQuestions = questions.filter((item, idx) => {
+    const result = results?.[idx];
+    return item.questionType === 'multiple_choice'
+      ? userAnswers[idx] !== item.answerOptionId
+      : !result || result.gradingStatus !== 'graded' || (result.gradingScore || 0) < 100;
+  });
   const scorePercent = Math.round((correctCount / questions.length) * 100);
 
   return (
@@ -90,7 +97,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
             </View>
 
             {/* 지문 */}
-            <Text style={styles.reviewStem}>{item.stem}</Text>
+            <MathText style={styles.reviewStem} text={item.stem} />
 
             {isCloze ? (
               <View style={{ gap: 8 }}>
@@ -159,9 +166,10 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                       >
                         <View style={styles.reviewOptionTop}>
                           <Text style={styles.reviewOptionIndex}>{oIdx + 1}.</Text>
-                          <Text style={[styles.reviewOptionText, isTheAnswer && styles.reviewOptionTextCorrect]}>
-                            {opt.text}
-                          </Text>
+                          <MathText
+                            style={[styles.reviewOptionText, isTheAnswer && styles.reviewOptionTextCorrect]}
+                            text={opt.text}
+                          />
                           {isTheAnswer && (
                             <Text style={styles.correctTag}>[공식 정답]</Text>
                           )}
@@ -212,12 +220,13 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                   {item.modelAnswer}
                 </Text>
               ) : null}
-              <Text style={styles.explanationText}>
-                {item.explanation
+              <MathText
+                style={styles.explanationText}
+                text={item.explanation
                   .replace(/\[출제\s*근거\s*팩트\s*:[^\]]*\]/gi, '')
                   .replace(/출제\s*근거\s*팩트\s*:[^\n]*/gi, '')
                   .trim()}
-              </Text>
+              />
               <CurrentReferenceNotice reference={item.currentReference} />
             </View>
           </View>
@@ -227,7 +236,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
       {incorrectCount > 0 && onReinforceIncorrectConcepts ? (
         <TouchableOpacity
           style={styles.reinforceConceptBtn}
-          onPress={onReinforceIncorrectConcepts}
+          onPress={() => onReinforceIncorrectConcepts(incorrectQuestions)}
           activeOpacity={0.82}
         >
           <Text style={styles.reinforceConceptBtnTitle}>틀린 {incorrectCount}문항 개념 보강</Text>

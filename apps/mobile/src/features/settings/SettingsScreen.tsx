@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, View, Text, TouchableOpacity, RefreshControl, Platform } from 'react-native';
+import { Image, ScrollView, View, Text, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { AlarmConfig, DEFAULT_ALARM_CONFIG } from '../../utils/notifications';
 import { styles } from './settingsStyles';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
@@ -10,12 +10,14 @@ import { DailyGoalSection } from './DailyGoalSection';
 import { DataBackupSection } from './DataBackupSection';
 import { AppVersionSection } from './AppVersionSection';
 import { FeedbackCard } from '../study/FeedbackCard';
+import { DAILY_GOAL_DEFAULT } from '../../domain/daily_goal';
 
 interface SettingsGroupProps {
   index: string;
   title: string;
   description: string;
   children: React.ReactNode;
+  collapsible?: boolean;
 }
 
 const SettingsGroup: React.FC<SettingsGroupProps> = ({
@@ -23,18 +25,39 @@ const SettingsGroup: React.FC<SettingsGroupProps> = ({
   title,
   description,
   children,
-}) => (
-  <View style={styles.settingsGroup}>
-    <View style={styles.groupHeader}>
+  collapsible = false,
+}) => {
+  const [expanded, setExpanded] = React.useState(!collapsible);
+  const headerContents = (
+    <>
       <Text style={styles.groupIndex}>{index}</Text>
       <View style={styles.groupHeaderCopy}>
         <Text style={styles.groupTitle}>{title}</Text>
         <Text style={styles.groupDescription}>{description}</Text>
       </View>
+      {collapsible && <Text style={styles.groupChevron}>{expanded ? '⌃' : '⌄'}</Text>}
+    </>
+  );
+
+  return (
+    <View style={styles.settingsGroup}>
+      {collapsible ? (
+        <TouchableOpacity
+          style={[styles.groupHeader, !expanded && styles.groupHeaderCollapsed]}
+          onPress={() => setExpanded((current) => !current)}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+        >
+          {headerContents}
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.groupHeader}>{headerContents}</View>
+      )}
+      {expanded && children}
     </View>
-    {children}
-  </View>
-);
+  );
+};
 
 interface SettingsScreenProps {
   apiKey: string;
@@ -66,7 +89,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onDeleteApiKey,
   alarmConfig = DEFAULT_ALARM_CONFIG,
   onChangeAlarmConfig,
-  targetQuestionCount = 3,
+  targetQuestionCount = DAILY_GOAL_DEFAULT,
   onChangeTargetQuestionCount,
   onExportBackup,
   onOpenRestoreModal,
@@ -113,12 +136,46 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       }
     >
       <PullRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} />
-      <View style={styles.pageIntro}>
-        <Text style={styles.pageEyebrow}>MY STUDY SETTINGS</Text>
-        <Text style={styles.pageTitle}>나에게 맞는 학습 환경</Text>
-        <Text style={styles.pageDescription}>
-          학습 루틴부터 데이터 보관까지, 필요한 설정을 한곳에서 관리하세요.
-        </Text>
+      <View style={styles.settingsPanel}>
+        <View style={styles.settingsWatermarkStage} pointerEvents="none">
+          <Image
+            source={require('../../../assets/android-icon-foreground-v2.png')}
+            resizeMode="contain"
+            style={styles.settingsWatermarkImage}
+            accessible={false}
+          />
+          <View style={styles.settingsWatermarkLetters}>
+            {Array.from('Celueste').map((letter, index) => (
+              <Text
+                key={`${letter}-${index}`}
+                style={[
+                  styles.settingsWatermarkLetter,
+                  { transform: [{ translateY: index * 32 }] },
+                ]}
+              >
+                {letter}
+              </Text>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.settingsPanelContent}>
+        <View style={styles.pageIntro}>
+        <View style={styles.pageIntroRow}>
+          <View style={styles.pageIntroCopy}>
+            <Text style={styles.pageEyebrow}>MY STUDY SETTINGS</Text>
+            <Text style={styles.pageTitle}>나에게 맞는 학습 환경</Text>
+            <Text style={styles.pageDescription}>
+              학습 루틴부터 데이터 보관까지, 필요한 설정을 한곳에서 관리하세요.
+            </Text>
+          </View>
+          {onOpenUserManual && (
+            <TouchableOpacity style={styles.manualHeaderLink} onPress={onOpenUserManual} activeOpacity={0.75}>
+              <Text style={styles.manualHeaderLinkText}>사용설명서</Text>
+              <Text style={styles.manualHeaderLinkArrow}>›</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <SettingsGroup
@@ -142,6 +199,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         index="02"
         title="AI 연결"
         description="문제 생성에 사용할 AI 연결 상태를 관리합니다."
+        collapsible
       >
         <ApiKeySection
           apiKey={apiKey}
@@ -155,6 +213,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         index="03"
         title="데이터 관리"
         description="학습 기록을 백업하거나 기존 데이터를 복원합니다."
+        collapsible
       >
         <DataBackupSection
           onExportBackup={onExportBackup}
@@ -163,39 +222,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         />
       </SettingsGroup>
 
-      <SettingsGroup
-        index="04"
-        title="앱 정보"
-        description="사용 가이드와 현재 앱 버전을 확인합니다."
-      >
-        {onOpenUserManual && (
-          <TouchableOpacity style={styles.manualBanner} onPress={onOpenUserManual} activeOpacity={0.8}>
-            <View style={styles.manualBannerRow}>
-              <View style={styles.manualBadge}>
-                <Text style={styles.manualBadgeText}>GUIDE</Text>
-              </View>
-              <View style={styles.manualBannerCopy}>
-                <Text style={styles.manualBannerTitle}>앱 공식 이용 가이드 & 사용설명서</Text>
-                <Text style={styles.manualBannerSub}>문제 출제, 목표·알림, 자료함, 백업과 홈 화면 추가 안내</Text>
-              </View>
-              <View style={styles.manualBannerButton}>
-                <Text style={styles.manualBannerButtonText}>열기 ›</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-        {onCheckForUpdate && onApplyUpdate && (
-          <AppVersionSection
-            hasUpdate={hasUpdate}
-            isChecking={isCheckingUpdate}
-            latestVersion={latestVersion}
-            onCheckForUpdate={onCheckForUpdate}
-            onApplyUpdate={onApplyUpdate}
-          />
-        )}
-      </SettingsGroup>
-
-      <FeedbackCard compact onOpen={onOpenFeedback} />
+        <View style={styles.feedbackSection}>
+          <FeedbackCard compact onOpen={onOpenFeedback} />
+          {onCheckForUpdate && onApplyUpdate && (
+            <AppVersionSection
+              hasUpdate={hasUpdate}
+              isChecking={isCheckingUpdate}
+              latestVersion={latestVersion}
+              onCheckForUpdate={onCheckForUpdate}
+              onApplyUpdate={onApplyUpdate}
+            />
+          )}
+        </View>
+        </View>
+      </View>
     </ScrollView>
   );
 };

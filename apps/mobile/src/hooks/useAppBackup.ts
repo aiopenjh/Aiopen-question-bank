@@ -26,8 +26,27 @@ function isAlarmConfig(value: unknown): value is AlarmConfig {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AlarmConfig>;
   const validDays = new Set(ALL_DAYS);
-
-  return (
+  const hasMultipleTimes =
+    typeof candidate.enabled === 'boolean' &&
+    Array.isArray(candidate.times) &&
+    candidate.times.every(
+      (time) =>
+        Number.isInteger(time?.hour) &&
+        Number.isInteger(time?.minute) &&
+        time.hour >= 0 &&
+        time.hour <= 23 &&
+        time.minute >= 0 &&
+        time.minute <= 59
+    );
+  const hasUnifiedTime =
+    typeof candidate.enabled === 'boolean' &&
+    Number.isInteger(candidate.hour) &&
+    Number.isInteger(candidate.minute) &&
+    (candidate.hour as number) >= 0 &&
+    (candidate.hour as number) <= 23 &&
+    (candidate.minute as number) >= 0 &&
+    (candidate.minute as number) <= 59;
+  const hasLegacyTime =
     typeof candidate.morningEnabled === 'boolean' &&
     typeof candidate.eveningEnabled === 'boolean' &&
     Number.isInteger(candidate.morningHour) &&
@@ -35,7 +54,10 @@ function isAlarmConfig(value: unknown): value is AlarmConfig {
     (candidate.morningHour as number) >= 0 &&
     (candidate.morningHour as number) <= 23 &&
     (candidate.eveningHour as number) >= 0 &&
-    (candidate.eveningHour as number) <= 23 &&
+    (candidate.eveningHour as number) <= 23;
+
+  return (
+    (hasMultipleTimes || hasUnifiedTime || hasLegacyTime) &&
     Array.isArray(candidate.selectedDays) &&
     candidate.selectedDays.every((day) => validDays.has(day))
   );

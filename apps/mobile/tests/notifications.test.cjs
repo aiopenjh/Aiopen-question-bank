@@ -98,7 +98,7 @@ function fixture() {
   };
 }
 
-test('selected weekdays and enabled time slots are persisted and scheduled', async () => {
+test('legacy weekday slots are normalized, persisted and scheduled as multiple alarm times', async () => {
   const f = fixture();
   const config = {
     morningEnabled: true,
@@ -110,7 +110,16 @@ test('selected weekdays and enabled time slots are persisted and scheduled', asy
 
   await f.api.saveAlarmConfig(config);
 
-  assert.deepEqual(JSON.parse(f.store.get(ALARM_CONFIG_KEY)), config);
+  assert.deepEqual(JSON.parse(f.store.get(ALARM_CONFIG_KEY)), {
+    schemaVersion: 2,
+    enabled: true,
+    times: [
+      { hour: 9, minute: 0 },
+      { hour: 21, minute: 0 },
+    ],
+    selectedDays: ['월', '수', '금'],
+    weekendEnabled: false,
+  });
   assert.equal(f.schedules.size, 6);
   assert.ok(!f.schedules.has('unrelated'), 'the native schedule is rebuilt from saved alarm settings');
   assert.ok(f.events.indexOf('channel') < f.events.indexOf('cancel-all'));
@@ -127,7 +136,7 @@ test('selected weekdays and enabled time slots are persisted and scheduled', asy
   assert.ok(scheduled.every(item => item.trigger.type === 'weekly' && item.trigger.repeats));
   assert.deepEqual(
     scheduled.map(item => item.content.data.timeSlot),
-    ['morning', 'evening', 'morning', 'evening', 'morning', 'evening']
+    ['daily', 'daily', 'daily', 'daily', 'daily', 'daily']
   );
 });
 
@@ -161,10 +170,9 @@ test('disabled alarms clear the queue while permission denial leaves it unchange
 test('in-app alarm respects the saved weekday and suppresses a repeated slot', async () => {
   const f = fixture();
   f.store.set(ALARM_CONFIG_KEY, JSON.stringify({
-    morningEnabled: true,
-    morningHour: 8,
-    eveningEnabled: false,
-    eveningHour: 20,
+    schemaVersion: 2,
+    enabled: true,
+    times: [{ hour: 8, minute: 10 }],
     selectedDays: ['월'],
   }));
   const prompts = [];
@@ -172,7 +180,7 @@ test('in-app alarm respects the saved weekday and suppresses a repeated slot', a
   await f.api.checkInAppScheduledAlarm(label => prompts.push(label));
   await f.api.checkInAppScheduledAlarm(label => prompts.push(label));
 
-  assert.deepEqual(prompts, ['오전 8시']);
+  assert.deepEqual(prompts, ['08:10']);
 });
 
 test('cold-start and warm notification responses open study once per identifier', async () => {

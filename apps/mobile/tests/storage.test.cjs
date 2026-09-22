@@ -179,6 +179,29 @@ test('question replacement keeps new and other-unit questions and preserves old 
   assert.equal((await session.db.getQuestions()).length, 2);
 });
 
+test('updateQuestionHint permanently saves an on-demand AI hint and only touches the target question', async () => {
+  const session = setup();
+  const target = { ...question, topicId: 't', unitId: 'u' };
+  const other = { ...question, id: 'q2', questionId: 'q2', stem: '대한민국의 수도는?', topicId: 't', unitId: 'u' };
+  await session.db.addQuestions([target, other]);
+
+  await session.db.updateQuestionHint('q1', '분자와 분모를 각각 확인해 보세요.');
+  const saved = await session.db.getQuestions();
+  assert.equal(saved.find(q => q.id === 'q1').deepReasoningHint, '분자와 분모를 각각 확인해 보세요.');
+  assert.equal(saved.find(q => q.id === 'q2').deepReasoningHint, undefined);
+
+  // 이후 세션(재시작)에서도 영구 저장되어 재사용된다.
+  const restarted = setup(session.data);
+  assert.equal(
+    (await restarted.db.getQuestions()).find(q => q.id === 'q1').deepReasoningHint,
+    '분자와 분모를 각각 확인해 보세요.'
+  );
+
+  // 존재하지 않는 문제 id는 조용히 무시한다.
+  await session.db.updateQuestionHint('does-not-exist', '무시되어야 함');
+  assert.ok(!(await session.db.getQuestions()).some(q => q.deepReasoningHint === '무시되어야 함'));
+});
+
 test('topic-source links select only the explicitly connected material', async () => {
   const session = setup();
   await session.db.initializeDatabase();

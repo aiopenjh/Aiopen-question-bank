@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { colors, radius, spacing } from '../../styles/designTokens';
+import { RankingLeaderboardCard } from '../../features/study/RankingLeaderboardCard';
 
 export interface HeaderProps {
   currentPage: number;
@@ -21,6 +22,12 @@ export const Header: React.FC<HeaderProps> = ({
     <View style={styles.headerContainer}>
       {/* 1. 브랜드 헤더 (터치 시 첫 페이지인 메인 홈으로 자연스럽게 복귀) */}
       <View style={styles.brandSection}>
+        {currentPage === 0 && (
+          <View style={styles.rankingTickerSlot}>
+            <RankingLeaderboardCard />
+          </View>
+        )}
+
         <TouchableOpacity
           style={styles.brandHome}
           onPress={() => onSelectPage(0)}
@@ -122,6 +129,13 @@ const styles = StyleSheet.create({
   brandHome: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  rankingTickerSlot: {
+    position: 'absolute',
+    left: spacing.md,
+    top: 7,
+    width: '30%',
+    maxWidth: 136,
   },
   brandTitleRow: {
     flexDirection: 'row',

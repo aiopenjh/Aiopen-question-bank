@@ -1,22 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
+  Animated,
+  Image,
   StyleSheet,
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
-  TextInput,
   RefreshControl,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { RoutineRevision } from '../../contracts/types';
 import { DailyInspirationCard } from './DailyInspirationCard';
-import { RankingLeaderboardCard } from './RankingLeaderboardCard';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
 import { StateIllustration } from '../../components/common/StateIllustration';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { colors, radius, shadows, spacing } from '../../styles/designTokens';
+import { DAILY_GOAL_DEFAULT } from '../../domain/daily_goal';
 
 export interface StudyMapScreenProps {
   // 통합 학습 현황 & 복습 연동
@@ -24,7 +25,6 @@ export interface StudyMapScreenProps {
   todayAttemptsCount?: number;
   dueQuestionsCount?: number;
   onStartExam?: () => void;
-  onStartMoreQuestions?: () => void;
   onStartDueReview?: () => void;
   onOpenCustomNotebook?: () => void;
 
@@ -35,16 +35,7 @@ export interface StudyMapScreenProps {
   // 과목 추가 모달 연동 (난이도 조절 및 커리큘럼 설계)
   onOpenTopicModal?: (initialName?: string) => void;
 
-  // 자유 주제 즉시 AI 출제 연동 (하위 호환)
-  onQuickPromptGenerate?: (prompt: string) => Promise<void> | void;
-  isAiGenerating?: boolean;
-
-  // AI 응원 문구 연동
-  apiKey?: string;
   topicName?: string;
-
-  // 화면 전환 연동
-  onOpenSettings?: () => void;
 }
 
 export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
@@ -52,39 +43,53 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
   todayAttemptsCount = 0,
   dueQuestionsCount = 0,
   onStartExam,
-  onStartMoreQuestions,
   onStartDueReview,
   onOpenCustomNotebook,
   refreshing = false,
   onRefresh,
   onOpenTopicModal,
-  onQuickPromptGenerate,
-  isAiGenerating = false,
-  apiKey,
   topicName,
-  onOpenSettings,
 }) => {
-  const [customPrompt, setCustomPrompt] = useState<string>('');
+  const { width: viewportWidth } = useWindowDimensions();
+  const activeLedOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(activeLedOpacity, {
+          toValue: 0.28,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+        Animated.timing(activeLedOpacity, {
+          toValue: 1,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    pulse.start();
+    return () => pulse.stop();
+  }, [activeLedOpacity]);
 
   const { pullDistance, handleScroll, touchHandlers } = usePullToRefresh({
     refreshing,
     onRefresh,
   });
 
-  const targetCount = routine?.targetQuestionCount || 3;
+  const targetCount = routine?.targetQuestionCount || DAILY_GOAL_DEFAULT;
   const progressPercent = Math.min(100, Math.round((todayAttemptsCount / targetCount) * 100));
-
-  const handleAddTopic = () => {
-    const p = customPrompt.trim();
-    if (onOpenTopicModal) {
-      onOpenTopicModal(p);
-      setCustomPrompt('');
-    } else if (onQuickPromptGenerate && p) {
-      if (isAiGenerating) return;
-      setCustomPrompt('');
-      onQuickPromptGenerate(p);
-    }
-  };
+  const heroContentWidth = Math.max(
+    280,
+    Math.min(560, viewportWidth - spacing.lg * 2 - spacing.xl * 2),
+  );
+  const watermarkStageHeight = Math.max(230, Math.min(328, heroContentWidth * 0.76));
+  const watermarkImageSize = watermarkStageHeight * 1.18;
+  const watermarkLetterSize = Math.max(48, Math.min(64, heroContentWidth * 0.148));
+  const watermarkLetterDrop = Math.max(30, Math.min(42, heroContentWidth * 0.097));
+  const watermarkLettersTop =
+    watermarkStageHeight / 2 - watermarkLetterSize / 2 - (7 * watermarkLetterDrop) / 2;
 
   return (
     <ScrollView
@@ -124,104 +129,101 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
               {topicName || '나만의 학습 루틴'}
             </Text>
             <View style={styles.heroStatusRow}>
-              <View style={styles.routineStatusBadge}>
-                <Text style={styles.routineStatusBadgeText}>
-                  {progressPercent >= 100
-                    ? '오늘 목표 완료'
-                    : todayAttemptsCount > 0
-                    ? '학습 진행 중'
-                    : '학습 준비 완료'}
-                </Text>
-              </View>
+              <Animated.View style={[styles.activeLed, { opacity: activeLedOpacity }]} />
+              <Text style={styles.activeCourseText}>진행 중인 과목</Text>
             </View>
           </View>
           <StateIllustration kind="home" width={116} style={styles.heroIllustration} />
         </View>
 
-        <View style={styles.metricRow}>
-          <Text style={[styles.progressPercent, progressPercent >= 100 && styles.progressPercentComplete]}>
-            {progressPercent}%
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-            <Text style={styles.metricCurrentNumber}>{todayAttemptsCount}</Text>
-            <Text style={styles.metricTargetNumber}> / {targetCount}문항</Text>
+        <View
+          style={[styles.heroWatermarkStage, { height: watermarkStageHeight }]}
+          pointerEvents="none"
+        >
+          <Image
+            source={require('../../../assets/android-icon-foreground-v2.png')}
+            resizeMode="contain"
+            style={[
+              styles.heroWatermarkImage,
+              { width: watermarkImageSize, height: watermarkImageSize },
+            ]}
+            accessible={false}
+          />
+          <View style={[styles.heroWatermarkLetters, { top: watermarkLettersTop }]}>
+            {Array.from('Celueste').map((letter, index) => (
+              <Text
+                key={`${letter}-${index}`}
+                style={[
+                  styles.heroWatermarkLetter,
+                  {
+                    fontSize: watermarkLetterSize,
+                    transform: [{ translateY: index * watermarkLetterDrop }],
+                  },
+                ]}
+              >
+                {letter}
+              </Text>
+            ))}
           </View>
         </View>
 
-        <View style={styles.progressBarBackground}>
-          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-        </View>
-
-        {onStartExam && (
-          <TouchableOpacity
-            style={styles.primaryActionButton}
-            onPress={onStartExam}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryActionText}>
-              {todayAttemptsCount > 0 ? '이어서 학습하기' : '오늘 학습 시작'}
-            </Text>
-            <Text style={styles.primaryActionArrow}>→</Text>
-          </TouchableOpacity>
-        )}
-
-        {progressPercent >= 100 && (onStartMoreQuestions || onStartExam) && (
-          <TouchableOpacity
-            style={styles.extraPracticeBtn}
-            onPress={onStartMoreQuestions || onStartExam}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.extraPracticeBtnText}>
-              같은 범위에서 문제 더 풀기
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <RankingLeaderboardCard />
-
-      {(onOpenTopicModal || onQuickPromptGenerate) && (
-        <View style={styles.quickPromptCard}>
-          <View style={styles.secondarySectionHeader}>
-            <Text style={styles.quickPromptLabel}>
-              새 과목 시작 <Text style={styles.secondarySectionHint}>(관심 분야를 새 학습 과정으로 만들어요)</Text>
-            </Text>
+        <View style={styles.heroProgressSection}>
+          <View style={styles.metricRow}>
+            <View style={styles.progressStatusGroup}>
+              <Text style={[styles.progressPercent, progressPercent >= 100 && styles.progressPercentComplete]}>
+                {progressPercent}%
+              </Text>
+              <Text style={styles.progressStatusText}>
+                {progressPercent >= 100 ? '오늘 목표 완료' : '오늘 학습 진행률'}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+              <Text style={styles.metricCurrentNumber}>{todayAttemptsCount}</Text>
+              <Text style={styles.metricTargetNumber}> / {targetCount}문항</Text>
+            </View>
           </View>
 
-          <DailyInspirationCard embedded />
-
-          <View style={styles.quickPromptInputRow}>
-            <TextInput
-              style={styles.quickPromptInput}
-              placeholder="공부할 과목을 입력하세요"
-              placeholderTextColor={colors.inkMuted}
-              value={customPrompt}
-              onChangeText={setCustomPrompt}
-              returnKeyType="done"
-              onSubmitEditing={handleAddTopic}
-              onKeyPress={(e: any) => {
-                if (e?.nativeEvent?.key === 'Enter' && !e?.nativeEvent?.shiftKey) {
-                  e?.preventDefault?.();
-                  handleAddTopic();
-                }
-              }}
-              blurOnSubmit={false}
+          <View style={styles.progressBarBackground}>
+            <View
+              style={[
+                styles.progressBarFill,
+                progressPercent >= 100 && styles.progressBarFillComplete,
+                { width: `${progressPercent}%` },
+              ]}
             />
+          </View>
+
+          <View style={styles.heroInspiration}>
+            <DailyInspirationCard />
+          </View>
+        </View>
+
+        <View style={styles.heroActionSection}>
+          {onStartExam && (
             <TouchableOpacity
-              style={[styles.quickPromptSubmitBtn, isAiGenerating && { opacity: 0.6 }]}
-              disabled={isAiGenerating}
-              onPress={handleAddTopic}
+              style={styles.primaryActionButton}
+              onPress={onStartExam}
               activeOpacity={0.85}
             >
-              {isAiGenerating ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <Text style={styles.quickPromptSubmitText}>추가</Text>
-              )}
+              <Text style={styles.primaryActionText}>
+                {todayAttemptsCount > 0 ? '이어서 학습하기' : '오늘 학습 시작'}
+              </Text>
+              <Text style={styles.primaryActionArrow}>→</Text>
             </TouchableOpacity>
-          </View>
+          )}
+
+          {onOpenTopicModal && (
+            <TouchableOpacity
+              style={styles.newStudyLink}
+              onPress={() => onOpenTopicModal('')}
+              activeOpacity={0.72}
+            >
+              <Text style={styles.newStudyLinkText}>＋ 새 주제로 학습하기</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      )}
+
+      </View>
 
       <View style={styles.quickActionRow}>
         <TouchableOpacity
@@ -265,18 +267,21 @@ const styles = StyleSheet.create({
   heroRoutineCard: {
     backgroundColor: colors.surface,
     borderRadius: 22,
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
     ...shadows.soft,
   },
   heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 94,
-    marginBottom: spacing.sm,
+    minHeight: 100,
+    marginBottom: 0,
   },
   heroCopy: {
     flex: 1,
@@ -298,20 +303,45 @@ const styles = StyleSheet.create({
   },
   heroStatusRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginTop: spacing.sm,
   },
   heroIllustration: {
     marginRight: -12,
     marginTop: -6,
   },
-  routineStatusBadge: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
+  heroWatermarkStage: {
+    position: 'relative',
+    width: '100%',
+    marginTop: -38,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  routineStatusBadgeText: {
-    color: colors.primaryPressed,
+  heroWatermarkImage: {
+    opacity: 0.045,
+  },
+  heroWatermarkLetters: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  heroWatermarkLetter: {
+    color: '#172550',
+    opacity: 0.065,
+    fontWeight: '900',
+  },
+  activeLed: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.mint,
+    marginRight: 6,
+  },
+  activeCourseText: {
+    color: colors.inkMuted,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -320,6 +350,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'baseline',
     marginBottom: spacing.sm,
+  },
+  progressStatusGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  progressStatusText: {
+    color: colors.inkMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  heroProgressSection: {
+    width: '100%',
+    marginTop: 'auto',
+  },
+  heroActionSection: {
+    width: '100%',
+    marginTop: 0,
+  },
+  heroInspiration: {
+    marginTop: spacing.sm,
   },
   metricCurrentNumber: {
     fontSize: 36,
@@ -341,21 +392,25 @@ const styles = StyleSheet.create({
     color: colors.mint,
   },
   progressBarBackground: {
-    height: 8,
+    height: 9,
     backgroundColor: colors.surfaceMuted,
     borderRadius: radius.pill,
     overflow: 'hidden',
-    marginBottom: spacing.lg,
+    marginBottom: 0,
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
   },
+  progressBarFillComplete: {
+    backgroundColor: colors.mint,
+  },
   primaryActionButton: {
     backgroundColor: colors.primaryPressed,
     borderRadius: radius.md,
-    paddingVertical: 15,
+    minHeight: 38,
+    paddingVertical: 7,
     paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
@@ -364,7 +419,7 @@ const styles = StyleSheet.create({
   },
   primaryActionArrow: {
     color: colors.white,
-    fontSize: 19,
+    fontSize: 16,
     fontWeight: '500',
   },
   extraPracticeBtn: {
@@ -383,8 +438,19 @@ const styles = StyleSheet.create({
   },
   primaryActionText: {
     color: colors.white,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
+  },
+  newStudyLink: {
+    alignSelf: 'center',
+    marginTop: 0,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  newStudyLinkText: {
+    color: colors.primaryPressed,
+    fontSize: 12,
+    fontWeight: '700',
   },
   quickActionRow: {
     flexDirection: 'row',
@@ -432,57 +498,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
-  },
-  quickPromptCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  quickPromptLabel: {
-    fontSize: 21,
-    lineHeight: 27,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  secondarySectionHeader: {
-    marginBottom: spacing.sm,
-  },
-  secondarySectionHint: {
-    fontSize: 10.5,
-    color: colors.inkMuted,
-    fontWeight: '500',
-  },
-  quickPromptInputRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  quickPromptInput: {
-    flex: 1,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    color: colors.ink,
-    fontSize: 16,
-  },
-  quickPromptSubmitBtn: {
-    backgroundColor: colors.primaryPressed,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickPromptSubmitText: {
-    color: colors.white,
-    fontSize: 14,
-    fontWeight: '800',
   },
 });

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Platform, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Platform, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { colors, radius, spacing } from '../../styles/designTokens';
 import { UniversalModal } from '../../components/common/UniversalModal';
 import { getLeaderboard, LeaderboardResult, RANKING_API_BASE_URL } from '../../domain/ranking_client';
@@ -17,6 +17,9 @@ import { RankingWindowScreen } from '../ranking/RankingWindowScreen';
 export const RankingLeaderboardCard: React.FC = () => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardResult | null>(null);
   const [fallbackVisible, setFallbackVisible] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const slideY = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
 
   const load = useCallback(() => {
     if (!RANKING_API_BASE_URL) return;
@@ -38,6 +41,41 @@ export const RankingLeaderboardCard: React.FC = () => {
   const topSolved = leaderboard?.mostSolved?.[0];
   const topConsistent = leaderboard?.mostConsistent?.[0];
   const topChallenge = leaderboard?.mostKillerLevel?.[0];
+  const entries = useMemo(() => [
+    {
+      label: '최다 문제 풀이',
+      icon: '🏆',
+      value: topSolved ? `${topSolved.nickname} · ${topSolved.value}문제` : '아직 참여자 없음',
+    },
+    {
+      label: '꾸준함',
+      icon: '🔥',
+      value: topConsistent ? `${topConsistent.nickname} · ${topConsistent.value}일 연속` : '아직 참여자 없음',
+    },
+    {
+      label: '초고난도',
+      icon: '⚔️',
+      value: topChallenge ? `${topChallenge.nickname} · Lv.${topChallenge.value}` : '아직 참여자 없음',
+    },
+  ], [topChallenge, topConsistent, topSolved]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      Animated.parallel([
+        Animated.timing(slideY, { toValue: -12, duration: 220, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      ]).start(() => {
+        setActiveIndex((current) => (current + 1) % entries.length);
+        slideY.setValue(12);
+        Animated.parallel([
+          Animated.timing(slideY, { toValue: 0, duration: 260, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        ]).start();
+      });
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [entries.length, opacity, slideY]);
 
   function handleOpen() {
     if (!openRankingWindow()) setFallbackVisible(true);
@@ -51,41 +89,15 @@ export const RankingLeaderboardCard: React.FC = () => {
   return (
     <>
       <TouchableOpacity style={styles.card} onPress={handleOpen} activeOpacity={0.85}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>실시간 랭킹</Text>
-          <Text style={styles.openHint}>연동 · 전체 보기 ›</Text>
-        </View>
-
-        <View style={styles.entryRow}>
-          <Text style={styles.entryLabel}>🏆 최다 문제 풀이 왕</Text>
-          {topSolved ? (
-            <Text style={styles.entryValue} numberOfLines={1}>
-              {topSolved.nickname} · {topSolved.value}문제
+        <View style={styles.tickerCopy}>
+          <Animated.View style={{ opacity, transform: [{ translateY: slideY }] }}>
+            <Text style={styles.entryLabel} numberOfLines={1}>
+              {entries[activeIndex].icon} {entries[activeIndex].label} 1위
             </Text>
-          ) : (
-            <Text style={styles.entryEmpty}>아직 참여자 없음</Text>
-          )}
-        </View>
-
-        <View style={styles.entryRow}>
-          <Text style={styles.entryLabel}>🔥 꾸준함 왕</Text>
-          {topConsistent ? (
             <Text style={styles.entryValue} numberOfLines={1}>
-              {topConsistent.nickname} · {topConsistent.value}일 연속
+              {entries[activeIndex].value}
             </Text>
-          ) : (
-            <Text style={styles.entryEmpty}>아직 참여자 없음</Text>
-          )}
-        </View>
-        <View style={styles.entryRow}>
-          <Text style={styles.entryLabel}>⚔️ 초고난도 도전</Text>
-          {topChallenge ? (
-            <Text style={styles.entryValue} numberOfLines={1}>
-              {topChallenge.nickname} · Lv.{topChallenge.value}
-            </Text>
-          ) : (
-            <Text style={styles.entryEmpty}>아직 참여자 없음</Text>
-          )}
+          </Animated.View>
         </View>
       </TouchableOpacity>
 
@@ -99,27 +111,19 @@ export const RankingLeaderboardCard: React.FC = () => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  headerRow: {
+    borderRadius: radius.sm,
+    width: '100%',
+    height: 34,
+    paddingHorizontal: 5,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    overflow: 'hidden',
   },
-  title: { fontSize: 14, fontWeight: '800', color: colors.ink },
-  openHint: { fontSize: 12, fontWeight: '700', color: colors.primaryPressed },
-  entryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 5,
+  tickerCopy: {
+    flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
   },
-  entryLabel: { fontSize: 12, fontWeight: '700', color: colors.inkMuted },
-  entryValue: { fontSize: 13, fontWeight: '800', color: colors.ink, flexShrink: 1, marginLeft: 8 },
-  entryEmpty: { fontSize: 12, color: colors.inkMuted },
+  entryLabel: { fontSize: 8, lineHeight: 10, fontWeight: '800', color: colors.ink },
+  entryValue: { fontSize: 8, lineHeight: 10, fontWeight: '700', color: colors.inkMuted },
 });

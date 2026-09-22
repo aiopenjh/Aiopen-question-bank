@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { colors, radius, shadows, spacing } from '../../styles/designTokens';
 
 export const topicModalStyles = StyleSheet.create({
@@ -102,6 +102,14 @@ export const topicModalStyles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+    ...(Platform.OS === 'web'
+      ? ({
+          fontFamily:
+            'Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+        } as any)
+      : {}),
     color: colors.ink,
     marginBottom: spacing.md,
   },
