@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { File as ExpoFile } from 'expo-file-system';
 import { RankingProfile, RankingRecoverySeed, RankingSyncQueueItem } from '../contracts/types';
 import {
   getAttempts,
@@ -198,13 +198,13 @@ export function useRankingWindow() {
 
   const recoverFromBackupFile = useCallback(async () => {
     try {
-      const picked = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+      const picked = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: false });
       if (picked.canceled || !picked.assets?.length) return { ok: false as const, canceled: true as const };
       const file = picked.assets[0];
       // 백업은 JSON 텍스트만 지원한다.
       const content: string = Platform.OS === 'web' && (file as any).file
         ? await (file as any).file.text()
-        : await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.UTF8 });
+        : await new ExpoFile(file.uri).text();
       return recoverWithSeed(recoverySeedFromBackup(content));
     } catch (err) {
       const message = err instanceof Error ? err.message : '백업 파일을 읽을 수 없습니다.';

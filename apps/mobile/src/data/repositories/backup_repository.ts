@@ -23,7 +23,7 @@ import {
   RankingProfile,
   RankingRecoverySeed,
 } from '../../contracts/types';
-import type { AlarmConfig } from '../../utils/notifications';
+import { normalizeAlarmConfig, type AlarmConfig } from '../../utils/notifications';
 import { STORAGE_KEYS, CURRENT_DB_VERSION, getCurrentISOTime } from '../storage_keys';
 
 export type BackupKind = 'question-bank' | 'full';
@@ -216,6 +216,10 @@ function readAlarmConfig(source: JsonRecord): AlarmConfig | null | undefined {
 
   const allowedDays = new Set(['월', '화', '수', '목', '금', '토', '일']);
   const selectedDays = value.selectedDays;
+  const hasValidSelectedDays =
+    selectedDays === undefined ||
+    (Array.isArray(selectedDays) &&
+      selectedDays.every((day) => typeof day === 'string' && allowedDays.has(day)));
   const hasMultipleTimes =
     typeof value.enabled === 'boolean' &&
     Array.isArray(value.times) &&
@@ -247,12 +251,10 @@ function readAlarmConfig(source: JsonRecord): AlarmConfig | null | undefined {
     (value.eveningHour as number) >= 0 &&
     (value.eveningHour as number) <= 23;
   const isValid =
-    (hasMultipleTimes || hasUnifiedTime || hasLegacyTime) &&
-    Array.isArray(selectedDays) &&
-    selectedDays.every((day) => typeof day === 'string' && allowedDays.has(day));
+    (hasMultipleTimes || hasUnifiedTime || hasLegacyTime) && hasValidSelectedDays;
 
   if (!isValid) throw new Error('alarmConfig 필드 값이 올바르지 않습니다.');
-  return value as unknown as AlarmConfig;
+  return normalizeAlarmConfig(value as Partial<AlarmConfig>);
 }
 
 function normalizeBackupPayload(value: unknown): AppBackupPayload {

@@ -215,6 +215,27 @@ test('full backup without ranking token preserves current ranking connection and
   assert.equal(JSON.parse(target.data.get('@celueste:ranking_recovery_seed')).participantId, 'keep-seed');
 });
 
+test('full backup restores legacy alarm config without selected days', async () => {
+  const session = setup();
+  await session.db.initializeDatabase();
+  const payload = JSON.parse(await session.db.exportBackupJSON('full'));
+  payload.alarmConfig = {
+    enabled: true,
+    hour: 9,
+    minute: 30,
+    weekendEnabled: false,
+  };
+
+  assert.equal((await session.db.restoreBackupJSON(JSON.stringify(payload))).success, true);
+  assert.deepEqual(JSON.parse(session.data.get('@celueste:alarm_config_v2')), {
+    schemaVersion: 2,
+    enabled: true,
+    times: [{ hour: 9, minute: 30 }],
+    selectedDays: ['월', '화', '수', '목', '금'],
+    weekendEnabled: false,
+  });
+});
+
 test('unit difficulty survives restart and backup without changing siblings, topic or questions', async () => {
   const session = setup();
   await session.db.initializeDatabase();
