@@ -338,7 +338,7 @@ export async function saveGeminiApiKey(key: string): Promise<void> {
   await saveEncryptedApiKey(key);
 }
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 
 export function isSupportedGeminiModel(model: string): boolean {
   const match = model.trim().toLowerCase().match(/^gemini-(\d+)(?:\.(\d+))?(?:-|$)/);

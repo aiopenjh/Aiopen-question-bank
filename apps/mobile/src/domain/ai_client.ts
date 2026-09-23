@@ -8,13 +8,13 @@ import { AiDocumentInput } from '../contracts/types';
 
 // 키와 모델별 단기 대기 상태. 메모리에만 보관하며 저장하거나 로그로 출력하지 않는다.
 const geminiRateLimits = new Map<string, Map<string, number>>();
-// 2026-09-23 공식 정식 모델 목록 확인. 구형 저장 설정보다 최신 모델을 우선한다.
+// 2026-09-23 공식 정식 모델 목록 확인. 3.5부터 순서대로 시도한다.
 const GEMINI_MODELS = [
   DEFAULT_GEMINI_MODEL,
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
   'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
+  'gemini-3.8-flash',
 ];
 
 export type AiCompletionResult = {
@@ -65,7 +65,7 @@ export function parseAiJsonResponse<T>(rawText: string): T {
 
 /**
  * 범용 최신 AI 통신 엔진
- * - Gemini 최신 정식 버전(3.8 Flash) 우선 적용
+ * - Gemini 3.5 Flash부터 최신 정식 모델까지 순서대로 시도
  * - Claude 3.5 Sonnet (sk-ant- 키) 및 OpenAI GPT-4o (sk- 키) 멀티 프로바이더 지원
  * - Gemini는 3.5 이상 모델 안에서만 자동 전환
  */

@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 
 function isSupportedGeminiModel(model) {
   const match = String(model).trim().toLowerCase().match(/^gemini-(\d+)(?:\.(\d+))?(?:-|$)/);

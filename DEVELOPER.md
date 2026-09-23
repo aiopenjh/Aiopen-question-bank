@@ -37,8 +37,8 @@
 
 ### Gemini 모델 선택과 사용량 제한 처리
 
-- `src/domain/ai_client.ts`는 2026-09-23 [공식 모델 목록](https://ai.google.dev/gemini-api/docs/models)에서 확인한 정식 텍스트 모델을 최신순으로 요청한다: `gemini-3.8-flash` → `gemini-3.7-flash` → `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3.5-flash-lite`.
-- `DEFAULT_GEMINI_MODEL`은 3.8 Flash다. 기존에 저장된 모델 선호값은 백업 호환성을 위해 보존하지만 요청 순서를 구형 모델로 고정하지 않는다. 검증되지 않은 모델 ID나 이미지·음성 모델을 동적으로 후보에 넣지 않는다. 새 모델 출시는 공식 지원 확인 후 목록을 갱신한다.
+- `src/domain/ai_client.ts`는 2026-09-23 [공식 모델 목록](https://ai.google.dev/gemini-api/docs/models)에서 확인한 정식 텍스트 모델을 3.5부터 요청한다: `gemini-3.5-flash` → `gemini-3.5-flash-lite` → `gemini-3.6-flash` → `gemini-3.7-flash` → `gemini-3.8-flash`.
+- `DEFAULT_GEMINI_MODEL`은 3.5 Flash다. 기존에 저장된 모델 선호값은 백업 호환성을 위해 보존하지만 요청 순서를 바꾸지 않는다. 검증되지 않은 모델 ID나 이미지·음성 모델을 동적으로 후보에 넣지 않는다. 새 모델 출시는 공식 지원 확인 후 목록을 갱신한다.
 - 429 응답은 키·모델별 메모리 대기로 기록하고 다음 후보를 시도한다. `Retry-After`를 따르며 헤더가 없으면 30초 동안 같은 모델의 재요청을 막는다. 이 시간은 앱의 재시도 간격이며 Google 할당량 복구를 보장하지 않는다. 대기 정보는 영구 저장·로그 출력하지 않고 만료 항목은 다음 호출에서 정리한다.
 - 후보별 요청은 한 호출당 최대 한 번이다. 404·500·502·503·504·기존 타임아웃도 후보를 전환하며 403 권한 오류는 즉시 중단한다. 실제 Google 한도를 우회하거나 무료 사용량을 늘려주는 기능은 아니다.
 - 회귀 검증: `node --test tests/ai_client.test.cjs tests/generator.test.cjs tests/hint_generator.test.cjs` 및 `npx tsc --noEmit` (`apps/mobile`에서 실행). 모의 HTTP 응답 테스트와 실제 키를 사용한 브라우저 출제 검증은 구분해서 기록한다.

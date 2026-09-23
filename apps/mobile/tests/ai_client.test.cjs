@@ -40,12 +40,12 @@ const failure = (status, retryAfter = '30') => ({
   ok: false, status, headers: { get: () => retryAfter },
 });
 
-test('latest model sends JSON and PDF requests using the key header', async () => {
+test('3.5 starting model sends JSON and PDF requests using the key header', async () => {
   const h = harness(success);
   const result = await h.call('synthetic-secret', 'prompt', undefined,
     { mimeType: 'application/pdf', base64Data: 'Zml4dHVyZQ==' }, { enableGoogleSearch: true });
   assert.equal(result.text, '{"ok":true}');
-  assert.equal(h.requests[0].model, 'gemini-3.8-flash');
+  assert.equal(h.requests[0].model, 'gemini-3.5-flash');
   const { request } = h.requests[0];
   assert.equal(request.headers['x-goog-api-key'], 'synthetic-secret');
   const body = JSON.parse(request.body);
@@ -54,16 +54,16 @@ test('latest model sends JSON and PDF requests using the key header', async () =
   assert.deepEqual(body.tools, [{ google_search: {} }]);
 });
 
-test('429 falls back, skips only that model during cooldown, then retries latest after expiry', async () => {
+test('429 falls forward, skips only that model during cooldown, then retries 3.5 after expiry', async () => {
   let limited = true;
-  const h = harness((url) => url.includes('3.8') && limited ? failure(429) : success());
+  const h = harness((url) => url.includes('3.5-flash:') && limited ? failure(429) : success());
   await h.call('key-a', 'first');
   limited = false;
   await h.call('key-a', 'second');
   h.advance(31000);
   await h.call('key-a', 'third');
   assert.deepEqual(h.requests.map((r) => r.model), [
-    'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.7-flash', 'gemini-3.8-flash',
+    'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash',
   ]);
 });
 
@@ -72,14 +72,14 @@ test('all limited models stop after five attempts; a different key is never bloc
     ? failure(429) : success());
   await assert.rejects(h.call('key-a', 'first'), { name: 'GeminiRateLimitError' });
   assert.deepEqual(h.requests.map((r) => r.model), [
-    'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash',
-    'gemini-3.5-flash', 'gemini-3.5-flash-lite',
+    'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.6-flash',
+    'gemini-3.7-flash', 'gemini-3.8-flash',
   ]);
   await assert.rejects(h.call('key-a', 'second'), { name: 'GeminiRateLimitError' });
   assert.equal(h.requests.length, 5);
   await h.call('key-b', 'third');
   assert.equal(h.requests.length, 6);
-  assert.equal(h.requests[5].model, 'gemini-3.8-flash');
+  assert.equal(h.requests[5].model, 'gemini-3.5-flash');
   assert.ok(!h.logs.join('\n').includes('key-a'));
 });
 
