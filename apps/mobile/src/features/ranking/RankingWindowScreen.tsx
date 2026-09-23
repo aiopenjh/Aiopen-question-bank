@@ -64,7 +64,7 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
       setNickname('');
       showAlert(
         '랭킹 참여 완료',
-        '복구 정보는 백업 파일에 포함됩니다. 백업 파일을 안전하게 보관해 주세요.'
+        '복구 정보는 전체 백업에만 포함됩니다. 전체 백업 파일을 안전하게 보관해 주세요.'
       );
     }
   }
@@ -220,7 +220,7 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
             <View style={styles.card}>
               <Text style={styles.cardTitle}>랭킹 참여 (선택)</Text>
               <Text style={styles.noticeText}>
-                기존 계정이 있다면 새로 등록하지 말고 백업 파일로 먼저 복구하세요. 학습 데이터는 바뀌지 않습니다.
+                기존 계정이 있다면 새로 등록하지 말고 전체 백업 또는 이전 백업 파일로 먼저 복구하세요. 학습 데이터는 바뀌지 않습니다.
               </Text>
               <TextInput
                 style={styles.input}

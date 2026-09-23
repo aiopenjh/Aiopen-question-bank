@@ -8,7 +8,13 @@ import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import { exportBackupJSON, restoreBackupJSON, clearAllData } from '../data/db';
+import {
+  exportBackupJSON,
+  inspectBackupJSON,
+  restoreBackupJSON,
+  clearAllData,
+} from '../data/db';
+import type { BackupInspection, BackupKind } from '../data/db';
 import {
   decompressBackupPayload,
   base64ToU8,
@@ -61,8 +67,8 @@ function isAlarmConfig(value: unknown): value is AlarmConfig {
   );
 }
 
-async function createPortableBackupJSON(): Promise<string> {
-  return exportBackupJSON();
+async function createPortableBackupJSON(backupKind: BackupKind): Promise<string> {
+  return exportBackupJSON(backupKind);
 }
 
 function readRestoredAlarmConfig(jsonString: string): AlarmConfig | null {
@@ -89,12 +95,15 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
   const [backupModalVisible, setBackupModalVisible] = useState(false);
   const [backupText, setBackupText] = useState('');
 
-  async function handleExportBackup() {
+  async function handleExportBackup(backupKind: BackupKind = 'question-bank') {
     let json = '';
     try {
-      json = await createPortableBackupJSON();
+      json = await createPortableBackupJSON(backupKind);
       const dateStr = new Date().toISOString().slice(0, 10);
-      const backupFileName = `Celueste_Question_Bank_${dateStr}.json`;
+      const isFullBackup = backupKind === 'full';
+      const backupFileName = isFullBackup
+        ? `Celueste_Full_Backup_${dateStr}.json`
+        : `Celueste_Question_Bank_${dateStr}.json`;
       const rankingWarning = includesRankingRecoveryToken(json)
         ? '\n\n⚠️ 이 백업에는 랭킹 계정 복구 정보가 포함되어 있습니다. 유출되면 타인이 내 랭킹 계정에 접근할 수 있으니 안전하게 보관해 주세요.'
         : '';
@@ -110,9 +119,10 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         showAlert(
-          '문제은행 백업 완료',
-          `백업 파일(${backupFileName})이 저장되었습니다. 과목·단원·문제와 랭킹 복구 정보만 담깁니다. 풀이 기록과 API 키는 포함되지 않습니다.` +
-          rankingWarning
+          isFullBackup ? '전체 백업 완료' : '문제은행 백업 완료',
+          isFullBackup
+            ? `백업 파일(${backupFileName})이 저장되었습니다. 학습 기록·교재·설정과 랭킹 복구 정보를 담으며 API 키는 포함하지 않습니다.${rankingWarning}`
+            : `백업 파일(${backupFileName})이 저장되었습니다. 과목·단원·문제만 담으며 풀이 기록, 랭킹 계정과 API 키는 포함하지 않습니다.`
         );
       } else {
         const fileUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${backupFileName}`;
@@ -126,7 +136,9 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
           }
           await Sharing.shareAsync(fileUri, {
             mimeType: 'application/json',
-            dialogTitle: '문제은행 백업 파일 공유/저장',
+            dialogTitle: isFullBackup
+              ? '전체 백업 파일 공유/저장'
+              : '문제은행 백업 파일 공유/저장',
             UTI: 'public.json',
           });
         } else {
@@ -136,7 +148,7 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
         }
       }
     } catch (err: any) {
-      console.warn('문제은행 백업 파일 생성 및 공유 실패:', err);
+      console.warn('백업 파일 생성 및 공유 실패:', err);
       if (json) {
         setBackupText(json);
         setBackupModalVisible(true);
@@ -144,6 +156,68 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
         showAlert('오류', `백업 생성 중 오류 발생: ${err?.message || '알 수 없는 오류'}`);
       }
     }
+  }
+
+  async function applyRestore(content: string, inspection: BackupInspection) {
+    let dataRestored = false;
+    try {
+      const restoredAlarmConfig = inspection.backupKind === 'full'
+        ? readRestoredAlarmConfig(content)
+        : null;
+      const res = await restoreBackupJSON(content);
+      if (!res.success) {
+        showAlert('복원 실패', res.message);
+        return;
+      }
+      dataRestored = true;
+
+      if (restoredAlarmConfig) {
+        // 운영체제의 예약 ID 자체는 기기 간 이동할 수 없으므로 설정을 저장한 뒤
+        // 현재 기기에서 동일한 요일/시간으로 다시 예약한다.
+        await scheduleWeekdayStudyAlarms(restoredAlarmConfig);
+      }
+      await onRefreshData();
+      setBackupModalVisible(false);
+      setBackupText('');
+      showAlert('복원 완료', res.message);
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : '알 수 없는 후속 처리 오류';
+      showAlert(
+        dataRestored ? '복원 일부 완료' : '복원 실패',
+        dataRestored
+          ? `백업 데이터는 저장되었지만 알람 재등록 또는 화면 갱신에 실패했습니다: ${detail}\n\n앱을 다시 열어 데이터를 확인해 주세요.`
+          : `복원 처리 중 오류가 발생했습니다: ${detail}`
+      );
+    }
+  }
+
+  async function requestRestore(content: string) {
+    let inspection: BackupInspection;
+    try {
+      inspection = inspectBackupJSON(content);
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : '알 수 없는 형식 오류';
+      showAlert('복원 실패', `백업 파일 형식이 올바르지 않거나 손상되었습니다: ${detail}`);
+      return;
+    }
+
+    const isFullBackup = inspection.backupKind === 'full';
+    showAlert(
+      isFullBackup ? '전체 백업 복원' : '문제은행 교체',
+      isFullBackup
+        ? '현재 기기의 과목·문제·풀이 기록·교재·설정이 백업 내용으로 교체됩니다. API 키는 유지됩니다. 계속하시겠습니까?'
+        : '현재 과목·단원·문제가 이 백업 내용으로 교체됩니다. 기존 풀이 기록·교재·설정과 랭킹 연결은 유지됩니다. 계속하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: isFullBackup ? '전체 복원' : '문제은행 교체',
+          style: 'destructive',
+          onPress: () => {
+            void applyRestore(content, inspection);
+          },
+        },
+      ]
+    );
   }
 
   async function handleRestoreFromFile() {
@@ -184,19 +258,7 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
         return;
       }
 
-      const restoredAlarmConfig = readRestoredAlarmConfig(content);
-      const res = await restoreBackupJSON(content);
-      if (res.success && restoredAlarmConfig) {
-        // 운영체제의 예약 ID 자체는 기기 간 이동할 수 없으므로 설정을 저장한 뒤
-        // 현재 기기에서 동일한 요일/시간으로 다시 예약한다.
-        await scheduleWeekdayStudyAlarms(restoredAlarmConfig);
-      }
-      showAlert(res.success ? '압축 해제 및 복원 완료' : '복원 실패', res.message);
-      if (res.success) {
-        await onRefreshData();
-        setBackupModalVisible(false);
-        setBackupText('');
-      }
+      await requestRestore(content);
     } catch (err: any) {
       console.warn('파일 복원 실패:', err);
       showAlert(
@@ -211,23 +273,13 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
       showAlert('알림', '복원할 백업 JSON 데이터를 입력(붙여넣기)해 주세요.');
       return;
     }
-    const restoredAlarmConfig = readRestoredAlarmConfig(backupText);
-    const res = await restoreBackupJSON(backupText);
-    if (res.success && restoredAlarmConfig) {
-      await scheduleWeekdayStudyAlarms(restoredAlarmConfig);
-    }
-    showAlert(res.success ? '복원 완료' : '복원 실패', res.message);
-    if (res.success) {
-      await onRefreshData();
-      setBackupModalVisible(false);
-      setBackupText('');
-    }
+    await requestRestore(backupText);
   }
 
   function handleResetAllData() {
     showAlert(
       '전체 초기화',
-      '모든 과목, 단원, 문제, 학습 기록과 등록한 API 키가 삭제됩니다. 새 JSON 백업으로는 과목·단원·문제와 랭킹 복구 정보만 되살릴 수 있으며 풀이 기록은 복원되지 않습니다.\n\n초기화 전에 필요한 데이터를 확인해 주세요.',
+      '모든 과목, 단원, 문제, 학습 기록과 등록한 API 키가 삭제됩니다. 풀이 기록과 교재까지 되살리려면 초기화 전에 전체 백업을 저장해 주세요.\n\n초기화 전에 필요한 데이터를 확인해 주세요.',
       [
         { text: '취소', style: 'cancel' },
         {

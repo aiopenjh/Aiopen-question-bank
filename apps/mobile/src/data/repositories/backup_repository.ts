@@ -26,7 +26,10 @@ import {
 import type { AlarmConfig } from '../../utils/notifications';
 import { STORAGE_KEYS, CURRENT_DB_VERSION, getCurrentISOTime } from '../storage_keys';
 
+export type BackupKind = 'question-bank' | 'full';
+
 export interface AppBackupPayload {
+  backupKind: BackupKind;
   version: number;
   exportedAt: string;
   profile: Profile | null;
@@ -92,8 +95,52 @@ const RESTORE_STORAGE_KEYS: StorageKey[] = [
   STORAGE_KEYS.RANKING_RECOVERY_SEED,
 ];
 
+const QUESTION_BANK_RESTORE_KEYS: StorageKey[] = [
+  STORAGE_KEYS.TOPICS,
+  STORAGE_KEYS.UNITS,
+  STORAGE_KEYS.LEARNING_SPECS,
+  STORAGE_KEYS.QUESTIONS,
+];
+
+const LEGACY_FULL_BACKUP_FIELDS = [
+  'profile',
+  'routine',
+  'sources',
+  'sourceRevisions',
+  'sourceChunks',
+  'topicSourceLinks',
+  'sessions',
+  'sessionItems',
+  'attempts',
+  'reviewStates',
+  'manualCompletions',
+  'preferredModel',
+  'lastStudiedTopicId',
+  'lastStudiedTopic',
+  'customNoteQuestionIds',
+  'customNoteQuestions',
+  'alarmConfig',
+] as const;
+
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readBackupKind(source: JsonRecord): BackupKind {
+  if (source.backupKind !== undefined) {
+    if (source.backupKind === 'question-bank' || source.backupKind === 'full') {
+      return source.backupKind;
+    }
+    throw new Error('backupKind 필드 값이 올바르지 않습니다.');
+  }
+
+  // backupKind 도입 전 전체 백업은 아래 필드를 명시적으로 포함했다.
+  // 축소 문제은행 백업은 이 필드들을 아예 내보내지 않았으므로 구분할 수 있다.
+  return LEGACY_FULL_BACKUP_FIELDS.some((key) =>
+    Object.prototype.hasOwnProperty.call(source, key)
+  )
+    ? 'full'
+    : 'question-bank';
 }
 
 function parseStoredObject<T>(raw: string | null, label: string): T | null {
@@ -226,6 +273,7 @@ function normalizeBackupPayload(value: unknown): AppBackupPayload {
   }
 
   return {
+    backupKind: readBackupKind(value),
     version,
     exportedAt: typeof value.exportedAt === 'string' ? value.exportedAt : '',
     profile: readOptionalObject<Profile>(value, 'profile'),
@@ -258,23 +306,43 @@ function normalizeBackupPayload(value: unknown): AppBackupPayload {
   };
 }
 
-/** 문제은행과 랭킹 복구에 필요한 정보만 내보낸다. 구형 전체 백업 복원은 유지한다. */
-export async function exportBackupJSON(): Promise<string> {
-  const entries = await AsyncStorage.multiGet([
-    STORAGE_KEYS.TOPICS,
-    STORAGE_KEYS.UNITS,
-    STORAGE_KEYS.LEARNING_SPECS,
-    STORAGE_KEYS.QUESTIONS,
-    STORAGE_KEYS.RANKING_PROFILE,
-  ]);
+export interface BackupInspection {
+  backupKind: BackupKind;
+  exportedAt: string;
+  includesRankingRecovery: boolean;
+}
+
+export function inspectBackupJSON(jsonString: string): BackupInspection {
+  const payload = normalizeBackupPayload(JSON.parse(jsonString));
+  return {
+    backupKind: payload.backupKind,
+    exportedAt: payload.exportedAt,
+    includesRankingRecovery: !!(
+      payload.rankingParticipantId && payload.rankingRecoveryToken
+    ),
+  };
+}
+
+/**
+ * 문제은행 공유용 백업은 문제 구성만 담고, 전체 백업은 기기 이전·장애 복구용 데이터를 담는다.
+ * API 키는 두 형식 모두 의도적으로 제외한다.
+ */
+export async function exportBackupJSON(
+  backupKind: BackupKind = 'question-bank'
+): Promise<string> {
+  const keys = backupKind === 'full'
+    ? [...BACKUP_STORAGE_KEYS]
+    : [
+        STORAGE_KEYS.TOPICS,
+        STORAGE_KEYS.UNITS,
+        STORAGE_KEYS.LEARNING_SPECS,
+        STORAGE_KEYS.QUESTIONS,
+      ];
+  const entries = await AsyncStorage.multiGet(keys);
   const stored = new Map(entries);
 
-  const rankingProfile = parseStoredObject<RankingProfile>(
-    stored.get(STORAGE_KEYS.RANKING_PROFILE) ?? null,
-    '랭킹 참여 정보'
-  );
-
-  const payload = {
+  const questionBankPayload = {
+    backupKind: 'question-bank' as const,
     version: CURRENT_DB_VERSION,
     exportedAt: getCurrentISOTime(),
     topics: parseStoredArray<Topic>(stored.get(STORAGE_KEYS.TOPICS) ?? null, '과목'),
@@ -286,6 +354,64 @@ export async function exportBackupJSON(): Promise<string> {
     questions: parseStoredArray<QuestionRevision>(
       stored.get(STORAGE_KEYS.QUESTIONS) ?? null,
       '문제'
+    ),
+  };
+
+  if (backupKind === 'question-bank') {
+    return JSON.stringify(questionBankPayload, null, 2);
+  }
+
+  const rankingProfile = parseStoredObject<RankingProfile>(
+    stored.get(STORAGE_KEYS.RANKING_PROFILE) ?? null,
+    '랭킹 참여 정보'
+  );
+  const payload: AppBackupPayload = {
+    ...questionBankPayload,
+    backupKind: 'full',
+    profile: parseStoredObject<Profile>(stored.get(STORAGE_KEYS.PROFILE) ?? null, '프로필'),
+    routine: parseStoredObject<RoutineRevision>(
+      stored.get(STORAGE_KEYS.ROUTINE) ?? null,
+      '학습 루틴'
+    ),
+    sources: parseStoredArray<Source>(stored.get(STORAGE_KEYS.SOURCES) ?? null, '학습 자료'),
+    sourceRevisions: parseStoredArray<SourceRevision>(
+      stored.get(STORAGE_KEYS.SOURCE_REVISIONS) ?? null,
+      '학습 자료 버전'
+    ),
+    sourceChunks: parseStoredArray<SourceChunk>(
+      stored.get(STORAGE_KEYS.SOURCE_CHUNKS) ?? null,
+      '학습 자료 본문'
+    ),
+    topicSourceLinks: parseStoredArray<TopicSourceLink>(
+      stored.get(STORAGE_KEYS.TOPIC_SOURCE_LINKS) ?? null,
+      '과목 자료 연결'
+    ),
+    sessions: parseStoredArray<StudySession>(
+      stored.get(STORAGE_KEYS.SESSIONS) ?? null,
+      '학습 세션'
+    ),
+    sessionItems: parseStoredArray<SessionItem>(
+      stored.get(STORAGE_KEYS.SESSION_ITEMS) ?? null,
+      '학습 세션 문제'
+    ),
+    attempts: parseStoredArray<Attempt>(stored.get(STORAGE_KEYS.ATTEMPTS) ?? null, '풀이 기록'),
+    reviewStates: parseStoredArray<ReviewState>(
+      stored.get(STORAGE_KEYS.REVIEW_STATES) ?? null,
+      '복습 상태'
+    ),
+    manualCompletions: parseStoredArray<ManualCompletion>(
+      stored.get(STORAGE_KEYS.MANUAL_COMPLETIONS) ?? null,
+      '수동 완료 기록'
+    ),
+    preferredModel: stored.get(STORAGE_KEYS.PREFERRED_MODEL) ?? null,
+    lastStudiedTopicId: stored.get(STORAGE_KEYS.LAST_STUDIED_TOPIC) ?? null,
+    customNoteQuestionIds: parseStoredArray<string>(
+      stored.get(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS) ?? null,
+      '나만의 오답노트'
+    ),
+    alarmConfig: parseStoredObject<AlarmConfig>(
+      stored.get(STORAGE_KEYS.ALARM_CONFIG) ?? null,
+      '알람 설정'
     ),
     rankingNickname: rankingProfile?.nickname ?? null,
     rankingParticipantId: rankingProfile?.participantId ?? null,
@@ -311,8 +437,10 @@ async function rollbackStorage(
 }
 
 /**
- * 백업 JSON 전체 사전 검증 및 교체 복원.
- * 저장 중 실패하면 복원 대상 키의 이전 스냅샷으로 되돌린다.
+ * 백업 JSON 전체 사전 검증 후 종류에 맞게 복원한다.
+ * 문제은행 백업은 문제 구성만 교체하고 기존 학습 기록·자료·설정을 유지한다.
+ * 전체 백업은 API 키를 제외한 로컬 데이터를 교체한다.
+ * 저장 중 실패하면 실제 복원 대상 키의 이전 스냅샷으로 되돌린다.
  */
 export async function restoreBackupJSON(
   jsonString: string
@@ -328,9 +456,17 @@ export async function restoreBackupJSON(
     };
   }
 
+  const isFullBackup = payload.backupKind === 'full';
+  const restoreStorageKeys = isFullBackup
+    ? [
+        ...RESTORE_STORAGE_KEYS,
+        STORAGE_KEYS.RANKING_SYNC_QUEUE,
+      ]
+    : QUESTION_BANK_RESTORE_KEYS;
+
   let snapshot: ReadonlyArray<readonly [string, string | null]>;
   try {
-    snapshot = await AsyncStorage.multiGet(RESTORE_STORAGE_KEYS);
+    snapshot = await AsyncStorage.multiGet(restoreStorageKeys);
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : '알 수 없는 저장소 오류';
     return {
@@ -339,21 +475,10 @@ export async function restoreBackupJSON(
     };
   }
   const valuesToWrite: [string, string][] = [
-    [STORAGE_KEYS.DB_VERSION, payload.version.toString()],
     [STORAGE_KEYS.TOPICS, JSON.stringify(payload.topics)],
-    [STORAGE_KEYS.SOURCES, JSON.stringify(payload.sources)],
-    [STORAGE_KEYS.SOURCE_REVISIONS, JSON.stringify(payload.sourceRevisions)],
-    [STORAGE_KEYS.SOURCE_CHUNKS, JSON.stringify(payload.sourceChunks)],
-    [STORAGE_KEYS.TOPIC_SOURCE_LINKS, JSON.stringify(payload.topicSourceLinks)],
     [STORAGE_KEYS.UNITS, JSON.stringify(payload.units)],
     [STORAGE_KEYS.LEARNING_SPECS, JSON.stringify(payload.learningSpecs)],
     [STORAGE_KEYS.QUESTIONS, JSON.stringify(payload.questions)],
-    [STORAGE_KEYS.SESSIONS, JSON.stringify(payload.sessions)],
-    [STORAGE_KEYS.SESSION_ITEMS, JSON.stringify(payload.sessionItems)],
-    [STORAGE_KEYS.ATTEMPTS, JSON.stringify(payload.attempts)],
-    [STORAGE_KEYS.REVIEW_STATES, JSON.stringify(payload.reviewStates)],
-    [STORAGE_KEYS.MANUAL_COMPLETIONS, JSON.stringify(payload.manualCompletions)],
-    [STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS, JSON.stringify(payload.customNoteQuestionIds)],
   ];
   const keysToRemove: string[] = [];
 
@@ -365,35 +490,55 @@ export async function restoreBackupJSON(
     }
   };
 
-  addOptionalValue(STORAGE_KEYS.PROFILE, payload.profile);
-  addOptionalValue(STORAGE_KEYS.ROUTINE, payload.routine);
-  addOptionalValue(STORAGE_KEYS.PREFERRED_MODEL, payload.preferredModel);
-  addOptionalValue(STORAGE_KEYS.LAST_STUDIED_TOPIC, payload.lastStudiedTopicId);
-  if (payload.alarmConfig !== undefined) {
-    addOptionalValue(STORAGE_KEYS.ALARM_CONFIG, payload.alarmConfig);
-  }
-  // rankingRecoveryToken은 로컬 프로필을 직접 복원하지 않는다 (deviceToken이 백업에 없음).
-  // 대신 복구 재료를 남겨두면, 랭킹 창이 POST /participants/recover로
-  // 새 deviceToken을 발급받아 참여자 복구를 완료한다 (탈퇴하지 않았다면 서버 계정은 그대로다).
-  if (payload.rankingParticipantId && payload.rankingRecoveryToken) {
-    const seed: RankingRecoverySeed = {
-      nickname: payload.rankingNickname ?? '',
-      participantId: payload.rankingParticipantId,
-      recoveryToken: payload.rankingRecoveryToken,
-    };
-    valuesToWrite.push([STORAGE_KEYS.RANKING_RECOVERY_SEED, JSON.stringify(seed)]);
+  if (isFullBackup) {
+    valuesToWrite.push(
+      [STORAGE_KEYS.DB_VERSION, payload.version.toString()],
+      [STORAGE_KEYS.SOURCES, JSON.stringify(payload.sources)],
+      [STORAGE_KEYS.SOURCE_REVISIONS, JSON.stringify(payload.sourceRevisions)],
+      [STORAGE_KEYS.SOURCE_CHUNKS, JSON.stringify(payload.sourceChunks)],
+      [STORAGE_KEYS.TOPIC_SOURCE_LINKS, JSON.stringify(payload.topicSourceLinks)],
+      [STORAGE_KEYS.SESSIONS, JSON.stringify(payload.sessions)],
+      [STORAGE_KEYS.SESSION_ITEMS, JSON.stringify(payload.sessionItems)],
+      [STORAGE_KEYS.ATTEMPTS, JSON.stringify(payload.attempts)],
+      [STORAGE_KEYS.REVIEW_STATES, JSON.stringify(payload.reviewStates)],
+      [STORAGE_KEYS.MANUAL_COMPLETIONS, JSON.stringify(payload.manualCompletions)],
+      [STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS, JSON.stringify(payload.customNoteQuestionIds)]
+    );
+
+    addOptionalValue(STORAGE_KEYS.PROFILE, payload.profile);
+    addOptionalValue(STORAGE_KEYS.ROUTINE, payload.routine);
+    addOptionalValue(STORAGE_KEYS.PREFERRED_MODEL, payload.preferredModel);
+    addOptionalValue(STORAGE_KEYS.LAST_STUDIED_TOPIC, payload.lastStudiedTopicId);
+    if (payload.alarmConfig !== undefined) {
+      addOptionalValue(STORAGE_KEYS.ALARM_CONFIG, payload.alarmConfig);
+    }
+
+    // 복구 가능한 랭킹 정보가 있을 때만 현재 기기 연결을 백업 계정으로 전환한다.
+    // 토큰 없는 전체 백업이 현재 기기의 유효한 랭킹 연결을 지우면 복구할 수 없으므로
+    // 기존 프로필·대기열·seed를 그대로 유지한다.
+    if (payload.rankingParticipantId && payload.rankingRecoveryToken) {
+      keysToRemove.push(STORAGE_KEYS.RANKING_PROFILE, STORAGE_KEYS.RANKING_SYNC_QUEUE);
+      const seed: RankingRecoverySeed = {
+        nickname: payload.rankingNickname ?? '',
+        participantId: payload.rankingParticipantId,
+        recoveryToken: payload.rankingRecoveryToken,
+      };
+      valuesToWrite.push([STORAGE_KEYS.RANKING_RECOVERY_SEED, JSON.stringify(seed)]);
+    }
   }
 
   try {
     await AsyncStorage.multiSet(valuesToWrite);
     if (keysToRemove.length > 0) await AsyncStorage.multiRemove(keysToRemove);
     const rankingNote =
-      payload.rankingParticipantId && payload.rankingRecoveryToken
+      isFullBackup && payload.rankingParticipantId && payload.rankingRecoveryToken
         ? ' 랭킹 창을 열면 이 백업의 랭킹 계정을 복구할 수 있습니다.'
         : '';
     return {
       success: true,
-      message: `백업에 담긴 학습 데이터가 복원되었습니다.${rankingNote}`,
+      message: isFullBackup
+        ? `전체 백업의 학습 데이터가 복원되었습니다.${rankingNote}`
+        : '문제은행이 복원되었습니다. 기존 풀이·복습·교재·설정 데이터는 유지했습니다.',
     };
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : '알 수 없는 저장 오류';
