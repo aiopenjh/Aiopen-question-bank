@@ -513,18 +513,17 @@ export async function restoreBackupJSON(
       addOptionalValue(STORAGE_KEYS.ALARM_CONFIG, payload.alarmConfig);
     }
 
-    // deviceToken은 기기 전용이므로 기존 랭킹 프로필/대기열을 그대로 쓰지 않는다.
-    keysToRemove.push(STORAGE_KEYS.RANKING_PROFILE, STORAGE_KEYS.RANKING_SYNC_QUEUE);
-    // 복구 토큰은 전체 백업에서만 새 기기용 seed로 전환한다.
+    // 복구 가능한 랭킹 정보가 있을 때만 현재 기기 연결을 백업 계정으로 전환한다.
+    // 토큰 없는 전체 백업이 현재 기기의 유효한 랭킹 연결을 지우면 복구할 수 없으므로
+    // 기존 프로필·대기열·seed를 그대로 유지한다.
     if (payload.rankingParticipantId && payload.rankingRecoveryToken) {
+      keysToRemove.push(STORAGE_KEYS.RANKING_PROFILE, STORAGE_KEYS.RANKING_SYNC_QUEUE);
       const seed: RankingRecoverySeed = {
         nickname: payload.rankingNickname ?? '',
         participantId: payload.rankingParticipantId,
         recoveryToken: payload.rankingRecoveryToken,
       };
       valuesToWrite.push([STORAGE_KEYS.RANKING_RECOVERY_SEED, JSON.stringify(seed)]);
-    } else {
-      keysToRemove.push(STORAGE_KEYS.RANKING_RECOVERY_SEED);
     }
   }
 

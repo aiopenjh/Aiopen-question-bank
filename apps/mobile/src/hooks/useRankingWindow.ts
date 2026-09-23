@@ -51,7 +51,7 @@ function recoverySeedFromBackup(content: string): RankingRecoverySeed {
     typeof backup?.rankingParticipantId !== 'string' || !backup.rankingParticipantId ||
     typeof backup?.rankingRecoveryToken !== 'string' || !backup.rankingRecoveryToken
   ) {
-    throw new Error('이 백업에는 랭킹 계정 복구 정보가 없습니다. 랭킹에 참여한 뒤 저장한 백업을 선택해 주세요.');
+    throw new Error('이 백업에는 랭킹 계정 복구 정보가 없습니다. 랭킹에 참여한 뒤 저장한 전체 백업을 선택해 주세요.');
   }
   return {
     nickname: typeof backup.rankingNickname === 'string' ? backup.rankingNickname : '',

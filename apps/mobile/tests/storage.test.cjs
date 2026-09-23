@@ -166,6 +166,45 @@ test('question-bank backup excludes private recovery data and preserves existing
   assert.ok((await target.db.getTopics()).some(item => item.name === 'shared math'));
 });
 
+test('legacy compact backup is treated as question-bank and keeps local progress and ranking', async () => {
+  const source = setup();
+  await source.db.initializeDatabase();
+  const payload = JSON.parse(await source.db.exportBackupJSON());
+  delete payload.backupKind;
+  payload.rankingNickname = 'legacy';
+  payload.rankingParticipantId = 'legacy-participant';
+  payload.rankingRecoveryToken = 'legacy-token';
+
+  const target = setup();
+  await target.db.initializeDatabase();
+  target.data.set(key('attempts'), '[{"id":"keep-attempt"}]');
+  target.data.set('@celueste:ranking_profile', '{"participantId":"keep-ranking"}');
+
+  const inspection = target.db.inspectBackupJSON(JSON.stringify(payload));
+  assert.equal(inspection.backupKind, 'question-bank');
+  assert.equal((await target.db.restoreBackupJSON(JSON.stringify(payload))).success, true);
+  assert.equal(JSON.parse(target.data.get(key('attempts')))[0].id, 'keep-attempt');
+  assert.equal(JSON.parse(target.data.get('@celueste:ranking_profile')).participantId, 'keep-ranking');
+  assert.equal(target.data.has('@celueste:ranking_recovery_seed'), false);
+});
+
+test('full backup without ranking token preserves current ranking connection and pending state', async () => {
+  const source = setup();
+  await source.db.initializeDatabase();
+  const backup = await source.db.exportBackupJSON('full');
+
+  const target = setup();
+  await target.db.initializeDatabase();
+  target.data.set('@celueste:ranking_profile', '{"participantId":"keep-ranking","deviceToken":"device"}');
+  target.data.set('@celueste:ranking_sync_queue', '{"requestId":"keep-queue"}');
+  target.data.set('@celueste:ranking_recovery_seed', '{"participantId":"keep-seed"}');
+
+  assert.equal((await target.db.restoreBackupJSON(backup)).success, true);
+  assert.equal(JSON.parse(target.data.get('@celueste:ranking_profile')).participantId, 'keep-ranking');
+  assert.equal(JSON.parse(target.data.get('@celueste:ranking_sync_queue')).requestId, 'keep-queue');
+  assert.equal(JSON.parse(target.data.get('@celueste:ranking_recovery_seed')).participantId, 'keep-seed');
+});
+
 test('unit difficulty survives restart and backup without changing siblings, topic or questions', async () => {
   const session = setup();
   await session.db.initializeDatabase();
@@ -320,6 +359,29 @@ test('mid-restore failure rolls back every modified key', async () => {
 
   assert.equal((await session.db.restoreBackupJSON(JSON.stringify(payload))).success, false);
   assert.deepEqual(sortedEntries(session.data), before);
+});
+
+test('multiRemove failure after writes rolls back every modified and removed key', async () => {
+  const source = setup();
+  await source.db.initializeDatabase();
+  source.data.set('@celueste:ranking_profile', JSON.stringify({
+    nickname: 'backup', participantId: 'backup-participant', recoveryToken: 'backup-token', deviceToken: 'backup-device',
+  }));
+  const backup = await source.db.exportBackupJSON('full');
+
+  const target = setup();
+  await target.db.initializeDatabase();
+  target.data.set('@celueste:ranking_profile', '{"participantId":"current-ranking","deviceToken":"current-device"}');
+  target.data.set('@celueste:ranking_sync_queue', '{"requestId":"current-queue"}');
+  target.data.set(key('preferred_ai_model'), 'gemini-3.5-pro');
+  const before = sortedEntries(target.data);
+  let once = true;
+  target.setFailure(storageKey =>
+    storageKey === '@celueste:ranking_profile' && once ? (once = false, true) : false
+  );
+
+  assert.equal((await target.db.restoreBackupJSON(backup)).success, false);
+  assert.deepEqual(sortedEntries(target.data), before);
 });
 
 test('repeated submissionKey saves only one attempt', async () => {

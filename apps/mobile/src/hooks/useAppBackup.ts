@@ -159,20 +159,35 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
   }
 
   async function applyRestore(content: string, inspection: BackupInspection) {
-    const restoredAlarmConfig = inspection.backupKind === 'full'
-      ? readRestoredAlarmConfig(content)
-      : null;
-    const res = await restoreBackupJSON(content);
-    if (res.success && restoredAlarmConfig) {
-      // 운영체제의 예약 ID 자체는 기기 간 이동할 수 없으므로 설정을 저장한 뒤
-      // 현재 기기에서 동일한 요일/시간으로 다시 예약한다.
-      await scheduleWeekdayStudyAlarms(restoredAlarmConfig);
-    }
-    showAlert(res.success ? '복원 완료' : '복원 실패', res.message);
-    if (res.success) {
+    let dataRestored = false;
+    try {
+      const restoredAlarmConfig = inspection.backupKind === 'full'
+        ? readRestoredAlarmConfig(content)
+        : null;
+      const res = await restoreBackupJSON(content);
+      if (!res.success) {
+        showAlert('복원 실패', res.message);
+        return;
+      }
+      dataRestored = true;
+
+      if (restoredAlarmConfig) {
+        // 운영체제의 예약 ID 자체는 기기 간 이동할 수 없으므로 설정을 저장한 뒤
+        // 현재 기기에서 동일한 요일/시간으로 다시 예약한다.
+        await scheduleWeekdayStudyAlarms(restoredAlarmConfig);
+      }
       await onRefreshData();
       setBackupModalVisible(false);
       setBackupText('');
+      showAlert('복원 완료', res.message);
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : '알 수 없는 후속 처리 오류';
+      showAlert(
+        dataRestored ? '복원 일부 완료' : '복원 실패',
+        dataRestored
+          ? `백업 데이터는 저장되었지만 알람 재등록 또는 화면 갱신에 실패했습니다: ${detail}\n\n앱을 다시 열어 데이터를 확인해 주세요.`
+          : `복원 처리 중 오류가 발생했습니다: ${detail}`
+      );
     }
   }
 
@@ -186,25 +201,23 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
       return;
     }
 
-    if (inspection.backupKind === 'full') {
-      showAlert(
-        '전체 백업 복원',
-        '현재 기기의 과목·문제·풀이 기록·교재·설정이 백업 내용으로 교체됩니다. API 키는 유지됩니다. 계속하시겠습니까?',
-        [
-          { text: '취소', style: 'cancel' },
-          {
-            text: '전체 복원',
-            style: 'destructive',
-            onPress: () => {
-              void applyRestore(content, inspection);
-            },
+    const isFullBackup = inspection.backupKind === 'full';
+    showAlert(
+      isFullBackup ? '전체 백업 복원' : '문제은행 교체',
+      isFullBackup
+        ? '현재 기기의 과목·문제·풀이 기록·교재·설정이 백업 내용으로 교체됩니다. API 키는 유지됩니다. 계속하시겠습니까?'
+        : '현재 과목·단원·문제가 이 백업 내용으로 교체됩니다. 기존 풀이 기록·교재·설정과 랭킹 연결은 유지됩니다. 계속하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: isFullBackup ? '전체 복원' : '문제은행 교체',
+          style: 'destructive',
+          onPress: () => {
+            void applyRestore(content, inspection);
           },
-        ]
-      );
-      return;
-    }
-
-    await applyRestore(content, inspection);
+        },
+      ]
+    );
   }
 
   async function handleRestoreFromFile() {
