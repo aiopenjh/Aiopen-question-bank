@@ -142,6 +142,15 @@ function harness(initialEntries = [], options = {}) {
     queueMicrotask,
   })((name) => {
     if (name === '@react-native-async-storage/async-storage') return nativeStorage;
+    // 이 파일은 웹 경로만 검증한다. 네이티브 SQLite 경로는 native_sqlite_storage.test.cjs.
+    if (name === 'react-native') return { Platform: { OS: 'web' } };
+    if (name === './native_storage_migration') {
+      return {
+        async initializeNativeStorage() {
+          throw new Error('웹 저장소 경로에서 네이티브 SQLite 초기화가 호출되었습니다.');
+        },
+      };
+    }
     throw new Error(`Unexpected import: ${name}`);
   }, module, module.exports);
 

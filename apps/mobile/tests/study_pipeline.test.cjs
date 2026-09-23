@@ -66,6 +66,11 @@ function appSession({ data = new Map(), secure = new Map(), response } = {}) {
         if (name === '@react-native-async-storage/async-storage') return storage;
         if (name === 'react-native') return { Platform: { OS: 'android' } };
         if (name === 'expo-secure-store') return secureStore;
+        // 저장소 경계 아래는 키-값 Map(이관 전 AsyncStorage 경로)으로 둔다.
+        // 네이티브 SQLite 백엔드는 native_sqlite_storage.test.cjs에서 검증한다.
+        if (name === './native_storage_migration') {
+          return { initializeNativeStorage: async () => ({ backend: 'async-storage' }) };
+        }
         if (name.startsWith('.')) return load(path.resolve(path.dirname(filename), `${name}.ts`));
         throw Error(`Unexpected dependency ${name}`);
       },

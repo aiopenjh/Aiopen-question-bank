@@ -48,6 +48,16 @@ function setup(existing = new Map()) {
     }).outputText;
     const localRequire = name => {
       if (name === '@react-native-async-storage/async-storage') return storage;
+      // 저장소 경계 아래를 키-값 Map으로 두고 리포지토리 동작을 검증한다(IndexedDB 없는 웹 경로).
+      // 네이티브 SQLite 백엔드는 native_sqlite_storage.test.cjs에서 검증한다.
+      if (name === 'react-native') return { Platform: { OS: 'web' } };
+      if (name === './native_storage_migration') {
+        return {
+          initializeNativeStorage: async () => {
+            throw new Error('Unexpected native storage initialization');
+          },
+        };
+      }
       if (name.includes('secure_storage')) {
         return {
           getEncryptedApiKey: async () => null,
