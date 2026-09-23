@@ -231,6 +231,10 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
 
           {error && <Text style={styles.errorText}>{error}</Text>}
 
+          <Text style={styles.challengeLevelGuide}>
+            최고 난이도는 Lv.31부터! 지금 도전해 보세요 ⚔️
+          </Text>
+
           <View style={styles.card}>
             <View style={styles.tabRow}>
               <TouchableOpacity
@@ -387,6 +391,14 @@ const styles = StyleSheet.create({
   myStatText: { fontSize: 12, color: colors.inkMuted, marginTop: 10, fontWeight: '600' },
   emptyText: { fontSize: 12, color: colors.inkMuted, paddingVertical: 6 },
   errorText: { fontSize: 12, color: colors.danger, marginBottom: spacing.md },
+  challengeLevelGuide: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    opacity: 0.72,
+    textAlign: 'center',
+    marginTop: -6,
+    marginBottom: 10,
+  },
   pendingText: {
     fontSize: 12,
     color: colors.primaryPressed,

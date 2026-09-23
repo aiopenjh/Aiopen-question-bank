@@ -1,5 +1,5 @@
 import { Platform, StyleSheet } from 'react-native';
-import { colors, radius, shadows, spacing } from '../../styles/designTokens';
+import { colors, radius } from '../../styles/designTokens';
 
 const examReadingFont = Platform.select({
   web: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Malgun Gothic", sans-serif',

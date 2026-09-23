@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import { colors, radius, spacing } from '../../styles/designTokens';
+import { colors, radius } from '../../styles/designTokens';
 import { UniversalModal } from '../../components/common/UniversalModal';
 import { getLeaderboard, LeaderboardResult, RANKING_API_BASE_URL } from '../../domain/ranking_client';
 import { openRankingWindow } from '../ranking/openRankingWindow';

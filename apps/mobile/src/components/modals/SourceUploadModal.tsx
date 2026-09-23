@@ -23,7 +23,6 @@ interface SourceUploadModalProps {
   sourcePageEnd: number;
   onChangeSourcePageStart: (page: number) => void;
   onChangeSourcePageEnd: (page: number) => void;
-  selectedSourceTopicId: string | null;
   onSelectSourceTopicId: (topicId: string | null) => void;
   onChangeSourceTitle: (title: string) => void;
   onPickSourceFile: () => Promise<void>;
@@ -46,7 +45,6 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
   sourcePageEnd,
   onChangeSourcePageStart,
   onChangeSourcePageEnd,
-  selectedSourceTopicId,
   onSelectSourceTopicId,
   onChangeSourceTitle,
   onPickSourceFile,

@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, radius, shadows, spacing } from '../../styles/designTokens';
+import { colors } from '../../styles/designTokens';
 
 export const examReviewStyles = StyleSheet.create({
   reviewItemCard: {

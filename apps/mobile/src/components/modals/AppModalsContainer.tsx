@@ -4,10 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { Topic, Unit, QuestionRevision, Source, LearnerKnowledgeLevel } from '../../contracts/types';
-import { appStyles as styles } from '../../styles/appStyles';
 
 import { TopicModal } from './TopicModal';
 import { UnitModal } from './UnitModal';
@@ -85,7 +83,6 @@ export interface AppModalsContainerProps {
   sourcePageEnd: number;
   onChangeSourcePageStart: (page: number) => void;
   onChangeSourcePageEnd: (page: number) => void;
-  selectedSourceTopicId: string | null;
   onSelectSourceTopicId: (topicId: string | null) => void;
   onChangeSourceTitle: (text: string) => void;
   onPickSourceFile: () => Promise<void>;
@@ -93,8 +90,6 @@ export interface AppModalsContainerProps {
   onDeleteSource: (sourceId: string) => Promise<void>;
   onReconnectSource: (sourceId: string) => Promise<void>;
   onCloseSourceUploadModal: () => void;
-  onOpenUserManual: () => void;
-
   // 8. UserManualModal
   isUserManualOpen: boolean;
   onCloseUserManual: () => void;
@@ -155,7 +150,6 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   sourcePageEnd,
   onChangeSourcePageStart,
   onChangeSourcePageEnd,
-  selectedSourceTopicId,
   onSelectSourceTopicId,
   onChangeSourceTitle,
   onPickSourceFile,
@@ -163,7 +157,6 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   onDeleteSource,
   onReconnectSource,
   onCloseSourceUploadModal,
-  onOpenUserManual,
   isUserManualOpen,
   onCloseUserManual,
   generatingWaitStatus,
@@ -242,7 +235,6 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
         sourcePageEnd={sourcePageEnd}
         onChangeSourcePageStart={onChangeSourcePageStart}
         onChangeSourcePageEnd={onChangeSourcePageEnd}
-        selectedSourceTopicId={selectedSourceTopicId}
         onSelectSourceTopicId={onSelectSourceTopicId}
         onChangeSourceTitle={onChangeSourceTitle}
         onPickSourceFile={onPickSourceFile}

@@ -12,7 +12,6 @@ import {
   getDifficultyProfile,
   legacyLevelToDifficulty,
 } from '../../domain/difficulty';
-import { colors } from '../../styles/designTokens';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { DifficultyLevelControl } from '../common/DifficultyLevelControl';
 import { quizCountModalStyles as styles } from './QuizCountModal.styles';

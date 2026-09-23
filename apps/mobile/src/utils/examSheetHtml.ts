@@ -1,4 +1,4 @@
-import { Attempt, QuestionRevision, ReviewState, Topic, Unit } from '../contracts/types';
+import { QuestionRevision, Topic } from '../contracts/types';
 import { escapeHtml, NUMBER_CIRCLES } from './examSheetExportShared';
 
 /**
@@ -6,7 +6,6 @@ import { escapeHtml, NUMBER_CIRCLES } from './examSheetExportShared';
  */
 export function generateExamSheetHtml(
   topics: Topic[] = [],
-  units: Unit[] = [],
   questions: QuestionRevision[] = [],
   exportDate: string = new Date().toISOString().slice(0, 10)
 ): string {

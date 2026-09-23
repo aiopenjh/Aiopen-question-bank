@@ -22,6 +22,28 @@ import {
 import { STORAGE_KEYS, generateUUID, getCurrentISOTime } from '../storage_keys';
 import { legacyLevelToDifficulty, normalizeDifficultyLevel } from '../../domain/difficulty';
 
+type StorageSnapshot = [string, string | null][];
+
+function parseStoredArray<T>(stored: Map<string, string | null>, key: string): T[] {
+  const raw = stored.get(key);
+  return raw ? JSON.parse(raw) : [];
+}
+
+async function writeWithRollback(
+  values: [string, string][],
+  snapshot: StorageSnapshot
+): Promise<void> {
+  try {
+    await AsyncStorage.multiSet(values);
+  } catch (error) {
+    const restoreValues = snapshot.filter((entry): entry is [string, string] => entry[1] !== null);
+    const removeKeys = snapshot.filter((entry) => entry[1] === null).map(([key]) => key);
+    if (restoreValues.length > 0) await AsyncStorage.multiSet(restoreValues);
+    if (removeKeys.length > 0) await AsyncStorage.multiRemove(removeKeys);
+    throw error;
+  }
+}
+
 export async function getTopics(): Promise<Topic[]> {
   const data = await AsyncStorage.getItem(STORAGE_KEYS.TOPICS);
   if (!data) return [];
@@ -126,18 +148,10 @@ export async function createTopicWithUnits(params: {
       createdAt: getCurrentISOTime(),
     }));
 
-  try {
-    await AsyncStorage.multiSet([
-      [STORAGE_KEYS.TOPICS, JSON.stringify([...topics, topic])],
-      [STORAGE_KEYS.UNITS, JSON.stringify([...allUnits, ...createdUnits])],
-    ]);
-  } catch (error) {
-    const restoreValues = snapshot.filter((entry): entry is [string, string] => entry[1] !== null);
-    const removeKeys = snapshot.filter((entry) => entry[1] === null).map(([key]) => key);
-    if (restoreValues.length > 0) await AsyncStorage.multiSet(restoreValues);
-    if (removeKeys.length > 0) await AsyncStorage.multiRemove(removeKeys);
-    throw error;
-  }
+  await writeWithRollback([
+    [STORAGE_KEYS.TOPICS, JSON.stringify([...topics, topic])],
+    [STORAGE_KEYS.UNITS, JSON.stringify([...allUnits, ...createdUnits])],
+  ], snapshot);
 
   return { topic, units: createdUnits };
 }
@@ -177,22 +191,18 @@ export async function deleteTopic(topicId: UUID): Promise<void> {
   ] as const;
   const snapshot = await AsyncStorage.multiGet([...keys]);
   const stored = new Map(snapshot);
-  const parseArray = <T,>(key: string): T[] => {
-    const raw = stored.get(key);
-    return raw ? JSON.parse(raw) : [];
-  };
 
-  const topics = parseArray<Topic>(STORAGE_KEYS.TOPICS);
-  const units = parseArray<Unit>(STORAGE_KEYS.UNITS);
-  const specs = parseArray<LearningSpec>(STORAGE_KEYS.LEARNING_SPECS);
-  const questions = parseArray<QuestionRevision>(STORAGE_KEYS.QUESTIONS);
-  const sessions = parseArray<StudySession>(STORAGE_KEYS.SESSIONS);
-  const sessionItems = parseArray<SessionItem>(STORAGE_KEYS.SESSION_ITEMS);
-  const attempts = parseArray<Attempt>(STORAGE_KEYS.ATTEMPTS);
-  const reviewStates = parseArray<ReviewState>(STORAGE_KEYS.REVIEW_STATES);
-  const completions = parseArray<ManualCompletion>(STORAGE_KEYS.MANUAL_COMPLETIONS);
-  const customNotes = parseArray<string>(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
-  const topicSourceLinks = parseArray<TopicSourceLink>(STORAGE_KEYS.TOPIC_SOURCE_LINKS);
+  const topics = parseStoredArray<Topic>(stored, STORAGE_KEYS.TOPICS);
+  const units = parseStoredArray<Unit>(stored, STORAGE_KEYS.UNITS);
+  const specs = parseStoredArray<LearningSpec>(stored, STORAGE_KEYS.LEARNING_SPECS);
+  const questions = parseStoredArray<QuestionRevision>(stored, STORAGE_KEYS.QUESTIONS);
+  const sessions = parseStoredArray<StudySession>(stored, STORAGE_KEYS.SESSIONS);
+  const sessionItems = parseStoredArray<SessionItem>(stored, STORAGE_KEYS.SESSION_ITEMS);
+  const attempts = parseStoredArray<Attempt>(stored, STORAGE_KEYS.ATTEMPTS);
+  const reviewStates = parseStoredArray<ReviewState>(stored, STORAGE_KEYS.REVIEW_STATES);
+  const completions = parseStoredArray<ManualCompletion>(stored, STORAGE_KEYS.MANUAL_COMPLETIONS);
+  const customNotes = parseStoredArray<string>(stored, STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
+  const topicSourceLinks = parseStoredArray<TopicSourceLink>(stored, STORAGE_KEYS.TOPIC_SOURCE_LINKS);
 
   const removedUnitIds = new Set(units.filter((item) => item.topicId === topicId).map((item) => item.id));
   const removedSpecIds = new Set(specs.filter((item) => item.topicId === topicId).map((item) => item.id));
@@ -251,15 +261,7 @@ export async function deleteTopic(topicId: UUID): Promise<void> {
     values.push([STORAGE_KEYS.LAST_STUDIED_TOPIC, '']);
   }
 
-  try {
-    await AsyncStorage.multiSet(values);
-  } catch (error) {
-    const restoreValues = snapshot.filter((entry): entry is [string, string] => entry[1] !== null);
-    const removeKeys = snapshot.filter((entry) => entry[1] === null).map(([key]) => key);
-    if (restoreValues.length > 0) await AsyncStorage.multiSet(restoreValues);
-    if (removeKeys.length > 0) await AsyncStorage.multiRemove(removeKeys);
-    throw error;
-  }
+  await writeWithRollback(values, snapshot);
 }
 
 export async function getUnits(topicId?: UUID): Promise<Unit[]> {
@@ -304,12 +306,8 @@ export async function deleteUnit(unitId: UUID): Promise<void> {
   ] as const;
   const snapshot = await AsyncStorage.multiGet([...keys]);
   const stored = new Map(snapshot);
-  const parseArray = <T,>(key: string): T[] => {
-    const raw = stored.get(key);
-    return raw ? JSON.parse(raw) : [];
-  };
 
-  const units = parseArray<Unit>(STORAGE_KEYS.UNITS);
+  const units = parseStoredArray<Unit>(stored, STORAGE_KEYS.UNITS);
   const removedUnitIds = new Set<UUID>([unitId]);
   let foundChild = true;
   while (foundChild) {
@@ -322,7 +320,7 @@ export async function deleteUnit(unitId: UUID): Promise<void> {
     }
   }
 
-  const specs = parseArray<LearningSpec>(STORAGE_KEYS.LEARNING_SPECS);
+  const specs = parseStoredArray<LearningSpec>(stored, STORAGE_KEYS.LEARNING_SPECS);
   const nextSpecs = specs
     .map((spec) => ({
       ...spec,
@@ -332,17 +330,17 @@ export async function deleteUnit(unitId: UUID): Promise<void> {
   const nextSpecIds = new Set(nextSpecs.map((spec) => spec.id));
   const removedSpecIds = new Set(specs.filter((spec) => !nextSpecIds.has(spec.id)).map((spec) => spec.id));
 
-  const questions = parseArray<QuestionRevision>(STORAGE_KEYS.QUESTIONS);
+  const questions = parseStoredArray<QuestionRevision>(stored, STORAGE_KEYS.QUESTIONS);
   const removedQuestionIds = new Set(
     questions
       .filter((question) => question.unitId && removedUnitIds.has(question.unitId))
       .flatMap((question) => [question.id, question.questionId])
   );
-  const sessions = parseArray<StudySession>(STORAGE_KEYS.SESSIONS);
+  const sessions = parseStoredArray<StudySession>(stored, STORAGE_KEYS.SESSIONS);
   const removedSessionIds = new Set(
     sessions.filter((session) => removedSpecIds.has(session.specId)).map((session) => session.id)
   );
-  const sessionItems = parseArray<SessionItem>(STORAGE_KEYS.SESSION_ITEMS);
+  const sessionItems = parseStoredArray<SessionItem>(stored, STORAGE_KEYS.SESSION_ITEMS);
   const removedSessionItemIds = new Set(
     sessionItems
       .filter(
@@ -351,10 +349,10 @@ export async function deleteUnit(unitId: UUID): Promise<void> {
       )
       .map((item) => item.id)
   );
-  const attempts = parseArray<Attempt>(STORAGE_KEYS.ATTEMPTS);
-  const reviewStates = parseArray<ReviewState>(STORAGE_KEYS.REVIEW_STATES);
-  const completions = parseArray<ManualCompletion>(STORAGE_KEYS.MANUAL_COMPLETIONS);
-  const customNotes = parseArray<string>(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
+  const attempts = parseStoredArray<Attempt>(stored, STORAGE_KEYS.ATTEMPTS);
+  const reviewStates = parseStoredArray<ReviewState>(stored, STORAGE_KEYS.REVIEW_STATES);
+  const completions = parseStoredArray<ManualCompletion>(stored, STORAGE_KEYS.MANUAL_COMPLETIONS);
+  const customNotes = parseStoredArray<string>(stored, STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
 
   const values: [string, string][] = [
     [STORAGE_KEYS.UNITS, JSON.stringify(units.filter((unit) => !removedUnitIds.has(unit.id)))],
@@ -386,15 +384,7 @@ export async function deleteUnit(unitId: UUID): Promise<void> {
     ],
   ];
 
-  try {
-    await AsyncStorage.multiSet(values);
-  } catch (error) {
-    const restoreValues = snapshot.filter((entry): entry is [string, string] => entry[1] !== null);
-    const removeKeys = snapshot.filter((entry) => entry[1] === null).map(([key]) => key);
-    if (restoreValues.length > 0) await AsyncStorage.multiSet(restoreValues);
-    if (removeKeys.length > 0) await AsyncStorage.multiRemove(removeKeys);
-    throw error;
-  }
+  await writeWithRollback(values, snapshot);
 }
 
 export async function replaceTopicUnits(

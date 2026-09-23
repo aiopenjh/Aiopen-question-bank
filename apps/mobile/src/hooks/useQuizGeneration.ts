@@ -368,20 +368,6 @@ export function useQuizGeneration({
       return;
     }
 
-    const existingSummary = existingQuestions
-      .slice(-4)
-      .map((q, idx) => `${idx + 1}. ${q.stem.slice(0, 80)}`)
-      .join('\n');
-
-    const customContext = `[추가 자율 학습: 동일 개념 범위 신규 출제 지침]
-학습자가 현재 [${currentTopic.name}${targetUnit ? ` - ${targetUnit.title}` : ''}] 개념 범위를 집중 학습 중이며, 목표 달성 후 추가 연습 문제를 요청했습니다.
-반드시 아래 지침을 준수하여 동일한 개념과 범위 내에서 신선한 4지선다형 실전 문제를 3문항 출제하세요:
-
-1. [개념 일관성]: 다루는 학습 개념과 출제 범위는 [${currentTopic.name}${targetUnit ? ` - ${targetUnit.title}` : ''}]와 정확히 동일해야 합니다.
-2. [중복 배제]: 아래 기존 문제들과 똑같은 문장이나 선지를 재탕하지 말고, 동일한 개념을 다른 각도의 상황, 변형 보기, 실무 적용 사례로 재구성하여 출제하세요.
-${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existingSummary}` : ''}
-3. [품질 및 해설]: 각 문항마다 오답 선지가 왜 틀렸는지와 정답의 핵심 원리를 명쾌하게 해설하세요.`;
-
     abortRef.current = false;
     const requestController = new AbortController();
     requestControllerRef.current = requestController;

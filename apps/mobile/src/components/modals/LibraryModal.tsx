@@ -9,9 +9,6 @@ import {
   QuestionRevision,
   Topic,
   Unit,
-  ManualCompletion,
-  Source,
-  ReviewState,
 } from '../../contracts/types';
 import { GeneratingWaitStatus } from '../../hooks/useQuizGeneration';
 import { LoadingWaitOverlay } from './LoadingWaitOverlay';
@@ -25,13 +22,10 @@ export interface LibraryModalProps {
   questions: QuestionRevision[];
   topics: Topic[];
   units: Unit[];
-  completions: ManualCompletion[];
   refreshing: boolean;
   onRefresh: () => Promise<void>;
   onOpenTopicModal: () => void;
-  onOpenUnitModal: () => void;
   onDeleteTopic: (id: string, name: string) => void;
-  onToggleUnitCompletion: (unitId: string) => Promise<void>;
   onDeleteUnit: (unitId: string) => Promise<void>;
   onGenerateCurriculumForTopic: (topicId: string, topicName: string) => Promise<void>;
   onQuickGenerateForUnit: (
@@ -45,21 +39,8 @@ export interface LibraryModalProps {
   generatingUnitId: string | null;
   onStartExamWithQuestions: (questions: QuestionRevision[]) => void;
   onDeleteQuestion: (questionId: string) => Promise<void>;
-  sources: Source[];
-  sourceTitle: string;
-  onChangeSourceTitle: (text: string) => void;
-  sourceText: string;
-  onChangeSourceText: (text: string) => void;
-  onSaveSource: () => Promise<boolean>;
-  onPickSourceFile: () => Promise<void>;
-  selectedSourceTopicId: string | null;
-  onSelectSourceTopicId: (topicId: string | null) => void;
-  onDeleteSource: (sourceId: string) => Promise<void>;
   incorrectQuestions: QuestionRevision[];
-  reviewStates: ReviewState[];
   generatingWaitStatus?: GeneratingWaitStatus | null;
-  onOpenSourceModal: () => void;
-  onOpenSettings?: () => void;
   onCancelGeneration?: () => void;
 }
 
@@ -105,14 +86,10 @@ export const LibraryModal: React.FC<LibraryModalProps> = (props) => {
           questions={props.questions}
           topics={props.topics}
           units={props.units}
-          completions={props.completions}
           refreshing={props.refreshing}
           onRefresh={props.onRefresh}
-          onOpenSettings={props.onOpenSettings}
           onOpenTopicModal={props.onOpenTopicModal}
-          onOpenUnitModal={props.onOpenUnitModal}
           onDeleteTopic={props.onDeleteTopic}
-          onToggleUnitCompletion={props.onToggleUnitCompletion}
           onDeleteUnit={props.onDeleteUnit}
           onGenerateCurriculumForTopic={props.onGenerateCurriculumForTopic}
           onQuickGenerateForUnit={props.onQuickGenerateForUnit}
@@ -121,19 +98,7 @@ export const LibraryModal: React.FC<LibraryModalProps> = (props) => {
           generatingUnitId={props.generatingUnitId}
           onStartExamWithQuestions={props.onStartExamWithQuestions}
           onDeleteQuestion={props.onDeleteQuestion}
-          sources={props.sources}
-          sourceTitle={props.sourceTitle}
-          onChangeSourceTitle={props.onChangeSourceTitle}
-          sourceText={props.sourceText}
-          onChangeSourceText={props.onChangeSourceText}
-          onSaveSource={props.onSaveSource}
-          onPickSourceFile={props.onPickSourceFile}
-          selectedSourceTopicId={props.selectedSourceTopicId}
-          onSelectSourceTopicId={props.onSelectSourceTopicId}
-          onDeleteSource={props.onDeleteSource}
           incorrectQuestions={props.incorrectQuestions}
-          reviewStates={props.reviewStates}
-          onOpenSourceModal={props.onOpenSourceModal}
         />
         <LoadingWaitOverlay
           status={props.generatingWaitStatus || null}

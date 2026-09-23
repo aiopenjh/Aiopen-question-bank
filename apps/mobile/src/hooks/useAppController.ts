@@ -8,7 +8,6 @@ import {
   checkInAppScheduledAlarm,
 } from '../utils/notifications';
 import {
-  getIncorrectQuestions,
   getAttempts,
   getReviewStates,
   getSourceTextForSource,
@@ -68,7 +67,6 @@ export function useAppController() {
     lastStudiedTopicId,
     setLastStudiedTopicId,
     alarmConfig,
-    setAlarmConfig,
     handleChangeAlarmConfig,
     handleChangeTargetQuestionCount,
     loadAppData,
@@ -81,7 +79,6 @@ export function useAppController() {
     handleDeleteQuestion,
     handleSaveApiKey,
     handleDeleteApiKey,
-    handleSaveSettings,
   } = useAppData({
     onAfterTopicCreated: (created, generatedCount) => {
       setTopicModalVisible(false);
@@ -386,20 +383,9 @@ export function useAppController() {
     await handleApplyScaffolding(currentExamMistakes);
   };
 
-  // 어플 이름 터치 시 메인(홈) 화면으로 완전 복귀
-  const handleGoHome = () => {
-    goToPage(0);
-    setIsSourceUploadModalOpen(false);
-    setIsUserManualOpen(false);
-    setTopicModalVisible(false);
-    setUnitModalVisible(false);
-    setIsTopicSelectModalVisible(false);
-    setIsUnitSelectModalVisible(false);
-    handlePullRefresh();
-  };
   return {
     loading, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
-    handleGoHome, appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
+    appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
     handleTouchMove, handleTouchEnd, onLayoutContainer, routine, todayAttempts, dueQuestions,
     refreshing, handlePullRefresh, handleStartExamWithAutoGenerate, handleGenerateMoreQuestions,
     handleStartDueReview, handleOpenCustomNotebook, handleOpenTopicModal, handleQuickPromptGenerate,

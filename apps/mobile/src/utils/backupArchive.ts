@@ -105,8 +105,8 @@ export function compressBackupToZip(jsonString: string): Uint8Array {
 
   // 문제 데이터가 보관되어 있는 경우: 인쇄/PDF용 실전 시험지와 해설지, 텍스트본 생성하여 함께 압축
   if (questions.length > 0) {
-    const examHtml = generateExamSheetHtml(topics, units, questions, dateStr);
-    const answerHtml = generateAnswerSheetHtml(topics, units, questions, dateStr);
+    const examHtml = generateExamSheetHtml(topics, questions, dateStr);
+    const answerHtml = generateAnswerSheetHtml(topics, questions, dateStr);
     const wrongNoteHtml = generateWrongNoteHtml(
       topics,
       units,
@@ -116,7 +116,7 @@ export function compressBackupToZip(jsonString: string): Uint8Array {
       customNoteQuestionIds,
       dateStr
     );
-    const examTxt = generateExamSheetTxt(topics, units, questions, dateStr);
+    const examTxt = generateExamSheetTxt(topics, questions, dateStr);
 
     zipEntries['인쇄용/1. 전체 문제지.html'] = strToU8(examHtml);
     zipEntries['인쇄용/2. 정답과 해설.html'] = strToU8(answerHtml);

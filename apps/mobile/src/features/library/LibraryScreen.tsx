@@ -8,7 +8,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import { Source, QuestionRevision, Topic, Unit, ManualCompletion, ReviewState } from '../../contracts/types';
+import { QuestionRevision, Topic, Unit } from '../../contracts/types';
 import { styles } from './libraryStyles';
 import { TopicFolderCard } from './TopicFolderCard';
 import { LibraryTopicSummaryCard } from './LibraryTopicSummaryCard';
@@ -23,11 +23,8 @@ export interface LibraryScreenProps {
   questions: QuestionRevision[];
   topics: Topic[];
   units: Unit[];
-  completions: ManualCompletion[];
   onOpenTopicModal: () => void;
-  onOpenUnitModal: () => void;
   onDeleteTopic: (id: string, name: string) => void;
-  onToggleUnitCompletion: (unitId: string) => Promise<void>;
   onDeleteUnit: (unitId: string) => Promise<void>;
   onGenerateCurriculumForTopic: (topicId: string, topicName: string) => Promise<void>;
   onQuickGenerateForUnit: (topicId: string, topicName: string, unitId: string, unitTitle: string) => void | Promise<void>;
@@ -43,21 +40,6 @@ export interface LibraryScreenProps {
 
   // Review & Incorrect questions
   incorrectQuestions?: QuestionRevision[];
-  reviewStates?: ReviewState[];
-  onOpenSourceModal?: () => void;
-  onDeleteSource?: (sourceId: string) => Promise<void>;
-
-  // Source / Text notes
-  sources: Source[];
-  sourceTitle: string;
-  onChangeSourceTitle: (text: string) => void;
-  sourceText: string;
-  onChangeSourceText: (text: string) => void;
-  onSaveSource: () => Promise<boolean>;
-  onPickSourceFile?: () => Promise<void>;
-  selectedSourceTopicId?: string | null;
-  onSelectSourceTopicId?: (topicId: string | null) => void;
-  onOpenSettings?: () => void;
   openCustomNotebookRequest?: number;
 }
 
@@ -79,7 +61,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   refreshing = false,
   onRefresh,
   incorrectQuestions = [],
-  onOpenSettings,
   openCustomNotebookRequest = 0,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');

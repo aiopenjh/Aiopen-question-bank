@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StatusBar, ActivityIndicator, Animated, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { generateUUID } from '../data/db';
-import { showAlert } from '../utils/alert';
 import { appStyles as styles } from '../styles/appStyles';
 import { Header } from '../components/common/Header';
 import { UpdateNotificationBanner } from '../components/common/UpdateNotificationBanner';
@@ -13,24 +12,23 @@ import { LibraryScreen } from '../features/library/LibraryScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { FeedbackModal } from '../features/study/FeedbackCard';
 import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
-import { getLocalDateString } from '../domain/routine';
 import { DAILY_GOAL_DEFAULT } from '../domain/daily_goal';
 import { AppController } from '../hooks/useAppController';
 
 export function AppView({ controller }: { controller: AppController }) {  const {
     loading, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
-    handleGoHome, appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
+    appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
     handleTouchMove, handleTouchEnd, onLayoutContainer, routine, todayAttempts, dueQuestions,
     refreshing, handlePullRefresh, handleStartExamWithAutoGenerate,
     handleStartDueReview, handleOpenCustomNotebook, handleOpenTopicModal,
     isCurriculumGenerating, generatingUnitId, isGenerating, topics, selectedTopicId,
-    lastStudiedTopicId, questions, units, completions, setUnitModalVisible, handleDeleteTopic,
-    handleToggleUnitCompletion, handleDeleteUnit, handleGenerateCurriculumForTopic,
+    lastStudiedTopicId, questions, units, setUnitModalVisible, handleDeleteTopic,
+    handleDeleteUnit, handleGenerateCurriculumForTopic,
     handlePromptQuizCount, handleDeduplicateUnits, startExam, handleDeleteQuestion, sources,
-    sourceTitle, setSourceTitle, sourceText, setSourceText, sourceFileName, sourcePageCount,
+    sourceTitle, setSourceTitle, sourceText, sourceFileName, sourcePageCount,
     sourcePageStart, setSourcePageStart, sourcePageEnd, setSourcePageEnd,
     handleSaveSource, handlePickSourceFile, handleReconnectSource, hasPdfInMemory,
-    sourceTopicId, setSourceTopicId, handleDeleteSource, incorrectQuestions, reviewStates,
+    setSourceTopicId, handleDeleteSource, incorrectQuestions,
     openCustomNotebookRequest, handleSaveApiKey, handleDeleteApiKey, alarmConfig,
     handleChangeAlarmConfig, handleChangeTargetQuestionCount, backupText, setBackupText,
     setBackupModalVisible, handleExportBackup, handleResetAllData, setIsUserManualOpen,
@@ -72,7 +70,6 @@ export function AppView({ controller }: { controller: AppController }) {  const 
           onSelectPage={(p) => goToPage(p, true)}
           hasApiKey={apiKey.length > 8}
           onOpenSourceUpload={() => setIsSourceUploadModalOpen(true)}
-          onGoHome={handleGoHome}
         />
 
         {/* 🚀 실시간 새 버전 자동 감지 배너 (1회 닫기 즉시 영구 해제) */}
@@ -175,13 +172,10 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 questions={questions}
                 topics={topics}
                 units={units}
-                completions={completions}
                 refreshing={refreshing}
                 onRefresh={handlePullRefresh}
                 onOpenTopicModal={() => handleOpenTopicModal('')}
-                onOpenUnitModal={() => setUnitModalVisible(true)}
                 onDeleteTopic={handleDeleteTopic}
-                onToggleUnitCompletion={handleToggleUnitCompletion}
                 onDeleteUnit={handleDeleteUnit}
                 onGenerateCurriculumForTopic={handleGenerateCurriculumForTopic}
                 onQuickGenerateForUnit={(tId, tName, uId, uTitle) => handlePromptQuizCount(tId, tName, uId, uTitle)}
@@ -192,20 +186,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                   startExam(qs);
                 }}
                 onDeleteQuestion={handleDeleteQuestion}
-                sources={sources}
-                sourceTitle={sourceTitle}
-                onChangeSourceTitle={setSourceTitle}
-                sourceText={sourceText}
-                onChangeSourceText={setSourceText}
-                onSaveSource={handleSaveSource}
-                onPickSourceFile={handlePickSourceFile}
-                selectedSourceTopicId={sourceTopicId}
-                onSelectSourceTopicId={setSourceTopicId}
-                onDeleteSource={handleDeleteSource}
                 incorrectQuestions={incorrectQuestions}
-                reviewStates={reviewStates}
-                onOpenSourceModal={() => setIsSourceUploadModalOpen(true)}
-                onOpenSettings={() => goToPage(2, true)}
                 openCustomNotebookRequest={openCustomNotebookRequest}
               />}
             </View>
@@ -317,7 +298,6 @@ export function AppView({ controller }: { controller: AppController }) {  const 
           sourcePageEnd={sourcePageEnd}
           onChangeSourcePageStart={setSourcePageStart}
           onChangeSourcePageEnd={setSourcePageEnd}
-          selectedSourceTopicId={sourceTopicId}
           onSelectSourceTopicId={setSourceTopicId}
           onChangeSourceTitle={setSourceTitle}
           onPickSourceFile={handlePickSourceFile}
@@ -325,7 +305,6 @@ export function AppView({ controller }: { controller: AppController }) {  const 
           onDeleteSource={handleDeleteSource}
           onReconnectSource={handleReconnectSource}
           onCloseSourceUploadModal={() => setIsSourceUploadModalOpen(false)}
-          onOpenUserManual={() => setIsUserManualOpen(true)}
           isUserManualOpen={isUserManualOpen}
           onCloseUserManual={() => setIsUserManualOpen(false)}
           generatingWaitStatus={generatingWaitStatus}

@@ -56,7 +56,7 @@ function withCombiningOverline(text: string): string {
 }
 
 function applyBar(text: string): string {
-  return text.replace(BAR_RE, (whole, inner: string) => withCombiningOverline(applySymbolsAndDollars(inner)));
+  return text.replace(BAR_RE, (_whole, inner: string) => withCombiningOverline(applySymbolsAndDollars(inner)));
 }
 
 /** \frac/\sqrt 블록에 걸리지 않는 일반 구간을 위/아래첨자와 기호까지 파싱한다. */

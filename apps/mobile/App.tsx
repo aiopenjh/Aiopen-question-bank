@@ -1,4 +1,3 @@
-import React from 'react';
 import { LogBox } from 'react-native';
 import { AppView } from './src/components/AppView';
 import { useAppController } from './src/hooks/useAppController';

@@ -8,7 +8,6 @@ export interface HeaderProps {
   onSelectPage: (page: number) => void;
   hasApiKey: boolean;
   onOpenSourceUpload?: () => void;
-  onGoHome?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,7 +15,6 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectPage,
   hasApiKey,
   onOpenSourceUpload,
-  onGoHome,
 }) => {
   return (
     <View style={styles.headerContainer}>

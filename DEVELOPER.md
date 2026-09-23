@@ -378,6 +378,8 @@ npx eas-cli build -p android --profile preview
 - `AppView`: 첫 방문 때 페이지를 마운트한 뒤 유지합니다. 기존 시험 오버레이·페이지 상태는 보존합니다.
 - `useAppController`: 날짜와 관련 배열이 바뀔 때만 복습·오늘 집계를 재계산합니다.
 - `useSourceManager`: PDF 라이브러리를 요청 시 로딩합니다. 웹 export에서 PDF 코드가 별도 번들로 분리됩니다.
+- TypeScript는 `noUnusedLocals`와 `noUnusedParameters`를 기본 적용하여 사용되지 않는 import, props와 콜백이 다시 누적되지 않게 합니다.
+- `topic_unit_repository.ts`의 다중 저장은 공통 롤백 경계를 사용해 과목·단원 삭제 중 실패 시 기존 스냅샷 복원 순서를 유지합니다.
 - 생성기 내 구형 주석 검증기 제거, 힌트 검증은 `generator_validation.ts`로 통합하고 기존 export를 유지합니다.
 - 현재 저장 스키마와 백업 형식은 유지합니다. 문제별 IndexedDB 레코드 전환은 별도 마이그레이션·복구 검증이 필요한 후속 작업입니다.
 - 목록 가상화, ZIP 비동기 처리, PDF 메모리 한도, 방문 후 화면 렌더링 최적화 및 이미지 용량 축소는 추가 계측 후 진행할 항목입니다.

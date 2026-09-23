@@ -1,12 +1,11 @@
-import { Attempt, QuestionRevision, ReviewState, Topic, Unit } from '../contracts/types';
-import { escapeHtml, NUMBER_CIRCLES } from './examSheetExportShared';
+import { QuestionRevision, Topic } from '../contracts/types';
+import { NUMBER_CIRCLES } from './examSheetExportShared';
 
 /**
  * 4. 한글(HWP)/워드 복사용 텍스트 시험지 생성
  */
 export function generateExamSheetTxt(
   topics: Topic[] = [],
-  units: Unit[] = [],
   questions: QuestionRevision[] = [],
   exportDate: string = new Date().toISOString().slice(0, 10)
 ): string {
