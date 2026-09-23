@@ -19,6 +19,7 @@
 - 로컬 알림: `expo-notifications`
 - 문서/백업: ZIP, JSON, HTML, PDF 생성 지원
 - 배포 대상: GitHub Pages 정적 웹, EAS Android 빌드
+- 선택형 랭킹 서버: Cloudflare Workers + D1 + Rate Limiting
 
 중앙 서버 없이도 기본 학습 기능이 동작하는 로컬 퍼스트 구조입니다. 네트워크는 AI 문제 생성, 업데이트 확인, 선택형 랭킹·의견 전송처럼 명시적인 기능에서만 사용합니다.
 
@@ -37,6 +38,13 @@ Expo 개발 서버:
 ```powershell
 cd apps/mobile
 npm start
+```
+
+로컬 랭킹 클라이언트는 기본적으로 `http://localhost:8787`을 사용합니다. 운영 Worker로 연결해 확인할 때는 Expo 실행 전에 환경 변수를 지정합니다.
+
+```powershell
+$env:EXPO_PUBLIC_RANKING_API_URL = "https://celueste-ranking-api.celueste-ranking-worker.workers.dev"
+npm run web
 ```
 
 타입 검사:
@@ -60,7 +68,7 @@ node --test tests/*.cjs
 - `apps/mobile/src/features/study/StudyMapScreen.tsx`
   - TODAY'S STUDY 카드
   - 최근 과목, 목표 진행률, 응원 문구, 이어서 학습하기
-  - 새 주제로 학습하기 진입
+  - 워터마크 중앙의 반투명 자유 주제 검색 영역과 일반·엉뚱한 주제 예시
 - `apps/mobile/src/features/study/DailyInspirationCard.tsx`
   - 메인 카드 안의 짧은 응원 문구와 새로고침
 
@@ -90,6 +98,7 @@ node --test tests/*.cjs
   - 전체 화면 CBT 시험, 힌트, 문제별 풀이공간 상태 조정
 - `apps/mobile/src/features/exam/ExamActiveView.tsx`
   - 객관식 선택, 빈칸별 입력, 단답형·서술형 텍스트 입력
+  - 문제·보기·답안 입력에 플랫폼 기본 한글 시스템 글꼴 적용
 - `apps/mobile/src/features/exam/ExamResultView.tsx`
   - 유형별 제출 답안과 채점 결과, 오답 원인, 개념, 해설
 - `apps/mobile/src/features/exam/ScratchpadPanel.tsx`
@@ -164,6 +173,16 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
 
 백업은 학습 데이터와 알람 설정을 포함하지만 API 키는 포함하지 않습니다. 복원 로직을 변경할 때는 신규 형식뿐 아니라 기존 백업 형식도 계속 읽을 수 있어야 합니다.
 
+### 랭킹 서버
+
+- `apps/mobile/src/domain/ranking_client.ts`: Worker API 호출과 오류 범주화
+- `apps/mobile/src/hooks/useRankingWindow.ts`: 최초 참여, 복구, 탈퇴와 리더보드 상태
+- `apps/mobile/src/data/repositories/ranking_repository.ts`: 기기 토큰과 자동 연동 대기 상태 저장
+- `apps/ranking-worker/src/routes.mjs`: 참여자 등록, 복구, 당일 기록 동기화, 리더보드, 탈퇴
+- `apps/ranking-worker/src/util.mjs`: 토큰 해시, CORS, 서울 날짜와 닉네임 검증
+
+운영 API는 `https://celueste-ranking-api.celueste-ranking-worker.workers.dev`입니다. 최초 닉네임 등록 뒤 시험 완료 시 세 랭킹 지표를 함께 자동 동기화합니다. 닉네임 검사는 서버에서 2~12자 제한, 중복, 운영자 사칭, 욕설·성적 표현과 공백·기호를 이용한 우회를 차단합니다. 문제 내용, 정답, 과목명과 API 키는 전송하지 않습니다.
+
 ## 7. 알람 설정 스키마
 
 현재 알람 형식은 `schemaVersion: 2`입니다.
@@ -203,6 +222,7 @@ interface AlarmConfig {
 - 메인, 자료함, 설정은 각각 하나의 큰 백색 패널을 기본 골격으로 사용합니다.
 - 중첩 카드와 그림자를 반복하지 않고 1px 구분선으로 섹션을 나눕니다.
 - 중앙 책 이미지와 `Celueste` 문자는 낮은 불투명도의 워터마크로만 사용합니다.
+- 자유 주제 진입은 워터마크 중앙의 반투명 검색 영역으로 제공하고, 현재 학습을 이어가는 주 행동과 분리합니다.
 - 주요 행동은 분홍색, 보조 추가 행동은 민트색을 사용합니다.
 - 모바일 입력 확대 방지를 위해 모든 `TextInput`은 16px 이상을 유지합니다.
 - 접이식 영역은 행 전체가 클릭 가능하지만, 상태 인지를 위해 작은 화살표를 함께 표시합니다.
@@ -250,6 +270,14 @@ powershell -ExecutionPolicy Bypass -File .\deploy-gh-pages.ps1
 
 이 스크립트는 정적 번들, `.nojekyll`, `404.html`, `version.json`을 준비하고 `gh-pages` 브랜치로 푸시합니다. 일반 `main` 푸시와 프로덕션 배포는 별개의 작업입니다.
 
+랭킹 Worker 배포:
+
+```powershell
+cd apps/ranking-worker
+npm test
+npm run deploy
+```
+
 Android APK 빌드:
 
 ```powershell
@@ -271,8 +299,8 @@ npx eas-cli build -p android --profile preview
 - 주관식 채점은 `domain/exam_grading.ts`에서 동시에 최대 2개 요청으로 제한합니다. 공급자 제한과 비용은 Beta에서 관찰해야 합니다.
 - 백업은 최상위 스키마를 검사하지만 중첩 객체 검증을 더 강화할 여지가 있습니다.
 - 웹 자동 회귀는 도메인 테스트 중심이며 실제 브라우저 E2E는 아직 별도 구축 대상입니다.
-- 랭킹 클라이언트는 개발용 Worker 주소를 사용하고 D1 설정도 운영값 확정이 필요하므로, 운영 배포 전 URL·DB·개인정보 범위를 다시 확인해야 합니다.
-- 앱 릴리스 표시는 아직 `v2.3.4`입니다. `v2.4.0-beta.1` 배포 전 `buildInfo.ts`, 변경 이력, 태그를 함께 갱신해야 합니다.
+- 랭킹 Worker와 D1은 운영 배포되어 있습니다. 로컬 Expo는 기본적으로 `localhost:8787`을 사용하므로 운영 서버 시험 시 환경 변수 주입이 필요합니다.
+- 현재 앱 릴리스 표시는 `v2.3.6`입니다. 다음 배포에서도 `buildInfo.ts`, `public/version.json`, 변경 이력을 같은 버전으로 갱신해야 합니다.
 
 ## 13. 성능 보수 경계 (2026-09-22)
 
