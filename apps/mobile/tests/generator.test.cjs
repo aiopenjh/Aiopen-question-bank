@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
+const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 
 function isSupportedGeminiModel(model) {
   const match = String(model).trim().toLowerCase().match(/^gemini-(\d+)(?:\.(\d+))?(?:-|$)/);
@@ -260,7 +260,8 @@ test('Gemini model selection never falls below the 3.5 baseline', async () => {
     ['', DEFAULT_GEMINI_MODEL],
     ['gemini-2.5-flash', DEFAULT_GEMINI_MODEL],
     ['gpt-4o-mini', DEFAULT_GEMINI_MODEL],
-    ['gemini-3.7-flash', 'gemini-3.7-flash'],
+    ['gemini-3.5-flash', DEFAULT_GEMINI_MODEL],
+    ['gemini-3.7-flash', DEFAULT_GEMINI_MODEL],
   ]) {
     const requestedModels = [];
     const generator = harness(async (url) => {
@@ -273,6 +274,20 @@ test('Gemini model selection never falls below the 3.5 baseline', async () => {
     assert.deepEqual(requestedModels, [expected]);
     assert.ok(isSupportedGeminiModel(requestedModels[0]));
   }
+});
+
+test('exhausted Gemini candidates return safe quota guidance without provider details', async () => {
+  let calls = 0;
+  const generator = harness(async () => {
+    calls++;
+    return { ok: false, status: 429, headers: { get: () => '30' } };
+  });
+  const result = await generator.generateFactBasedQuestions(args(generator));
+  assert.equal(result.status, 'FAILED');
+  assert.equal(calls, 5);
+  assert.match(result.message, /429/);
+  assert.match(result.message, /Google AI Studio/);
+  assert.match(result.message, /기존 문제와 학습 데이터는 그대로 유지/);
 });
 
 test('malformed and semantically rejected provider responses never become READY', async () => {

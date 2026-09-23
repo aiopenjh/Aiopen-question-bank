@@ -3,14 +3,19 @@
  * Supports Google Gemini (with smart timeout fallback and cascade), Anthropic Claude, and OpenAI GPT.
  */
 
-import {
-  DEFAULT_GEMINI_MODEL,
-  getPreferredAiModel,
-  isSupportedGeminiModel,
-} from '../data/db';
+import { DEFAULT_GEMINI_MODEL } from '../data/db';
 import { AiDocumentInput } from '../contracts/types';
 
-let geminiRateLimitUntil = 0;
+// 키와 모델별 단기 대기 상태. 메모리에만 보관하며 저장하거나 로그로 출력하지 않는다.
+const geminiRateLimits = new Map<string, Map<string, number>>();
+// 2026-09-23 공식 정식 모델 목록 확인. 구형 저장 설정보다 최신 모델을 우선한다.
+const GEMINI_MODELS = [
+  DEFAULT_GEMINI_MODEL,
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+];
 
 export type AiCompletionResult = {
   text: string;
@@ -60,7 +65,7 @@ export function parseAiJsonResponse<T>(rawText: string): T {
 
 /**
  * 범용 최신 AI 통신 엔진
- * - Gemini 최신 버전(3.5 Flash) 기본 적용
+ * - Gemini 최신 정식 버전(3.8 Flash) 우선 적용
  * - Claude 3.5 Sonnet (sk-ant- 키) 및 OpenAI GPT-4o (sk- 키) 멀티 프로바이더 지원
  * - Gemini는 3.5 이상 모델 안에서만 자동 전환
  */
@@ -135,27 +140,24 @@ export async function callUniversalAiCompletion(
   }
 
   // 3. Google Gemini: 3.5 이상 모델만 사용
-  const remainingCooldownSeconds = Math.ceil((geminiRateLimitUntil - Date.now()) / 1000);
-  if (remainingCooldownSeconds > 0) {
-    throw createGeminiRateLimitError(remainingCooldownSeconds);
+  for (const [key, limits] of geminiRateLimits) {
+    for (const [model, until] of limits) {
+      if (until <= Date.now()) limits.delete(model);
+    }
+    if (limits.size === 0) geminiRateLimits.delete(key);
   }
-  const preferredModel = await getPreferredAiModel();
-  let candidateModels = Array.from(
-    new Set([
-      preferredModel,
-      DEFAULT_GEMINI_MODEL,
-      'gemini-3.5-flash-lite',
-      'gemini-3.5-pro',
-    ].filter((model): model is string => Boolean(model) && isSupportedGeminiModel(model)))
-  );
 
   let lastError: any = null;
-  let triedModels = new Set<string>();
+  let rateLimitError: Error | null = null;
 
-  for (let i = 0; i < candidateModels.length; i++) {
-    const model = candidateModels[i];
-    if (triedModels.has(model)) continue;
-    triedModels.add(model);
+  // 각 후보는 한 요청당 한 번만 시도한다. 429가 나도 다른 모델의 할당량은 별개다.
+  for (const model of GEMINI_MODELS) {
+    if (signal?.aborted) throw createGenerationCancelledError();
+    const until = geminiRateLimits.get(trimmedKey)?.get(model) ?? 0;
+    if (until > Date.now()) {
+      rateLimitError = createGeminiRateLimitError(Math.ceil((until - Date.now()) / 1000));
+      continue;
+    }
 
     let timeoutTimer: any = null;
     let externalAbortHandler: (() => void) | null = null;
@@ -209,38 +211,16 @@ export async function callUniversalAiCompletion(
         lastError = new Error(`Gemini 모델 [${model}] 404 Not Found`);
         console.warn(`Gemini 모델 [${model}] 404 -> 다음 호환 모델 자동 전환`);
 
-        // 만약 등록된 후보 모델들이 모두 404인 경우, 구글 API 모델 목록 엔드포인트를 동적 질의하여 가용 모델 자동 발견
-        if (i === candidateModels.length - 1) {
-          try {
-            const listRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
-              headers: { 'x-goog-api-key': trimmedKey },
-            });
-            if (listRes.ok) {
-              const listData = await listRes.json();
-              const activeGoogleModels: string[] = (listData.models || [])
-                .filter(
-                  (m: any) =>
-                    m.supportedGenerationMethods?.includes('generateContent') &&
-                    isSupportedGeminiModel(String(m.name || '').replace('models/', ''))
-                )
-                .map((m: any) => m.name.replace('models/', ''));
-              for (const gm of activeGoogleModels) {
-                if (!triedModels.has(gm)) {
-                  candidateModels.push(gm);
-                }
-              }
-            }
-          } catch {
-            // 네트워크 오류 시 기존 목록 유지
-          }
-        }
         continue;
       }
 
       if (res.status === 429) {
         const waitSeconds = getRetryAfterSeconds(res.headers.get('retry-after'));
-        geminiRateLimitUntil = Date.now() + waitSeconds * 1000;
-        throw createGeminiRateLimitError(waitSeconds);
+        const limits = geminiRateLimits.get(trimmedKey) ?? new Map<string, number>();
+        limits.set(model, Date.now() + waitSeconds * 1000);
+        geminiRateLimits.set(trimmedKey, limits);
+        rateLimitError = createGeminiRateLimitError(waitSeconds);
+        continue;
       }
 
       // 구글 AI 서버 일시적 과부하와 게이트웨이 오류는 3.5 이상 후보 안에서만 전환합니다.
@@ -285,9 +265,6 @@ export async function callUniversalAiCompletion(
       if (signal?.aborted) {
         throw createGenerationCancelledError();
       }
-      if (err?.name === 'GeminiRateLimitError') {
-        throw err;
-      }
       // 통신 시간 만료, AbortError, 서버 혼잡 시 다음 3.5 이상 모델로만 전환
       if (
         msg.includes('404') ||
@@ -310,6 +287,8 @@ export async function callUniversalAiCompletion(
     }
   }
 
+  // 실제 통신 오류가 섞인 경우 전부 사용량 제한이라고 단정하지 않는다.
+  if (!lastError && rateLimitError) throw rateLimitError;
   const detailedMsg = lastError?.message || '';
   if (detailedMsg.includes('503') || detailedMsg.includes('high demand') || detailedMsg.includes('UNAVAILABLE')) {
     throw new Error('Google Gemini AI 서버가 현재 일시적인 전 세계 트래픽 폭주(503 High Demand) 상태입니다. 약 10~30초 후 다시 시도해 주세요.');

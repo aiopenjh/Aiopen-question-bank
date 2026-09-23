@@ -230,7 +230,7 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
       safeMessage = '문제 출제가 취소되었습니다.';
       failureCategory = 'cancelled';
     } else if (err?.name === 'GeminiRateLimitError') {
-      safeMessage = 'AI 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.';
+      safeMessage = 'Gemini 요청이 사용량 제한(429)으로 거절되었습니다. 잠시 후 다시 시도하거나 Google AI Studio에서 모델별 사용량을 확인해 주세요.';
       failureCategory = 'rate_limited';
     }
     // 원본 예외에는 API 키, 요청 URL, 제공자 응답 등이 섞일 수 있어 기록하지 않는다.
