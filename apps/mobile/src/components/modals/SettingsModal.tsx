@@ -9,6 +9,7 @@ import { AlarmConfig } from '../../utils/notifications';
 import { SettingsScreen } from '../../features/settings/SettingsScreen';
 import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { appStyles as styles } from '../../styles/appStyles';
+import type { BackupKind } from '../../data/db';
 
 export interface SettingsModalProps {
   visible: boolean;
@@ -21,7 +22,7 @@ export interface SettingsModalProps {
   onChangeAlarmConfig: (config: AlarmConfig) => void;
   targetQuestionCount?: number;
   onChangeTargetQuestionCount?: (count: number) => void;
-  onExportBackup: () => Promise<void>;
+  onExportBackup: (backupKind?: BackupKind) => Promise<void>;
   onOpenRestoreModal: () => void;
   onResetAllData: () => void;
   onSaveSettings: () => Promise<void>;

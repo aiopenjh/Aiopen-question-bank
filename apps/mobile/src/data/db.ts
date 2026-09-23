@@ -86,8 +86,11 @@ export {
 } from './repositories/source_repository';
 
 export {
+  BackupKind,
   AppBackupPayload,
+  BackupInspection,
   exportBackupJSON,
+  inspectBackupJSON,
   restoreBackupJSON,
 } from './repositories/backup_repository';
 

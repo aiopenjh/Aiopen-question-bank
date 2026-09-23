@@ -17,7 +17,7 @@
 - 웹 저장소: IndexedDB 기반 로컬 저장소
 - 네이티브 저장소: AsyncStorage, API 키는 별도 보안 저장 경로
 - 로컬 알림: `expo-notifications`
-- 문서/백업: JSON 문제은행 백업, 구형 ZIP 복원, 웹 PDF 인쇄용 HTML 지원
+- 문서/백업: JSON 전용 백업·복원(문제만 백업 / 전체 백업), 웹 PDF 인쇄용 HTML 지원
 - 배포 대상: GitHub Pages 정적 웹, EAS Android 빌드
 - 선택형 랭킹 서버: Cloudflare Workers + D1 + Rate Limiting
 
@@ -217,7 +217,14 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
 - `apps/mobile/src/data/storage_keys.ts`
   - 저장 키의 단일 정의
 
-새 JSON 백업은 과목·단원·학습 명세·문제와 랭킹 복구 정보만 포함합니다. 풀이 기록, 학습 자료 원본, 알람 설정, API 키는 제외합니다. 복원은 기존 학습 데이터를 교체하며 구형 ZIP/JSON 전체 백업도 계속 읽습니다. 문제집은 현재 탭의 Blob HTML 미리보기와 기존 `pdf-lib`를 이용한 Canvas A4 PDF 직접 저장을 제공합니다. 직접 저장한 PDF의 글자는 이미지이므로 선택할 수 없습니다. 새 창에 `document.write`하는 방식은 브라우저에 따라 빈 탭이 남을 수 있어 사용하지 않습니다. 워터마크 이미지 주소는 Metro 자산 모듈의 `uri`를 사용합니다.
+백업은 JSON만 생성하고 복원도 JSON만 받습니다. 설정의 `백업하기`에서 두 종류를 고르며, 파일의 `backupKind`로 종류를 구분합니다(`backup_repository.ts`).
+
+- 문제만 백업(`backupKind: "question-bank"`): `topics`, `units`, `learningSpecs`, `questions`만 포함합니다. 복원하면 이 4개 키만 교체하고 풀이·복습·교재·설정·랭킹 연결은 유지합니다.
+- 전체 백업(`backupKind: "full"`): 위 항목과 프로필, 루틴, 교재(`sources`, `sourceRevisions`, `sourceChunks`, `topicSourceLinks`), 세션, `attempts`(도전 기록 포함), `reviewStates`, 수동 완료, 오답노트, 선호 모델, 최근 학습 과목, 알람 설정, 랭킹 복구 정보(`rankingNickname`, `rankingParticipantId`, `rankingRecoveryToken`)를 포함합니다. 복원하면 이 데이터를 교체하고, 실패 시 복원 대상 키 전체를 이전 스냅샷으로 되돌립니다. 랭킹 복구 토큰이 있을 때만 현재 기기 연결을 복구 seed로 전환합니다.
+- `backupKind`가 없는 이전 JSON은 전체 백업 전용 필드가 있으면 전체, 없으면 문제만 백업으로 판별합니다.
+- API 키와 기기 토큰(deviceToken)은 두 종류 모두 제외합니다. 두 종류 모두 복원 전에 확인창을 띄웁니다.
+
+문제집은 현재 탭의 Blob HTML 미리보기와 기존 `pdf-lib`를 이용한 Canvas A4 PDF 직접 저장을 제공합니다. 직접 저장한 PDF의 글자는 이미지이므로 선택할 수 없습니다. 새 창에 `document.write`하는 방식은 브라우저에 따라 빈 탭이 남을 수 있어 사용하지 않습니다. 워터마크 이미지 주소는 Metro 자산 모듈의 `uri`를 사용합니다.
 
 문제집 미리보기(`workbookHtml.ts`)와 직접 저장 PDF(`workbookPdf.ts`)는 모두 단원별 새 A4 페이지, 왼쪽부터 채우는 2단, 페이지 하단의 출처 문구를 사용합니다. 문제와 정답 번호는 각 단원에서 1부터 다시 시작합니다. 주관식에는 글자·밑줄 없이 빈 공간만 남기고, 제목부터 해설까지 바탕 계열 글꼴을 적용합니다. 미리보기는 오른쪽 위 `×`로 앱에 복귀하며, 직접 저장 PDF는 기존 `pdf-lib` Canvas 경로로 생성합니다. 중복 보조 정보 줄을 제거했으므로 문제집 생성 중 랭킹 프로필 조회도 하지 않습니다.
 
@@ -231,7 +238,7 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
 
 운영 API는 `https://celueste-ranking-api.celueste-ranking-worker.workers.dev`입니다. 최초 닉네임 등록 뒤 시험 완료 시 세 랭킹 지표를 함께 자동 동기화합니다. 닉네임 검사는 서버에서 2~12자 제한, 중복, 운영자 사칭, 욕설·성적 표현과 공백·기호를 이용한 우회를 차단합니다. 문제 내용, 정답, 과목명과 API 키는 전송하지 않습니다.
 
-랭킹 창에서는 기존 JSON/ZIP 백업을 선택해 `rankingParticipantId`와 `rankingRecoveryToken`만 읽고 기존 계정으로 연결합니다. 이 경로는 학습 데이터를 복원하거나 API 키를 서버로 보내지 않습니다. 서버의 참가자 ID는 계정을 식별하지만 사람 자체를 식별하지 않으므로, 다른 기기에서 새 닉네임을 등록하는 행위까지 막지는 않습니다.
+랭킹 창에서는 전체 백업 JSON을 선택해 `rankingParticipantId`와 `rankingRecoveryToken`만 읽고 기존 계정으로 연결합니다. 이 경로는 학습 데이터를 복원하거나 API 키를 서버로 보내지 않습니다. 서버의 참가자 ID는 계정을 식별하지만 사람 자체를 식별하지 않으므로, 다른 기기에서 새 닉네임을 등록하는 행위까지 막지는 않습니다.
 
 | 메서드와 경로 | 역할 |
 | --- | --- |

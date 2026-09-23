@@ -8,6 +8,7 @@ import { ApiKeySection } from './ApiKeySection';
 import { AlarmConfigSection } from './AlarmConfigSection';
 import { DailyGoalSection } from './DailyGoalSection';
 import { DataBackupSection } from './DataBackupSection';
+import type { BackupKind } from '../../data/db';
 import { AppVersionSection } from './AppVersionSection';
 import { FeedbackCard } from '../study/FeedbackCard';
 import { DAILY_GOAL_DEFAULT } from '../../domain/daily_goal';
@@ -69,7 +70,7 @@ interface SettingsScreenProps {
   onChangeAlarmConfig?: (config: AlarmConfig) => void;
   targetQuestionCount?: number;
   onChangeTargetQuestionCount?: (count: number) => void;
-  onExportBackup: () => Promise<void>;
+  onExportBackup: (backupKind?: BackupKind) => Promise<void>;
   onOpenRestoreModal: () => void;
   onResetAllData: () => void;
   topics?: Topic[];

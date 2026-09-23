@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Platform, StyleSheet } from 'react-native';
 import { styles } from './settingsStyles';
 import { UniversalModal as Modal } from '../../components/common/UniversalModal';
+import { ViewportPopupLayer } from '../../components/common/ViewportPopupLayer';
 import type { QuestionRevision, Topic, Unit } from '../../contracts/types';
 import { generateWorkbookHtml } from '../../utils/workbookHtml';
 import { showAlert } from '../../utils/alert';
+import type { BackupKind } from '../../data/db';
+import { colors, radius, shadows, spacing } from '../../styles/designTokens';
 
 export interface DataBackupSectionProps {
-  onExportBackup: () => Promise<void>;
+  onExportBackup: (backupKind?: BackupKind) => Promise<void>;
   onOpenRestoreModal: () => void;
   onResetAllData: () => void;
   topics: Topic[];
@@ -27,6 +30,7 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
   const [includeExplanations, setIncludeExplanations] = useState(false);
   const [savingPdf, setSavingPdf] = useState(false);
+  const [backupChoiceVisible, setBackupChoiceVisible] = useState(false);
   const availableTopics = topics.filter((topic) => questions.some((question) => question.topicId === topic.id));
 
   function openWorkbook() {
@@ -59,6 +63,11 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
     setWorkbookVisible(false);
     const workbookUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     window.location.assign(workbookUrl);
+  }
+
+  function chooseBackup(backupKind: BackupKind) {
+    setBackupChoiceVisible(false);
+    void onExportBackup(backupKind);
   }
 
   async function saveWorkbookPdf() {
@@ -116,27 +125,41 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
           <View style={{ flex: 1, paddingRight: 8 }}>
             <Text style={styles.compactCardTitle}>학습 데이터 백업</Text>
             <Text style={styles.compactCardSubtitle}>
-              과목·단원·문제와 랭킹 복구 정보 저장 · 풀이 기록과 API 키 제외
+              문제 공유용 또는 기기 이전용 전체 백업 · API 키 제외
             </Text>
           </View>
           <View style={styles.compactBtnGroup}>
             <TouchableOpacity
               style={styles.miniBtnPrimary}
-              onPress={onExportBackup}
+              onPress={() => setBackupChoiceVisible(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.miniBtnPrimaryText}>백업</Text>
+              <Text style={styles.miniBtnPrimaryText}>백업하기</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.miniBtnSecondary}
               onPress={onOpenRestoreModal}
               activeOpacity={0.7}
             >
-              <Text style={styles.miniBtnSecondaryText}>복원</Text>
+              <Text style={styles.miniBtnSecondaryText}>복원하기</Text>
             </TouchableOpacity>
           </View>
         </View>
       </View>
+
+      <ViewportPopupLayer visible={backupChoiceVisible} onRequestClose={() => setBackupChoiceVisible(false)}>
+        {/* 바깥 영역을 누르면 닫힌다. Android 뒤로가기는 onRequestClose가 처리한다. */}
+        <TouchableOpacity activeOpacity={1} style={backupChoiceStyles.overlay} onPress={() => setBackupChoiceVisible(false)}>
+          <TouchableOpacity activeOpacity={1} style={backupChoiceStyles.card} onPress={(e) => e.stopPropagation?.()}>
+            <TouchableOpacity style={backupChoiceStyles.option} onPress={() => chooseBackup('question-bank')} activeOpacity={0.8}>
+              <Text style={backupChoiceStyles.optionTitle}>문제만 백업</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[backupChoiceStyles.option, backupChoiceStyles.optionLast]} onPress={() => chooseBackup('full')} activeOpacity={0.8}>
+              <Text style={backupChoiceStyles.optionTitle}>전체 백업</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </ViewportPopupLayer>
 
       <Modal visible={workbookVisible} transparent animationType="fade" onRequestClose={() => setWorkbookVisible(false)}>
         <View style={workbookStyles.overlay}>
@@ -212,4 +235,20 @@ const workbookStyles = StyleSheet.create({
   cancelText: { color: '#6d6168', fontWeight: '700' },
   submit: { flex: 2, padding: 12, alignItems: 'center', borderRadius: 9, backgroundColor: '#995e75' },
   submitText: { color: '#fff', fontWeight: '800' },
+});
+
+// 선택지가 두 개뿐인 백업 범위 팝업 전용 compact 스타일 (문제집·복원 모달과 별도)
+const backupChoiceStyles = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(64,48,56,0.36)', padding: spacing.xl },
+  card: {
+    width: '100%', maxWidth: 300, alignSelf: 'center', overflow: 'hidden', backgroundColor: colors.surface,
+    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
+    ...shadows.soft,
+  },
+  option: {
+    minHeight: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface,
+    borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: spacing.lg,
+  },
+  optionLast: { borderBottomWidth: 0 },
+  optionTitle: { fontSize: 15, lineHeight: 20, fontWeight: '600', color: colors.ink },
 });

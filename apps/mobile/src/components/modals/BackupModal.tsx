@@ -32,9 +32,9 @@ export const BackupModal: React.FC<BackupModalProps> = ({
           style={styles.modalCard}
           onPress={(e) => e.stopPropagation?.()}
         >
-          <Text style={styles.modalTitle}>🔄 문제은행 복원하기</Text>
+          <Text style={styles.modalTitle}>학습 데이터 복원</Text>
           <Text style={styles.promptGuideText}>
-            백업 JSON을 선택하면 현재 학습 데이터를 교체합니다. 이전 ZIP 백업도 불러올 수 있습니다. API 키는 변경하지 않습니다.
+            백업 JSON을 선택하면 파일 종류를 확인한 뒤 복원 범위를 안내합니다. API 키는 변경하지 않습니다.
           </Text>
 
           {/* 1. 원클릭 파일 선택 버튼 (가장 추천) */}
@@ -46,8 +46,8 @@ export const BackupModal: React.FC<BackupModalProps> = ({
             >
               <Text style={styles.filePickBtnIcon}>📦</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.filePickBtnTitle}>백업 파일(.json / 기존 .zip) 선택</Text>
-                <Text style={styles.filePickBtnSub}>파일 검사 후 과목·단원·문제와 랭킹 정보 복원</Text>
+                <Text style={styles.filePickBtnTitle}>백업 파일 선택</Text>
+                <Text style={styles.filePickBtnSub}>문제만 백업 또는 전체 백업을 자동으로 구분합니다.</Text>
               </View>
             </TouchableOpacity>
           )}

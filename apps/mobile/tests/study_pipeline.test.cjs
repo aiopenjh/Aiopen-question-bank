@@ -233,7 +233,7 @@ test('actual study pipeline generates, persists, deduplicates submissions and re
   assert.equal((await restarted.db.getManualCompletions())[0].unitId, fixture.unit.id);
   assert.match(restarted.routine.getLocalDateString(), /^\d{4}-\d{2}-\d{2}$/);
 
-  const backup = await restarted.db.exportBackupJSON();
+  const backup = await restarted.db.exportBackupJSON('full');
   assert.ok(!backup.includes('AIza-synthetic-integration-key'));
   const restored = appSession();
   await restored.db.initializeDatabase();

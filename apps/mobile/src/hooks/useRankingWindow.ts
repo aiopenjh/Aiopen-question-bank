@@ -32,12 +32,11 @@ import {
   SyncTodayResult,
 } from '../domain/ranking_client';
 import { syncRankingProgress } from '../domain/ranking_sync';
-import { base64ToU8, decompressBackupPayload } from '../utils/backupArchive';
 
 const LEADERBOARD_LIMIT = 20;
 
 function toMessage(err: unknown): string {
-  return err instanceof RankingApiRequestError ? err.message : '알 수 없는 오류가 발생했습니다.';
+  return err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
 }
 
 function recoverySeedFromBackup(content: string): RankingRecoverySeed {
@@ -45,13 +44,13 @@ function recoverySeedFromBackup(content: string): RankingRecoverySeed {
   try {
     backup = JSON.parse(content);
   } catch {
-    throw new Error('올바른 Celueste 백업 파일이 아닙니다. JSON 또는 이전 ZIP 백업을 선택해 주세요.');
+    throw new Error('올바른 Celueste 백업 파일이 아닙니다. 전체 백업 JSON 파일을 선택해 주세요.');
   }
   if (
     typeof backup?.rankingParticipantId !== 'string' || !backup.rankingParticipantId ||
     typeof backup?.rankingRecoveryToken !== 'string' || !backup.rankingRecoveryToken
   ) {
-    throw new Error('이 백업에는 랭킹 계정 복구 정보가 없습니다. 랭킹에 참여한 뒤 저장한 백업을 선택해 주세요.');
+    throw new Error('이 백업에는 랭킹 계정 복구 정보가 없습니다. 랭킹에 참여한 뒤 저장한 전체 백업을 선택해 주세요.');
   }
   return {
     nickname: typeof backup.rankingNickname === 'string' ? backup.rankingNickname : '',
@@ -86,18 +85,23 @@ export function useRankingWindow() {
 
   useEffect(() => {
     (async () => {
-      // 오늘 완료 수는 제출 기록에서 직접 계산한다 (계획서 §5.1).
-      const [storedProfile, attempts] = await Promise.all([
-        getRankingProfile(),
-        getAttempts(),
-      ]);
-      setProfile(storedProfile);
-      setTodaySolvedCount(countTodayCompletedQuestions(attempts));
-      setMaxKillerLevel(getMaxQualifiedKillerLevel(attempts));
-      if (!storedProfile) setRecoverySeed(await getRankingRecoverySeed());
-      setPendingSync(await getPendingSyncRequest());
-      await refreshLeaderboard();
-      setLoading(false);
+      try {
+        // 오늘 완료 수는 제출 기록에서 직접 계산한다 (계획서 §5.1).
+        const [storedProfile, attempts] = await Promise.all([
+          getRankingProfile(),
+          getAttempts(),
+        ]);
+        setProfile(storedProfile);
+        setTodaySolvedCount(countTodayCompletedQuestions(attempts));
+        setMaxKillerLevel(getMaxQualifiedKillerLevel(attempts));
+        if (!storedProfile) setRecoverySeed(await getRankingRecoverySeed());
+        setPendingSync(await getPendingSyncRequest());
+        await refreshLeaderboard();
+      } catch (err: unknown) {
+        setError(toMessage(err));
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [refreshLeaderboard]);
 
@@ -197,10 +201,11 @@ export function useRankingWindow() {
       const picked = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
       if (picked.canceled || !picked.assets?.length) return { ok: false as const, canceled: true as const };
       const file = picked.assets[0];
-      const bytes = Platform.OS === 'web' && (file as any).file
-        ? new Uint8Array(await (file as any).file.arrayBuffer())
-        : base64ToU8(await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 }));
-      return recoverWithSeed(recoverySeedFromBackup(decompressBackupPayload(bytes)));
+      // 백업은 JSON 텍스트만 지원한다.
+      const content: string = Platform.OS === 'web' && (file as any).file
+        ? await (file as any).file.text()
+        : await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.UTF8 });
+      return recoverWithSeed(recoverySeedFromBackup(content));
     } catch (err) {
       const message = err instanceof Error ? err.message : '백업 파일을 읽을 수 없습니다.';
       setError(message);
