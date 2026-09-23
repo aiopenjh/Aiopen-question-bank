@@ -22,6 +22,7 @@ import { difficultyToLegacyLevel, legacyLevelToDifficulty } from '../domain/diff
 import { buildUnitGenerationContext, formatIntentMessage } from './quizGenerationContext';
 import { getLocalDateString } from '../domain/routine';
 import { CHALLENGE_START_LEVEL, getUnlockedChallengeLevel } from '../domain/challenge_progress';
+import type { ExamStartOptions } from './useExamSession';
 
 const DAILY_FREE_QUESTION_GUIDE = 15;
 
@@ -56,7 +57,7 @@ export interface UseQuizGenerationProps {
   selectedUnitId: string | null;
   lastStudiedTopicId: string | null;
   incorrectQuestions: QuestionRevision[];
-  startExam: (questions: QuestionRevision[]) => void;
+  startExam: (questions: QuestionRevision[], options?: ExamStartOptions) => void;
   onOpenSettings: () => void;
   onOpenTopicModal: () => void;
   setQuestions: (questions: QuestionRevision[]) => void;
@@ -266,7 +267,7 @@ export function useQuizGeneration({
         setQuestions(allQ);
 
         // 출제 완료 시 CBT 시험장 즉시 입장 (과목보관함 위치 안전 유지)
-        startExam(saveResult.saved);
+        startExam(saveResult.saved, { challengeEligible: targetDifficulty >= CHALLENGE_START_LEVEL });
       } catch (err: any) {
         if (!abortRef.current) {
           showAlert('오류', `단원 문제 출제 실패: ${err?.message || '네트워크 응답 오류'}`);
@@ -508,7 +509,7 @@ ${existingSummary ? `\n[기존 출제 문제 참고 (중복 방지)]:\n${existin
       setQuestions(allQ);
 
       // 즉시 새로 출제된 문제로 CBT 시험 시작
-      startExam(savedQuestions);
+      startExam(savedQuestions, { challengeEligible: targetDifficulty >= CHALLENGE_START_LEVEL });
     } catch (err: any) {
       if (newlyCreatedUnitId && !questionsPersisted) {
         try {

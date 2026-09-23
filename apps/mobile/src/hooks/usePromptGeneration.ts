@@ -18,6 +18,8 @@ import {
 } from '../data/db';
 import { analyzeUserIntent, generateFactBasedQuestions } from '../domain/generator';
 import { showAlert } from '../utils/alert';
+import { CHALLENGE_START_LEVEL } from '../domain/challenge_progress';
+import type { ExamStartOptions } from './useExamSession';
 
 export interface UsePromptGenerationProps {
   topics: Topic[];
@@ -27,7 +29,7 @@ export interface UsePromptGenerationProps {
   setSelectedTopicId: (id: string | null) => void;
   setSelectedUnitId: (id: string | null) => void;
   setQuestions: (questions: QuestionRevision[]) => void;
-  startExam: (questions: QuestionRevision[]) => void;
+  startExam: (questions: QuestionRevision[], options?: ExamStartOptions) => void;
   onOpenSettings: () => void;
   setIsGenerating: (generating: boolean) => void;
   setGeneratingWaitStatus: (status: any) => void;
@@ -185,7 +187,9 @@ export function usePromptGeneration({
         setQuestions(updatedQuestions);
         setSelectedTopicId(targetTopic.id);
         setSelectedUnitId(targetUnit.id);
-        startExam(savedQuestions);
+        startExam(savedQuestions, {
+          challengeEligible: intent.difficultyLevel >= CHALLENGE_START_LEVEL,
+        });
       } catch (err: any) {
         if (newlyCreatedTopicId) {
           try {

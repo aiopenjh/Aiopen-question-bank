@@ -27,6 +27,11 @@ export interface UseExamSessionProps {
   onRefreshData: () => Promise<void>;
 }
 
+export interface ExamStartOptions {
+  /** 새로 생성된 레벨 31+ 문제만 순차 도전 통과 기록으로 인정한다. */
+  challengeEligible?: boolean;
+}
+
 export function useExamSession({
   questions,
   reviewStates,
@@ -41,10 +46,16 @@ export function useExamSession({
   const [examSessionActive, setExamSessionActive] = useState(false);
   const [examQuestions, setExamQuestions] = useState<QuestionRevision[]>([]);
   const [examSessionRunId, setExamSessionRunId] = useState<string | null>(null);
-  const runRef = useRef<{ id: string; startedAt: string; saving: boolean; completed: boolean } | null>(null);
+  const runRef = useRef<{
+    id: string;
+    startedAt: string;
+    saving: boolean;
+    completed: boolean;
+    challengeEligible: boolean;
+  } | null>(null);
 
   const startExam = useCallback(
-    (filteredQuestions?: QuestionRevision[]) => {
+    (filteredQuestions?: QuestionRevision[], options?: ExamStartOptions) => {
       let list = filteredQuestions;
       if (!list || list.length === 0) {
         // 1순위: 선택된 단원의 문제
@@ -89,7 +100,13 @@ export function useExamSession({
       );
 
       const runId = generateUUID();
-      runRef.current = { id: runId, startedAt: getCurrentISOTime(), saving: false, completed: false };
+      runRef.current = {
+        id: runId,
+        startedAt: getCurrentISOTime(),
+        saving: false,
+        completed: false,
+        challengeEligible: options?.challengeEligible === true,
+      };
       setExamSessionRunId(runId);
       setExamQuestions(randomizedQuestions);
       setExamSessionActive(true);
@@ -116,7 +133,8 @@ export function useExamSession({
       run.saving = true;
       try {
         const first = results[0]?.question;
-        const isChallenge = results.length === CHALLENGE_QUESTION_COUNT &&
+        const isChallenge = run.challengeEligible &&
+          results.length === CHALLENGE_QUESTION_COUNT &&
           examQuestions.length === CHALLENGE_QUESTION_COUNT && !!first?.topicId &&
           Number.isSafeInteger(first.difficultyLevel) && first.difficultyLevel! >= CHALLENGE_START_LEVEL &&
           new Set(results.map(item => item.question.id)).size === CHALLENGE_QUESTION_COUNT &&

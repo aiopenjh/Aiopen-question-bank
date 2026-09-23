@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Topic, Unit, QuestionRevision } from '../../contracts/types';
 import { styles } from './libraryStyles';
 import { colors } from '../../styles/designTokens';
+import { CHALLENGE_START_LEVEL } from '../../domain/challenge_progress';
 
 export interface TopicFolderCardProps {
   topic: Topic;
@@ -147,6 +148,8 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
                 (q) => q.topicId === topic.id && q.unitId === unit.id
               );
               const isThisUnitGenerating = generatingUnitId === unit.id;
+              const isChallengeUnit =
+                (unit.difficultyLevel ?? topic.difficultyLevel ?? 0) >= CHALLENGE_START_LEVEL;
 
               return (
                 <View key={unit.id} style={styles.unitHouseRow}>
@@ -184,7 +187,9 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
                           onPress={() => onStartExamWithQuestions(unitQuestions)}
                           activeOpacity={0.8}
                         >
-                          <Text style={styles.unitExistingQuizBtnText}>기존 문제 풀기</Text>
+                          <Text style={styles.unitExistingQuizBtnText}>
+                            {isChallengeUnit ? '기존 문제 복습' : '기존 문제 풀기'}
+                          </Text>
                         </TouchableOpacity>
                       )}
 
@@ -197,7 +202,9 @@ export const TopicFolderCard: React.FC<TopicFolderCardProps> = ({
                         {isThisUnitGenerating ? (
                           <ActivityIndicator size="small" color="#ffffff" />
                         ) : (
-                          <Text style={styles.unitQuizBtnText}>새 문제 만들기</Text>
+                          <Text style={styles.unitQuizBtnText}>
+                            {isChallengeUnit ? '새 문제로 도전' : '새 문제 만들기'}
+                          </Text>
                         )}
                       </TouchableOpacity>
                     </View>

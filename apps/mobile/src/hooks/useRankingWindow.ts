@@ -7,7 +7,7 @@
  * 시드 생성/마이그레이션을 수행하는 initializeDatabase()는 호출하지 않는다.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RankingProfile, RankingRecoverySeed, RankingSyncQueueItem } from '../contracts/types';
 import {
   getAttempts,
@@ -46,6 +46,7 @@ export function useRankingWindow() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const registrationInFlightRef = useRef(false);
   // 백업을 복원했는데 아직 참여 중이 아니면(deviceToken 없음), 복구할 계정이 있는지 보여준다.
   const [recoverySeed, setRecoverySeed] = useState<RankingRecoverySeed | null>(null);
   // 계획서 §6: 실패해 대기 중인 연동 요청이 있으면 창을 열었을 때 알려준다.
@@ -77,9 +78,20 @@ export function useRankingWindow() {
   }, [refreshLeaderboard]);
 
   const register = useCallback(async (nickname: string) => {
+    if (registrationInFlightRef.current) {
+      return { ok: false as const, message: '랭킹 등록을 처리하고 있습니다.' };
+    }
+    registrationInFlightRef.current = true;
     setBusy(true);
     setError(null);
     try {
+      const existingProfile = profile ?? (await getRankingProfile());
+      if (existingProfile) {
+        setProfile(existingProfile);
+        const message = '이미 등록된 랭킹 계정이 있습니다. 추가 등록할 수 없습니다.';
+        setError(message);
+        return { ok: false as const, message };
+      }
       const result = await registerParticipant(nickname.trim());
       const next: RankingProfile = {
         nickname: result.nickname,
@@ -108,9 +120,10 @@ export function useRankingWindow() {
       setError(message);
       return { ok: false as const, message };
     } finally {
+      registrationInFlightRef.current = false;
       setBusy(false);
     }
-  }, [refreshLeaderboard]);
+  }, [profile, refreshLeaderboard]);
 
   /**
    * 백업 복원으로 남은 복구 재료로 서버 계정을 되찾는다.

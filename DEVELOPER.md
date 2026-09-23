@@ -117,6 +117,12 @@ node --test tests/*.cjs
 
 - `apps/mobile/src/features/exam/ExamSessionScreen.tsx`
   - 전체 화면 CBT 시험, 힌트, 문제별 풀이공간 상태 조정
+- `apps/mobile/src/hooks/useExamSession.ts`
+  - 시험 시작 회차와 제출 기록 저장
+  - 레벨 31 이상은 새 문제 생성 직후 `challengeEligible`로 시작한 3문항 회차만 순차 통과 기록으로 저장
+- `apps/mobile/src/domain/challenge_progress.ts`
+  - 과목별 레벨 31 이상 순차 통과 복원과 3문항 중 2문항 통과 검증
+  - 기존 문제 복습, 오답 복습과 기한 복습은 일반 풀이로 저장하며 초고난도 도전 진도에서 제외
 - `apps/mobile/src/features/exam/ExamActiveView.tsx`
   - 객관식 선택, 빈칸별 입력, 단답형·서술형 텍스트 입력
   - 문제·보기·답안 입력에 플랫폼 기본 한글 시스템 글꼴 적용
