@@ -121,8 +121,22 @@ export function useAppData(callbacks?: {
       setApiKey(key || '');
       setSources(s);
       setAlarmConfig(aConfig);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('앱 데이터 로드 실패:', err);
+      const detail = err instanceof Error ? err.message : '알 수 없는 저장소 오류';
+      showAlert(
+        '학습 저장소를 열 수 없습니다',
+        `${detail}\n\n브라우저 데이터나 앱 저장공간을 삭제하지 말고 잠시 후 다시 시도해 주세요.`,
+        [
+          { text: '닫기', style: 'cancel' },
+          {
+            text: '다시 시도',
+            onPress: () => {
+              void loadAppData(false);
+            },
+          },
+        ]
+      );
     } finally {
       if (!isPullRefresh) {
         setLoading(false);
