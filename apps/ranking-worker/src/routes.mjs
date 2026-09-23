@@ -33,7 +33,12 @@ export async function registerParticipant(request, env, origin) {
   const body = await readJson(request);
   const check = validateNickname(body?.nickname);
   if (!check.ok) {
-    return errorResponse('INVALID_INPUT', '닉네임은 2~12자이며 금칙어를 포함할 수 없습니다.', 400, origin);
+    return errorResponse(
+      'INVALID_INPUT',
+      '닉네임은 2~12자이며 욕설, 성적 표현 또는 운영자 사칭어를 포함할 수 없습니다.',
+      400,
+      origin
+    );
   }
 
   const existing = await env.DB.prepare(

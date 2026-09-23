@@ -79,16 +79,11 @@ export const appStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingWaitNoteText: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.inkMuted,
     textAlign: 'center',
-    lineHeight: 16,
-  },
-  loadingWaitNoteTextStrong: {
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '700',
-    color: colors.ink,
+    lineHeight: 18,
+    fontWeight: '500',
   },
   loadingWaitCancelBtn: {
     marginTop: 16,

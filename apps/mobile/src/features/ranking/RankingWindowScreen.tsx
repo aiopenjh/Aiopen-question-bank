@@ -210,7 +210,7 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
                 placeholder="공개 닉네임 (2~12자)"
                 placeholderTextColor="#94a3b8"
                 value={nickname}
-                onChangeText={setNickname}
+                onChangeText={(value) => setNickname(Array.from(value).slice(0, 12).join(''))}
                 maxLength={12}
                 autoCorrect={false}
               />

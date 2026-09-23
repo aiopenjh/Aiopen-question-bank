@@ -138,7 +138,7 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
 
         <View
           style={[styles.heroWatermarkStage, { height: watermarkStageHeight }]}
-          pointerEvents="none"
+          pointerEvents="box-none"
         >
           <Image
             source={require('../../../assets/android-icon-foreground-v2.png')}
@@ -149,7 +149,10 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             ]}
             accessible={false}
           />
-          <View style={[styles.heroWatermarkLetters, { top: watermarkLettersTop }]}>
+          <View
+            style={[styles.heroWatermarkLetters, { top: watermarkLettersTop }]}
+            pointerEvents="none"
+          >
             {Array.from('Celueste').map((letter, index) => (
               <Text
                 key={`${letter}-${index}`}
@@ -165,6 +168,22 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
               </Text>
             ))}
           </View>
+
+          {onOpenTopicModal && (
+            <View style={styles.freeTopicSection}>
+              <TouchableOpacity
+                style={styles.freeTopicSearch}
+                onPress={() => onOpenTopicModal('')}
+                activeOpacity={0.78}
+              >
+                <Text style={styles.freeTopicSearchIcon}>⌕</Text>
+                <Text style={styles.freeTopicSearchText}>배우고 싶은 주제를 자유롭게 입력하세요</Text>
+              </TouchableOpacity>
+              <Text style={styles.freeTopicExamples} numberOfLines={1}>
+                예: 커피 로스팅 · 게임 세계관 · 바람 잘 피하기 · 불편하게 잠자기
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.heroProgressSection}>
@@ -212,15 +231,6 @@ export const StudyMapScreen: React.FC<StudyMapScreenProps> = ({
             </TouchableOpacity>
           )}
 
-          {onOpenTopicModal && (
-            <TouchableOpacity
-              style={styles.newStudyLink}
-              onPress={() => onOpenTopicModal('')}
-              activeOpacity={0.72}
-            >
-              <Text style={styles.newStudyLinkText}>＋ 새 주제로 학습하기</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
       </View>
@@ -333,6 +343,54 @@ const styles = StyleSheet.create({
     opacity: 0.065,
     fontWeight: '900',
   },
+  freeTopicSection: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    alignItems: 'center',
+  },
+  freeTopicSearch: {
+    position: 'absolute',
+    top: '50%',
+    width: '92%',
+    minHeight: 40,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    transform: [{ translateY: -20 }],
+  },
+  freeTopicSearchIcon: {
+    marginRight: spacing.sm,
+    color: colors.primaryPressed,
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: '400',
+  },
+  freeTopicSearchText: {
+    flex: 1,
+    color: colors.inkMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
+    textAlign: 'left',
+    opacity: 0.4,
+  },
+  freeTopicExamples: {
+    position: 'absolute',
+    top: '50%',
+    width: '92%',
+    marginTop: 27,
+    color: colors.inkMuted,
+    fontSize: 9,
+    lineHeight: 14,
+    textAlign: 'left',
+  },
   activeLed: {
     width: 7,
     height: 7,
@@ -440,17 +498,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 13,
     fontWeight: '800',
-  },
-  newStudyLink: {
-    alignSelf: 'center',
-    marginTop: 0,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  newStudyLinkText: {
-    color: colors.primaryPressed,
-    fontSize: 12,
-    fontWeight: '700',
   },
   quickActionRow: {
     flexDirection: 'row',

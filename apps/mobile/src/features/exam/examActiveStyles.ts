@@ -1,5 +1,11 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { colors, radius, shadows, spacing } from '../../styles/designTokens';
+
+const examReadingFont = Platform.select({
+  web: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Malgun Gothic", sans-serif',
+  ios: 'System',
+  android: 'sans-serif',
+});
 
 export const examActiveStyles = StyleSheet.create({
   examContainer: {
@@ -116,9 +122,10 @@ export const examActiveStyles = StyleSheet.create({
   },
   questionStem: {
     color: colors.ink,
-    fontSize: 16,
-    lineHeight: 25,
-    fontWeight: '700',
+    fontFamily: examReadingFont,
+    fontSize: 17,
+    lineHeight: 27,
+    fontWeight: '600',
   },
   optionsList: {
     gap: 12,
@@ -167,6 +174,7 @@ export const examActiveStyles = StyleSheet.create({
   },
   optionText: {
     flex: 1,
+    fontFamily: examReadingFont,
     fontSize: 14,
     color: colors.ink,
     lineHeight: 21,
@@ -174,7 +182,13 @@ export const examActiveStyles = StyleSheet.create({
   },
   optionTextSelected: {
     color: colors.ink,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  answerInputText: {
+    fontFamily: examReadingFont,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '400',
   },
   checkMark: {
     color: colors.primaryPressed,

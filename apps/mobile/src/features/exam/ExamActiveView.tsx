@@ -122,17 +122,19 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
                   <Text style={styles.optionIndexText}>{idx + 1}</Text>
                 </View>
                 <TextInput
-                  style={{
-                    flex: 1,
-                    minHeight: 48,
-                    borderWidth: 1.5,
-                    borderColor: colors.border,
-                    borderRadius: 14,
-                    padding: 14,
-                    fontSize: 16,
-                    color: colors.ink,
-                    backgroundColor: colors.surface,
-                  }}
+                  style={[
+                    {
+                      flex: 1,
+                      minHeight: 48,
+                      borderWidth: 1.5,
+                      borderColor: colors.border,
+                      borderRadius: 14,
+                      padding: 14,
+                      color: colors.ink,
+                      backgroundColor: colors.surface,
+                    },
+                    styles.answerInputText,
+                  ]}
                   placeholder={`${idx + 1}번 빈칸 답안`}
                   value={currentClozeAnswers[idx] || ''}
                   onChangeText={(text) => onClozeAnswerChange(idx, text)}
@@ -144,17 +146,19 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
           // 주관식(단답형/서술형): 자유 텍스트 입력. fontSize 16 고정(Law #6, 모바일 확대 방지)
           <View>
             <TextInput
-              style={{
-                minHeight: q.questionType === 'essay' ? 160 : 60,
-                borderWidth: 1.5,
-                borderColor: colors.border,
-                borderRadius: 14,
-                padding: 16,
-                fontSize: 16,
-                color: colors.ink,
-                backgroundColor: colors.surface,
-                textAlignVertical: 'top',
-              }}
+              style={[
+                {
+                  minHeight: q.questionType === 'essay' ? 160 : 60,
+                  borderWidth: 1.5,
+                  borderColor: colors.border,
+                  borderRadius: 14,
+                  padding: 16,
+                  color: colors.ink,
+                  backgroundColor: colors.surface,
+                  textAlignVertical: 'top',
+                },
+                styles.answerInputText,
+              ]}
               multiline
               maxLength={q.maxAnswerLength || 2000}
               placeholder={q.questionType === 'essay' ? '서술형 답안을 입력하세요 (최대 2,000자)' : '단답형 답안을 입력하세요'}

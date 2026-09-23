@@ -65,8 +65,22 @@ export function isoNow() {
 
 const NICKNAME_MIN = 2;
 const NICKNAME_MAX = 12;
-// 최소한의 금칙어/운영자 사칭 차단. 실제 운영 전 목록을 확장한다.
-const BLOCKED_NICKNAME_PATTERNS = [/admin/i, /운영자/, /관리자/, /celueste/i, /^\s*$/];
+const BLOCKED_NICKNAME_PATTERNS = [
+  // 운영자 및 서비스 사칭
+  /admin/i,
+  /운영자/,
+  /관리자/,
+  /celueste/i,
+  // 한글 욕설과 자모 축약형
+  /씨발|시발|씨바|시바|씨빨|씹|ㅅㅂ|ㅆㅂ/,
+  /병신|븅신|ㅂㅅ/,
+  /좆|존나|ㅈㄴ|개새끼|개색끼|개쉐끼|새끼|ㅅㄲ/,
+  /미친놈|미친년|닥쳐|꺼져|엿먹/,
+  // 성적·음란 표현
+  /섹스|쎅스|ㅅㅅ|야동|포르노|자위|딸딸이|성기|자지|보지|음란|강간|성폭행|성매매|매춘|페니스|딜도|오르가즘/,
+  // 대표적인 영문 욕설·성적 표현
+  /fuck|fuk|shit|bitch|cunt|porn|sex|hentai|pussy|dick|cock/i,
+];
 
 export function validateNickname(raw) {
   if (typeof raw !== 'string') return { ok: false, reason: 'INVALID_INPUT' };
@@ -74,7 +88,12 @@ export function validateNickname(raw) {
   if (nickname.length < NICKNAME_MIN || nickname.length > NICKNAME_MAX) {
     return { ok: false, reason: 'INVALID_INPUT' };
   }
-  if (BLOCKED_NICKNAME_PATTERNS.some((pattern) => pattern.test(nickname))) {
+  // 전각 문자와 대소문자를 통일하고 공백·기호를 제거해 "관 리 자", "s.e.x" 같은 우회를 막는다.
+  const filterText = nickname
+    .normalize('NFKC')
+    .toLocaleLowerCase('ko-KR')
+    .replace(/[\p{P}\p{S}\s_]+/gu, '');
+  if (!filterText || BLOCKED_NICKNAME_PATTERNS.some((pattern) => pattern.test(filterText))) {
     return { ok: false, reason: 'INVALID_INPUT' };
   }
   return { ok: true, nickname };
