@@ -133,16 +133,29 @@ CREATE TABLE IF NOT EXISTS kv (
 
 참고: 기존 웹 이관 코드(`app_storage.ts` `migrateLegacyWebStorage`, `initializeBackend`)에도 같은 두 패턴이 있다. 마커를 복사와 함께 기록하고 나서 검증하고, 초기화 중 어떤 오류든 AsyncStorage/localStorage로 폴백한다. 웹 변경은 이 설계의 범위 밖이라 별도로 보고한다.
 
-### 6.5 영향 파일
+### 6.5 이관 완료 후 장애 안전 모드
+
+이관 완료 후 SQLite를 열거나 읽지 못하면 일반 앱 화면으로 진입하지 않는다. 일반 복원 기능도 SQLite 초기화에 의존하므로, 저장소와 분리된 최소 안전 모드를 먼저 표시한다.
+
+- `다시 시도`: SQLite 열기와 무결성 확인을 다시 실행한다.
+- `백업 파일로 복구`: 사용자가 선택한 백업을 새 SQLite에 복원한다. 기존 SQLite 파일은 자동으로 덮어쓰거나 삭제하지 않는다.
+- `이관 당시 스냅샷으로 복구`: 보존된 AsyncStorage 원본의 시점을 명확히 표시하고, 이후 학습 기록이 사라질 수 있다는 경고와 사용자 확인을 받은 뒤 새 SQLite로 복사한다.
+- 오류 원인과 복구 결과를 사용자에게 표시하며, 명시적 선택 전에는 SQLite 파일·마커·AsyncStorage 원본을 변경하지 않는다.
+
+안전 모드는 오래된 AsyncStorage 데이터를 정상 최신 데이터처럼 자동 노출하지 않는다. SQLite 파일 삭제·재생성이나 AsyncStorage 원본 삭제는 별도 확인을 거쳐야 한다.
+
+### 6.6 영향 파일
 
 - 신규 `src/data/native_sqlite_backend.ts`: DB 열기, WAL, kv CRUD, 쓰기 큐, 트랜잭션 (500줄 이하)
 - 신규 `src/data/native_storage_migration.ts`: 6.3 이관 절차
+- 신규 저장소 안전 모드 화면 또는 최상위 복구 경계: 6.5의 재시도·백업 복원·스냅샷 복구 제공
 - 수정 `src/data/app_storage.ts`: 네이티브 분기를 sqlite 백엔드로 연결. 웹 분기는 변경 없음
 - 수정 `package.json`: `expo-sqlite` 추가 (**신규 의존성, 승인 필요**)
 - 신규 `tests/native_sqlite_storage.test.cjs`: Node 22 `node:sqlite`로 expo-sqlite 가짜 객체를 만들어 검증
   - CRUD, 다중 키 원자성
   - 이관 중단 지점별 재실행 (6.3 표)
   - 완료 전/후 폴백 정책 (6.4 표)
+  - 이관 완료 후 SQLite 장애에서 자동 폴백 없이 안전 모드로 전환 (6.5)
 - 회귀 테스트: 기존 `tests/storage.test.cjs`, `tests/app_storage.test.cjs` 전부 통과
 
 ## 7. 2단계 — 대형 컬렉션 레코드 분리 (성능, 측정 후 진행)
