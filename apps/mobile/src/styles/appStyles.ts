@@ -84,6 +84,12 @@ export const appStyles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
   },
+  loadingWaitNoteTextStrong: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
+    color: colors.ink,
+  },
   loadingWaitCancelBtn: {
     marginTop: 16,
     backgroundColor: colors.primarySoft,
