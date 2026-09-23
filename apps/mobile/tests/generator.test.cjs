@@ -257,11 +257,11 @@ test('provider HTTP failures expose neither the API key nor the provider respons
 
 test('Gemini model selection never falls below the 3.5 baseline', async () => {
   for (const [preferred, expected] of [
-    ['', DEFAULT_GEMINI_MODEL],
-    ['gemini-2.5-flash', DEFAULT_GEMINI_MODEL],
-    ['gpt-4o-mini', DEFAULT_GEMINI_MODEL],
-    ['gemini-3.5-flash', DEFAULT_GEMINI_MODEL],
-    ['gemini-3.7-flash', DEFAULT_GEMINI_MODEL],
+    ['', 'gemini-3.5-flash-lite'],
+    ['gemini-2.5-flash', 'gemini-3.5-flash-lite'],
+    ['gpt-4o-mini', 'gemini-3.5-flash-lite'],
+    ['gemini-3.5-flash', 'gemini-3.5-flash-lite'],
+    ['gemini-3.7-flash', 'gemini-3.5-flash-lite'],
   ]) {
     const requestedModels = [];
     const generator = harness(async (url) => {
