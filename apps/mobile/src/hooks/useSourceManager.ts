@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
+import { File as ExpoFile } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 // The bundled ESM build avoids Metro's production-only interop failure in pdf-lib's
 // unbundled tslib dependency while keeping PDF work local to the device.
@@ -27,7 +27,7 @@ import {
   getTopicSourceLinks,
   linkSourceToTopic,
 } from '../data/db';
-import { base64ToU8, unzipSync, strFromU8, u8ToBase64 } from '../utils/backupArchive';
+import { unzipSync, strFromU8, u8ToBase64 } from '../utils/backupArchive';
 import { showAlert } from '../utils/alert';
 
 const LARGE_PDF_PAGE_THRESHOLD = 30;
@@ -42,14 +42,20 @@ interface PdfMemoryEntry {
 
 const pdfMemoryCache = new Map<string, PdfMemoryEntry>();
 
+// 네이티브는 선택기가 넘겨준 원본 URI(Android content://)를 새 File API로 직접 읽는다.
+// 캐시 복사본은 구형 FileSystem에서 READ 권한 오류가 나므로 사용하지 않는다.
 async function readPickedBytes(file: DocumentPicker.DocumentPickerAsset): Promise<Uint8Array> {
   if (Platform.OS === 'web' && (file as any).file) {
     return new Uint8Array(await (file as any).file.arrayBuffer());
   }
-  const base64 = await FileSystem.readAsStringAsync(file.uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  return base64ToU8(base64);
+  return new ExpoFile(file.uri).bytes();
+}
+
+async function readPickedText(file: DocumentPicker.DocumentPickerAsset): Promise<string> {
+  if (Platform.OS === 'web' && (file as any).file) {
+    return (file as any).file.text();
+  }
+  return new ExpoFile(file.uri).text();
 }
 
 async function fingerprintBytes(bytes: Uint8Array): Promise<string> {
@@ -74,7 +80,7 @@ async function fingerprintBytes(bytes: Uint8Array): Promise<string> {
 async function pickSingleDocument(): Promise<DocumentPicker.DocumentPickerAsset | null> {
   const result = await DocumentPicker.getDocumentAsync({
     type: '*/*',
-    copyToCacheDirectory: true,
+    copyToCacheDirectory: false,
   });
   return result.canceled || !result.assets?.length ? null : result.assets[0];
 }
@@ -172,9 +178,7 @@ export function useSourceManager(params: {
         }
         if (!extractedText) throw new Error('ZIP 안에서 읽을 수 있는 텍스트 자료를 찾지 못했습니다.');
       } else if (ext === 'txt' || ext === 'md' || ext === 'csv' || ext === 'json') {
-        extractedText = Platform.OS === 'web' && (file as any).file
-          ? await (file as any).file.text()
-          : await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.UTF8 });
+        extractedText = await readPickedText(file);
       } else {
         throw new Error('PDF, TXT, MD, CSV, JSON 또는 ZIP 파일만 지원합니다.');
       }
