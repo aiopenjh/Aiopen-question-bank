@@ -285,8 +285,9 @@ test('exhausted Gemini candidates return safe quota guidance without provider de
   const result = await generator.generateFactBasedQuestions(args(generator));
   assert.equal(result.status, 'FAILED');
   assert.equal(calls, 5);
-  assert.match(result.message, /429/);
-  assert.match(result.message, /Google AI Studio/);
+  assert.match(result.message, /AI 호출에 실패했습니다/);
+  assert.doesNotMatch(result.message, /Gemini|429|Google AI Studio/);
+  assert.doesNotMatch(result.message, /\[AI 출제 실패\]/);
   assert.match(result.message, /기존 문제와 학습 데이터는 그대로 유지/);
 });
 

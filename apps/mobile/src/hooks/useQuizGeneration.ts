@@ -240,7 +240,7 @@ export function useQuizGeneration({
         }
 
         if (outcome.status === 'FAILED') {
-          showAlert('AI 출제 실패', outcome.message, [
+          showAlert('AI 생성 요청 실패', outcome.message, [
             { text: '닫기', style: 'cancel' },
             { text: '설정 열기', onPress: onOpenSettings },
           ]);
@@ -457,7 +457,7 @@ export function useQuizGeneration({
       }
 
       if (outcome.status === 'FAILED') {
-        showAlert('AI 출제 실패', outcome.message, [
+        showAlert('AI 생성 요청 실패', outcome.message, [
           { text: '닫기', style: 'cancel' },
           { text: '설정 열기', onPress: onOpenSettings },
         ]);

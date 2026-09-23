@@ -35,7 +35,7 @@ function getRetryAfterSeconds(headerValue: string | null): number {
 
 function createGeminiRateLimitError(waitSeconds: number): Error {
   const error = new Error(
-    `Google Gemini 요청 한도에 도달했습니다. 약 ${waitSeconds}초 후 다시 시도해 주세요. 기존 문제와 학습 데이터는 그대로 유지됩니다.`
+    `AI 호출에 실패했습니다. 약 ${waitSeconds}초 기다린 뒤 다시 시도해 주세요.`
   );
   error.name = 'GeminiRateLimitError';
   return error;

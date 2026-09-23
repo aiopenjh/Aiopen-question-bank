@@ -141,7 +141,7 @@ export function usePromptGeneration({
           return;
         }
         if (outcome.status === 'FAILED') {
-          showAlert('출제 실패', outcome.message);
+          showAlert('AI 생성 요청 실패', outcome.message);
           return;
         }
 
