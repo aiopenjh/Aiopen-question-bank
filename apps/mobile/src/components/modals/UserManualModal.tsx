@@ -48,7 +48,8 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>🧩 2. 새 학습 과목 만들기</Text>
             <Text style={styles.tipText}>
-              • 메인의 <Text style={styles.bold}>[새 주제로 학습하기]</Text> 또는 자료함의 <Text style={styles.bold}>[+ 과목 추가]</Text>를 누릅니다. 과목 이름, 분류, 시작 레벨을 정하면 첫 5개 단원이 만들어집니다.{'\n'}
+              • 메인 중앙의 <Text style={styles.bold}>[배우고 싶은 주제를 자유롭게 입력하세요]</Text> 또는 자료함의 <Text style={styles.bold}>[+ 과목 추가]</Text>를 누릅니다. 과목 이름, 분류, 시작 레벨을 정하면 첫 5개 단원이 만들어집니다.{'\n'}
+              • 시험 과목뿐 아니라 커피 로스팅, 게임 세계관, 바람 잘 피하기처럼 취미·생활·엉뚱한 아이디어도 학습 주제로 사용할 수 있습니다.{'\n'}
               • 자료를 먼저 등록했다면 <Text style={styles.bold}>[내 파일 불러오기]</Text>에서 연결할 수 있습니다. 분류는 선택 사항이며 직접 입력하거나 추천 분류를 고르면 됩니다.
             </Text>
           </View>
@@ -215,6 +216,48 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
               • 설정 화면은 필요한 항목만 펼쳐 쓰도록 구성되어 있습니다. <Text style={styles.bold}>[AI 연결]</Text>에서 키 상태를 관리하고, <Text style={styles.bold}>[데이터 관리]</Text>에서 백업·복원·초기화를 실행합니다. 행의 어느 곳을 눌러도 열고 닫을 수 있습니다.
             </Text>
           </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>↻ 5. 최신 버전 확인</Text>
+            <Text style={styles.tipText}>
+              • 설정 맨 아래의 <Text style={styles.bold}>[갱신]</Text>을 누르면 서버의 최신 버전을 확인합니다.{`\n`}
+              • 새 화면이 바로 보이지 않으면 브라우저나 홈 화면 앱을 완전히 종료한 뒤 다시 열어 주세요.
+            </Text>
+          </View>
+        </View>
+      ),
+    },
+    {
+      id: 'ranking',
+      icon: '🏆',
+      title: '랭킹 참여 & 자동 연동',
+      subtitle: '닉네임 등록, 세 가지 랭킹과 계정 복구',
+      content: (
+        <View style={styles.detailContainer}>
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>🏷️ 1. 처음 한 번 참여 등록</Text>
+            <Text style={styles.tipText}>
+              • 메인·자료함·설정 상단의 랭킹 버튼을 누르고 공개 닉네임 2~12자를 등록합니다. 참여하지 않아도 다른 학습 기능에는 영향이 없습니다.{`\n`}
+              • 다른 사용자가 쓰는 닉네임은 중복 등록할 수 없습니다. 욕설, 성적 표현, 관리자·운영자 사칭어와 공백·기호를 이용한 우회 표현도 서버에서 거부합니다.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>🔄 2. 시험 완료 후 자동 연동</Text>
+            <Text style={styles.tipText}>
+              • 한 번 등록하면 별도의 연동 버튼 없이 시험을 마칠 때 <Text style={styles.bold}>최다 문제 풀이, 꾸준함, 초고난도 도전</Text> 기록이 함께 전송됩니다.{`\n`}
+              • 하루 3문제 이상 완료하면 꾸준함 기록에 반영됩니다. 한 사용자가 세 랭킹에 동시에 표시될 수 있습니다.{`\n`}
+              • 문제 내용, 정답, 과목명과 API 키는 전송하지 않습니다. 네트워크 실패 기록은 기기에 대기했다가 다음 시험 완료 때 다시 전송합니다.
+            </Text>
+          </View>
+
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>🛡️ 3. 복구와 탈퇴</Text>
+            <Text style={styles.tipText}>
+              • 백업 파일에는 랭킹 계정 복구 정보가 포함될 수 있으므로 다른 사람에게 전달하지 말고 안전하게 보관하세요.{`\n`}
+              • 복원 후 랭킹 창에서 발견된 계정을 다시 연결할 수 있습니다. 탈퇴 요청 시 닉네임은 즉시 랭킹에서 숨겨지고 3일 후 서버 기록이 삭제됩니다. 3일 안에 복구하면 탈퇴 요청이 취소됩니다.
+            </Text>
+          </View>
         </View>
       ),
     },
@@ -228,7 +271,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>🔒 1. 로컬 학습 데이터</Text>
             <Text style={styles.tipText}>
-              • Celueste는 외부 중앙 서버에 사용자의 개인 학습 데이터나 교재를 수집하지 않습니다.{'\n'}
+              • Celueste는 외부 중앙 서버에 사용자의 개인 문제, 정답, 과목명이나 교재 본문을 수집하지 않습니다. 선택형 랭킹은 공개 닉네임과 순위 계산에 필요한 최소 기록만 처리합니다.{'\n'}
               • 웹에서는 과목, 단원, 문제와 풀이 기록을 현재 기기의 개인 IndexedDB에 자동 보관합니다. 별도로 DB를 만들거나 설정할 필요가 없습니다. 브라우저 데이터 삭제나 앱 초기화 전에는 백업 파일을 만들어 두세요.
             </Text>
           </View>
@@ -237,7 +280,8 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipTitle}>💾 2. 스마트폰 변경 시 데이터 이동 방법</Text>
             <Text style={styles.tipText}>
               • <Text style={styles.bold}>[설정 ➔ 데이터 관리 ➔ 백업/출력]</Text>은 API 키를 제외한 학습 데이터와 인쇄용 문제지·해설지·오답노트를 ZIP으로 저장합니다.{'\n'}
-              • 새 기기의 <Text style={styles.bold}>[복원]</Text>에서 ZIP 또는 JSON을 선택하면 무결성을 확인한 뒤 학습 기록을 복원합니다. 현재 기기의 API 키는 바꾸지 않으며 새 기기에서는 직접 다시 등록합니다.
+              • 새 기기의 <Text style={styles.bold}>[복원]</Text>에서 ZIP 또는 JSON을 선택하면 무결성을 확인한 뒤 학습 기록을 복원합니다. 현재 기기의 API 키는 바꾸지 않으며 새 기기에서는 직접 다시 등록합니다.{`\n`}
+              • 랭킹에 참여했다면 백업 파일에 계정 복구 정보가 포함될 수 있으므로 파일을 안전하게 보관하세요.
             </Text>
           </View>
 

@@ -25,6 +25,16 @@
 
 핵심 흐름은 `App.tsx → AppView/useAppController → 기능 훅 → domain → repository → app_storage → IndexedDB/AsyncStorage`입니다. 화면은 저장소나 외부 API를 직접 다루지 않고 각 계층의 책임을 거칩니다.
 
+| 계층 | 책임 | 대표 위치 |
+| --- | --- | --- |
+| 화면 | 사용자 입력과 상태 표시 | `src/features`, `src/components` |
+| 오케스트레이션 | 화면 이벤트와 여러 기능 연결 | `App.tsx`, `useAppController.ts` |
+| 기능 훅 | 출제, 목차, 시험, 랭킹 흐름 관리 | `src/hooks` |
+| 도메인 | AI 요청, 검증, 채점, 분산 규칙 | `src/domain` |
+| 저장소 | 엔티티별 읽기·쓰기와 백업 | `src/data/repositories` |
+| 저장 엔진 | 웹 IndexedDB와 네이티브 AsyncStorage 추상화 | `src/data/app_storage.ts` |
+| 선택형 서버 | 공개 랭킹과 최소 통계 처리 | `apps/ranking-worker` |
+
 ## 2. 로컬 개발
 
 ```powershell
@@ -46,6 +56,17 @@ npm start
 $env:EXPO_PUBLIC_RANKING_API_URL = "https://celueste-ranking-api.celueste-ranking-worker.workers.dev"
 npm run web
 ```
+
+로컬 랭킹 Worker와 D1을 함께 실행할 때는 별도 터미널에서 다음 순서로 준비합니다.
+
+```powershell
+cd apps/ranking-worker
+npm install
+npm run db:migrate:local
+npm run dev
+```
+
+`wrangler dev`가 기본 `http://localhost:8787`에서 실행되면 Expo 개발 클라이언트가 별도 환경 변수 없이 로컬 Worker를 사용합니다. 운영 D1에는 로컬 마이그레이션 명령을 사용하지 마세요.
 
 타입 검사:
 
@@ -124,6 +145,17 @@ node --test tests/*.cjs
 
 `App.tsx`에 도메인 로직을 추가하지 말고 기능별 훅·컴포넌트로 분리합니다.
 
+### 화면에서 문제 저장까지
+
+1. `StudyMapScreen` 또는 `LibraryScreen`이 과목·단원 선택 이벤트를 전달합니다.
+2. `useAppController`가 `useCurriculumManager` 또는 `useQuizGeneration`에 작업을 위임합니다.
+3. `generator.ts`가 AI 클라이언트를 호출하고 응답 구조를 검증합니다.
+4. 문제 유형 계획과 객관식 정답 위치 분산을 적용합니다.
+5. 저장소 계층이 문제 리비전과 제출키를 IndexedDB 또는 AsyncStorage에 기록합니다.
+6. `ExamSessionScreen`은 저장된 문제를 받아 CBT 오버레이를 표시합니다.
+
+화면 컴포넌트에서 AI 제공자나 저장 엔진을 직접 호출하지 않습니다. 생성 실패 시 부분 결과나 가짜 문제를 저장하지 않습니다.
+
 ## 5. AI 생성 파이프라인
 
 - `apps/mobile/src/domain/ai_client.ts`: 키 형식 감지와 AI 제공사 통신
@@ -182,6 +214,16 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
 - `apps/ranking-worker/src/util.mjs`: 토큰 해시, CORS, 서울 날짜와 닉네임 검증
 
 운영 API는 `https://celueste-ranking-api.celueste-ranking-worker.workers.dev`입니다. 최초 닉네임 등록 뒤 시험 완료 시 세 랭킹 지표를 함께 자동 동기화합니다. 닉네임 검사는 서버에서 2~12자 제한, 중복, 운영자 사칭, 욕설·성적 표현과 공백·기호를 이용한 우회를 차단합니다. 문제 내용, 정답, 과목명과 API 키는 전송하지 않습니다.
+
+| 메서드와 경로 | 역할 |
+| --- | --- |
+| `POST /v1/participants` | 닉네임 등록과 기기·복구 토큰 발급 |
+| `POST /v1/participants/recover` | 백업의 복구 토큰으로 새 기기 토큰 발급 |
+| `POST /v1/sync/today` | 오늘 완료 수와 최고 순차 통과 레벨 동기화 |
+| `GET /v1/leaderboard` | 세 가지 공개 랭킹 조회 |
+| `DELETE /v1/participants/me` | 3일 유예 탈퇴 요청 |
+
+서버 DB에는 기기·복구 토큰 원문을 저장하지 않고 SHA-256 해시만 저장합니다. 같은 날 완료 수와 최고 레벨은 `MAX` 규칙으로 갱신해 재시도로 누적치가 부풀지 않게 합니다. 자동 연동 실패는 클라이언트 저장소에 대기 상태로 남기고 다음 시험 완료 시 최신 값으로 다시 시도합니다.
 
 ## 7. 알람 설정 스키마
 
@@ -278,6 +320,20 @@ npm test
 npm run deploy
 ```
 
+### 배포 전 확인 순서
+
+1. `git status`로 사용자 작업과 변경 범위를 확인합니다.
+2. `apps/mobile`에서 `cmd.exe /c npx tsc --noEmit`을 통과시킵니다.
+3. Worker 변경이 있으면 `apps/ranking-worker`에서 `npm test`를 통과시킵니다.
+4. 사용자 화면·동작 변경을 `README.md`에 반영합니다.
+5. 구조·환경 변수·운영 절차 변경을 `DEVELOPER.md`에 반영합니다.
+6. 배포된 변경을 `CHANGELOG.md`에 기록합니다.
+7. 앱 릴리스라면 `buildInfo.ts`와 `public/version.json`의 버전·빌드 시각을 맞춥니다.
+8. `main`을 푸시한 뒤 승인된 대상만 Worker와 GitHub Pages에 배포합니다.
+9. 운영 `version.json`, Worker `/health`, GitHub Pages Actions 결과를 확인합니다.
+
+문구 정리나 사용설명서 보완처럼 사용자가 버전 유지 배포를 명시한 경우에는 `buildInfo.ts`와 버전 번호를 변경하지 않습니다. 이 경우에도 문서와 커밋에는 실제 변경 내용을 남깁니다.
+
 Android APK 빌드:
 
 ```powershell
@@ -292,6 +348,13 @@ npx eas-cli build -p android --profile preview
 - [CHANGELOG.md](CHANGELOG.md): 버전별 변경 이력
 - [docs/ARCHITECTURE_WORKFLOW_V2.md](docs/ARCHITECTURE_WORKFLOW_V2.md): 상세 아키텍처
 - [docs/PRODUCT_ROADMAP_AND_BETA_PLAN.md](docs/PRODUCT_ROADMAP_AND_BETA_PLAN.md): 제품 로드맵
+
+문서별 갱신 기준:
+
+- 사용자에게 보이는 버튼, 화면 순서, 개인정보 처리나 사용 방법이 바뀌면 `README.md`와 앱의 `UserManualModal.tsx`를 함께 확인합니다.
+- 아키텍처, 환경 변수, 테스트, 서버나 배포 방식이 바뀌면 `DEVELOPER.md`를 갱신합니다.
+- 배포된 동작이 바뀌면 `CHANGELOG.md`에 해당 버전 또는 버전 유지 추가 배포 내역을 기록합니다.
+- 불변 원칙이나 AI 협업 규칙을 바꿀 때만 `AGENTS.md`를 수정합니다.
 
 ## 12. 현재 운영 제약과 다음 우선순위
 
