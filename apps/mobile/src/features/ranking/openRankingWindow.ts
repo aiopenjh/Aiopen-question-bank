@@ -34,3 +34,15 @@ export function openRankingWindow(): boolean {
     return false;
   }
 }
+
+/** 스크립트로 연 랭킹 창을 닫고, 직접 연 탭이면 메인 앱 주소로 돌아간다. */
+export function closeRankingWindow(): void {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  window.close();
+  setTimeout(() => {
+    if (window.closed) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete(RANKING_VIEW_PARAM);
+    window.location.replace(url.toString());
+  }, 100);
+}

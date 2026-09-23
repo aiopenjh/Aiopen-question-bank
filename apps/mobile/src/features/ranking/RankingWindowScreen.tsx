@@ -14,11 +14,12 @@ import { AppAlertModal } from '../../components/modals/AppAlertModal';
 import { useRankingWindow } from '../../hooks/useRankingWindow';
 import { CONSISTENCY_MIN_QUESTIONS } from '../../domain/ranking';
 import { LeaderboardEntry, RANKING_API_BASE_URL } from '../../domain/ranking_client';
+import { closeRankingWindow } from './openRankingWindow';
 
 type Tab = 'mostSolved' | 'mostConsistent' | 'mostKillerLevel';
 
 export interface RankingWindowScreenProps {
-  /** 앱 안 전체화면으로 띄웠을 때만 닫기 버튼을 노출한다. 별도 창이면 생략. */
+  /** 앱 안 전체화면의 닫기 동작. 별도 웹 창은 window.close()를 사용한다. */
   onClose?: () => void;
 }
 
@@ -27,6 +28,7 @@ export interface RankingWindowScreenProps {
  * Reference: docs/ranking/RANKING_FEATURE_PLAN.md §3.1~§3.3
  */
 export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClose }) => {
+  const handleClose = onClose ?? closeRankingWindow;
   const {
     profile,
     todaySolvedCount,
@@ -97,11 +99,9 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
     return (
       <View style={styles.centered}>
         <Text style={styles.emptyText}>랭킹 서버가 아직 연결되지 않았습니다.</Text>
-        {onClose && (
-          <TouchableOpacity style={styles.secondaryButton} onPress={onClose} activeOpacity={0.8}>
-            <Text style={styles.secondaryButtonText}>닫기</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleClose} activeOpacity={0.8}>
+          <Text style={styles.secondaryButtonText}>닫기</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -121,12 +121,16 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
       <AppAlertModal alert={windowAlert} onClose={() => setWindowAlert(null)} />
       <ScrollView style={styles.page} contentContainerStyle={styles.pageContent}>
       <View style={styles.headerRow}>
-        <Text style={styles.pageTitle}>공동 랭킹</Text>
-        {onClose && (
-          <TouchableOpacity onPress={onClose} activeOpacity={0.8}>
-            <Text style={styles.closeText}>닫기</Text>
-          </TouchableOpacity>
-        )}
+        <Text style={styles.pageTitle}>랭킹에 도전해보세요 ✦</Text>
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={handleClose}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="랭킹 창 닫기"
+        >
+          <Text style={styles.closeText}>✕</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -299,7 +303,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   pageTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
-  closeText: { fontSize: 14, fontWeight: '700', color: colors.inkMuted },
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  closeText: { fontSize: 18, lineHeight: 22, fontWeight: '700', color: colors.inkMuted },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
