@@ -106,7 +106,7 @@ test('초고난도 도전 랭킹: maxKillerLevel은 전체 기간 최고값(MAX)
   assert.equal((await second.json()).maxKillerLevel, 33, '더 낮은 값을 보내도 기존 최고 도달 레벨이 내려가지 않아야 한다');
 });
 
-test('같은 날 짧은 간격 재연동은 RATE_LIMITED 429', async () => {
+test('같은 날 더 작은 완료 수를 다시 보내도 MAX 값이 유지된다', async () => {
   const env = makeEnv();
   const participant = await register(env);
   await syncToday(
@@ -115,13 +115,13 @@ test('같은 날 짧은 간격 재연동은 RATE_LIMITED 429', async () => {
     null
   );
   const res = await syncToday(
-    jsonRequest({ localDate: '2026-09-16', solvedCount: 5 }, { Authorization: `Bearer ${participant.deviceToken}` }),
+    jsonRequest({ localDate: '2026-09-16', solvedCount: 1 }, { Authorization: `Bearer ${participant.deviceToken}` }),
     env,
     null
   );
-  assert.equal(res.status, 429);
   const body = await res.json();
-  assert.equal(body.error.code, 'RATE_LIMITED');
+  assert.equal(body.solvedCount, 3);
+  assert.equal(body.totalSolved, 3);
 });
 
 test('solvedCount가 일일 상한을 초과하면 COUNT_OUT_OF_RANGE 422', async () => {
@@ -275,6 +275,20 @@ test('탈퇴: 유예 기간 중 복구를 시도하면 탈퇴가 취소된다', 
     null,
     '복구 시도로 탈퇴 요청이 취소되어야 한다 (FEATURE_PLAN §10 확정 정책)'
   );
+});
+
+test('탈퇴 유예 중인 닉네임은 재등록으로 기존 기록을 지울 수 없다', async () => {
+  const env = makeEnv();
+  const participant = await register(env, '복구대기자');
+  await requestDeletion(
+    new Request('https://example.test/', { headers: { Authorization: `Bearer ${participant.deviceToken}` } }),
+    env,
+    null
+  );
+
+  const res = await registerParticipant(jsonRequest({ nickname: '복구대기자' }), env, null);
+  assert.equal(res.status, 409);
+  assert.equal(env.DB._stores.participants.has(participant.participantId), true);
 });
 
 test('purgeExpiredDeletions: 유예 기간이 지난 참여자만 완전 삭제된다', async () => {

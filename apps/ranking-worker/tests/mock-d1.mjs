@@ -116,11 +116,12 @@ function execute(sql, params, stores) {
 
   if (sql.startsWith('INSERT INTO daily_learning')) {
     const [participantId, studyDate, solvedCount, qualified, lastSyncAt] = params;
+    const previous = dailyLearning.get(`${participantId}::${studyDate}`);
     dailyLearning.set(`${participantId}::${studyDate}`, {
       participant_id: participantId,
       study_date: studyDate,
-      solved_count: solvedCount,
-      qualified_consistency: qualified,
+      solved_count: Math.max(previous?.solved_count ?? 0, solvedCount),
+      qualified_consistency: Math.max(previous?.qualified_consistency ?? 0, qualified),
       last_sync_at: lastSyncAt,
     });
     return { run: async () => ({ success: true }) };

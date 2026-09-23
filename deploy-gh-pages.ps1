@@ -42,6 +42,7 @@ if (-not ($versionMatch.Success -and $buildTimeMatch.Success -and $buildLabelMat
 
 Write-Host "📦 1. Expo 정적 웹 번들 빌드 시작 (apps\mobile)..." -ForegroundColor Cyan
 Push-Location $mobileDir
+$env:EXPO_PUBLIC_RANKING_API_URL = "https://celueste-ranking-api.celueste-ranking-worker.workers.dev"
 cmd.exe /c npx expo export
 Pop-Location
 

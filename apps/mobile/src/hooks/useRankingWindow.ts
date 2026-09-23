@@ -15,23 +15,20 @@ import {
   saveRankingProfile,
   clearRankingProfile,
   getPendingSyncRequest,
-  setPendingSyncRequest,
-  clearPendingSyncRequest,
   getRankingRecoverySeed,
   clearRankingRecoverySeed,
 } from '../data/db';
 import { countTodayCompletedQuestions, getMaxQualifiedKillerLevel } from '../domain/ranking';
-import { getLocalDateString } from '../domain/routine';
 import {
   getLeaderboard,
   recoverParticipant,
   registerParticipant,
   requestWithdrawal,
-  syncToday,
   LeaderboardResult,
   RankingApiRequestError,
   SyncTodayResult,
 } from '../domain/ranking_client';
+import { syncRankingProgress } from '../domain/ranking_sync';
 
 const LEADERBOARD_LIMIT = 20;
 
@@ -92,6 +89,19 @@ export function useRankingWindow() {
       };
       await saveRankingProfile(next);
       setProfile(next);
+      // 최초 등록 직후 기존 오늘 기록도 별도 버튼 없이 반영한다.
+      try {
+        const synced = await syncRankingProgress(next);
+        if (synced) {
+          setProfile(synced.profile);
+          setLastSync(synced.result);
+          setTodaySolvedCount(synced.solvedCount);
+          setMaxKillerLevel(synced.maxKillerLevel);
+          await refreshLeaderboard();
+        }
+      } catch {
+        setPendingSync(await getPendingSyncRequest());
+      }
       return { ok: true as const };
     } catch (err) {
       const message = toMessage(err);
@@ -100,7 +110,7 @@ export function useRankingWindow() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [refreshLeaderboard]);
 
   /**
    * 백업 복원으로 남은 복구 재료로 서버 계정을 되찾는다.
@@ -143,44 +153,6 @@ export function useRankingWindow() {
     setRecoverySeed(null);
   }, []);
 
-  const sync = useCallback(async () => {
-    if (!profile) return { ok: false as const, message: '먼저 랭킹에 참여해 주세요.' };
-    setBusy(true);
-    setError(null);
-    const localDate = getLocalDateString();
-    let solvedCount = todaySolvedCount;
-    try {
-      // 별도 랭킹 창을 열어 둔 동안 완료한 도전도 전송 직전에 다시 읽는다.
-      const attempts = await getAttempts();
-      solvedCount = countTodayCompletedQuestions(attempts, localDate);
-      const clearedLevel = getMaxQualifiedKillerLevel(attempts);
-      setTodaySolvedCount(solvedCount);
-      setMaxKillerLevel(clearedLevel);
-      const result = await syncToday(profile, localDate, solvedCount, clearedLevel);
-      await clearPendingSyncRequest();
-      setPendingSync(null);
-      setLastSync(result);
-      // 마지막 연동 시각을 프로필에 남겨, 창을 새로 열었을 때도 "아직 연동 안 함"과
-      // 구분해 보여줄 수 있게 한다(계획서 §3.2, 수동 연동 방식 안내 보완).
-      const syncedProfile: RankingProfile = { ...profile, lastSyncedDate: localDate, lastSyncedSolvedCount: solvedCount };
-      await saveRankingProfile(syncedProfile);
-      setProfile(syncedProfile);
-      await refreshLeaderboard();
-      return { ok: true as const, result };
-    } catch (err) {
-      const message = toMessage(err);
-      setError(message);
-      // 서버/네트워크 장애(0, 429, 5xx)만 기기에 대기시킨다 (계획서 §6).
-      if (err instanceof RankingApiRequestError && (err.status === 0 || err.status === 429 || err.status >= 500)) {
-        await setPendingSyncRequest(localDate, solvedCount);
-        setPendingSync({ localDate, solvedCount, queuedAt: new Date().toISOString() });
-      }
-      return { ok: false as const, message };
-    } finally {
-      setBusy(false);
-    }
-  }, [profile, todaySolvedCount, refreshLeaderboard]);
-
   const withdraw = useCallback(async () => {
     if (!profile) return { ok: false as const, message: '참여 정보가 없습니다.' };
     setBusy(true);
@@ -213,7 +185,6 @@ export function useRankingWindow() {
     recoverySeed,
     pendingSync,
     register,
-    sync,
     withdraw,
     recoverFromBackup,
     dismissRecoverySeed,

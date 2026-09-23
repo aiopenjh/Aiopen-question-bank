@@ -4,8 +4,6 @@
 import { errorResponse, isoNow, jsonResponse, randomToken, sha256Hex, todaySeoul, validateNickname } from './util.mjs';
 
 const CONSISTENCY_MIN = 3;
-// 참여자별 /sync/today 최소 호출 간격. 참여자·IP 단위 호출 제한(API_SPEC §5)의 최소 구현.
-const SYNC_MIN_INTERVAL_MS = 10_000;
 
 async function readJson(request) {
   try {
@@ -44,13 +42,8 @@ export async function registerParticipant(request, env, origin) {
     .bind(check.nickname)
     .first();
   if (existing) {
-    if (existing.deleted_at === null) {
-      return errorResponse('NICKNAME_TAKEN', '이미 사용 중인 닉네임입니다.', 409, origin);
-    }
-    // 탈퇴/연동 해제된 이전 레코드가 남아있는 경우 깨끗이 정리하여 닉네임 재사용 허용
-    await env.DB.prepare('DELETE FROM participant_stats WHERE participant_id = ?').bind(existing.id).run().catch(() => null);
-    await env.DB.prepare('DELETE FROM daily_learning WHERE participant_id = ?').bind(existing.id).run().catch(() => null);
-    await env.DB.prepare('DELETE FROM participants WHERE id = ?').bind(existing.id).run().catch(() => null);
+    // 탈퇴 유예 중인 계정도 복구 기회를 보장한다. 유예가 끝나 Cron이 삭제한 뒤에만 재사용된다.
+    return errorResponse('NICKNAME_TAKEN', '이미 사용 중이거나 탈퇴 유예 중인 닉네임입니다.', 409, origin);
   }
 
   const participantId = randomToken('pt');
@@ -148,37 +141,26 @@ export async function syncToday(request, env, origin) {
   const studyDate = todaySeoul();
   const now = isoNow();
 
-  const recent = await env.DB.prepare(
-    'SELECT last_sync_at FROM daily_learning WHERE participant_id = ? AND study_date = ?'
-  )
-    .bind(participant.id, studyDate)
-    .first();
-  if (recent && Date.now() - new Date(recent.last_sync_at).getTime() < SYNC_MIN_INTERVAL_MS) {
-    return errorResponse('RATE_LIMITED', '잠시 후 다시 시도해 주세요.', 429, origin);
-  }
-
-  const existing = await env.DB.prepare(
-    'SELECT * FROM daily_learning WHERE participant_id = ? AND study_date = ?'
-  )
-    .bind(participant.id, studyDate)
-    .first();
-
-  const newSolvedCount = Math.max(existing?.solved_count ?? 0, solvedCount);
-  const qualified = newSolvedCount >= CONSISTENCY_MIN;
-  const wasQualifiedBefore = !!existing?.qualified_consistency;
-
   await env.DB.prepare(
     `INSERT INTO daily_learning (participant_id, study_date, solved_count, qualified_consistency, last_sync_at)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (participant_id, study_date)
-     DO UPDATE SET solved_count = excluded.solved_count,
-                   qualified_consistency = excluded.qualified_consistency,
+     DO UPDATE SET solved_count = MAX(daily_learning.solved_count, excluded.solved_count),
+                   qualified_consistency = MAX(daily_learning.qualified_consistency, excluded.qualified_consistency),
                    last_sync_at = excluded.last_sync_at`
   )
-    .bind(participant.id, studyDate, newSolvedCount, qualified ? 1 : 0, now)
+    .bind(participant.id, studyDate, solvedCount, solvedCount >= CONSISTENCY_MIN ? 1 : 0, now)
     .run();
 
-  const stats = await recomputeStats(env, participant.id, studyDate, qualified, wasQualifiedBefore, maxKillerLevel);
+  // 동시 요청이 와도 DB에 저장된 MAX 결과를 기준으로 통계를 계산한다.
+  const storedToday = await env.DB.prepare(
+    'SELECT * FROM daily_learning WHERE participant_id = ? AND study_date = ?'
+  )
+    .bind(participant.id, studyDate)
+    .first();
+  const newSolvedCount = storedToday.solved_count;
+  const qualified = !!storedToday.qualified_consistency;
+  const stats = await recomputeStats(env, participant.id, studyDate, qualified, maxKillerLevel);
 
   return jsonResponse(
     {
@@ -203,7 +185,7 @@ export async function syncToday(request, env, origin) {
  * solved_count의 델타(신규-기존)만 반영해 값이 부풀지 않게 한다.
  * current_streak은 "어제까지의 스트릭 + (오늘 qualified면 1)"로 계산한다.
  */
-async function recomputeStats(env, participantId, studyDate, qualifiedToday, wasQualifiedBefore, incomingMaxKillerLevel) {
+async function recomputeStats(env, participantId, studyDate, qualifiedToday, incomingMaxKillerLevel) {
   const statsRow = await env.DB.prepare('SELECT * FROM participant_stats WHERE participant_id = ?')
     .bind(participantId)
     .first();
@@ -219,10 +201,10 @@ async function recomputeStats(env, participantId, studyDate, qualifiedToday, was
   let currentStreak = statsRow?.current_streak ?? 0;
   const lastQualifiedDate = statsRow?.last_qualified_date ?? null;
 
-  // qualifiedToday && !wasQualifiedBefore: 오늘 새로 자격을 얻었으므로 스트릭을 이어붙이거나 새로 시작한다.
+  // 오늘을 아직 스트릭에 반영하지 않았다면 이어붙이거나 새로 시작한다.
   // 그 외 경우(자격 유지/미달)는 currentStreak을 그대로 둔다 (재연동으로 3문제 미만 하락은
   // 클라이언트가 보내지 않는 한 발생하지 않고, 과도한 조작 방지는 초기 범위 밖 - FEATURE_PLAN §9).
-  if (qualifiedToday && !wasQualifiedBefore) {
+  if (qualifiedToday && lastQualifiedDate !== studyDate) {
     const yesterday = addDaysToDateString(studyDate, -1);
     currentStreak = lastQualifiedDate === yesterday ? currentStreak + 1 : 1;
   }
@@ -239,9 +221,9 @@ async function recomputeStats(env, participantId, studyDate, qualifiedToday, was
      ON CONFLICT (participant_id)
      DO UPDATE SET total_solved = excluded.total_solved,
                    current_streak = excluded.current_streak,
-                   best_streak = excluded.best_streak,
+                   best_streak = MAX(participant_stats.best_streak, excluded.best_streak),
                    last_qualified_date = excluded.last_qualified_date,
-                   max_killer_level = excluded.max_killer_level,
+                   max_killer_level = MAX(participant_stats.max_killer_level, excluded.max_killer_level),
                    updated_at = excluded.updated_at`
   )
     .bind(participantId, totalSolved, currentStreak, bestStreak, newLastQualifiedDate, maxKillerLevel, now)

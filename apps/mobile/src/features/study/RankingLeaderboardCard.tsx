@@ -124,6 +124,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     overflow: 'hidden',
   },
-  entryLabel: { fontSize: 8, lineHeight: 10, fontWeight: '800', color: colors.ink },
-  entryValue: { fontSize: 8, lineHeight: 10, fontWeight: '700', color: colors.inkMuted },
+  entryLabel: { fontSize: 10, lineHeight: 13, fontWeight: '800', color: colors.ink },
+  entryValue: { fontSize: 11, lineHeight: 14, fontWeight: '700', color: colors.inkMuted },
 });

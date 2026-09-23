@@ -8,9 +8,9 @@
 
 import { RankingProfile } from '../contracts/types';
 
-// 실제 배포 전까지는 빈 문자열. 화면에서는 RANKING_API_BASE_URL이 없으면
-// 랭킹 기능 진입점을 노출하지 않는다 (서버 미배포 상태 보호).
-export const RANKING_API_BASE_URL = 'http://localhost:8787';
+// 운영 빌드는 배포된 Worker URL을 주입하고, 로컬 개발만 Wrangler 기본 주소를 쓴다.
+export const RANKING_API_BASE_URL =
+  process.env.EXPO_PUBLIC_RANKING_API_URL?.trim() || (__DEV__ ? 'http://localhost:8787' : '');
 
 export class RankingApiRequestError extends Error {
   code: string;
@@ -104,7 +104,6 @@ export async function syncToday(
     method: 'POST',
     headers: {
       Authorization: `Bearer ${profile.deviceToken}`,
-      'Idempotency-Key': `${profile.participantId}-${localDate}-${Date.now()}`,
     },
     body: JSON.stringify({ localDate, timezone: 'Asia/Seoul', solvedCount, maxKillerLevel }),
   });

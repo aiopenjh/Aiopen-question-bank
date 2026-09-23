@@ -4,9 +4,10 @@ Celueste 선택형 공동 랭킹 API. Cloudflare Workers + D1.
 계약 상세는 [`docs/ranking/RANKING_API_SPEC.md`](../../docs/ranking/RANKING_API_SPEC.md),
 [`docs/ranking/RANKING_FEATURE_PLAN.md`](../../docs/ranking/RANKING_FEATURE_PLAN.md) 참고.
 
-**이 디렉토리는 아직 배포되지 않았다.** `RANKING_SERVER_OPTIONS.md` §5의
-"권장 운영 흐름" 1~2단계(로컬 모의 서버 검증 → Cloudflare 계정 생성)만
-진행된 상태이며, 실제 Cloudflare 프로젝트 생성과 배포는 별도 승인 후 진행한다.
+운영 Worker: `https://celueste-ranking-api.celueste-ranking-worker.workers.dev`
+
+운영 D1 `celueste-ranking`은 APAC에 생성되어 있으며, Worker에는 요청 제한과
+매일 04:00 UTC 탈퇴 유예 정리 Cron이 연결되어 있다.
 
 ## 로컬 개발
 
@@ -29,20 +30,16 @@ npm run dev
 npm test
 ```
 
-닉네임 검증, 서울 날짜 계산 등 서버리스 환경 없이 동작하는 순수 함수만
-`node --test`로 검증한다. D1 바인딩이 필요한 라우트 핸들러는
-`wrangler dev` 기동 후 수동 또는 별도 통합 테스트로 확인한다 (아직 없음).
+닉네임 검증, 서울 날짜 계산과 D1 라우트 동작은 `node --test`로 검증한다.
+실제 D1 바인딩 흐름은 `wrangler dev`에서 등록·동기화·랭킹·탈퇴 순서로 확인한다.
 
-## 배포 전 확인 체크리스트 (RANKING_SERVER_OPTIONS.md §5)
+## 운영 확인 체크리스트
 
-- [ ] `wrangler.toml`의 `database_id`를 실제 원격 D1로 교체
-- [ ] `ALLOWED_ORIGINS`를 운영 GitHub Pages 주소로 확정
-- [ ] `npm run db:migrate:remote` 실행
-- [ ] Cloudflare 대시보드에서 IP 단위 Rate Limiting 규칙 추가
-      (이 코드에는 참여자 단위 최소 간격 제한만 있고, IP 단위 제한은
-      Cloudflare 측 설정이 필요하다 — API_SPEC §5)
-- [ ] `crons` 트리거(탈퇴 유예 정리)가 실제로 등록되는지 배포 후 확인
-- [ ] 사용자 승인 후 서버 먼저 배포, 이후 웹앱 API 주소 연결
+- [x] 원격 D1 생성 및 마이그레이션 적용
+- [x] 운영 GitHub Pages와 로컬 개발 주소 CORS 허용
+- [x] Worker Rate Limiting 바인딩 적용
+- [x] 탈퇴 유예 정리 Cron 등록
+- [x] `/v1/health`와 빈 리더보드 운영 응답 확인
 
 ## 절대 하지 않는 것
 

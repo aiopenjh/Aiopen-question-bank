@@ -28,7 +28,7 @@ Cloudflare D1은 SQLite의 SQL 방식을 사용하는 관리형 서버리스 데
 
 ```mermaid
 flowchart LR
-    A[Celueste 웹앱<br/>GitHub Pages] -->|사용자가 연동 확인| B[Cloudflare Worker<br/>랭킹 HTTPS API]
+    A[Celueste 웹앱<br/>GitHub Pages] -->|시험 완료 후 자동 연동| B[Cloudflare Worker<br/>랭킹 HTTPS API]
     B --> C[(Cloudflare D1<br/>참여자·일별 집계)]
     C --> B
     B -->|두 랭킹과 내 결과| A
@@ -37,7 +37,7 @@ flowchart LR
 
 **권장안은 Cloudflare Workers + D1이다.**
 
-이 기능은 요청 한 번에 작은 JSON을 받고 두세 개 테이블을 갱신하는 정도이므로 별도의 상시 노트북이나 2시간 예약 작업이 필요 없다. 사용자가 `연동하기`를 누른 시점에 Worker가 저장과 랭킹 계산을 끝내면 된다.
+이 기능은 요청 한 번에 작은 JSON을 받고 두세 개 테이블을 갱신하는 정도이므로 별도의 상시 노트북이나 2시간 예약 작업이 필요 없다. 등록한 사용자가 시험을 마치면 Worker가 저장과 랭킹 계산을 끝낸다.
 
 GitHub Pages에는 공개 API 주소만 들어간다. DB 접근 권한, 토큰 해시용 비밀값과 운영 키는 Worker의 서버 환경에 둔다.
 

@@ -39,7 +39,6 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
     recoverySeed,
     pendingSync,
     register,
-    sync,
     withdraw,
     recoverFromBackup,
     dismissRecoverySeed,
@@ -74,31 +73,6 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
     } else {
       showAlert('복구 실패', `${result.message}\n\n계정이 이미 탈퇴 처리되었다면 새로 참여해 주세요.`);
     }
-  }
-
-  async function handleSync() {
-    const result = await sync();
-    if (!result.ok) return;
-    const {
-      solvedCount,
-      qualifiedConsistency,
-      currentStreak,
-      totalSolved,
-      solvedRank,
-      consistencyRank,
-      maxKillerLevel: syncedMaxKillerLevel,
-      killerRank,
-    } = result.result;
-    // 계획서 §3.2: 3문제 이상/미만에 따라 안내를 나눈다.
-    const streakLine = qualifiedConsistency
-      ? `꾸준함 기록에도 참여해 현재 ${currentStreak}일 연속입니다.`
-      : `꾸준함은 오늘 ${CONSISTENCY_MIN_QUESTIONS - solvedCount}문제를 더 풀면 인정됩니다.`;
-    const killerLine = syncedMaxKillerLevel > 0 ? ` · 초고난도 도전 ${killerRank}위(Lv.${syncedMaxKillerLevel})` : '';
-    showAlert(
-      '연동 완료',
-      `오늘 완료 ${solvedCount}문제가 반영되었습니다.\n${streakLine}\n\n` +
-        `누적 ${totalSolved}문제 · 최다 문제 풀이 ${solvedRank}위 · 꾸준함 ${consistencyRank}위${killerLine}`
-    );
   }
 
   function handleWithdraw() {
@@ -198,11 +172,8 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
               {maxKillerLevel > 0 && (
                 <Text style={styles.noticeText}>최고 순차 통과 레벨: Lv.{maxKillerLevel}</Text>
               )}
-              <Text style={[styles.noticeText, styles.manualSyncNotice]}>
-                ⚠️ 문제를 푸는 것만으로는 서버에 자동 전송되지 않습니다. 아래 [지금 연동하기]를 눌러야 이번 기록이 랭킹에 반영됩니다.
-              </Text>
               <Text style={styles.noticeText}>
-                연동 시 오늘 완료한 문제 수와 최고 순차 통과 레벨을 전송하며, 하루 3문제 이상이면 꾸준함에 반영됩니다. 문제 내용, 정답, 과목명과 API 키는
+                시험을 마치면 오늘 완료한 문제 수와 최고 순차 통과 레벨이 자동으로 연동됩니다. 하루 {CONSISTENCY_MIN_QUESTIONS}문제 이상이면 꾸준함에 반영됩니다. 문제 내용, 정답, 과목명과 API 키는
                 전송하지 않습니다.
               </Text>
               <Text style={styles.syncStatusText}>
@@ -212,22 +183,10 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
               </Text>
               {pendingSync && (
                 <Text style={styles.pendingText}>
-                  지난번 연동이 서버 오류로 실패해 대기 중입니다({pendingSync.localDate} ·{' '}
-                  {pendingSync.solvedCount}문제). 다시 연동하면 최신 값으로 반영됩니다.
+                  지난번 자동 연동이 실패해 대기 중입니다({pendingSync.localDate} ·{' '}
+                  {pendingSync.solvedCount}문제). 다음 시험 완료 때 최신 값으로 다시 전송합니다.
                 </Text>
               )}
-              <TouchableOpacity
-                style={[styles.primaryButton, busy && styles.buttonDisabled]}
-                onPress={handleSync}
-                disabled={busy}
-                activeOpacity={0.85}
-              >
-                {busy ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>지금 연동하기</Text>
-                )}
-              </TouchableOpacity>
               {lastSync && (
                 <Text style={styles.myStatText}>
                   누적 {lastSync.totalSolved}문제 · {lastSync.currentStreak}일 연속 · 최다 {lastSync.solvedRank}위 ·
@@ -351,7 +310,6 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 15, fontWeight: '800', color: colors.ink, marginBottom: 6 },
   noticeText: { fontSize: 12, color: colors.inkMuted, lineHeight: 18, marginBottom: 10 },
-  manualSyncNotice: { color: colors.primaryPressed, fontWeight: '700' },
   syncStatusText: { fontSize: 11.5, color: colors.inkMuted, marginBottom: 10, fontStyle: 'italic' },
   summaryRow: {
     flexDirection: 'row',

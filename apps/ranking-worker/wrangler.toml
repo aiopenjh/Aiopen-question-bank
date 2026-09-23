@@ -8,7 +8,7 @@ compatibility_date = "2026-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "celueste-ranking"
-database_id = "REPLACE_WITH_REAL_D1_DATABASE_ID"
+database_id = "a9576ad6-999f-442f-91cc-16b67bdf7dee"
 
 [vars]
 # 운영 GitHub Pages 주소와 승인된 로컬 개발 주소만 (API_SPEC §1).
@@ -19,3 +19,11 @@ DELETION_GRACE_PERIOD_DAYS = "3"
 [triggers]
 # 매일 04:00 UTC(한국 13:00)에 유예 기간이 지난 탈퇴 참여자를 정리한다.
 crons = ["0 4 * * *"]
+
+[[ratelimits]]
+name = "API_RATE_LIMITER"
+namespace_id = "94731"
+
+  [ratelimits.simple]
+  limit = 60
+  period = 60

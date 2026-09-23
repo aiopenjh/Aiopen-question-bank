@@ -1,7 +1,7 @@
 // Celueste 랭킹 API 진입점
 // Reference: docs/ranking/RANKING_API_SPEC.md, RANKING_SERVER_OPTIONS.md §3
 
-import { corsHeaders, errorResponse, resolveAllowedOrigin } from './util.mjs';
+import { corsHeaders, errorResponse, jsonResponse, resolveAllowedOrigin, sha256Hex } from './util.mjs';
 import {
   registerParticipant,
   recoverParticipant,
@@ -22,6 +22,17 @@ export default {
     }
 
     try {
+      if (path === '/health' && request.method === 'GET') {
+        return jsonResponse({ status: 'ok' }, 200, origin);
+      }
+      if (request.method !== 'GET' && env.API_RATE_LIMITER) {
+        const auth = request.headers.get('Authorization');
+        const actor = auth
+          ? await sha256Hex(auth)
+          : request.headers.get('CF-Connecting-IP') || 'local';
+        const { success } = await env.API_RATE_LIMITER.limit({ key: `${path}:${actor}` });
+        if (!success) return errorResponse('RATE_LIMITED', '잠시 후 다시 시도해 주세요.', 429, origin);
+      }
       if (path === '/participants' && request.method === 'POST') {
         return await registerParticipant(request, env, origin);
       }

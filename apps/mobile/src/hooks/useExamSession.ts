@@ -13,6 +13,7 @@ import {
 } from '../data/db';
 import { showAlert } from '../utils/alert';
 import { CHALLENGE_QUESTION_COUNT, CHALLENGE_START_LEVEL, getTopicChallengeLevels } from '../domain/challenge_progress';
+import { syncRankingProgress } from '../domain/ranking_sync';
 
 export interface UseExamSessionProps {
   questions: QuestionRevision[];
@@ -163,6 +164,8 @@ export function useExamSession({
         if (targetUnit) await markUnitAsCompleted(targetUnit.id);
 
         await onRefreshData();
+        // 닉네임을 등록한 사용자만 시험 완료 기록을 자동 연동한다.
+        await syncRankingProgress().catch(() => undefined);
         if (isChallenge) {
           const cleared = getTopicChallengeLevels(await getAttempts()).get(first.topicId!) ?? CHALLENGE_START_LEVEL - 1;
           if (cleared > before) {
