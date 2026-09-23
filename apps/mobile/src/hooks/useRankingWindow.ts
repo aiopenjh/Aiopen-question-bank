@@ -37,7 +37,7 @@ import { base64ToU8, decompressBackupPayload } from '../utils/backupArchive';
 const LEADERBOARD_LIMIT = 20;
 
 function toMessage(err: unknown): string {
-  return err instanceof RankingApiRequestError ? err.message : '알 수 없는 오류가 발생했습니다.';
+  return err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
 }
 
 function recoverySeedFromBackup(content: string): RankingRecoverySeed {
@@ -86,18 +86,23 @@ export function useRankingWindow() {
 
   useEffect(() => {
     (async () => {
-      // 오늘 완료 수는 제출 기록에서 직접 계산한다 (계획서 §5.1).
-      const [storedProfile, attempts] = await Promise.all([
-        getRankingProfile(),
-        getAttempts(),
-      ]);
-      setProfile(storedProfile);
-      setTodaySolvedCount(countTodayCompletedQuestions(attempts));
-      setMaxKillerLevel(getMaxQualifiedKillerLevel(attempts));
-      if (!storedProfile) setRecoverySeed(await getRankingRecoverySeed());
-      setPendingSync(await getPendingSyncRequest());
-      await refreshLeaderboard();
-      setLoading(false);
+      try {
+        // 오늘 완료 수는 제출 기록에서 직접 계산한다 (계획서 §5.1).
+        const [storedProfile, attempts] = await Promise.all([
+          getRankingProfile(),
+          getAttempts(),
+        ]);
+        setProfile(storedProfile);
+        setTodaySolvedCount(countTodayCompletedQuestions(attempts));
+        setMaxKillerLevel(getMaxQualifiedKillerLevel(attempts));
+        if (!storedProfile) setRecoverySeed(await getRankingRecoverySeed());
+        setPendingSync(await getPendingSyncRequest());
+        await refreshLeaderboard();
+      } catch (err: unknown) {
+        setError(toMessage(err));
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [refreshLeaderboard]);
 

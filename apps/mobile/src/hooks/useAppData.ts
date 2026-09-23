@@ -128,7 +128,6 @@ export function useAppData(callbacks?: {
         '학습 저장소를 열 수 없습니다',
         `${detail}\n\n브라우저 데이터나 앱 저장공간을 삭제하지 말고 잠시 후 다시 시도해 주세요.`,
         [
-          { text: '닫기', style: 'cancel' },
           {
             text: '다시 시도',
             onPress: () => {
