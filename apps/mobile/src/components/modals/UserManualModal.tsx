@@ -280,7 +280,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>💾 2. 스마트폰 변경 시 데이터 이동 방법</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>[내 문제집 내보내기]</Text>에서 과목을 고르고 정답·해설 포함 여부를 선택합니다. 웹의 인쇄 화면에서 PDF로 저장할 수 있습니다.{'\n'}
+              • <Text style={styles.bold}>[내 문제집 내보내기]</Text>에서 과목과 정답·해설 포함 여부를 고른 뒤 [PDF 파일 바로 저장]을 누릅니다. 인쇄 가능한 브라우저에서는 미리보기에서 PDF로 저장할 수도 있습니다.{'\n'}
               • <Text style={styles.bold}>[학습 데이터 백업]</Text>은 과목·단원·문제와 랭킹 복구 정보를 JSON 파일로 저장합니다. 풀이 기록과 API 키는 포함되지 않습니다.{'\n'}
               • 새 기기의 <Text style={styles.bold}>[복원]</Text>에서 JSON 또는 이전 ZIP을 선택하면 현재 학습 데이터를 교체합니다. API 키는 바꾸지 않으며 새 기기에서는 직접 다시 등록합니다.{`\n`}
               • 랭킹에 참여했다면 백업 파일에 계정 복구 정보가 포함될 수 있으므로 파일을 안전하게 보관하세요.

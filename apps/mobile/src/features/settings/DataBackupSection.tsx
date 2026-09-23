@@ -28,6 +28,7 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
   const [includeExplanations, setIncludeExplanations] = useState(false);
   const [rankingNickname, setRankingNickname] = useState('');
+  const [savingPdf, setSavingPdf] = useState(false);
   const availableTopics = topics.filter((topic) => questions.some((question) => question.topicId === topic.id));
 
   async function openWorkbook() {
@@ -60,11 +61,49 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
       questions.filter((question) => selectedTopicIds.includes(question.topicId || '')),
       includeExplanations,
       rankingNickname,
-      watermarkImageUrl
+      watermarkImageUrl,
+      window.location.href
     );
     setWorkbookVisible(false);
     const workbookUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     window.location.assign(workbookUrl);
+  }
+
+  async function saveWorkbookPdf() {
+    const selectedTopics = availableTopics.filter((topic) => selectedTopicIds.includes(topic.id));
+    if (!selectedTopics.length) {
+      showAlert('과목 선택', '문제집에 담을 과목을 하나 이상 선택해 주세요.');
+      return;
+    }
+    if (Platform.OS !== 'web' || savingPdf) return;
+    setSavingPdf(true);
+    try {
+      const watermarkAsset = require('../../../assets/android-icon-foreground-v2.png');
+      const watermarkImageUrl = watermarkAsset?.uri
+        ? new URL(watermarkAsset.uri, window.location.href).href : '';
+      const { createWorkbookPdf } = await import('../../utils/workbookPdf');
+      const bytes = await createWorkbookPdf(
+        selectedTopics,
+        units,
+        questions.filter((question) => selectedTopicIds.includes(question.topicId || '')),
+        includeExplanations,
+        rankingNickname,
+        watermarkImageUrl
+      );
+      const url = URL.createObjectURL(new Blob([new Uint8Array(bytes).buffer], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Celueste_Workbook_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setWorkbookVisible(false);
+    } catch (error) {
+      showAlert('PDF 저장 실패', error instanceof Error ? error.message : 'PDF를 만드는 중 오류가 발생했습니다.');
+    } finally {
+      setSavingPdf(false);
+    }
   }
 
   return (
@@ -132,6 +171,9 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
               <Text style={workbookStyles.check}>{includeExplanations ? '☑' : '□'}</Text>
               <Text style={workbookStyles.rowText}>정답과 해설 포함</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={workbookStyles.directSave} onPress={saveWorkbookPdf} disabled={savingPdf}>
+              <Text style={workbookStyles.directSaveText}>{savingPdf ? 'PDF 만드는 중…' : 'PDF 파일 바로 저장'}</Text>
+            </TouchableOpacity>
             <View style={workbookStyles.actions}>
               <TouchableOpacity style={workbookStyles.cancel} onPress={() => setWorkbookVisible(false)}>
                 <Text style={workbookStyles.cancelText}>취소</Text>
@@ -172,6 +214,8 @@ const workbookStyles = StyleSheet.create({
   row: { minHeight: 45, flexDirection: 'row', alignItems: 'center' },
   check: { fontSize: 23, color: '#9d6278', width: 34 },
   rowText: { fontSize: 15, color: '#302832', flex: 1 },
+  directSave: { marginTop: 12, padding: 13, alignItems: 'center', borderRadius: 9, backgroundColor: '#995e75' },
+  directSaveText: { color: '#fff', fontWeight: '800' },
   actions: { flexDirection: 'row', gap: 8, marginTop: 15 },
   cancel: { flex: 1, padding: 12, alignItems: 'center', borderRadius: 9, backgroundColor: '#f4eff1' },
   cancelText: { color: '#6d6168', fontWeight: '700' },
