@@ -62,6 +62,7 @@ if (-not $currentWebBundle) {
 }
 $compatWebBundleNames = @(
     $previousWebBundleName,
+    "index-7cdc002d83d6ec03a1db314d30600a3a.js",
     "index-e3e2ad47f0c8cdc59ffbba4b1dca8ac1.js",
     "index-6287b44145819a5dab0a81089bf97c46.js"
 ) | Where-Object { $_ }
