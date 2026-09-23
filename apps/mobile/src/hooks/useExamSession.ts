@@ -164,8 +164,6 @@ export function useExamSession({
         if (targetUnit) await markUnitAsCompleted(targetUnit.id);
 
         await onRefreshData();
-        // 닉네임을 등록한 사용자만 시험 완료 기록을 자동 연동한다.
-        await syncRankingProgress().catch(() => undefined);
         if (isChallenge) {
           const cleared = getTopicChallengeLevels(await getAttempts()).get(first.topicId!) ?? CHALLENGE_START_LEVEL - 1;
           if (cleared > before) {
@@ -173,6 +171,8 @@ export function useExamSession({
           }
         }
         run.completed = true;
+        // 랭킹 서버 상태가 시험 완료 화면을 지연시키지 않도록 백그라운드에서 연동한다.
+        void syncRankingProgress().catch(() => undefined);
       } finally {
         run.saving = false;
       }
