@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Platform, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Platform, StyleSheet } from 'react-native';
 import { styles } from './settingsStyles';
 import { UniversalModal as Modal } from '../../components/common/UniversalModal';
 import type { QuestionRevision, Topic, Unit } from '../../contracts/types';
@@ -51,24 +51,25 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
       showAlert('PDF 저장', '현재 PDF 저장은 웹 버전에서 이용할 수 있습니다.');
       return;
     }
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      showAlert('창 열기 실패', '브라우저에서 새 창을 허용한 뒤 다시 시도해 주세요.');
-      return;
-    }
-    printWindow.opener = null;
-    const watermarkAsset = Image.resolveAssetSource(require('../../../assets/android-icon-foreground-v2.png'));
+    const watermarkAsset = require('../../../assets/android-icon-foreground-v2.png');
     const watermarkImageUrl = watermarkAsset?.uri
       ? new URL(watermarkAsset.uri, window.location.href).href : '';
-    printWindow.document.open();
-    printWindow.document.write(generateWorkbookHtml(
+    const html = generateWorkbookHtml(
       selectedTopics,
       units,
       questions.filter((question) => selectedTopicIds.includes(question.topicId || '')),
       includeExplanations,
       rankingNickname,
       watermarkImageUrl
-    ));
+    );
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showAlert('창 열기 실패', '브라우저에서 새 창을 허용한 뒤 다시 시도해 주세요.');
+      return;
+    }
+    printWindow.opener = null;
+    printWindow.document.open();
+    printWindow.document.write(html);
     printWindow.document.close();
     setWorkbookVisible(false);
   }
