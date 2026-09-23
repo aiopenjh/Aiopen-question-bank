@@ -1,5 +1,5 @@
 /**
- * Application JSON Backup & Legacy ZIP Restore Hook
+ * Application JSON Backup & Restore Hook
  * Reference: CogniQuest_개발명세_v1
  */
 
@@ -15,10 +15,6 @@ import {
   clearAllData,
 } from '../data/db';
 import type { BackupInspection, BackupKind } from '../data/db';
-import {
-  decompressBackupPayload,
-  base64ToU8,
-} from '../utils/backupArchive';
 import { showAlert } from '../utils/alert';
 import {
   ALL_DAYS,
@@ -196,6 +192,11 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
     try {
       inspection = inspectBackupJSON(content);
     } catch (err: unknown) {
+      // JSON이 아닌 파일(ZIP 등)은 파서 원문 대신 사용자 안내만 보여준다.
+      if (err instanceof SyntaxError) {
+        showAlert('복원 실패', '올바른 Celueste JSON 백업 파일이 아닙니다. JSON 백업 파일만 지원합니다.');
+        return;
+      }
       const detail = err instanceof Error ? err.message : '알 수 없는 형식 오류';
       showAlert('복원 실패', `백업 파일 형식이 올바르지 않거나 손상되었습니다: ${detail}`);
       return;
@@ -232,26 +233,12 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
       }
 
       const file = result.assets[0];
-      let content = '';
-
-      if (Platform.OS === 'web' && (file as any).file) {
-        const arrayBuffer = await (file as any).file.arrayBuffer();
-        const u8 = new Uint8Array(arrayBuffer);
-        content = decompressBackupPayload(u8);
-      } else {
-        // 모바일: ZIP 압축 파일 여부 자동 감지 및 압축 해제
-        try {
-          const base64 = await FileSystem.readAsStringAsync(file.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          const u8 = base64ToU8(base64);
-          content = decompressBackupPayload(u8);
-        } catch {
-          content = await FileSystem.readAsStringAsync(file.uri, {
+      // 백업은 JSON 텍스트만 지원한다.
+      const content: string = Platform.OS === 'web' && (file as any).file
+        ? await (file as any).file.text()
+        : await FileSystem.readAsStringAsync(file.uri, {
             encoding: FileSystem.EncodingType.UTF8,
           });
-        }
-      }
 
       if (!content || !content.trim()) {
         showAlert('오류', '선택한 파일의 내용이 비어 있거나 올바르지 않습니다.');
@@ -263,7 +250,7 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
       console.warn('파일 복원 실패:', err);
       showAlert(
         '복원 실패',
-        `백업 파일을 읽거나 압축을 푸는 중 오류가 발생했습니다: ${err?.message || '파일 오류'}`
+        `백업 파일을 읽는 중 오류가 발생했습니다: ${err?.message || '파일 오류'}`
       );
     }
   }

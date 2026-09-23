@@ -32,7 +32,6 @@ import {
   SyncTodayResult,
 } from '../domain/ranking_client';
 import { syncRankingProgress } from '../domain/ranking_sync';
-import { base64ToU8, decompressBackupPayload } from '../utils/backupArchive';
 
 const LEADERBOARD_LIMIT = 20;
 
@@ -45,7 +44,7 @@ function recoverySeedFromBackup(content: string): RankingRecoverySeed {
   try {
     backup = JSON.parse(content);
   } catch {
-    throw new Error('올바른 Celueste 백업 파일이 아닙니다. JSON 또는 이전 ZIP 백업을 선택해 주세요.');
+    throw new Error('올바른 Celueste 백업 파일이 아닙니다. 전체 백업 JSON 파일을 선택해 주세요.');
   }
   if (
     typeof backup?.rankingParticipantId !== 'string' || !backup.rankingParticipantId ||
@@ -202,10 +201,11 @@ export function useRankingWindow() {
       const picked = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
       if (picked.canceled || !picked.assets?.length) return { ok: false as const, canceled: true as const };
       const file = picked.assets[0];
-      const bytes = Platform.OS === 'web' && (file as any).file
-        ? new Uint8Array(await (file as any).file.arrayBuffer())
-        : base64ToU8(await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 }));
-      return recoverWithSeed(recoverySeedFromBackup(decompressBackupPayload(bytes)));
+      // 백업은 JSON 텍스트만 지원한다.
+      const content: string = Platform.OS === 'web' && (file as any).file
+        ? await (file as any).file.text()
+        : await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.UTF8 });
+      return recoverWithSeed(recoverySeedFromBackup(content));
     } catch (err) {
       const message = err instanceof Error ? err.message : '백업 파일을 읽을 수 없습니다.';
       setError(message);
