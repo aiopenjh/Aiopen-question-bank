@@ -219,6 +219,9 @@ export function AppView({ controller }: { controller: AppController }) {  const 
                 targetQuestionCount={routine?.targetQuestionCount ?? DAILY_GOAL_DEFAULT}
                 onChangeTargetQuestionCount={handleChangeTargetQuestionCount}
                 onExportBackup={handleExportBackup}
+                topics={topics}
+                units={units}
+                questions={questions}
                 onOpenRestoreModal={() => {
                   setBackupText('');
                   setBackupModalVisible(true);

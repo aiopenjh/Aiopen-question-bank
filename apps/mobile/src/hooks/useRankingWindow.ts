@@ -8,6 +8,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { RankingProfile, RankingRecoverySeed, RankingSyncQueueItem } from '../contracts/types';
 import {
   getAttempts,
@@ -29,11 +32,32 @@ import {
   SyncTodayResult,
 } from '../domain/ranking_client';
 import { syncRankingProgress } from '../domain/ranking_sync';
+import { base64ToU8, decompressBackupPayload } from '../utils/backupArchive';
 
 const LEADERBOARD_LIMIT = 20;
 
 function toMessage(err: unknown): string {
   return err instanceof RankingApiRequestError ? err.message : '알 수 없는 오류가 발생했습니다.';
+}
+
+function recoverySeedFromBackup(content: string): RankingRecoverySeed {
+  let backup: Record<string, unknown>;
+  try {
+    backup = JSON.parse(content);
+  } catch {
+    throw new Error('올바른 Celueste 백업 파일이 아닙니다. JSON 또는 이전 ZIP 백업을 선택해 주세요.');
+  }
+  if (
+    typeof backup?.rankingParticipantId !== 'string' || !backup.rankingParticipantId ||
+    typeof backup?.rankingRecoveryToken !== 'string' || !backup.rankingRecoveryToken
+  ) {
+    throw new Error('이 백업에는 랭킹 계정 복구 정보가 없습니다. 랭킹에 참여한 뒤 저장한 백업을 선택해 주세요.');
+  }
+  return {
+    nickname: typeof backup.rankingNickname === 'string' ? backup.rankingNickname : '',
+    participantId: backup.rankingParticipantId,
+    recoveryToken: backup.rankingRecoveryToken,
+  };
 }
 
 export function useRankingWindow() {
@@ -130,17 +154,19 @@ export function useRankingWindow() {
    * 탈퇴 후 유예 기간이 지나 서버가 계정을 이미 지웠다면 실패하며,
    * 그 경우 시드를 지우고 새로 참여하도록 안내한다.
    */
-  const recoverFromBackup = useCallback(async () => {
-    if (!recoverySeed) return { ok: false as const, message: '복구할 백업 정보가 없습니다.' };
+  const recoverWithSeed = useCallback(async (seed: RankingRecoverySeed) => {
     setBusy(true);
     setError(null);
     try {
-      const result = await recoverParticipant(recoverySeed.participantId, recoverySeed.recoveryToken);
+      if (await getRankingProfile()) {
+        return { ok: false as const, message: '이미 연결된 랭킹 계정이 있습니다.' };
+      }
+      const result = await recoverParticipant(seed.participantId, seed.recoveryToken);
       const next: RankingProfile = {
         nickname: result.nickname,
         participantId: result.participantId,
         deviceToken: result.deviceToken,
-        recoveryToken: recoverySeed.recoveryToken,
+        recoveryToken: seed.recoveryToken,
       };
       await saveRankingProfile(next);
       await clearRankingRecoverySeed();
@@ -151,7 +177,7 @@ export function useRankingWindow() {
       const message = toMessage(err);
       setError(message);
       // 탈퇴+유예 만료로 서버 계정이 사라진 경우: 더 시도할 수 없으니 시드를 치운다.
-      if (err instanceof RankingApiRequestError && err.status === 401) {
+      if (err instanceof RankingApiRequestError && err.status === 401 && recoverySeed?.participantId === seed.participantId) {
         await clearRankingRecoverySeed();
         setRecoverySeed(null);
       }
@@ -160,6 +186,27 @@ export function useRankingWindow() {
       setBusy(false);
     }
   }, [recoverySeed]);
+
+  const recoverFromBackup = useCallback(async () => {
+    if (!recoverySeed) return { ok: false as const, message: '복구할 백업 정보가 없습니다.' };
+    return recoverWithSeed(recoverySeed);
+  }, [recoverySeed, recoverWithSeed]);
+
+  const recoverFromBackupFile = useCallback(async () => {
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+      if (picked.canceled || !picked.assets?.length) return { ok: false as const, canceled: true as const };
+      const file = picked.assets[0];
+      const bytes = Platform.OS === 'web' && (file as any).file
+        ? new Uint8Array(await (file as any).file.arrayBuffer())
+        : base64ToU8(await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 }));
+      return recoverWithSeed(recoverySeedFromBackup(decompressBackupPayload(bytes)));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '백업 파일을 읽을 수 없습니다.';
+      setError(message);
+      return { ok: false as const, message };
+    }
+  }, [recoverWithSeed]);
 
   const dismissRecoverySeed = useCallback(async () => {
     await clearRankingRecoverySeed();
@@ -200,6 +247,7 @@ export function useRankingWindow() {
     register,
     withdraw,
     recoverFromBackup,
+    recoverFromBackupFile,
     dismissRecoverySeed,
   };
 }

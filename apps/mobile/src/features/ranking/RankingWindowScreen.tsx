@@ -43,6 +43,7 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
     register,
     withdraw,
     recoverFromBackup,
+    recoverFromBackupFile,
     dismissRecoverySeed,
   } = useRankingWindow();
   const [tab, setTab] = useState<Tab>('mostSolved');
@@ -75,6 +76,22 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
     } else {
       showAlert('복구 실패', `${result.message}\n\n계정이 이미 탈퇴 처리되었다면 새로 참여해 주세요.`);
     }
+  }
+
+  async function handleRecoverFromFile() {
+    const result = await recoverFromBackupFile();
+    if ('canceled' in result) return;
+    showAlert(
+      result.ok ? '랭킹 계정 복구 완료' : '복구 실패',
+      result.ok ? '기존 랭킹 계정으로 연결되었습니다. 학습 데이터는 변경하지 않았습니다.' : result.message
+    );
+  }
+
+  function handleStartNewAccount() {
+    showAlert('새 랭킹 계정 만들기', '백업에서 찾은 기존 계정과 기록이 분리됩니다. 그래도 새로 참여하시겠습니까?', [
+      { text: '기존 계정 복구', style: 'cancel' },
+      { text: '새로 참여', onPress: dismissRecoverySeed },
+    ]);
   }
 
   function handleWithdraw() {
@@ -158,11 +175,11 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.secondaryButton}
-                onPress={dismissRecoverySeed}
+                onPress={handleStartNewAccount}
                 disabled={busy}
                 activeOpacity={0.8}
               >
-                <Text style={styles.secondaryButtonText}>새로 참여하기</Text>
+              <Text style={styles.secondaryButtonText}>복구하지 않고 새로 참여하기</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -199,11 +216,11 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
                 </Text>
               )}
             </View>
-          ) : (
+          ) : !recoverySeed ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>랭킹 참여 (선택)</Text>
               <Text style={styles.noticeText}>
-                원하는 사용자끼리만 가볍게 학습 동기를 나눕니다. 참여하지 않아도 앱 사용에는 영향이 없습니다.
+                기존 계정이 있다면 새로 등록하지 말고 백업 파일로 먼저 복구하세요. 학습 데이터는 바뀌지 않습니다.
               </Text>
               <TextInput
                 style={styles.input}
@@ -226,8 +243,16 @@ export const RankingWindowScreen: React.FC<RankingWindowScreenProps> = ({ onClos
                   <Text style={styles.primaryButtonText}>참여 등록</Text>
                 )}
               </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handleRecoverFromFile}
+                disabled={busy}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.secondaryButtonText}>백업 파일로 기존 계정 복구</Text>
+              </TouchableOpacity>
             </View>
-          )}
+          ) : null}
 
           {error && <Text style={styles.errorText}>{error}</Text>}
 

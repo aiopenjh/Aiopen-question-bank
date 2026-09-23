@@ -258,11 +258,15 @@ function normalizeBackupPayload(value: unknown): AppBackupPayload {
   };
 }
 
-/**
- * 전체 로컬 학습 데이터 JSON 백업 추출
- */
+/** 문제은행과 랭킹 복구에 필요한 정보만 내보낸다. 구형 전체 백업 복원은 유지한다. */
 export async function exportBackupJSON(): Promise<string> {
-  const entries = await AsyncStorage.multiGet([...BACKUP_STORAGE_KEYS]);
+  const entries = await AsyncStorage.multiGet([
+    STORAGE_KEYS.TOPICS,
+    STORAGE_KEYS.UNITS,
+    STORAGE_KEYS.LEARNING_SPECS,
+    STORAGE_KEYS.QUESTIONS,
+    STORAGE_KEYS.RANKING_PROFILE,
+  ]);
   const stored = new Map(entries);
 
   const rankingProfile = parseStoredObject<RankingProfile>(
@@ -270,25 +274,10 @@ export async function exportBackupJSON(): Promise<string> {
     '랭킹 참여 정보'
   );
 
-  const payload: AppBackupPayload = {
+  const payload = {
     version: CURRENT_DB_VERSION,
     exportedAt: getCurrentISOTime(),
-    profile: parseStoredObject<Profile>(stored.get(STORAGE_KEYS.PROFILE) ?? null, '프로필'),
-    routine: parseStoredObject<RoutineRevision>(stored.get(STORAGE_KEYS.ROUTINE) ?? null, '학습 루틴'),
     topics: parseStoredArray<Topic>(stored.get(STORAGE_KEYS.TOPICS) ?? null, '과목'),
-    sources: parseStoredArray<Source>(stored.get(STORAGE_KEYS.SOURCES) ?? null, '학습 자료'),
-    sourceRevisions: parseStoredArray<SourceRevision>(
-      stored.get(STORAGE_KEYS.SOURCE_REVISIONS) ?? null,
-      '학습 자료 버전'
-    ),
-    sourceChunks: parseStoredArray<SourceChunk>(
-      stored.get(STORAGE_KEYS.SOURCE_CHUNKS) ?? null,
-      '학습 자료 본문'
-    ),
-    topicSourceLinks: parseStoredArray<TopicSourceLink>(
-      stored.get(STORAGE_KEYS.TOPIC_SOURCE_LINKS) ?? null,
-      '과목 자료 연결'
-    ),
     units: parseStoredArray<Unit>(stored.get(STORAGE_KEYS.UNITS) ?? null, '단원'),
     learningSpecs: parseStoredArray<LearningSpec>(
       stored.get(STORAGE_KEYS.LEARNING_SPECS) ?? null,
@@ -297,33 +286,6 @@ export async function exportBackupJSON(): Promise<string> {
     questions: parseStoredArray<QuestionRevision>(
       stored.get(STORAGE_KEYS.QUESTIONS) ?? null,
       '문제'
-    ),
-    sessions: parseStoredArray<StudySession>(
-      stored.get(STORAGE_KEYS.SESSIONS) ?? null,
-      '학습 세션'
-    ),
-    sessionItems: parseStoredArray<SessionItem>(
-      stored.get(STORAGE_KEYS.SESSION_ITEMS) ?? null,
-      '학습 세션 문제'
-    ),
-    attempts: parseStoredArray<Attempt>(stored.get(STORAGE_KEYS.ATTEMPTS) ?? null, '풀이 기록'),
-    reviewStates: parseStoredArray<ReviewState>(
-      stored.get(STORAGE_KEYS.REVIEW_STATES) ?? null,
-      '복습 상태'
-    ),
-    manualCompletions: parseStoredArray<ManualCompletion>(
-      stored.get(STORAGE_KEYS.MANUAL_COMPLETIONS) ?? null,
-      '수동 완료 기록'
-    ),
-    preferredModel: stored.get(STORAGE_KEYS.PREFERRED_MODEL) ?? null,
-    lastStudiedTopicId: stored.get(STORAGE_KEYS.LAST_STUDIED_TOPIC) ?? null,
-    customNoteQuestionIds: parseStoredArray<string>(
-      stored.get(STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS) ?? null,
-      '나만의 오답노트'
-    ),
-    alarmConfig: parseStoredObject<AlarmConfig>(
-      stored.get(STORAGE_KEYS.ALARM_CONFIG) ?? null,
-      '알람 설정'
     ),
     rankingNickname: rankingProfile?.nickname ?? null,
     rankingParticipantId: rankingProfile?.participantId ?? null,
@@ -431,7 +393,7 @@ export async function restoreBackupJSON(
         : '';
     return {
       success: true,
-      message: `API 키를 제외한 전체 학습 데이터가 복원되었습니다.${rankingNote}`,
+      message: `백업에 담긴 학습 데이터가 복원되었습니다.${rankingNote}`,
     };
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : '알 수 없는 저장 오류';

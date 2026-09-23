@@ -41,25 +41,14 @@ export function base64ToU8(base64: string): Uint8Array {
   return bytes.subarray(0, p);
 }
 
-import {
-  generateExamSheetHtml,
-  generateAnswerSheetHtml,
-  generateWrongNoteHtml,
-  generateExamSheetTxt,
-} from './examSheetExport';
-
 /**
- * JSON 문자열을 85~90% 압축된 .zip 아카이브 바이너리(Uint8Array)로 변환
- * - 앱 복원용 원본(backup_data.json) 100% 보존
- * - PC에서 A4 인쇄 및 PDF 저장이 가능한 예쁜 HTML 시험지/해설지 및 텍스트 파일 함께 동봉
+ * 앱 복원용 JSON을 ZIP으로 보관한다. 인쇄용 문제집은 별도 기능에서 만든다.
  */
 export function compressBackupToZip(jsonString: string): Uint8Array {
   const dateStr = new Date().toISOString().slice(0, 10);
 
   let topics: any[] = [];
-  let units: any[] = [];
   let questions: any[] = [];
-  let attempts: any[] = [];
   let reviewStates: any[] = [];
   let customNoteQuestionIds: string[] = [];
   let backupVersion = 1;
@@ -68,9 +57,7 @@ export function compressBackupToZip(jsonString: string): Uint8Array {
   try {
     const parsed = JSON.parse(jsonString);
     topics = parsed.topics || [];
-    units = parsed.units || [];
     questions = parsed.questions || [];
-    attempts = parsed.attempts || [];
     reviewStates = parsed.reviewStates || [];
     customNoteQuestionIds = parsed.customNoteQuestionIds || [];
     backupVersion = Number.isInteger(parsed.version) ? parsed.version : 1;
@@ -91,7 +78,6 @@ export function compressBackupToZip(jsonString: string): Uint8Array {
         exportedAt,
         counts: {
           topics: topics.length,
-          units: units.length,
           questions: questions.length,
           reviewItems: reviewStates.length,
           customNoteItems: customNoteQuestionIds.length,
@@ -103,55 +89,22 @@ export function compressBackupToZip(jsonString: string): Uint8Array {
     )
   );
 
-  // 문제 데이터가 보관되어 있는 경우: 인쇄/PDF용 실전 시험지와 해설지, 텍스트본 생성하여 함께 압축
-  if (questions.length > 0) {
-    const examHtml = generateExamSheetHtml(topics, questions, dateStr);
-    const answerHtml = generateAnswerSheetHtml(topics, questions, dateStr);
-    const wrongNoteHtml = generateWrongNoteHtml(
-      topics,
-      units,
-      questions,
-      attempts,
-      reviewStates,
-      customNoteQuestionIds,
-      dateStr
-    );
-    const examTxt = generateExamSheetTxt(topics, questions, dateStr);
-
-    zipEntries['인쇄용/1. 전체 문제지.html'] = strToU8(examHtml);
-    zipEntries['인쇄용/2. 정답과 해설.html'] = strToU8(answerHtml);
-    zipEntries['인쇄용/3. 나만의 오답노트.html'] = strToU8(wrongNoteHtml);
-    zipEntries['기타/문제집 편집용.txt'] = strToU8(examTxt);
-  }
-
   const topicSummary = topics.map((t: any) => t.name).join(', ') || '전체';
   const readmeText = `========================================================================
-[ Celueste AI 학습 데이터 백업 & 실전 문제집 올인원 패키지 ]
+[ Celueste 학습 데이터 복원용 백업 ]
 ========================================================================
 생성 일자: ${dateStr}
 보관 문항수: 총 ${questions.length}문항 (과목: ${topicSummary})
 
-[ 📂 내부 파일 안내 및 활용법 ]
-1. "인쇄용/1. 전체 문제지.html"
-   - 컴퓨터에서 더블클릭하면 크롬/엣지 브라우저에서 실제 시험지 양식으로 열립니다.
-   - 키보드의 'Ctrl + P'를 누르시면 A4 용지로 바로 인쇄하거나 [PDF로 저장]할 수 있습니다!
-   - 정답과 해설이 가려져 있어 실제 시험처럼 종이에 풀어볼 수 있습니다.
+[ 파일 안내 ]
+backup_data.json: 앱에서 다시 불러올 학습 데이터와 랭킹 복구 정보
+manifest.json: 백업 생성 시각과 데이터 개수
 
-2. "인쇄용/2. 정답과 해설.html"
-   - 빠른 정답 확인표 및 각 문항별 심층 해설이 깔끔하게 정리되어 있습니다.
-   - 역시 'Ctrl + P'로 해설집 PDF 저장 및 인쇄가 가능합니다.
-
-3. "인쇄용/3. 나만의 오답노트.html"
-   - 사용자가 직접 저장한 문제만 모아 손필기 공간과 재복습 체크란을 제공합니다.
-
-4. "기타/문제집 편집용.txt"
-   - 필요할 때만 한글(HWP)이나 MS Word에서 편집하는 보조 파일입니다.
-
-5. "backup_data.json"
-   - Celueste 앱의 원본 데이터베이스입니다.
-   - 이 ZIP 파일 자체를 앱의 [설정 ➔ 복원]에서 선택하시면 1초 만에 스마트폰 앱으로 복원됩니다.
+앱의 [설정 → 데이터 관리 → 복원]에서 이 ZIP 파일을 선택하세요.
+인쇄용 PDF 문제집은 [내 문제집 내보내기]에서 따로 만듭니다.
 
 ※ API 키는 보안상 이 백업에 포함되지 않습니다. 새 기기에서는 직접 다시 등록해 주세요.
+※ 랭킹 복구 정보가 포함될 수 있으니 파일을 안전하게 보관하세요.
 ========================================================================`;
 
   zipEntries['README.txt'] = strToU8(readmeText);

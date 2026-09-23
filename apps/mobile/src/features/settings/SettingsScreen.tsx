@@ -11,6 +11,7 @@ import { DataBackupSection } from './DataBackupSection';
 import { AppVersionSection } from './AppVersionSection';
 import { FeedbackCard } from '../study/FeedbackCard';
 import { DAILY_GOAL_DEFAULT } from '../../domain/daily_goal';
+import type { QuestionRevision, Topic, Unit } from '../../contracts/types';
 
 interface SettingsGroupProps {
   index: string;
@@ -71,6 +72,9 @@ interface SettingsScreenProps {
   onExportBackup: () => Promise<void>;
   onOpenRestoreModal: () => void;
   onResetAllData: () => void;
+  topics?: Topic[];
+  units?: Unit[];
+  questions?: QuestionRevision[];
   onOpenUserManual?: () => void;
   hasUpdate?: boolean;
   isCheckingUpdate?: boolean;
@@ -94,6 +98,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onExportBackup,
   onOpenRestoreModal,
   onResetAllData,
+  topics = [],
+  units = [],
+  questions = [],
   onOpenUserManual,
   hasUpdate = false,
   isCheckingUpdate = false,
@@ -212,13 +219,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <SettingsGroup
         index="03"
         title="데이터 관리"
-        description="학습 기록을 백업하거나 기존 데이터를 복원합니다."
+        description="문제집 PDF를 만들거나 문제은행 데이터를 백업·복원합니다."
         collapsible
       >
         <DataBackupSection
           onExportBackup={onExportBackup}
           onOpenRestoreModal={onOpenRestoreModal}
           onResetAllData={onResetAllData}
+          topics={topics}
+          units={units}
+          questions={questions}
         />
       </SettingsGroup>
 

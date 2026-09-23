@@ -255,7 +255,8 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipTitle}>🛡️ 3. 복구와 탈퇴</Text>
             <Text style={styles.tipText}>
               • 백업 파일에는 랭킹 계정 복구 정보가 포함될 수 있으므로 다른 사람에게 전달하지 말고 안전하게 보관하세요.{`\n`}
-              • 복원 후 랭킹 창에서 발견된 계정을 다시 연결할 수 있습니다. 탈퇴 요청 시 닉네임은 즉시 랭킹에서 숨겨지고 3일 후 서버 기록이 삭제됩니다. 3일 안에 복구하면 탈퇴 요청이 취소됩니다.
+              • 기기를 바꾸거나 저장 정보가 사라졌다면 랭킹 창의 <Text style={styles.bold}>[백업 파일로 기존 계정 복구]</Text>에서 JSON 또는 이전 ZIP을 선택하세요. 과목·문제와 API 키는 바뀌지 않습니다.{`\n`}
+              • 다른 기기에서 새 닉네임을 등록하면 기존 기록과 분리됩니다. 탈퇴 요청 시 닉네임은 즉시 랭킹에서 숨겨지고 3일 후 서버 기록이 삭제됩니다. 3일 안에 복구하면 탈퇴 요청이 취소됩니다.
             </Text>
           </View>
         </View>
@@ -279,8 +280,9 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>💾 2. 스마트폰 변경 시 데이터 이동 방법</Text>
             <Text style={styles.tipText}>
-              • <Text style={styles.bold}>[설정 ➔ 데이터 관리 ➔ 백업/출력]</Text>은 API 키를 제외한 학습 데이터와 인쇄용 문제지·해설지·오답노트를 ZIP으로 저장합니다.{'\n'}
-              • 새 기기의 <Text style={styles.bold}>[복원]</Text>에서 ZIP 또는 JSON을 선택하면 무결성을 확인한 뒤 학습 기록을 복원합니다. 현재 기기의 API 키는 바꾸지 않으며 새 기기에서는 직접 다시 등록합니다.{`\n`}
+              • <Text style={styles.bold}>[내 문제집 내보내기]</Text>에서 과목을 고르고 정답·해설 포함 여부를 선택합니다. 웹의 인쇄 화면에서 PDF로 저장할 수 있습니다.{'\n'}
+              • <Text style={styles.bold}>[학습 데이터 백업]</Text>은 과목·단원·문제와 랭킹 복구 정보를 JSON 파일로 저장합니다. 풀이 기록과 API 키는 포함되지 않습니다.{'\n'}
+              • 새 기기의 <Text style={styles.bold}>[복원]</Text>에서 JSON 또는 이전 ZIP을 선택하면 현재 학습 데이터를 교체합니다. API 키는 바꾸지 않으며 새 기기에서는 직접 다시 등록합니다.{`\n`}
               • 랭킹에 참여했다면 백업 파일에 계정 복구 정보가 포함될 수 있으므로 파일을 안전하게 보관하세요.
             </Text>
           </View>
@@ -297,7 +299,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipTitle}>⚠️ 4. 학습 데이터 삭제 방법</Text>
             <Text style={styles.tipText}>
               • 가장 확실한 방법은 앱의 <Text style={styles.bold}>[설정 ➔ 데이터 관리 ➔ 전체 데이터 초기화]</Text>를 먼저 실행한 뒤 홈 화면 아이콘을 삭제하는 것입니다. 과목, 단원, 문제, 풀이 기록과 등록한 API 키가 함께 삭제되며 복구할 수 없습니다.{'\n'}
-              • 추후 복구를 원하시면 전체 초기화 전에 <Text style={styles.bold}>[백업/출력]</Text>에서 백업 데이터를 저장해 두시길 권장합니다.{'\n'}
+              • 추후 문제은행 복구를 원하시면 전체 초기화 전에 <Text style={styles.bold}>[백업]</Text>에서 백업 데이터를 저장해 두시길 권장합니다.{'\n'}
               • 홈 화면 아이콘만 삭제하는 것으로는 학습 데이터 삭제가 보장되지 않습니다. 같은 브라우저에서 기존 주소를 다시 열면 데이터가 남아 있을 수 있습니다.{'\n'}
               • 앱에서 초기화하지 못한 경우에는 Android Chrome 또는 iPhone Safari 설정의 <Text style={styles.bold}>웹사이트 데이터</Text>에서 <Text style={styles.bold}>aiopenjh.github.io</Text> 항목을 삭제하세요.
             </Text>

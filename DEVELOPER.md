@@ -17,7 +17,7 @@
 - 웹 저장소: IndexedDB 기반 로컬 저장소
 - 네이티브 저장소: AsyncStorage, API 키는 별도 보안 저장 경로
 - 로컬 알림: `expo-notifications`
-- 문서/백업: ZIP, JSON, HTML, PDF 생성 지원
+- 문서/백업: JSON 문제은행 백업, 구형 ZIP 복원, 웹 PDF 인쇄용 HTML 지원
 - 배포 대상: GitHub Pages 정적 웹, EAS Android 빌드
 - 선택형 랭킹 서버: Cloudflare Workers + D1 + Rate Limiting
 
@@ -209,7 +209,7 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
 - `apps/mobile/src/data/storage_keys.ts`
   - 저장 키의 단일 정의
 
-백업은 학습 데이터와 알람 설정을 포함하지만 API 키는 포함하지 않습니다. 복원 로직을 변경할 때는 신규 형식뿐 아니라 기존 백업 형식도 계속 읽을 수 있어야 합니다.
+새 JSON 백업은 과목·단원·학습 명세·문제와 랭킹 복구 정보만 포함합니다. 풀이 기록, 학습 자료 원본, 알람 설정, API 키는 제외합니다. 복원은 기존 학습 데이터를 교체하며 구형 ZIP/JSON 전체 백업도 계속 읽습니다. 인쇄용 문제집은 별도 화면에서 선택 과목별 A4 PDF 인쇄로 제공합니다.
 
 ### 랭킹 서버
 
@@ -220,6 +220,8 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
 - `apps/ranking-worker/src/util.mjs`: 토큰 해시, CORS, 서울 날짜와 닉네임 검증
 
 운영 API는 `https://celueste-ranking-api.celueste-ranking-worker.workers.dev`입니다. 최초 닉네임 등록 뒤 시험 완료 시 세 랭킹 지표를 함께 자동 동기화합니다. 닉네임 검사는 서버에서 2~12자 제한, 중복, 운영자 사칭, 욕설·성적 표현과 공백·기호를 이용한 우회를 차단합니다. 문제 내용, 정답, 과목명과 API 키는 전송하지 않습니다.
+
+랭킹 창에서는 기존 JSON/ZIP 백업을 선택해 `rankingParticipantId`와 `rankingRecoveryToken`만 읽고 기존 계정으로 연결합니다. 이 경로는 학습 데이터를 복원하거나 API 키를 서버로 보내지 않습니다. 서버의 참가자 ID는 계정을 식별하지만 사람 자체를 식별하지 않으므로, 다른 기기에서 새 닉네임을 등록하는 행위까지 막지는 않습니다.
 
 | 메서드와 경로 | 역할 |
 | --- | --- |

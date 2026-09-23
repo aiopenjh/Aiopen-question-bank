@@ -1,27 +1,98 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Platform, StyleSheet, Image } from 'react-native';
 import { styles } from './settingsStyles';
+import { UniversalModal as Modal } from '../../components/common/UniversalModal';
+import type { QuestionRevision, Topic, Unit } from '../../contracts/types';
+import { generateWorkbookHtml } from '../../utils/workbookHtml';
+import { showAlert } from '../../utils/alert';
+import { getRankingProfile } from '../../data/db';
 
 export interface DataBackupSectionProps {
   onExportBackup: () => Promise<void>;
   onOpenRestoreModal: () => void;
   onResetAllData: () => void;
+  topics: Topic[];
+  units: Unit[];
+  questions: QuestionRevision[];
 }
 
 export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
   onExportBackup,
   onOpenRestoreModal,
   onResetAllData,
+  topics,
+  units,
+  questions,
 }) => {
+  const [workbookVisible, setWorkbookVisible] = useState(false);
+  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
+  const [includeExplanations, setIncludeExplanations] = useState(false);
+  const [rankingNickname, setRankingNickname] = useState('');
+  const availableTopics = topics.filter((topic) => questions.some((question) => question.topicId === topic.id));
+
+  async function openWorkbook() {
+    setSelectedTopicIds([]);
+    setIncludeExplanations(false);
+    try {
+      setRankingNickname((await getRankingProfile())?.nickname ?? '');
+    } catch {
+      setRankingNickname('');
+    }
+    setWorkbookVisible(true);
+  }
+
+  function exportWorkbook() {
+    const selectedTopics = availableTopics.filter((topic) => selectedTopicIds.includes(topic.id));
+    if (!selectedTopics.length) {
+      showAlert('과목 선택', '문제집에 담을 과목을 하나 이상 선택해 주세요.');
+      return;
+    }
+    if (Platform.OS !== 'web') {
+      showAlert('PDF 저장', '현재 PDF 저장은 웹 버전에서 이용할 수 있습니다.');
+      return;
+    }
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showAlert('창 열기 실패', '브라우저에서 새 창을 허용한 뒤 다시 시도해 주세요.');
+      return;
+    }
+    printWindow.opener = null;
+    const watermarkAsset = Image.resolveAssetSource(require('../../../assets/android-icon-foreground-v2.png'));
+    const watermarkImageUrl = watermarkAsset?.uri
+      ? new URL(watermarkAsset.uri, window.location.href).href : '';
+    printWindow.document.open();
+    printWindow.document.write(generateWorkbookHtml(
+      selectedTopics,
+      units,
+      questions.filter((question) => selectedTopicIds.includes(question.topicId || '')),
+      includeExplanations,
+      rankingNickname,
+      watermarkImageUrl
+    ));
+    printWindow.document.close();
+    setWorkbookVisible(false);
+  }
+
   return (
     <>
-      {/* 🛡️ 데이터 백업 및 복원 */}
       <View style={styles.compactCard}>
         <View style={styles.compactCardHeader}>
           <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.compactCardTitle}>데이터 백업 & 인쇄용 문제집</Text>
+            <Text style={styles.compactCardTitle}>내 문제집 내보내기</Text>
+            <Text style={styles.compactCardSubtitle}>과목을 골라 단원별 A4 PDF 문제집으로 저장</Text>
+          </View>
+          <TouchableOpacity style={styles.miniBtnPrimary} onPress={openWorkbook} activeOpacity={0.7}>
+            <Text style={styles.miniBtnPrimaryText}>문제집 만들기</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.compactCard}>
+        <View style={styles.compactCardHeader}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.compactCardTitle}>학습 데이터 백업</Text>
             <Text style={styles.compactCardSubtitle}>
-              API 키 제외 전체 백업 · A4 문제지, 해설지, 오답노트 동봉
+              과목·단원·문제와 랭킹 복구 정보 저장 · 풀이 기록과 API 키 제외
             </Text>
           </View>
           <View style={styles.compactBtnGroup}>
@@ -30,7 +101,7 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
               onPress={onExportBackup}
               activeOpacity={0.7}
             >
-              <Text style={styles.miniBtnPrimaryText}>백업/출력</Text>
+              <Text style={styles.miniBtnPrimaryText}>백업</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.miniBtnSecondary}
@@ -42,6 +113,42 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
           </View>
         </View>
       </View>
+
+      <Modal visible={workbookVisible} transparent animationType="fade" onRequestClose={() => setWorkbookVisible(false)}>
+        <View style={workbookStyles.overlay}>
+          <View style={workbookStyles.card}>
+            <Text style={workbookStyles.title}>내 문제집 내보내기</Text>
+            <Text style={workbookStyles.description}>저장할 과목을 선택하세요. 단원마다 새 페이지로 구분됩니다.</Text>
+            <ScrollView style={workbookStyles.list}>
+              {availableTopics.length ? availableTopics.map((topic) => {
+                const checked = selectedTopicIds.includes(topic.id);
+                const count = questions.filter((question) => question.topicId === topic.id).length;
+                return <TouchableOpacity key={topic.id} style={workbookStyles.row}
+                  accessibilityRole="checkbox" accessibilityState={{ checked }}
+                  onPress={() => setSelectedTopicIds((current) => checked
+                    ? current.filter((id) => id !== topic.id) : [...current, topic.id])}>
+                  <Text style={workbookStyles.check}>{checked ? '☑' : '□'}</Text>
+                  <Text style={workbookStyles.rowText}>{topic.name} · {count}문항</Text>
+                </TouchableOpacity>;
+              }) : <Text style={workbookStyles.description}>저장된 문제가 있는 과목이 없습니다.</Text>}
+            </ScrollView>
+            <TouchableOpacity style={workbookStyles.row} accessibilityRole="checkbox"
+              accessibilityState={{ checked: includeExplanations }}
+              onPress={() => setIncludeExplanations((value) => !value)}>
+              <Text style={workbookStyles.check}>{includeExplanations ? '☑' : '□'}</Text>
+              <Text style={workbookStyles.rowText}>정답과 해설 포함</Text>
+            </TouchableOpacity>
+            <View style={workbookStyles.actions}>
+              <TouchableOpacity style={workbookStyles.cancel} onPress={() => setWorkbookVisible(false)}>
+                <Text style={workbookStyles.cancelText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={workbookStyles.submit} onPress={exportWorkbook}>
+                <Text style={workbookStyles.submitText}>PDF 저장 화면 열기</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ⚠️ 데이터 클린 초기화 */}
       <View style={[styles.compactCard, styles.resetCard]}>
@@ -61,3 +168,19 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
     </>
   );
 };
+
+const workbookStyles = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(31,24,29,0.55)', padding: 20 },
+  card: { maxHeight: '80%', backgroundColor: '#fff', borderRadius: 18, padding: 20 },
+  title: { fontSize: 19, fontWeight: '800', color: '#302832', marginBottom: 7 },
+  description: { fontSize: 13, lineHeight: 19, color: '#716770', marginBottom: 12 },
+  list: { maxHeight: 290, marginBottom: 10 },
+  row: { minHeight: 45, flexDirection: 'row', alignItems: 'center' },
+  check: { fontSize: 23, color: '#9d6278', width: 34 },
+  rowText: { fontSize: 15, color: '#302832', flex: 1 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 15 },
+  cancel: { flex: 1, padding: 12, alignItems: 'center', borderRadius: 9, backgroundColor: '#f4eff1' },
+  cancelText: { color: '#6d6168', fontWeight: '700' },
+  submit: { flex: 2, padding: 12, alignItems: 'center', borderRadius: 9, backgroundColor: '#995e75' },
+  submitText: { color: '#fff', fontWeight: '800' },
+});

@@ -1,5 +1,5 @@
 /**
- * Application Backup, Compressed ZIP Export & Restore Hook
+ * Application JSON Backup & Legacy ZIP Restore Hook
  * Reference: CogniQuest_개발명세_v1
  */
 
@@ -10,9 +10,7 @@ import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { exportBackupJSON, restoreBackupJSON, clearAllData } from '../data/db';
 import {
-  compressBackupToZip,
   decompressBackupPayload,
-  u8ToBase64,
   base64ToU8,
 } from '../utils/backupArchive';
 import { showAlert } from '../utils/alert';
@@ -96,39 +94,30 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
     try {
       json = await createPortableBackupJSON();
       const dateStr = new Date().toISOString().slice(0, 10);
-      const zipFileName = `Celueste_Study_Backup_${dateStr}.zip`;
-      const zipBytes = compressBackupToZip(json);
+      const backupFileName = `Celueste_Question_Bank_${dateStr}.json`;
       const rankingWarning = includesRankingRecoveryToken(json)
         ? '\n\n⚠️ 이 백업에는 랭킹 계정 복구 정보가 포함되어 있습니다. 유출되면 타인이 내 랭킹 계정에 접근할 수 있으니 안전하게 보관해 주세요.'
         : '';
 
       if (Platform.OS === 'web') {
-        // 웹 브라우저: .zip 압축 파일 직접 다운로드
-        const blob = new Blob([zipBytes.buffer as ArrayBuffer], { type: 'application/zip' });
+        const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = zipFileName;
+        a.download = backupFileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         showAlert(
-          '압축 백업 및 실전 문제집 생성 완료',
-          `백업 파일(${zipFileName})이 저장되었습니다.\n\n` +
-          `[ZIP 압축 파일 포함 구성]\n` +
-          `1. 📝 전체 문제지.html\n   (브라우저에서 열어 인쇄/PDF 저장 가능)\n` +
-          `2. 🎯 정답과 해설.html\n   (빠른 정답표 및 상세 해설 수록)\n` +
-          `3. 📓 나만의 오답노트.html\n   (직접 저장한 문제와 손필기 공간)\n` +
-          `4. 💾 backup_data.json\n   (API 키를 제외한 전체 학습 데이터 복원용 원본)` +
+          '문제은행 백업 완료',
+          `백업 파일(${backupFileName})이 저장되었습니다. 과목·단원·문제와 랭킹 복구 정보만 담깁니다. 풀이 기록과 API 키는 포함되지 않습니다.` +
           rankingWarning
         );
       } else {
-        // 모바일 (Android/iOS): 압축 파일 생성 후 공유 시트로 전송 (카톡/메일/클라우드 저장 등)
-        const fileUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${zipFileName}`;
-        const base64 = u8ToBase64(zipBytes);
-        await FileSystem.writeAsStringAsync(fileUri, base64, {
-          encoding: FileSystem.EncodingType.Base64,
+        const fileUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${backupFileName}`;
+        await FileSystem.writeAsStringAsync(fileUri, json, {
+          encoding: FileSystem.EncodingType.UTF8,
         });
 
         if (await Sharing.isAvailableAsync()) {
@@ -136,9 +125,9 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
             showAlert('백업 파일 안내', `공유/저장할 파일에 랭킹 계정 복구 정보가 포함됩니다.${rankingWarning}`);
           }
           await Sharing.shareAsync(fileUri, {
-            mimeType: 'application/zip',
-            dialogTitle: '전체 학습 데이터 백업 & 인쇄용 문제집 ZIP 공유/저장',
-            UTI: 'public.zip-archive',
+            mimeType: 'application/json',
+            dialogTitle: '문제은행 백업 파일 공유/저장',
+            UTI: 'public.json',
           });
         } else {
           // 공유 기능 미지원 기기 폴백
@@ -147,7 +136,7 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
         }
       }
     } catch (err: any) {
-      console.warn('압축 백업 파일 생성 및 공유 실패:', err);
+      console.warn('문제은행 백업 파일 생성 및 공유 실패:', err);
       if (json) {
         setBackupText(json);
         setBackupModalVisible(true);
@@ -238,7 +227,7 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
   function handleResetAllData() {
     showAlert(
       '전체 초기화',
-      '모든 과목, 단원, 문제, 학습 기록과 등록한 API 키가 삭제되며 복구할 수 없습니다.\n\n추후 복구를 원하시면 초기화 전에 백업 데이터를 저장해 두시길 권장합니다.',
+      '모든 과목, 단원, 문제, 학습 기록과 등록한 API 키가 삭제됩니다. 새 JSON 백업으로는 과목·단원·문제와 랭킹 복구 정보만 되살릴 수 있으며 풀이 기록은 복원되지 않습니다.\n\n초기화 전에 필요한 데이터를 확인해 주세요.',
       [
         { text: '취소', style: 'cancel' },
         {
