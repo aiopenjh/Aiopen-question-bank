@@ -5,9 +5,10 @@ import { UniversalModal as Modal } from '../../components/common/UniversalModal'
 import type { QuestionRevision, Topic, Unit } from '../../contracts/types';
 import { generateWorkbookHtml } from '../../utils/workbookHtml';
 import { showAlert } from '../../utils/alert';
+import type { BackupKind } from '../../data/db';
 
 export interface DataBackupSectionProps {
-  onExportBackup: () => Promise<void>;
+  onExportBackup: (backupKind?: BackupKind) => Promise<void>;
   onOpenRestoreModal: () => void;
   onResetAllData: () => void;
   topics: Topic[];
@@ -116,16 +117,23 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
           <View style={{ flex: 1, paddingRight: 8 }}>
             <Text style={styles.compactCardTitle}>학습 데이터 백업</Text>
             <Text style={styles.compactCardSubtitle}>
-              과목·단원·문제와 랭킹 복구 정보 저장 · 풀이 기록과 API 키 제외
+              문제 공유용 또는 기기 이전용 전체 백업 · API 키 제외
             </Text>
           </View>
           <View style={styles.compactBtnGroup}>
             <TouchableOpacity
               style={styles.miniBtnPrimary}
-              onPress={onExportBackup}
+              onPress={() => onExportBackup('question-bank')}
               activeOpacity={0.7}
             >
-              <Text style={styles.miniBtnPrimaryText}>백업</Text>
+              <Text style={styles.miniBtnPrimaryText}>문제은행</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.miniBtnSecondary}
+              onPress={() => onExportBackup('full')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.miniBtnSecondaryText}>전체</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.miniBtnSecondary}

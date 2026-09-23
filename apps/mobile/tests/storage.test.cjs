@@ -122,7 +122,7 @@ test('complete backup round trip contains sources, progress and settings but nev
   await session.db.savePreferredAiModel('gemini-3.5-pro');
   session.data.set(key('secure_vault_v1'), 'SECRET');
 
-  const backup = await session.db.exportBackupJSON();
+  const backup = await session.db.exportBackupJSON('full');
   assert.ok(!backup.includes('SECRET'));
   session.data.set(key('sources'), '[]');
   session.data.set(key('attempts'), '[]');
@@ -134,6 +134,36 @@ test('complete backup round trip contains sources, progress and settings but nev
   assert.equal((await session.db.getAttempts())[0].challenge.topicId, topic.id);
   assert.equal(await session.db.getPreferredAiModel(), 'gemini-3.5-pro');
   assert.equal(session.data.get(key('secure_vault_v1')), 'SECRET');
+});
+
+test('question-bank backup excludes private recovery data and preserves existing progress on restore', async () => {
+  const source = setup();
+  await source.db.initializeDatabase();
+  const topic = await source.db.createTopic('shared math');
+  await source.db.addQuestions([{ ...question, topicId: topic.id }]);
+  source.data.set('@celueste:ranking_profile', JSON.stringify({
+    nickname: 'private', participantId: 'participant', recoveryToken: 'SECRET_TOKEN', deviceToken: 'device',
+  }));
+
+  const backup = await source.db.exportBackupJSON();
+  const payload = JSON.parse(backup);
+  assert.equal(payload.backupKind, 'question-bank');
+  assert.equal('attempts' in payload, false);
+  assert.equal('sources' in payload, false);
+  assert.equal('rankingRecoveryToken' in payload, false);
+  assert.ok(!backup.includes('SECRET_TOKEN'));
+
+  const target = setup();
+  await target.db.initializeDatabase();
+  target.data.set(key('attempts'), '[{"id":"keep-attempt"}]');
+  target.data.set(key('sources'), '[{"id":"keep-source"}]');
+  target.data.set('@celueste:ranking_profile', '{"participantId":"keep-ranking"}');
+
+  assert.equal((await target.db.restoreBackupJSON(backup)).success, true);
+  assert.equal(JSON.parse(target.data.get(key('attempts')))[0].id, 'keep-attempt');
+  assert.equal(JSON.parse(target.data.get(key('sources')))[0].id, 'keep-source');
+  assert.equal(JSON.parse(target.data.get('@celueste:ranking_profile')).participantId, 'keep-ranking');
+  assert.ok((await target.db.getTopics()).some(item => item.name === 'shared math'));
 });
 
 test('unit difficulty survives restart and backup without changing siblings, topic or questions', async () => {
@@ -255,7 +285,7 @@ test('PDF backup stores metadata and topic linkage without file bytes or extract
     topicId: topic.id, sourceId: 'pdf-source', pageStart: 1, pageEnd: 20, createdAt: now,
   });
 
-  const backup = await session.db.exportBackupJSON();
+  const backup = await session.db.exportBackupJSON('full');
   const payload = JSON.parse(backup);
   assert.equal(payload.sources[0].fileName, 'book.pdf');
   assert.equal(payload.sourceChunks.length, 0);
@@ -270,7 +300,7 @@ test('PDF backup stores metadata and topic linkage without file bytes or extract
 test('malformed backup leaves every original value unchanged', async () => {
   const session = setup();
   await session.db.initializeDatabase();
-  const payload = JSON.parse(await session.db.exportBackupJSON());
+  const payload = JSON.parse(await session.db.exportBackupJSON('full'));
   payload.questions = [null];
   const before = sortedEntries(session.data);
 
@@ -281,7 +311,7 @@ test('malformed backup leaves every original value unchanged', async () => {
 test('mid-restore failure rolls back every modified key', async () => {
   const session = setup();
   await session.db.initializeDatabase();
-  const payload = JSON.parse(await session.db.exportBackupJSON());
+  const payload = JSON.parse(await session.db.exportBackupJSON('full'));
   payload.profile.displayName = 'NEW';
   payload.topics = [{ id: 'new', ownerId: payload.profile.id, name: 'new', description: '' }];
   const before = sortedEntries(session.data);
@@ -308,8 +338,9 @@ test('repeated submissionKey saves only one attempt', async () => {
 test('version 2 restoration clears absent source collections instead of mixing old data', async () => {
   const session = setup();
   await session.db.initializeDatabase();
-  const payload = JSON.parse(await session.db.exportBackupJSON());
+  const payload = JSON.parse(await session.db.exportBackupJSON('full'));
   payload.version = 2;
+  delete payload.backupKind;
   delete payload.sources;
   delete payload.sourceRevisions;
   delete payload.sourceChunks;
