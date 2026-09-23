@@ -62,16 +62,9 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
       rankingNickname,
       watermarkImageUrl
     );
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      showAlert('창 열기 실패', '브라우저에서 새 창을 허용한 뒤 다시 시도해 주세요.');
-      return;
-    }
-    printWindow.opener = null;
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
     setWorkbookVisible(false);
+    const workbookUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+    window.location.assign(workbookUrl);
   }
 
   return (

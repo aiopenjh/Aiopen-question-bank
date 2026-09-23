@@ -102,6 +102,6 @@ export function generateWorkbookHtml(
       .print-footer { display: block; position: fixed; bottom: 0; left: 0; width: 100%; text-align: right; color: #9a9096; font: 8pt "Malgun Gothic", sans-serif; }
       .print-footer hr { border: 0; border-top: 1px solid #c9c2c7; margin: 0 0 5px; } }
     </style></head><body>
-    <div class="toolbar">PDF로 저장하려면 <button onclick="window.print()">인쇄 · PDF 저장</button>을 누르고 대상에서 PDF 저장을 선택하세요.</div>
+    <div class="toolbar"><button onclick="history.back()">앱으로 돌아가기</button> PDF로 저장하려면 <button onclick="window.print()">인쇄 · PDF 저장</button>을 누르고 대상에서 PDF 저장을 선택하세요.</div>
     <main>${topicSections}</main><footer class="print-footer"><hr>Celueste로 만든 나만의 문제집</footer></body></html>`;
 }
