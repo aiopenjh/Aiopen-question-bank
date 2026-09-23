@@ -41,6 +41,24 @@ const BAR_RE = /\\bar\{([^{}]*)\}/g;
 // 위/아래첨자 지시자: 중괄호 묶음 또는 영숫자/부호 1글자.
 const SUP_SUB_RE = /\^\{([^{}]*)\}|\^([A-Za-z0-9+\-])|_\{([^{}]*)\}|_([A-Za-z0-9+\-])/g;
 const COMBINING_OVERLINE = '̅';
+const INLINE_CODE_RE = /`([^`\r\n]+)`/g;
+const CODE_CHAR_TO_SENTINEL: Record<string, string> = {
+  '_': '\uE000', '^': '\uE001', '\\': '\uE002', '$': '\uE003',
+};
+const SENTINEL_TO_CODE_CHAR: Record<string, string> = {
+  '\uE000': '_', '\uE001': '^', '\uE002': '\\', '\uE003': '$',
+};
+
+// AI가 코드명을 `...`로 감싸면 구분 기호는 숨기고, 내부 문자는 수식으로 해석하지 않는다.
+function protectInlineCode(input: string): string {
+  return input.replace(INLINE_CODE_RE, (_whole, code: string) =>
+    code.replace(/[_^\\$]/g, (char) => CODE_CHAR_TO_SENTINEL[char])
+  );
+}
+
+function restoreInlineCode(input: string): string {
+  return input.replace(/[\uE000-\uE003]/g, (char) => SENTINEL_TO_CODE_CHAR[char]);
+}
 
 function applySymbolsAndDollars(text: string): string {
   return text
@@ -78,7 +96,7 @@ function parseRun(rawText: string): MathTextNode[] {
   }
   if (lastIndex < text.length) nodes.push({ type: 'text', value: text.slice(lastIndex) });
   if (nodes.length === 0) nodes.push({ type: 'text', value: '' });
-  return nodes;
+  return nodes.map((node) => ({ ...node, value: restoreInlineCode(node.value) }));
 }
 
 /**
@@ -104,6 +122,7 @@ function extractBraceGroup(input: string, openBraceIndex: number): { content: st
  * 재귀적으로 다시 파싱되므로 중첩된 분수·제곱근도 올바르게 트리로 표현된다.
  */
 export function parseMathText(input: string): MathBlock[] {
+  input = protectInlineCode(input);
   const blocks: MathBlock[] = [];
   let i = 0;
   let runStart = 0;
@@ -155,5 +174,5 @@ export function parseMathText(input: string): MathBlock[] {
  * 불필요하다(순수 일반 문장). MathText가 기존 <Text> 렌더링을 그대로 쓰기 위해 사용.
  */
 export function mayContainMathNotation(input: string): boolean {
-  return /[\\$^_]/.test(input);
+  return /[\\$^_`]/.test(input);
 }

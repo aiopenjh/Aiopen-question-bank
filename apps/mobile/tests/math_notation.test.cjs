@@ -118,6 +118,18 @@ test('math_notation: 인식되지 않는 명령은 원문을 그대로 보존한
   assert.match(text, /\\unknowncommand/);
 });
 
+test('math_notation: 백틱 코드명은 구분자를 숨기고 underscore를 아래첨자로 바꾸지 않는다', () => {
+  const source = 'Python의 `asyncio`에서 `await`과 `asyncio.create_task(my.coro())`를 비교합니다.';
+  const blocks = mod.parseMathText(source);
+  assert.equal(
+    flatten(blocks),
+    'Python의 asyncio에서 await과 asyncio.create_task(my.coro())를 비교합니다.'
+  );
+  const nodes = blocks.flatMap((block) => block.type === 'run' ? block.nodes : []);
+  assert.ok(nodes.every((node) => node.type === 'text'));
+  assert.equal(mod.mayContainMathNotation(source), true);
+});
+
 test('math_notation: mayContainMathNotation은 수식 트리거 문자가 있을 때만 true', () => {
   assert.equal(mod.mayContainMathNotation('평범한 문장'), false);
   assert.equal(mod.mayContainMathNotation('x^2'), true);
