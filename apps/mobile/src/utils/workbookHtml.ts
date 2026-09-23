@@ -7,11 +7,9 @@ export function generateWorkbookHtml(
   units: Unit[],
   questions: QuestionRevision[],
   includeExplanations: boolean,
-  rankingNickname = '',
   watermarkImageUrl = '',
   returnUrl = ''
 ): string {
-  const date = new Date().toLocaleDateString('ko-KR');
   const watermark = `<div class="page-watermark" aria-hidden="true">
     <div class="watermark-letters">${Array.from('Celueste').map((letter, index) =>
       `<span style="transform:translateY(${(index - 3.5) * 19}mm)">${letter}</span>`).join('')}</div>
@@ -28,17 +26,15 @@ export function generateWorkbookHtml(
     const unclassified = topicQuestions.filter((q) => !topicUnits.some((unit) => unit.id === q.unitId));
     if (unclassified.length) sections.push({ title: '단원 미분류', items: unclassified });
 
-    let questionNumber = 0;
     const numberedSections = sections.map((section) => ({
       ...section,
-      items: section.items.map((question) => ({ question, number: ++questionNumber })),
+      items: section.items.map((question, index) => ({ question, number: index + 1 })),
     }));
     const questionPages = numberedSections.map((section) => `
       <section class="unit-page">
         ${watermark}
         <header><p class="eyebrow">CELUESTE · ${escapeHtml(topic.name)}</p>
           <h1>${escapeHtml(section.title)}</h1>
-          <p class="meta">${escapeHtml(topic.name)} · ${section.items.length}문항 · ${escapeHtml(date)}${rankingNickname ? ` · 닉네임 ${escapeHtml(rankingNickname)}` : ''}</p>
         </header>
         <div class="columns">${section.items.map(({ question, number }) => `
           <article class="question">
@@ -46,7 +42,7 @@ export function generateWorkbookHtml(
             ${question.questionType === 'multiple_choice'
               ? `<div class="options">${question.options.map((option, index) => `
                   <div>${NUMBER_CIRCLES[index] || `(${index + 1})`} ${escapeHtml(option.text)}</div>`).join('')}</div>`
-              : '<div class="answer-space" aria-label="주관식 답안 작성란"><div></div><div></div></div>'}
+              : '<div class="answer-space" aria-label="주관식 답안 작성 공간"></div>'}
           </article>`).join('')}</div>
       </section>`).join('');
     const answers = includeExplanations ? `
@@ -71,13 +67,13 @@ export function generateWorkbookHtml(
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Celueste 내 문제집</title><style>
-    @page { size: A4; margin: 14mm 12mm 20mm; }
+    @page { size: A4; margin: 14mm 9mm 20mm; }
     * { box-sizing: border-box; }
-    body { margin: 0; color: #22212a; background: #f5f1f3; font: 10pt/1.55 "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
-    .toolbar { position: sticky; top: 0; z-index: 2; padding: 12px; text-align: center; background: #6e4053; color: white; }
-    .toolbar button, .toolbar a { display: inline-block; border: 0; border-radius: 8px; padding: 8px 18px; background: white; color: #6e4053; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
-    main { max-width: 210mm; margin: 20px auto; background: white; padding: 14mm 12mm; }
-    .unit-page, .answer-page { position: relative; isolation: isolate; break-before: page; min-height: 260mm; display: flex; flex-direction: column; }
+    body { margin: 0; color: #22212a; background: #f5f1f3; font: 10pt/1.55 "Noto Serif KR", "Noto Serif CJK KR", "Batang", "AppleMyungjo", serif; }
+    .close-preview { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); z-index: 2; padding: 4px 9px; color: #6e4053; font: 28px/1 sans-serif; text-decoration: none; }
+    main { max-width: 210mm; margin: 20px auto; }
+    .unit-page, .answer-page { position: relative; isolation: isolate; break-before: page; min-height: 297mm; margin-bottom: 20px; padding: 14mm 9mm 12mm; background: white; display: flex; flex-direction: column; }
+    .unit-page::after, .answer-page::after { content: "CELUESTE로 만든 나만의 문제집"; position: absolute; z-index: 1; bottom: 10mm; left: 9mm; right: 9mm; border-top: 1px solid #c9c2c7; padding-top: 5px; color: #8190b2; text-align: center; font-size: 6pt; }
     main > section:first-child { break-before: auto; }
     .page-watermark { position: absolute; z-index: 0; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(185mm, 100%); height: 190mm; pointer-events: none; }
     .page-watermark::before { content: ""; position: absolute; inset: 0; opacity: 0.025; background: center / min(180mm, 100%) auto no-repeat url("${escapeHtml(watermarkImageUrl)}"); }
@@ -87,22 +83,20 @@ export function generateWorkbookHtml(
     .eyebrow { margin: 0; color: #9f657b; font-size: 8pt; font-weight: 700; letter-spacing: 1px; }
     h1 { margin: 5px 0; font-size: 14pt; line-height: 1.35; color: #302832; }
     h2 { margin: 20px 0 7px; font-size: 12pt; border-bottom: 1px solid #ddd2d8; }
-    .meta { color: #756b70; margin: 0 0 9px; }
-    .columns { column-count: 2; column-gap: 9mm; column-rule: 1px solid #e2dce0; }
-    .question { break-inside: avoid; margin: 0 0 17px; }
+    .columns { flex: 1; min-height: 210mm; column-count: 2; column-fill: auto; column-gap: 7mm; font-size: 6.5pt; line-height: 1.5; background: linear-gradient(#bdb2b8, #bdb2b8) center / 1px 100% no-repeat; }
+    .question { break-inside: avoid; margin: 0 0 12px; }
     .stem { font-weight: 700; white-space: pre-wrap; }
     .stem b { color: #9f657b; margin-right: 3px; }
-    .options { margin: 7px 0 0 3px; }
-    .options div { margin-bottom: 4px; white-space: pre-wrap; }
-    .answer-space { margin-top: 9px; }
-    .answer-space div { height: 24px; border-bottom: 1px solid #d8d3d6; }
+    .options { margin: 5px 0 0 3px; }
+    .options div { margin-bottom: 3px; white-space: pre-wrap; }
+    .answer-space { height: 64px; }
     .solution { break-inside: avoid; padding: 8px 0; border-bottom: 1px dotted #d5cbd0; white-space: pre-wrap; }
     .solution p { margin: 4px 0 0; }
     .print-footer { display: none; }
-    @media print { body { background: white; } .toolbar { display: none; } main { margin: 0; padding: 0; max-width: none; } .watermark-letters { font-size: 80pt; }
-      .print-footer { display: block; position: fixed; bottom: 0; left: 0; width: 100%; text-align: right; color: #9a9096; font: 8pt "Malgun Gothic", sans-serif; }
+    @media print { body { background: white; } .close-preview, .unit-page::after, .answer-page::after { display: none; } main { margin: 0; max-width: none; } .unit-page, .answer-page { min-height: 260mm; margin: 0; padding: 0; } .watermark-letters { font-size: 80pt; }
+      .print-footer { display: block; position: fixed; bottom: 0; left: 0; width: 100%; text-align: center; color: #8190b2; font-size: 6pt; }
       .print-footer hr { border: 0; border-top: 1px solid #c9c2c7; margin: 0 0 5px; } }
     </style></head><body>
-    <div class="toolbar"><a href="${escapeHtml(returnUrl)}">앱으로 돌아가기</a> PDF로 저장하려면 <button onclick="window.print()">인쇄 · PDF 저장</button>을 누르고 대상에서 PDF 저장을 선택하세요. 인쇄가 안 열리면 앱에서 [PDF 파일 바로 저장]을 사용하세요.</div>
-    <main>${topicSections}</main><footer class="print-footer"><hr>Celueste로 만든 나만의 문제집</footer></body></html>`;
+    <a class="close-preview" href="${escapeHtml(returnUrl)}" aria-label="문제집 닫고 앱으로 돌아가기" title="앱으로 돌아가기">×</a>
+    <main>${topicSections}</main><footer class="print-footer"><hr>CELUESTE로 만든 나만의 문제집</footer></body></html>`;
 }

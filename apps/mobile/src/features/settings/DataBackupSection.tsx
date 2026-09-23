@@ -5,7 +5,6 @@ import { UniversalModal as Modal } from '../../components/common/UniversalModal'
 import type { QuestionRevision, Topic, Unit } from '../../contracts/types';
 import { generateWorkbookHtml } from '../../utils/workbookHtml';
 import { showAlert } from '../../utils/alert';
-import { getRankingProfile } from '../../data/db';
 
 export interface DataBackupSectionProps {
   onExportBackup: () => Promise<void>;
@@ -27,18 +26,12 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
   const [workbookVisible, setWorkbookVisible] = useState(false);
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
   const [includeExplanations, setIncludeExplanations] = useState(false);
-  const [rankingNickname, setRankingNickname] = useState('');
   const [savingPdf, setSavingPdf] = useState(false);
   const availableTopics = topics.filter((topic) => questions.some((question) => question.topicId === topic.id));
 
-  async function openWorkbook() {
+  function openWorkbook() {
     setSelectedTopicIds([]);
     setIncludeExplanations(false);
-    try {
-      setRankingNickname((await getRankingProfile())?.nickname ?? '');
-    } catch {
-      setRankingNickname('');
-    }
     setWorkbookVisible(true);
   }
 
@@ -60,7 +53,6 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
       units,
       questions.filter((question) => selectedTopicIds.includes(question.topicId || '')),
       includeExplanations,
-      rankingNickname,
       watermarkImageUrl,
       window.location.href
     );
@@ -87,7 +79,6 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
         units,
         questions.filter((question) => selectedTopicIds.includes(question.topicId || '')),
         includeExplanations,
-        rankingNickname,
         watermarkImageUrl
       );
       const url = URL.createObjectURL(new Blob([new Uint8Array(bytes).buffer], { type: 'application/pdf' }));

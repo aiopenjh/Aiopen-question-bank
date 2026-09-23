@@ -3,12 +3,12 @@ import { NUMBER_CIRCLES } from './examSheetExportShared';
 
 const PAGE_WIDTH = 794;
 const PAGE_HEIGHT = 1123;
-const MARGIN = 45;
+const MARGIN = 34;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
-const COLUMN_GAP = 34;
+const COLUMN_GAP = 27;
 const COLUMN_WIDTH = (CONTENT_WIDTH - COLUMN_GAP) / 2;
 const BOTTOM = 1040;
-const FONT = '"Malgun Gothic", "Apple SD Gothic Neo", sans-serif';
+const FONT = '"Noto Serif KR", "Noto Serif CJK KR", "Batang", "AppleMyungjo", serif';
 
 function wrappedLines(ctx: CanvasRenderingContext2D, text: string, width: number): string[] {
   const result: string[] = [];
@@ -75,10 +75,10 @@ function createPage(watermark: HTMLImageElement | null): {
   ctx.moveTo(MARGIN, 1064);
   ctx.lineTo(PAGE_WIDTH - MARGIN, 1064);
   ctx.stroke();
-  ctx.fillStyle = '#9a9096';
-  ctx.font = `11px ${FONT}`;
-  ctx.textAlign = 'right';
-  ctx.fillText('Celueste로 만든 나만의 문제집', PAGE_WIDTH - MARGIN, 1081);
+  ctx.fillStyle = '#8190b2';
+  ctx.font = `8px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.fillText('CELUESTE로 만든 나만의 문제집', PAGE_WIDTH / 2, 1081);
   ctx.textAlign = 'left';
   return { canvas, ctx };
 }
@@ -87,8 +87,6 @@ function drawHeader(
   ctx: CanvasRenderingContext2D,
   topic: string,
   title: string,
-  count: number,
-  nickname: string,
   continuation = false
 ): number {
   ctx.fillStyle = '#9f657b';
@@ -102,17 +100,13 @@ function drawHeader(
     ctx.fillText(line, MARGIN, y);
     y += 26;
   }
-  ctx.fillStyle = '#756b70';
-  ctx.font = `13px ${FONT}`;
-  const date = new Date().toLocaleDateString('ko-KR');
-  ctx.fillText(`${topic} · ${count}문항 · ${date}${nickname ? ` · 닉네임 ${nickname}` : ''}`, MARGIN, y + 2);
   ctx.strokeStyle = '#75495c';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(MARGIN, y + 18);
-  ctx.lineTo(PAGE_WIDTH - MARGIN, y + 18);
+  ctx.moveTo(MARGIN, y - 8);
+  ctx.lineTo(PAGE_WIDTH - MARGIN, y - 8);
   ctx.stroke();
-  return y + 44;
+  return y + 18;
 }
 
 export async function createWorkbookPdf(
@@ -120,15 +114,23 @@ export async function createWorkbookPdf(
   units: Unit[],
   questions: QuestionRevision[],
   includeExplanations: boolean,
-  nickname: string,
   watermarkImageUrl: string
 ): Promise<Uint8Array> {
   const watermark = await loadWatermark(watermarkImageUrl);
   const canvases: HTMLCanvasElement[] = [];
-  const startPage = (topic: string, title: string, count: number, continuation = false) => {
+  const startPage = (topic: string, title: string, continuation = false, columns = false) => {
     const page = createPage(watermark);
     canvases.push(page.canvas);
-    return { ctx: page.ctx, y: drawHeader(page.ctx, topic, title, count, nickname, continuation) };
+    const y = drawHeader(page.ctx, topic, title, continuation);
+    if (columns) {
+      page.ctx.strokeStyle = '#bdb2b8';
+      page.ctx.lineWidth = 1;
+      page.ctx.beginPath();
+      page.ctx.moveTo(PAGE_WIDTH / 2, y - 5);
+      page.ctx.lineTo(PAGE_WIDTH / 2, BOTTOM + 14);
+      page.ctx.stroke();
+    }
+    return { ctx: page.ctx, y };
   };
 
   for (const topic of topics) {
@@ -142,10 +144,9 @@ export async function createWorkbookPdf(
     }));
     const unclassified = topicQuestions.filter((question) => !topicUnits.some((unit) => unit.id === question.unitId));
     if (unclassified.length) sections.push({ title: '단원 미분류', items: unclassified });
-    let number = 0;
-
     for (const section of sections) {
-      let page = startPage(topic.name, section.title, section.items.length);
+      let number = 0;
+      let page = startPage(topic.name, section.title, false, true);
       let column = 0;
       let y = page.y;
       const nextColumn = () => {
@@ -153,7 +154,7 @@ export async function createWorkbookPdf(
           column = 1;
           y = page.y;
         } else {
-          page = startPage(topic.name, section.title, section.items.length, true);
+          page = startPage(topic.name, section.title, true, true);
           column = 0;
           y = page.y;
         }
@@ -173,47 +174,40 @@ export async function createWorkbookPdf(
 
       for (const question of section.items) {
         number++;
-        page.ctx.font = `700 14px ${FONT}`;
+        page.ctx.font = `700 9px ${FONT}`;
         const stem = wrappedLines(page.ctx, `${number}. ${question.stem}`, COLUMN_WIDTH);
-        page.ctx.font = `13px ${FONT}`;
+        page.ctx.font = `9px ${FONT}`;
         const options = question.questionType === 'multiple_choice'
           ? question.options.map((option, index) => wrappedLines(page.ctx,
             `${NUMBER_CIRCLES[index] || `(${index + 1})`} ${option.text}`, COLUMN_WIDTH - 10)) : [];
-        const height = stem.length * 20 + options.reduce((sum, lines) => sum + lines.length * 18 + 4, 0)
-          + (options.length ? 0 : 62) + 22;
+        const height = stem.length * 14 + options.reduce((sum, lines) => sum + lines.length * 14 + 3, 0)
+          + (options.length ? 0 : 64) + 17;
         if (height <= BOTTOM - page.y) ensureSpace(height);
-        writeLines(stem, `700 14px ${FONT}`, '#22212a', 20);
-        y += 6;
+        writeLines(stem, `700 9px ${FONT}`, '#22212a', 14);
+        y += 4;
         if (options.length) {
           for (const lines of options) {
-            writeLines(lines, `13px ${FONT}`, '#22212a', 18, 10);
-            y += 4;
+            writeLines(lines, `9px ${FONT}`, '#22212a', 14, 10);
+            y += 3;
           }
         } else {
-          for (let line = 0; line < 2; line++) {
-            ensureSpace(25);
-            page.ctx.strokeStyle = '#d8d3d6';
-            page.ctx.beginPath();
-            page.ctx.moveTo(MARGIN + column * (COLUMN_WIDTH + COLUMN_GAP), y + 16);
-            page.ctx.lineTo(MARGIN + column * (COLUMN_WIDTH + COLUMN_GAP) + COLUMN_WIDTH, y + 16);
-            page.ctx.stroke();
-            y += 25;
-          }
+          ensureSpace(64);
+          y += 64;
         }
-        y += 17;
+        y += 12;
       }
     }
 
     if (includeExplanations) {
       const title = `${topic.name} 정답과 해설`;
-      let page = startPage(topic.name, title, topicQuestions.length);
+      let page = startPage(topic.name, title);
       let y = page.y;
       const writeAnswer = (text: string, font: string, color: string, lineHeight: number) => {
         page.ctx.font = font;
         const lines = wrappedLines(page.ctx, text, CONTENT_WIDTH);
         for (const line of lines) {
           if (y + lineHeight > BOTTOM) {
-            page = startPage(topic.name, title, topicQuestions.length, true);
+            page = startPage(topic.name, title, true);
             y = page.y;
           }
           page.ctx.fillStyle = color;
@@ -222,10 +216,10 @@ export async function createWorkbookPdf(
           y += lineHeight;
         }
       };
-      let answerNumber = 0;
       for (const section of sections) {
+        let answerNumber = 0;
         if (y + 45 > BOTTOM) {
-          page = startPage(topic.name, title, topicQuestions.length, true);
+          page = startPage(topic.name, title, true);
           y = page.y;
         }
         y += 9;
