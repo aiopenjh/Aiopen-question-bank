@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, ScrollView, View, Text, TouchableOpacity, RefreshControl, Platform } from 'react-native';
+import { Image, ScrollView, View, Text, TouchableOpacity, RefreshControl, Platform, Linking } from 'react-native';
 import { AlarmConfig, DEFAULT_ALARM_CONFIG } from '../../utils/notifications';
 import { styles } from './settingsStyles';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
@@ -12,6 +12,7 @@ import type { BackupKind } from '../../data/db';
 import { AppVersionSection } from './AppVersionSection';
 import { FeedbackCard } from '../study/FeedbackCard';
 import { DAILY_GOAL_DEFAULT } from '../../domain/daily_goal';
+import { PRIVACY_POLICY_URL } from '../../constants/buildInfo';
 import type { QuestionRevision, Topic, Unit } from '../../contracts/types';
 
 interface SettingsGroupProps {
@@ -232,6 +233,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           questions={questions}
         />
       </SettingsGroup>
+
+        {!!PRIVACY_POLICY_URL && (
+          <View style={styles.manualLinkSection}>
+            <TouchableOpacity
+              style={styles.manualLinkRow}
+              onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.manualLinkText}>개인정보 처리방침</Text>
+              <Text style={styles.manualLinkArrow}>›</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.feedbackSection}>
           <FeedbackCard compact onOpen={onOpenFeedback} />
