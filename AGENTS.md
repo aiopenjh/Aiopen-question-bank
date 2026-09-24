@@ -145,3 +145,11 @@ AI 응답과 무작위 추첨 결과 자체가 매번 같을 수는 없습니다
 다른 AI(ChatGPT, Claude, Gemini)로 세션을 옮겨서 작업을 이어갈 때는 아래 한 줄과 함께 `AGENTS.md`를 참고하도록 지시하십시오:
 
 > *"이 프로젝트는 Celueste CBT 플랫폼입니다. 루트의 `AGENTS.md`에 정의된 제품 헌법, 개발 안전 규칙, 파일 맵과 최근 업데이트 내역을 확인하고 동일한 원칙으로 다음 작업을 진행해 주세요."*
+
+### 파일 기반 Claude-Codex 인수인계
+
+- 구현과 검토를 주고받는 작업은 `docs/ai-handoff/README.md`의 프로토콜을 사용합니다.
+- 작업 시작 시 `docs/ai-handoff/STATUS.json`을 확인하고 활성 작업이 있으면 `TASK.md`와 직전 담당자의 보고서를 먼저 읽습니다.
+- Claude는 `CLAUDE_REPORT.md`, Codex는 `CODEX_REVIEW.md`에 결과를 기록합니다.
+- `STATUS.json`의 `activeAgent`가 아닌 AI는 동시에 코드를 수정하지 않습니다.
+- 이 인수인계 구조는 push, merge, deploy 승인을 대신하지 않습니다.

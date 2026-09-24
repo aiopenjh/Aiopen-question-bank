@@ -4,6 +4,7 @@
 ## 📌 Master Instructions
 - Please read and strictly adhere to **`AGENTS.md`** at the project root for the product constitution, engineering safety rules, file responsibility map, and AI collaboration protocol.
 - For recent releases and architectural history, refer to **`CHANGELOG.md`** and **`docs/ARCHITECTURE_WORKFLOW_V2.md`**.
+- Before implementing or revising a shared task, read **`docs/ai-handoff/STATUS.json`**, **`TASK.md`**, and the latest **`CODEX_REVIEW.md`**. Record implementation results in **`CLAUDE_REPORT.md`** and hand the phase back to `codex_review` without pushing, merging, or deploying unless the user explicitly approves it.
 
 ## 🚀 Key Commands
 - **Typecheck**: `cd apps/mobile && cmd.exe /c npx tsc --noEmit`
