@@ -138,11 +138,12 @@ test('exam back closes only the scratchpad, then asks to confirm leaving', () =>
   const s = examSession();
   find(s.tree, node => node.type === 'TouchableOpacity' && hasText(node, '📐 풀이공간')).props.onPress();
   s.rerender();
-  assert.equal(find(s.tree, node => node.type === 'ScratchpadPanel').props.visible, true);
+  // 풀이공간은 열려 있을 때만 렌더링된다(닫으면 언마운트).
+  assert.ok(find(s.tree, node => node.type === 'ScratchpadPanel'));
 
   assert.equal(s.h.back(), true);
   s.rerender();
-  assert.equal(find(s.tree, node => node.type === 'ScratchpadPanel').props.visible, false);
+  assert.equal(find(s.tree, node => node.type === 'ScratchpadPanel'), null);
   assert.equal(s.h.alerts.length, 0);
   assert.equal(s.calls.exit, 0);
 
