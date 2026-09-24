@@ -318,13 +318,13 @@ export function AppView({ controller }: { controller: AppController }) {  const 
       </SafeAreaView>
 
       {/* 독립 시험장 (CBT) - 메인 화면 unmount 없이 최상위 오버레이로 안전하게 렌더링 */}
-      {examSessionActive && examQuestions.length > 0 && (
+      {examSessionActive && examSessionRunId && examQuestions.length > 0 && (
         <View style={[StyleSheet.absoluteFill, { zIndex: 9999, backgroundColor: '#ffffff' }]}>
           <ExamSessionScreen
             key={examSessionRunId}
             questions={examQuestions}
             onExitExam={handleExitExam}
-            onCompleteExam={handleCompleteExam}
+            onCompleteExam={(results) => handleCompleteExam(results, examSessionRunId)}
             corrections={examCorrections}
             onCorrectResult={correctExamResult}
             onUndoCorrection={undoExamResultCorrection}

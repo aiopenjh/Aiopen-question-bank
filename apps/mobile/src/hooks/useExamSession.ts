@@ -154,10 +154,11 @@ export function useExamSession({
         gradingScore?: number;
         gradingChecklistResult?: { id: string; met: boolean }[];
         gradingFailedReason?: string;
-      }>
+      }>,
+      expectedRunId?: string | null
     ) => {
       const run = runRef.current;
-      if (!run || run.saving || run.completed) return;
+      if (!run || (expectedRunId && run.id !== expectedRunId) || run.saving || run.completed) return;
       run.saving = true;
       try {
         const first = results[0]?.question;
@@ -319,6 +320,8 @@ export function useExamSession({
   );
 
   const exitExamSession = useCallback(() => {
+    // 화면을 떠난 시험의 지연된 AI 채점 결과가 다음 시험 실행에 기록되지 않게 무효화한다.
+    runRef.current = null;
     setExamSessionActive(false);
   }, []);
 

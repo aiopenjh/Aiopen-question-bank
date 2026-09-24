@@ -100,6 +100,10 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   }
 
   function handlePressExit() {
+    if (isSaving) {
+      showAlert('채점 중', '채점 결과를 저장하고 있습니다. 잠시만 기다려 주세요.');
+      return;
+    }
     if (isSubmitted) {
       onExitExam();
       return;
