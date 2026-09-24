@@ -8,6 +8,7 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const { PDFDocument } = require('pdf-lib');
 const { zipSync, strToU8 } = require('fflate');
+const { createHash } = require('node:crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -16,6 +17,7 @@ function loadSourceManager({ platform = 'android', asset, nativeFile }) {
   const pickerOptions = [];
   const nativeReads = [];
   const stateLog = [];
+  const digestInputs = [];
   const cache = new Map();
 
   class FakeExpoFile {
@@ -45,6 +47,17 @@ function loadSourceManager({ platform = 'android', asset, nativeFile }) {
       if (name === 'react') return react;
       if (name === 'react-native') return { Platform: { OS: platform } };
       if (name === 'expo-file-system') return { File: FakeExpoFile };
+      if (name === 'expo-crypto') {
+        return {
+          CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+          digest: async (algorithm, data) => {
+            if (algorithm !== 'SHA-256') throw new Error(`Unexpected digest ${algorithm}`);
+            digestInputs.push(data);
+            const hash = createHash('sha256').update(data).digest();
+            return hash.buffer.slice(hash.byteOffset, hash.byteOffset + hash.byteLength);
+          },
+        };
+      }
       if (name === 'expo-file-system/legacy') throw new Error('legacy FileSystem must not be used for study materials');
       if (name === 'expo-document-picker') {
         return { getDocumentAsync: async options => { pickerOptions.push(options); return { canceled: false, assets: [asset] }; } };
@@ -61,7 +74,7 @@ function loadSourceManager({ platform = 'android', asset, nativeFile }) {
 
   const { useSourceManager } = load(path.join(ROOT, 'src/hooks/useSourceManager.ts'));
   const manager = useSourceManager({ topics: [], setSources() {} });
-  return { manager, alerts, pickerOptions, nativeReads, stateLog };
+  return { manager, alerts, pickerOptions, nativeReads, stateLog, digestInputs };
 }
 
 async function makePdf(pageCount, padBytes = 0) {
@@ -143,4 +156,23 @@ test('web keeps reading the browser File object and never touches the native fil
   assert.equal(pickerOptions[0].copyToCacheDirectory, true); // 수정 전과 같은 값
   assert.deepEqual(nativeReads, []);
   assert.match(alerts.at(-1)[1], /총 3페이지/);
+});
+
+test('Android, iOS and web produce the same full-file SHA-256 fingerprint for the same PDF', async () => {
+  const bytes = await makePdf(2, 64 * 1024);
+  const expected = createHash('sha256').update(bytes).digest('hex');
+  const fingerprintOf = async (platform, asset) => {
+    const { manager, stateLog, digestInputs } = loadSourceManager({ platform, asset, nativeFile: { bytes } });
+    await manager.handlePickSourceFile();
+    // 대용량 PDF를 해시 전에 다시 복사하지 않는다(네이티브는 읽은 배열을 그대로 넘긴다).
+    if (platform !== 'web') assert.equal(digestInputs[0], bytes);
+    return stateLog.find(slot => slot.value && typeof slot.value.fingerprint === 'string').value.fingerprint;
+  };
+  const browserFile = {
+    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    text: async () => 'unused',
+  };
+  assert.equal(await fingerprintOf('android', { uri: 'content://docs/9', name: 'a.pdf' }), expected);
+  assert.equal(await fingerprintOf('ios', { uri: 'file:///cache/a.pdf', name: 'a.pdf' }), expected);
+  assert.equal(await fingerprintOf('web', { uri: 'blob:x', name: 'a.pdf', file: browserFile }), expected);
 });

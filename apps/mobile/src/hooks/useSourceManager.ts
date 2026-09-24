@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { Platform } from 'react-native';
 import { File as ExpoFile } from 'expo-file-system';
+import { CryptoDigestAlgorithm, digest } from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
 // The bundled ESM build avoids Metro's production-only interop failure in pdf-lib's
 // unbundled tslib dependency while keeping PDF work local to the device.
@@ -58,23 +59,13 @@ async function readPickedText(file: DocumentPicker.DocumentPickerAsset): Promise
   return new ExpoFile(file.uri).text();
 }
 
+// 웹·Android·iOS 모두 파일 전체의 SHA-256을 쓴다. 같은 PDF는 기기와 관계없이 같은 식별값이 된다.
+// 대용량 PDF 메모리를 늘리지 않도록 읽은 바이트를 복사하지 않고 그대로 해시한다.
 async function fingerprintBytes(bytes: Uint8Array): Promise<string> {
-  if (globalThis.crypto?.subtle) {
-    const copied = new Uint8Array(bytes.length);
-    copied.set(bytes);
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', copied.buffer);
-    return Array.from(new Uint8Array(digest))
-      .map((value) => value.toString(16).padStart(2, '0'))
-      .join('');
-  }
-
-  let hash = 2166136261;
-  const stride = Math.max(1, Math.floor(bytes.length / 4096));
-  for (let index = 0; index < bytes.length; index += stride) {
-    hash ^= bytes[index];
-    hash = Math.imul(hash, 16777619);
-  }
-  return `size-${bytes.length}-fnv-${(hash >>> 0).toString(16)}`;
+  const hash = await digest(CryptoDigestAlgorithm.SHA256, bytes as Uint8Array<ArrayBuffer>);
+  return Array.from(new Uint8Array(hash))
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 async function pickSingleDocument(): Promise<DocumentPicker.DocumentPickerAsset | null> {
