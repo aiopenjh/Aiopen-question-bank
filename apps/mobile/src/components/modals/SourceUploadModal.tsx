@@ -186,11 +186,12 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                     </View>
                     {s.kind === 'pdf' && onReconnectSource ? (
                       <TouchableOpacity
-                        style={styles.reconnectSourceBtn}
+                        style={[styles.reconnectSourceBtn, isSourceFileLoading && styles.uploadBtnDisabled]}
                         onPress={() => onReconnectSource(s.id)}
+                        disabled={isSourceFileLoading}
                       >
                         <Text style={styles.reconnectSourceBtnText}>
-                          {hasPdfInMemory?.(s.id) ? '연결됨' : '원본 선택'}
+                          {isSourceFileLoading ? '확인 중…' : hasPdfInMemory?.(s.id) ? '연결됨' : '원본 선택'}
                         </Text>
                       </TouchableOpacity>
                     ) : null}

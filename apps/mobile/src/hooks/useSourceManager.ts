@@ -3,7 +3,7 @@
  * PDF bytes stay in memory only. IndexedDB stores metadata, links and generated learning data.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { File as ExpoFile } from 'expo-file-system';
 import { CryptoDigestAlgorithm, digest } from 'expo-crypto';
@@ -92,6 +92,7 @@ export function useSourceManager(params: {
   const [sourcePageEnd, setSourcePageEnd] = useState(RECOMMENDED_PDF_PAGE_BLOCK);
   const [pendingPdf, setPendingPdf] = useState<PdfMemoryEntry | null>(null);
   const [isSourceFileLoading, setIsSourceFileLoading] = useState(false);
+  const fileOperationInProgressRef = useRef(false);
 
   function applyLargePdfDefault(pageCount: number): boolean {
     setSourcePageStart(1);
@@ -123,6 +124,8 @@ export function useSourceManager(params: {
   }
 
   async function handlePickSourceFile() {
+    if (fileOperationInProgressRef.current) return;
+    fileOperationInProgressRef.current = true;
     let startedLoading = false;
     try {
       const file = await pickSingleDocument();
@@ -191,6 +194,7 @@ export function useSourceManager(params: {
       showAlert('파일 불러오기 실패', error?.message || '파일을 읽지 못했습니다.');
     } finally {
       if (startedLoading) setIsSourceFileLoading(false);
+      fileOperationInProgressRef.current = false;
     }
   }
 
@@ -285,11 +289,16 @@ export function useSourceManager(params: {
   }
 
   async function handleReconnectSource(sourceId: string) {
-    const source = (await getSources()).find((item) => item.id === sourceId);
-    if (!source || source.kind !== 'pdf') return;
+    if (fileOperationInProgressRef.current) return;
+    fileOperationInProgressRef.current = true;
+    let startedLoading = false;
     try {
+      const source = (await getSources()).find((item) => item.id === sourceId);
+      if (!source || source.kind !== 'pdf') return;
       const file = await pickSingleDocument();
       if (!file) return;
+      startedLoading = true;
+      setIsSourceFileLoading(true);
       const bytes = await readPickedBytes(file);
       const fingerprint = await fingerprintBytes(bytes);
       if (source.fingerprint && fingerprint !== source.fingerprint) {
@@ -305,6 +314,9 @@ export function useSourceManager(params: {
       );
     } catch (error: any) {
       showAlert('PDF 연결 실패', error?.message || 'PDF를 다시 읽지 못했습니다.');
+    } finally {
+      if (startedLoading) setIsSourceFileLoading(false);
+      fileOperationInProgressRef.current = false;
     }
   }
 

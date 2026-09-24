@@ -26,6 +26,7 @@ function loadSourceManager({ platform = 'android', asset, nativeFile }) {
     async text() { nativeReads.push(['text', this.uri]); return nativeFile.text; }
   }
   const react = {
+    useRef(initial) { return { current: initial }; },
     useState(initial) {
       const slot = { value: initial };
       stateLog.push(slot);
@@ -105,6 +106,24 @@ test('Android PDF is read from the original content URI with File.bytes() and it
   assert.deepEqual(nativeReads, [['bytes', uri]]);
   assert.equal(alerts.at(-1)[0], 'PDF 불러오기 완료');
   assert.match(alerts.at(-1)[1], /총 12페이지/);
+});
+
+test('concurrent file actions start only one picker and one read operation', async () => {
+  const bytes = await makePdf(2);
+  const uri = 'content://docs/duplicate.pdf';
+  const { manager, alerts, pickerOptions, nativeReads } = loadSourceManager({
+    asset: { uri, name: 'duplicate.pdf' },
+    nativeFile: { bytes },
+  });
+
+  await Promise.all([
+    manager.handlePickSourceFile(),
+    manager.handlePickSourceFile(),
+  ]);
+
+  assert.equal(pickerOptions.length, 1);
+  assert.deepEqual(nativeReads, [['bytes', uri]]);
+  assert.equal(alerts.filter(([title]) => title === 'PDF 불러오기 완료').length, 1);
 });
 
 test('iOS keeps the cache copy so the picked file can be read immediately', async () => {
