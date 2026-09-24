@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function harness(fetchImpl) {
+function harness(fetchImpl, noticeAccepted = true) {
   const filename = path.resolve(__dirname, '../src/domain/ai_client.ts');
   const db = fs.readFileSync(path.resolve(__dirname, '../src/data/db.ts'), 'utf8');
   const defaultModel = db.match(/export const DEFAULT_GEMINI_MODEL = '([^']+)'/)[1];
@@ -20,7 +20,9 @@ function harness(fetchImpl) {
     module, exports: module.exports, AbortController, setTimeout, clearTimeout,
     Date: class extends Date { static now() { return now; } },
     console: { warn: (message) => logs.push(message) },
-    require: () => ({ DEFAULT_GEMINI_MODEL: defaultModel }),
+    require: name => name === './ai_data_notice'
+      ? { ensureAiDataNoticeAccepted: async () => noticeAccepted }
+      : { DEFAULT_GEMINI_MODEL: defaultModel },
     fetch: async (url, request) => {
       requests.push({ model: url.match(/models\/([^:]+):/)[1], request });
       return fetchImpl(url, request);
@@ -97,4 +99,10 @@ test('cancelling during a limited request prevents further model attempts', asyn
   const h = harness(() => { controller.abort(); return failure(429); });
   await assert.rejects(h.call('key', 'prompt', controller.signal), { name: 'GenerationCancelledError' });
   assert.equal(h.requests.length, 1);
+});
+
+test('declining the AI data notice sends no network request', async () => {
+  const h = harness(success, false);
+  await assert.rejects(() => h.call('synthetic-secret', 'prompt'), /AI 전송 안내/);
+  assert.equal(h.requests.length, 0);
 });

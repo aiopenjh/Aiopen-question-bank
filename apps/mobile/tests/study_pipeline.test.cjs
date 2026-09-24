@@ -68,6 +68,8 @@ function appSession({ data = new Map(), secure = new Map(), response } = {}) {
         if (name === 'expo-secure-store') return secureStore;
         // 저장소 경계 아래는 키-값 Map(이관 전 AsyncStorage 경로)으로 둔다.
         // 네이티브 SQLite 백엔드는 native_sqlite_storage.test.cjs에서 검증한다.
+        // 데이터 전송 안내는 이미 확인한 상태로 둔다(ai_data_notice.test.cjs에서 따로 검증).
+        if (name === './ai_data_notice') return { ensureAiDataNoticeAccepted: async () => true };
         if (name === './native_storage_migration') {
           return { initializeNativeStorage: async () => ({ backend: 'async-storage' }) };
         }

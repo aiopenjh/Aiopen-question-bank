@@ -7,6 +7,7 @@ import { Header } from '../components/common/Header';
 import { UpdateNotificationBanner } from '../components/common/UpdateNotificationBanner';
 import { AppModalsContainer } from '../components/modals/AppModalsContainer';
 import { AppAlertModal } from '../components/modals/AppAlertModal';
+import { AiDataNoticeModal } from '../components/modals/AiDataNoticeModal';
 import { StudyMapScreen } from '../features/study/StudyMapScreen';
 import { LibraryScreen } from '../features/library/LibraryScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
@@ -353,6 +354,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
 
       {/* 모든 화면과 시험장보다 위에서 동작하는 전역 확인 팝업 */}
       <AppAlertModal alert={appAlert} onClose={() => setAppAlert(null)} />
+      <AiDataNoticeModal />
     </SafeAreaProvider>
   );
 }

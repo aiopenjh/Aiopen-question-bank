@@ -29,6 +29,23 @@ function gradingWith(responseText) {
 }
 
 const shortAnswer = { questionType: 'short_answer', modelAnswer: '서울' };
+
+test('cancelling the AI data notice fails grading with a notice reason, not a network error', async () => {
+  const grading = compile(path.join(ROOT, 'src/domain/grading.ts'), name => {
+    if (name === '../data/db') return { getGeminiApiKey: async () => 'test-key-123456' };
+    if (name === './ai_client') {
+      return {
+        callUniversalAiCompletion: async () => { const e = new Error('declined'); e.name = 'GenerationCancelledError'; throw e; },
+        parseAiJsonResponse: JSON.parse,
+      };
+    }
+    if (name === './generator_validation') return { normalizeComparableText: text => text };
+    throw new Error(`Unexpected dependency ${name}`);
+  });
+  const result = await grading.gradeSubjectiveAnswer(shortAnswer, '서울');
+  assert.equal(result.gradingStatus, 'failed');
+  assert.match(result.gradingFailedReason, /전송 안내/);
+});
 const essay = {
   questionType: 'essay',
   modelAnswer: '원점은 왼쪽 위, Y는 아래로 증가',

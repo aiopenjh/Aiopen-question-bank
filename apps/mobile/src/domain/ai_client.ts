@@ -5,6 +5,7 @@
 
 import { DEFAULT_GEMINI_MODEL } from '../data/db';
 import { AiDocumentInput } from '../contracts/types';
+import { ensureAiDataNoticeAccepted } from './ai_data_notice';
 
 // 키와 모델별 단기 대기 상태. 메모리에만 보관하며 저장하거나 로그로 출력하지 않는다.
 const geminiRateLimits = new Map<string, Map<string, number>>();
@@ -47,6 +48,13 @@ function createGenerationCancelledError(): Error {
   return error;
 }
 
+// 출제 경로는 취소와 같은 이름으로 처리한다(기존 '문제 출제가 취소되었습니다' 안내).
+function createAiDataNoticeDeclinedError(): Error {
+  const error = new Error('AI 전송 안내를 확인하지 않아 요청을 보내지 않았습니다.');
+  error.name = 'GenerationCancelledError';
+  return error;
+}
+
 /**
  * AI JSON 응답 파싱 유틸리티 (마크다운 백틱 제거)
  */
@@ -77,6 +85,9 @@ export async function callUniversalAiCompletion(
   options?: { enableGoogleSearch?: boolean }
 ): Promise<AiCompletionResult> {
   const trimmedKey = apiKey.trim();
+  if (signal?.aborted) throw createGenerationCancelledError();
+  // 데이터 전송 안내를 확인하지 않으면 네트워크 요청을 보내지 않는다.
+  if (!(await ensureAiDataNoticeAccepted())) throw createAiDataNoticeDeclinedError();
   if (signal?.aborted) throw createGenerationCancelledError();
 
   // 1. Anthropic Claude 3.5 Sonnet 지원 (sk-ant- 시작 키)
