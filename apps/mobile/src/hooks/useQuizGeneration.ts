@@ -299,7 +299,7 @@ export function useQuizGeneration({
       if (todayCount + count > DAILY_FREE_QUESTION_GUIDE) {
         showAlert(
           '오늘의 무료 사용 기준 안내',
-          `오늘 생성한 문제는 ${todayCount}개입니다. ${count}문제를 추가하면 하루 권장 기준인 ${DAILY_FREE_QUESTION_GUIDE}문제를 넘습니다.\n\n추가 생성은 Gemini API 무료 할당량을 사용하거나 429 제한이 발생할 수 있습니다.`,
+          `오늘 생성한 문제는 ${todayCount}개입니다. ${count}문제를 추가하면 하루 권장 기준인 ${DAILY_FREE_QUESTION_GUIDE}문제를 넘습니다.\n\n추가 생성은 연결된 AI 서비스의 무료 할당량을 사용하거나 429 제한이 발생할 수 있습니다.`,
           [
             { text: '오늘은 그만 생성', style: 'cancel' },
             {
@@ -320,7 +320,7 @@ export function useQuizGeneration({
     if (!budgetOverrideRef.current && todayCount + 3 > DAILY_FREE_QUESTION_GUIDE) {
       showAlert(
         '오늘의 무료 사용 기준 안내',
-        `오늘 생성한 문제는 ${todayCount}개입니다. 추가 출제 시 하루 권장 기준인 ${DAILY_FREE_QUESTION_GUIDE}문제를 넘고 Gemini API 무료 할당량 또는 429 제한에 영향을 줄 수 있습니다.`,
+        `오늘 생성한 문제는 ${todayCount}개입니다. 추가 출제 시 하루 권장 기준인 ${DAILY_FREE_QUESTION_GUIDE}문제를 넘고 연결된 AI 서비스의 무료 할당량 또는 429 제한에 영향을 줄 수 있습니다.`,
         [
           { text: '오늘은 그만 생성', style: 'cancel' },
           {
@@ -355,11 +355,11 @@ export function useQuizGeneration({
 
     if (!apiKey || apiKey.trim().length <= 8) {
       showAlert(
-        'API 키 미등록',
-        '새로운 문제를 생성하기 위한 AI API 키가 등록되지 않아 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
+        'AI 연결 필요',
+        '새로운 문제를 만들기 위한 AI 연결이 없어 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
         [
           { text: '취소', style: 'cancel' },
-          { text: 'API 키 설정', onPress: onOpenSettings },
+          { text: 'AI 연결 설정', onPress: onOpenSettings },
           ...(existingQuestions.length > 0
             ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
             : []),
@@ -435,11 +435,11 @@ export function useQuizGeneration({
 
       if (outcome.status === 'NEEDS_CONNECTION') {
         showAlert(
-          'API 키 미등록',
-          '새로운 문제를 생성하기 위한 AI API 키가 등록되지 않아 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
+          'AI 연결 필요',
+          '새로운 문제를 만들기 위한 AI 연결이 없어 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',
           [
             { text: '취소', style: 'cancel' },
-            { text: 'API 키 설정', onPress: onOpenSettings },
+            { text: 'AI 연결 설정', onPress: onOpenSettings },
             ...(existingQuestions.length > 0
               ? [{ text: '기존 문제 복습하기', onPress: () => startExam(existingQuestions) }]
               : []),

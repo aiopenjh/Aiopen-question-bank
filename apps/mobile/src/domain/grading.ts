@@ -111,7 +111,7 @@ export async function gradeSubjectiveAnswer(
     if (!apiKey || apiKey.trim().length < 8) {
       return {
         gradingStatus: 'failed',
-        gradingFailedReason: 'AI 채점 통로가 미연동 상태입니다. 설정 탭에서 API Key를 등록해 주세요.',
+        gradingFailedReason: 'AI 채점을 위한 연결이 필요합니다. 설정 탭에서 AI 연결을 완료해 주세요.',
       };
     }
 

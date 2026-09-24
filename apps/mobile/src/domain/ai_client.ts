@@ -82,9 +82,9 @@ export async function callUniversalAiCompletion(
   // 1. Anthropic Claude 3.5 Sonnet 지원 (sk-ant- 시작 키)
   if (trimmedKey.startsWith('sk-ant-')) {
     if (options?.enableGoogleSearch) {
-      throw new Error('최신 법령·세율 확인 출제는 Google 검색을 지원하는 Gemini API 키가 필요합니다.');
+      throw new Error('최신 정보 확인 기능을 지원하는 AI 연결이 필요합니다.');
     }
-    if (documentInput) throw new Error('PDF 직접 출제는 Gemini API 키에서만 지원합니다.');
+    if (documentInput) throw new Error('PDF 분석을 지원하는 AI 연결이 필요합니다.');
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -113,9 +113,9 @@ export async function callUniversalAiCompletion(
   // 2. OpenAI GPT-4o 지원 (sk- 시작 키)
   if (trimmedKey.startsWith('sk-')) {
     if (options?.enableGoogleSearch) {
-      throw new Error('최신 법령·세율 확인 출제는 Google 검색을 지원하는 Gemini API 키가 필요합니다.');
+      throw new Error('최신 정보 확인 기능을 지원하는 AI 연결이 필요합니다.');
     }
-    if (documentInput) throw new Error('PDF 직접 출제는 Gemini API 키에서만 지원합니다.');
+    if (documentInput) throw new Error('PDF 분석을 지원하는 AI 연결이 필요합니다.');
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {

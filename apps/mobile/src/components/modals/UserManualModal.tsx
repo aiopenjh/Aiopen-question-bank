@@ -67,7 +67,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipText}>
               • 세율, 부동산법, 법령처럼 바뀔 수 있는 주제는 출제할 때 공식 정부 자료를 검색해 현재 시행 중인 내용만 사용합니다.{`\n`}
               • 풀이 결과와 문제 보관함에서 기준일, 공식 기관과 원문 링크를 확인할 수 있습니다.{`\n`}
-              • 공식 근거를 확인하지 못하면 문제를 임의로 만들지 않고 출제를 중단합니다. 이 기능은 Google 검색을 지원하는 Gemini API 키가 필요합니다.
+              • 공식 근거를 확인하지 못하면 문제를 임의로 만들지 않고 출제를 중단합니다. 이 기능을 지원하는 AI 연결이 필요합니다.
             </Text>
           </View>
         </View>
@@ -93,7 +93,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipText}>
               • <Text style={styles.bold}>TXT, MD, CSV, JSON</Text>: 실제 본문을 읽어 등록하므로 문제 출제 자료로 가장 적합합니다.{'\n'}
               • <Text style={styles.bold}>ZIP</Text>: 압축 안의 TXT, MD, CSV, JSON 텍스트 파일을 함께 불러옵니다.{'\n'}
-              • <Text style={styles.bold}>PDF</Text>: 선택한 페이지를 목차·문제 생성 요청에 전달합니다. PDF 직접 출제는 Gemini 연결에서 지원하며 파일 원본과 전체 본문은 저장하지 않습니다.{'\n'}
+              • <Text style={styles.bold}>PDF</Text>: 선택한 페이지를 목차·문제 생성 요청에 전달합니다. PDF 분석을 지원하는 AI 연결이 필요하며 파일 원본과 전체 본문은 저장하지 않습니다.{'\n'}
               • 텍스트 자료는 다시 사용할 수 있지만, 앱을 다시 연 뒤 PDF를 사용할 때는 보안을 위해 같은 원본 파일을 다시 선택해야 합니다.{'\n'}
               • 30페이지가 넘는 PDF는 10~20페이지씩 나누고, 문제도 한 번에 3~5문항씩 생성하는 것을 권장합니다. 하루 누적 15문항을 넘기면 무료 할당량 소진이나 429 제한이 발생할 수 있습니다.
             </Text>
