@@ -8,9 +8,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
-import { File as ExpoFile } from 'expo-file-system';
 import { RankingProfile, RankingRecoverySeed, RankingSyncQueueItem } from '../contracts/types';
 import {
   getAttempts,
@@ -37,26 +34,6 @@ const LEADERBOARD_LIMIT = 20;
 
 function toMessage(err: unknown): string {
   return err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
-}
-
-function recoverySeedFromBackup(content: string): RankingRecoverySeed {
-  let backup: Record<string, unknown>;
-  try {
-    backup = JSON.parse(content);
-  } catch {
-    throw new Error('올바른 Celueste 백업 파일이 아닙니다. 전체 백업 JSON 파일을 선택해 주세요.');
-  }
-  if (
-    typeof backup?.rankingParticipantId !== 'string' || !backup.rankingParticipantId ||
-    typeof backup?.rankingRecoveryToken !== 'string' || !backup.rankingRecoveryToken
-  ) {
-    throw new Error('이 백업에는 랭킹 계정 복구 정보가 없습니다. 랭킹에 참여한 뒤 저장한 전체 백업을 선택해 주세요.');
-  }
-  return {
-    nickname: typeof backup.rankingNickname === 'string' ? backup.rankingNickname : '',
-    participantId: backup.rankingParticipantId,
-    recoveryToken: backup.rankingRecoveryToken,
-  };
 }
 
 export function useRankingWindow() {
@@ -196,23 +173,6 @@ export function useRankingWindow() {
     return recoverWithSeed(recoverySeed);
   }, [recoverySeed, recoverWithSeed]);
 
-  const recoverFromBackupFile = useCallback(async () => {
-    try {
-      const picked = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: false });
-      if (picked.canceled || !picked.assets?.length) return { ok: false as const, canceled: true as const };
-      const file = picked.assets[0];
-      // 백업은 JSON 텍스트만 지원한다.
-      const content: string = Platform.OS === 'web' && (file as any).file
-        ? await (file as any).file.text()
-        : await new ExpoFile(file.uri).text();
-      return recoverWithSeed(recoverySeedFromBackup(content));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '백업 파일을 읽을 수 없습니다.';
-      setError(message);
-      return { ok: false as const, message };
-    }
-  }, [recoverWithSeed]);
-
   const dismissRecoverySeed = useCallback(async () => {
     await clearRankingRecoverySeed();
     setRecoverySeed(null);
@@ -252,7 +212,6 @@ export function useRankingWindow() {
     register,
     withdraw,
     recoverFromBackup,
-    recoverFromBackupFile,
     dismissRecoverySeed,
   };
 }

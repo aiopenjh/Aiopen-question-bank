@@ -175,7 +175,7 @@ test('exam back while grading shows the grading notice, and after submission lea
   assert.equal(s.h.alerts.length, alertCount);
 });
 
-test('app back moves settings → library → home and lets home use the default exit', () => {
+test('app back handles library detail before moving settings → library → home', () => {
   const h = createHarness('android');
   const { AppView } = h.load(path.join(ROOT, 'src/components/AppView.tsx'));
   const moves = [];
@@ -188,7 +188,15 @@ test('app back moves settings → library → home and lets home use the default
   const render = () => h.render(AppView, { controller: new Proxy(controller, { get: (t, k) => (k in t ? t[k] : []) }) });
   render();
   assert.equal(h.back(), true);
-  render();
+  let tree = render();
+  const library = find(tree, node => node.type === 'LibraryScreen');
+  let nestedBackCount = 0;
+  library.props.androidBackHandlerRef.current = () => { nestedBackCount++; return true; };
+  assert.equal(h.back(), true);
+  assert.equal(nestedBackCount, 1);
+  assert.deepEqual(moves, [[1, true]]);
+
+  library.props.androidBackHandlerRef.current = null;
   assert.equal(h.back(), true);
   render();
   assert.deepEqual(moves, [[1, true], [0, true]]);

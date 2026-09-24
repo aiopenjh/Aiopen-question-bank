@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, StatusBar, ActivityIndicator, Animated, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { generateUUID } from '../data/db';
@@ -46,6 +46,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     appAlert, setAppAlert,
   } = controller;
   const [feedbackVisible, setFeedbackVisible] = useState(false);
+  const libraryBackHandlerRef = useRef<(() => boolean) | null>(null);
   // Retain visited pages so paging and modal state survive navigation.
   const [visitedPages, setVisitedPages] = useState(() => new Set([currentPage]));
   useEffect(() => {
@@ -55,7 +56,9 @@ export function AppView({ controller }: { controller: AppController }) {  const 
   // 설정(2) → 과목자료함(1) → 홈(0). 홈에서는 가로채지 않아 Android 기본 종료를 허용한다.
   // 시험 중에는 ExamSessionScreen이 처리한다.
   useAndroidBackHandler(() => {
-    if (loading || storageError || examSessionActive || currentPage <= 0) return false;
+    if (loading || storageError || examSessionActive) return false;
+    if (currentPage === 1 && libraryBackHandlerRef.current?.()) return true;
+    if (currentPage <= 0) return false;
     goToPage(currentPage - 1, true);
     return true;
   });
@@ -183,6 +186,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
             >
               {(currentPage === 1 || visitedPages.has(1)) && <LibraryScreen
                 isActive={currentPage === 1}
+                androidBackHandlerRef={libraryBackHandlerRef}
                 questions={questions}
                 topics={topics}
                 units={units}

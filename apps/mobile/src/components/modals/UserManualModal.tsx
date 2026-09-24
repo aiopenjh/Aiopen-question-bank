@@ -255,7 +255,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             <Text style={styles.tipTitle}>🛡️ 3. 복구와 탈퇴</Text>
             <Text style={styles.tipText}>
               • 랭킹 계정 복구 정보는 <Text style={styles.bold}>전체 백업</Text>에만 포함되므로 다른 사람에게 전달하지 말고 안전하게 보관하세요.{`\n`}
-              • 기기를 바꾸거나 저장 정보가 사라졌다면 랭킹 창의 <Text style={styles.bold}>[백업 파일로 기존 계정 복구]</Text>에서 전체 백업 JSON 파일을 선택하세요. 과목·문제와 API 키는 바뀌지 않습니다.{`\n`}
+              • 기기를 바꿀 때는 설정에서 전체 백업을 복원하세요. 랭킹 창을 열면 백업에서 발견한 기존 랭킹 계정을 이어서 사용할 수 있습니다.{`\n`}
               • 다른 기기에서 새 닉네임을 등록하면 기존 기록과 분리됩니다. 탈퇴 요청 시 닉네임은 즉시 랭킹에서 숨겨지고 3일 후 서버 기록이 삭제됩니다. 3일 안에 복구하면 탈퇴 요청이 취소됩니다.
             </Text>
           </View>
