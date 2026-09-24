@@ -238,9 +238,10 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
         generateHintError={hintError}
       />
 
-      {/* 풀이공간(Scratchpad) — 계산/풀이 보조용, 채점 미반영 */}
-      {!isSubmitted && (
-        <ScratchpadPanel key={q.id} visible={showScratchpad} onClose={() => setShowScratchpad(false)} />
+      {/* 풀이공간(Scratchpad) — 계산/풀이 보조용, 채점 미반영.
+          닫혀 있을 때는 아예 렌더링하지 않는다(닫힌 패널 잔상 방지, ScratchpadPanel 주석 참고). */}
+      {!isSubmitted && showScratchpad && (
+        <ScratchpadPanel key={q.id} onClose={() => setShowScratchpad(false)} />
       )}
     </SafeAreaView>
   );

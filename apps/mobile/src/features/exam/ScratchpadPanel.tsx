@@ -10,11 +10,17 @@ import { colors, radius, spacing } from '../../styles/designTokens';
 // 웹은 연속 SVG 경로, 네이티브는 둥근 연결 선분을 사용한다.
 
 interface ScratchpadPanelProps {
-  visible: boolean;
   onClose: () => void;
 }
 
-export const ScratchpadPanel: React.FC<ScratchpadPanelProps> = ({ visible, onClose }) => {
+// 닫힌 상태를 별도로 표현하지 않는다: 열려 있을 때만 부모(ExamSessionScreen)가 이 컴포넌트를
+// 마운트하고, 닫으면 즉시 언마운트한다. 예전에는 이 컴포넌트가 항상 마운트된 채로 visible
+// prop에 따라 화면 밖으로 이동(transform)만 시켰는데, 모바일 키보드가 열고 닫힐 때
+// useWindowDimensions()의 높이가 바뀌면서 "숨김 위치" 계산이 그 순간 어긋나 닫힌 패널
+// 일부가 화면에 남는 잔상이 있었다. 닫힌 패널은 pointerEvents="none"이라 잔상이 보여도
+// 필기·전체 지우기·닫기가 전부 무반응이었다(성경훈 제보 증상과 일치). 완전히 언마운트하면
+// 이 문제 자체가 구조적으로 발생할 수 없다.
+export const ScratchpadPanel: React.FC<ScratchpadPanelProps> = ({ onClose }) => {
   const { height } = useWindowDimensions();
   const sheetHeight = Math.round(height * 0.46);
   const drawing = useScratchpadDrawing();
@@ -22,32 +28,29 @@ export const ScratchpadPanel: React.FC<ScratchpadPanelProps> = ({ visible, onClo
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
+    // 마운트될 때 한 번만 슬라이드업 애니메이션을 실행한다. 닫기는 애니메이션이 아니라
+    // 부모가 이 컴포넌트를 언마운트하는 방식으로 처리한다(ExamSessionScreen 참고).
     Animated.parallel([
       Animated.timing(translateY, {
-        toValue: visible ? 0 : sheetHeight,
+        toValue: 0,
         duration: 220,
         useNativeDriver: true,
       }),
       Animated.timing(backdropOpacity, {
-        toValue: visible ? 1 : 0,
+        toValue: 1,
         duration: 220,
         useNativeDriver: true,
       }),
     ]).start();
-  }, [visible, translateY, backdropOpacity, sheetHeight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
-      <Animated.View
-        pointerEvents={visible ? 'auto' : 'none'}
-        style={[styles.backdrop, { opacity: backdropOpacity }]}
-      >
+      <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
       </Animated.View>
-      <Animated.View
-        pointerEvents={visible ? 'auto' : 'none'}
-        style={[styles.sheet, { height: sheetHeight, transform: [{ translateY }] }]}
-      >
+      <Animated.View style={[styles.sheet, { height: sheetHeight, transform: [{ translateY }] }]}>
         <View style={styles.header}>
           <Text style={styles.title}>📐 풀이공간</Text>
           <View style={{ flexDirection: 'row', gap: 6 }}>
