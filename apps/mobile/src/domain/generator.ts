@@ -295,12 +295,10 @@ async function generateViaUniversalAiApi(params: {
     ? topicName.trim()
     : intent.domain;
 
-  const currentInformationRequired = !documentInput && requiresCurrentOfficialSources(
-    resolvedDomain,
+  const currentInformationRequired = !documentInput && requiresCurrentOfficialSources({
     category,
-    unitTitle,
-    intent.focusConcepts.join(' ')
-  );
+    texts: [resolvedDomain, category, unitTitle, intent.focusConcepts.join(' ')],
+  });
   const referenceDate = currentInformationRequired ? getKoreanReferenceDate() : undefined;
 
   const questionTypePlan = createQuestionTypePlan(intent.targetCount);

@@ -2,8 +2,13 @@ const TIME_SENSITIVE_STUDY_TERMS = [
   /세율|세금|과세|소득세|양도소득세|취득세|재산세|종합부동산세|부가가치세|법인세/,
   /부동산.{0,8}(법|정책|규제|세제)|주택.{0,8}(법|정책|규제|세제)/,
   /법률|법령|시행령|시행규칙|조례|행정규칙|판례|규정|개정안|입법예고/,
-  /(?:^|\s)[가-힣]{2,}법(?:\s|$)/,
+  // 이름만으로 법 과목이 분명한 경우만 직접 감지한다. '○○법' 전체를 법으로 보지 않는다
+  // (영문법·문법·기법·요리법·최소제곱법·연상법은 법 과목이 아니다). 앞에 한글이 붙으면 다른 단어로 본다.
+  /(?:^|[^가-힣])(?:민법|형법|상법|헌법|행정법|세법|노동법|경제법|국제법|가족법|민사소송법|형사소송법|행정소송법|민사집행법|근로기준법)/,
 ];
+
+// 과목 분류가 법학/행정이면 과목 이름과 관계없이 최신 법령을 검증한다(TopicModal 분류 값).
+const LAW_CATEGORY = '법학/행정';
 
 export type CurrentInformationReference = {
   referenceDate: string;
@@ -26,8 +31,12 @@ const TRUSTED_OFFICIAL_HOSTS = [
   'easylaw.go.kr',
 ];
 
-export function requiresCurrentOfficialSources(...texts: Array<string | undefined>): boolean {
-  const target = texts.filter(Boolean).join(' ');
+export function requiresCurrentOfficialSources(input: {
+  category?: string;
+  texts: Array<string | undefined>;
+}): boolean {
+  if (input.category?.trim() === LAW_CATEGORY) return true;
+  const target = input.texts.filter(Boolean).join(' ');
   return TIME_SENSITIVE_STUDY_TERMS.some((pattern) => pattern.test(target));
 }
 
