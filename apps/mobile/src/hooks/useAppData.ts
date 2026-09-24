@@ -36,6 +36,7 @@ import {
   getSources,
   getReviewStates,
   getIncorrectQuestions,
+  getAttemptCorrections,
   getLastStudiedTopicId,
   saveLastStudiedTopicId,
   linkSourceToTopic,
@@ -85,7 +86,7 @@ export function useAppData(callbacks?: {
       }
       await initializeDatabase();
 
-      const [r, t, u, c, q, a, rStates, key, s, savedLastTId, aConfig] = await Promise.all([
+      const [r, t, u, c, q, a, rStates, key, s, savedLastTId, aConfig, corrections] = await Promise.all([
         getRoutine(),
         getTopics(),
         getUnits(),
@@ -97,6 +98,7 @@ export function useAppData(callbacks?: {
         getSources(),
         getLastStudiedTopicId(),
         getAlarmConfig(),
+        getAttemptCorrections(),
       ]);
 
       setRoutine(r);
@@ -117,7 +119,7 @@ export function useAppData(callbacks?: {
       setQuestions(q);
       setAttempts(a);
       setReviewStates(rStates);
-      setIncorrectQuestions(selectIncorrectQuestions(q, a));
+      setIncorrectQuestions(selectIncorrectQuestions(q, a, corrections));
       setApiKey(key || '');
       setSources(s);
       setAlarmConfig(aConfig);

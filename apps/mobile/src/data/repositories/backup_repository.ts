@@ -18,12 +18,14 @@ import {
   StudySession,
   SessionItem,
   Attempt,
+  AttemptCorrection,
   ReviewState,
   ManualCompletion,
   RankingProfile,
   RankingRecoverySeed,
 } from '../../contracts/types';
 import { normalizeAlarmConfig, type AlarmConfig } from '../../utils/notifications';
+import { filterCorrectionsForAttempts, normalizeAttemptCorrections } from '../../domain/attempt_outcome';
 import { STORAGE_KEYS, CURRENT_DB_VERSION, getCurrentISOTime } from '../storage_keys';
 
 export type BackupKind = 'question-bank' | 'full';
@@ -45,6 +47,8 @@ export interface AppBackupPayload {
   sessions: StudySession[];
   sessionItems: SessionItem[];
   attempts: Attempt[];
+  /** 사용자 정정 기록(전체 백업만). 원래 채점 attempts는 그대로이며, 없는 구형 백업은 빈 목록으로 복원한다. */
+  attemptCorrections: AttemptCorrection[];
   reviewStates: ReviewState[];
   manualCompletions: ManualCompletion[];
   preferredModel: string | null;
@@ -79,6 +83,7 @@ const BACKUP_STORAGE_KEYS = [
   STORAGE_KEYS.SESSIONS,
   STORAGE_KEYS.SESSION_ITEMS,
   STORAGE_KEYS.ATTEMPTS,
+  STORAGE_KEYS.ATTEMPT_CORRECTIONS,
   STORAGE_KEYS.REVIEW_STATES,
   STORAGE_KEYS.MANUAL_COMPLETIONS,
   STORAGE_KEYS.PREFERRED_MODEL,
@@ -274,6 +279,7 @@ function normalizeBackupPayload(value: unknown): AppBackupPayload {
     throw new Error('exportedAt 필드 형식이 올바르지 않습니다.');
   }
 
+  const attempts = readArray<Attempt>(value, 'attempts');
   return {
     backupKind: readBackupKind(value),
     version,
@@ -291,7 +297,12 @@ function normalizeBackupPayload(value: unknown): AppBackupPayload {
     questions: readArray<QuestionRevision>(value, 'questions', true),
     sessions: readArray<StudySession>(value, 'sessions'),
     sessionItems: readArray<SessionItem>(value, 'sessionItems'),
-    attempts: readArray<Attempt>(value, 'attempts'),
+    attempts,
+    // 형식이 틀리면 복원을 거부하고, 이 백업의 풀이 기록과 맞지 않는 고아 정정은 제외한다.
+    attemptCorrections: filterCorrectionsForAttempts(
+      normalizeAttemptCorrections(value.attemptCorrections),
+      attempts
+    ),
     reviewStates: readArray<ReviewState>(value, 'reviewStates'),
     manualCompletions: readArray<ManualCompletion>(value, 'manualCompletions'),
     preferredModel: readOptionalString(value, 'preferredModel'),
@@ -363,6 +374,7 @@ export async function exportBackupJSON(
     return JSON.stringify(questionBankPayload, null, 2);
   }
 
+  const storedAttempts = parseStoredArray<Attempt>(stored.get(STORAGE_KEYS.ATTEMPTS) ?? null, '풀이 기록');
   const rankingProfile = parseStoredObject<RankingProfile>(
     stored.get(STORAGE_KEYS.RANKING_PROFILE) ?? null,
     '랭킹 참여 정보'
@@ -396,7 +408,11 @@ export async function exportBackupJSON(
       stored.get(STORAGE_KEYS.SESSION_ITEMS) ?? null,
       '학습 세션 문제'
     ),
-    attempts: parseStoredArray<Attempt>(stored.get(STORAGE_KEYS.ATTEMPTS) ?? null, '풀이 기록'),
+    attempts: storedAttempts,
+    attemptCorrections: filterCorrectionsForAttempts(
+      parseStoredArray<AttemptCorrection>(stored.get(STORAGE_KEYS.ATTEMPT_CORRECTIONS) ?? null, '사용자 정정 기록'),
+      storedAttempts
+    ),
     reviewStates: parseStoredArray<ReviewState>(
       stored.get(STORAGE_KEYS.REVIEW_STATES) ?? null,
       '복습 상태'
@@ -502,6 +518,7 @@ export async function restoreBackupJSON(
       [STORAGE_KEYS.SESSIONS, JSON.stringify(payload.sessions)],
       [STORAGE_KEYS.SESSION_ITEMS, JSON.stringify(payload.sessionItems)],
       [STORAGE_KEYS.ATTEMPTS, JSON.stringify(payload.attempts)],
+      [STORAGE_KEYS.ATTEMPT_CORRECTIONS, JSON.stringify(payload.attemptCorrections)],
       [STORAGE_KEYS.REVIEW_STATES, JSON.stringify(payload.reviewStates)],
       [STORAGE_KEYS.MANUAL_COMPLETIONS, JSON.stringify(payload.manualCompletions)],
       [STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS, JSON.stringify(payload.customNoteQuestionIds)]

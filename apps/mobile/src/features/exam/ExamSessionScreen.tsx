@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { QuestionRevision } from '../../contracts/types';
+import { AttemptCorrectionReason, QuestionRevision } from '../../contracts/types';
 import { showAlert } from '../../utils/alert';
 import { styles } from './examStyles';
 import { ExamActiveView } from './ExamActiveView';
@@ -19,6 +19,10 @@ interface ExamSessionScreenProps {
   questions: QuestionRevision[];
   onExitExam: () => void;
   onCompleteExam: (results: ExamAnswerResult[]) => Promise<void>;
+  /** 결과 화면 문항 번호(0부터) → 사용자 정정 사유 */
+  corrections?: Record<number, AttemptCorrectionReason>;
+  onCorrectResult?: (index: number, reason: AttemptCorrectionReason) => Promise<void> | void;
+  onUndoCorrection?: (index: number) => Promise<void> | void;
   onReinforceIncorrectConcepts?: (questions: QuestionRevision[]) => Promise<void> | void;
   // 온디맨드로 생성한 힌트를 저장소뿐 아니라 앱 상단의 questions 상태에도 즉시 반영한다.
   // 그렇지 않으면 시험을 나갔다가 다시 들어올 때 갱신 전 스냅샷을 다시 사용하게 되어
@@ -30,6 +34,9 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   questions,
   onExitExam,
   onCompleteExam,
+  corrections,
+  onCorrectResult,
+  onUndoCorrection,
   onReinforceIncorrectConcepts,
   onHintSaved,
 }) => {
@@ -222,6 +229,9 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
           questions={questions}
           userAnswers={userAnswers}
           results={submittedResults || undefined}
+          corrections={corrections}
+          onCorrectResult={onCorrectResult}
+          onUndoCorrection={onUndoCorrection}
           onExitExam={onExitExam}
           onReinforceIncorrectConcepts={onReinforceIncorrectConcepts}
         />

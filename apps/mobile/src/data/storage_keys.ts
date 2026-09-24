@@ -30,6 +30,7 @@ export const STORAGE_KEYS = {
   RANKING_PROFILE: '@celueste:ranking_profile',
   RANKING_SYNC_QUEUE: '@celueste:ranking_sync_queue',
   RANKING_RECOVERY_SEED: '@celueste:ranking_recovery_seed',
+  ATTEMPT_CORRECTIONS: '@celueste:attempt_corrections',
 };
 
 export const CURRENT_DB_VERSION = 4;

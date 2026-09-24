@@ -1,7 +1,16 @@
 import { useState, useCallback, useRef } from 'react';
-import { QuestionRevision, ReviewState, Unit, Attempt, Topic } from '../contracts/types';
+import {
+  QuestionRevision,
+  ReviewState,
+  Unit,
+  Attempt,
+  Topic,
+  AttemptCorrection,
+  AttemptCorrectionReason,
+} from '../contracts/types';
 import { distributeQuestionAnswersRandomly } from '../domain/question_distribution';
 import { calculateNextReviewState } from '../domain/spaced_repetition';
+import { isGradingIncomplete } from '../domain/attempt_outcome';
 import {
   saveAttempt,
   saveReviewState,
@@ -10,6 +19,8 @@ import {
   getCurrentISOTime,
   saveLastStudiedTopicId,
   getAttempts,
+  saveAttemptCorrection,
+  removeAttemptCorrection,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
 import { CHALLENGE_QUESTION_COUNT, CHALLENGE_START_LEVEL, getTopicChallengeLevels } from '../domain/challenge_progress';
@@ -25,6 +36,19 @@ export interface UseExamSessionProps {
   setSelectedTopicId: (id: string | null) => void;
   setLastStudiedTopicId: (id: string | null) => void;
   onRefreshData: () => Promise<void>;
+}
+
+/** 결과 화면의 사용자 정정·취소에 필요한 문항별 저장 정보 */
+interface ResultRecord {
+  attemptId: string;
+  submissionKey: string;
+  questionRevisionId: string;
+  /** 시험 전 복습 상태 */
+  reviewBefore: ReviewState | null;
+  /** 시험 채점으로 저장한 복습 상태. 채점 미완료 문항은 복습 상태를 바꾸지 않으므로 null */
+  reviewSaved: ReviewState | null;
+  /** 정정으로 저장한 복습 상태 */
+  reviewCorrected?: ReviewState;
 }
 
 export interface ExamStartOptions {
@@ -46,12 +70,15 @@ export function useExamSession({
   const [examSessionActive, setExamSessionActive] = useState(false);
   const [examQuestions, setExamQuestions] = useState<QuestionRevision[]>([]);
   const [examSessionRunId, setExamSessionRunId] = useState<string | null>(null);
+  const [examCorrections, setExamCorrections] = useState<Record<number, AttemptCorrectionReason>>({});
   const runRef = useRef<{
     id: string;
     startedAt: string;
     saving: boolean;
     completed: boolean;
     challengeEligible: boolean;
+    correcting?: boolean;
+    records?: ResultRecord[];
   } | null>(null);
 
   const startExam = useCallback(
@@ -108,6 +135,7 @@ export function useExamSession({
         challengeEligible: options?.challengeEligible === true,
       };
       setExamSessionRunId(runId);
+      setExamCorrections({});
       setExamQuestions(randomizedQuestions);
       setExamSessionActive(true);
     },
@@ -144,6 +172,7 @@ export function useExamSession({
         const before = isChallenge
           ? getTopicChallengeLevels(await getAttempts()).get(first.topicId!) ?? CHALLENGE_START_LEVEL - 1
           : 0;
+        const records: ResultRecord[] = [];
         for (const [index, item] of results.entries()) {
           const attemptId = `${run.id}-${index}`;
           const attempt: Attempt = {
@@ -167,6 +196,16 @@ export function useExamSession({
           await saveAttempt(attempt);
 
           const currentRS = reviewStates.find((rs) => rs.questionRevisionId === item.question.id);
+          const record: ResultRecord = {
+            attemptId,
+            submissionKey: attempt.submissionKey,
+            questionRevisionId: item.question.id,
+            reviewBefore: currentRS ?? null,
+            reviewSaved: null,
+          };
+          records.push(record);
+          // 주관식 AI 채점 실패는 오답이 아니므로 복습 단계를 바꾸지 않는다(AGENTS.md §2-A-4).
+          if (isGradingIncomplete(item)) continue;
           const nextRS = calculateNextReviewState({
             ownerId: 'owner-default',
             questionRevisionId: item.question.id,
@@ -175,7 +214,9 @@ export function useExamSession({
             attemptId,
           });
           await saveReviewState(nextRS);
+          record.reviewSaved = nextRS;
         }
+        run.records = records;
 
         const sessionUnitId = results[0]?.question.unitId;
         const targetUnit = units.find((u) => u.id === sessionUnitId);
@@ -198,6 +239,83 @@ export function useExamSession({
     [reviewStates, units, onRefreshData, examQuestions]
   );
 
+  /**
+   * 결과 화면의 사용자 정정. 원래 채점(Attempt)은 그대로 두고 정정 기록만 추가하며,
+   * 복습 일정은 이 문항을 맞힌 것으로 다시 계산한다. 순차 도전·랭킹에는 반영되지 않는다.
+   */
+  const correctExamResult = useCallback(
+    async (index: number, reason: AttemptCorrectionReason) => {
+      const run = runRef.current;
+      const record = run?.records?.[index];
+      if (!run || !run.completed || !record || run.correcting) return;
+      run.correcting = true;
+      try {
+        const correction: AttemptCorrection = {
+          id: generateUUID(),
+          attemptId: record.attemptId,
+          submissionKey: record.submissionKey,
+          questionRevisionId: record.questionRevisionId,
+          reason,
+          correctedAt: getCurrentISOTime(),
+        };
+        const corrected = calculateNextReviewState({
+          ownerId: 'owner-default',
+          questionRevisionId: record.questionRevisionId,
+          currentReviewState: record.reviewBefore,
+          isCorrect: true,
+          attemptId: record.attemptId,
+        });
+        const { reviewUpdated } = await saveAttemptCorrection(correction, {
+          questionRevisionId: record.questionRevisionId,
+          expected: record.reviewSaved ?? record.reviewBefore,
+          next: corrected,
+        });
+        record.reviewCorrected = reviewUpdated ? corrected : undefined;
+        setExamCorrections((prev) => ({ ...prev, [index]: reason }));
+        await onRefreshData();
+      } catch (err: unknown) {
+        showAlert('정정 실패', err instanceof Error ? err.message : '정정 기록을 저장하지 못했습니다.');
+      } finally {
+        run.correcting = false;
+      }
+    },
+    [onRefreshData]
+  );
+
+  /** 정정 취소: 정정 기록을 지우고, 정정으로 바꾼 복습 상태를 시험 채점 결과로 되돌린다. */
+  const undoExamResultCorrection = useCallback(
+    async (index: number) => {
+      const run = runRef.current;
+      const record = run?.records?.[index];
+      if (!run || !record || run.correcting) return;
+      run.correcting = true;
+      try {
+        await removeAttemptCorrection(
+          record.submissionKey,
+          record.reviewCorrected
+            ? {
+                questionRevisionId: record.questionRevisionId,
+                expected: record.reviewCorrected,
+                next: record.reviewSaved ?? record.reviewBefore,
+              }
+            : undefined
+        );
+        record.reviewCorrected = undefined;
+        setExamCorrections((prev) => {
+          const next = { ...prev };
+          delete next[index];
+          return next;
+        });
+        await onRefreshData();
+      } catch (err: unknown) {
+        showAlert('정정 취소 실패', err instanceof Error ? err.message : '정정 기록을 되돌리지 못했습니다.');
+      } finally {
+        run.correcting = false;
+      }
+    },
+    [onRefreshData]
+  );
+
   const exitExamSession = useCallback(() => {
     setExamSessionActive(false);
   }, []);
@@ -206,8 +324,11 @@ export function useExamSession({
     examSessionActive,
     examSessionRunId,
     examQuestions,
+    examCorrections,
     startExam,
     handleCompleteExam,
+    correctExamResult,
+    undoExamResultCorrection,
     exitExamSession,
   };
 }

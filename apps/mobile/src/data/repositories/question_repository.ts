@@ -15,6 +15,7 @@ import {
 import { STORAGE_KEYS, getCurrentISOTime } from '../storage_keys';
 import { areQuestionStemsTooSimilar } from '../../domain/question_similarity';
 import { selectIncorrectQuestions } from '../../domain/question_history';
+import { getAttemptCorrections } from './correction_repository';
 
 export async function getManualCompletions(): Promise<ManualCompletion[]> {
   const data = await AsyncStorage.getItem(STORAGE_KEYS.MANUAL_COMPLETIONS);
@@ -221,6 +222,10 @@ export async function saveReviewState(reviewState: ReviewState): Promise<void> {
  * 오답 문제 목록 추출 (가장 최근 시도가 오답인 문제들)
  */
 export async function getIncorrectQuestions(): Promise<QuestionRevision[]> {
-  const [questions, attempts] = await Promise.all([getQuestions(), getAttempts()]);
-  return selectIncorrectQuestions(questions, attempts);
+  const [questions, attempts, corrections] = await Promise.all([
+    getQuestions(),
+    getAttempts(),
+    getAttemptCorrections(),
+  ]);
+  return selectIncorrectQuestions(questions, attempts, corrections);
 }

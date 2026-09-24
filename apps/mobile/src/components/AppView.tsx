@@ -39,6 +39,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive, examSessionRunId,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
+    examCorrections, correctExamResult, undoExamResultCorrection,
     handleQuestionHintSaved,
     appAlert, setAppAlert,
   } = controller;
@@ -323,6 +324,9 @@ export function AppView({ controller }: { controller: AppController }) {  const 
             questions={examQuestions}
             onExitExam={handleExitExam}
             onCompleteExam={handleCompleteExam}
+            corrections={examCorrections}
+            onCorrectResult={correctExamResult}
+            onUndoCorrection={undoExamResultCorrection}
             onReinforceIncorrectConcepts={handleReinforceIncorrectConcepts}
             onHintSaved={handleQuestionHintSaved}
           />

@@ -10,6 +10,7 @@ import {
 import {
   getAttempts,
   getReviewStates,
+  getAttemptCorrections,
   getSourceTextForSource,
 } from '../data/db';
 import { getLocalDateString } from '../domain/routine';
@@ -171,8 +172,11 @@ export function useAppController() {
     examSessionActive,
     examSessionRunId,
     examQuestions,
+    examCorrections,
     startExam,
     handleCompleteExam,
+    correctExamResult,
+    undoExamResultCorrection,
     exitExamSession,
   } = useExamSession({
     questions,
@@ -184,13 +188,14 @@ export function useAppController() {
     setSelectedTopicId,
     setLastStudiedTopicId,
     onRefreshData: async () => {
-      const [updatedAttempts, updatedRS] = await Promise.all([
+      const [updatedAttempts, updatedRS, corrections] = await Promise.all([
         getAttempts(),
         getReviewStates(),
+        getAttemptCorrections(),
       ]);
       setAttempts(updatedAttempts);
       setReviewStates(updatedRS);
-      setIncorrectQuestions(selectIncorrectQuestions(questions, updatedAttempts));
+      setIncorrectQuestions(selectIncorrectQuestions(questions, updatedAttempts, corrections));
     },
   });
 
@@ -407,6 +412,7 @@ export function useAppController() {
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive, examSessionRunId,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
+    examCorrections, correctExamResult, undoExamResultCorrection,
     handleQuestionHintSaved,
     appAlert, setAppAlert,
   };

@@ -318,6 +318,22 @@ export interface Attempt {
   };
 }
 
+/** 사용자 정정 사유 */
+export type AttemptCorrectionReason = 'ambiguous_question' | 'answer_meets_criteria' | 'other';
+
+/**
+ * 사용자 정정 기록. 원래 채점 결과(Attempt)와 공식 정답은 바꾸지 않고, 결과 화면·오답노트·복습 일정에만
+ * 정답으로 반영한다. 레벨 31+ 순차 도전 통과와 공개 랭킹은 Attempt의 원래 채점만 사용한다.
+ */
+export interface AttemptCorrection {
+  id: UUID;
+  attemptId: UUID;
+  submissionKey: string; // Attempt.submissionKey와 1:1
+  questionRevisionId: UUID;
+  reason: AttemptCorrectionReason;
+  correctedAt: ISODateTimeString;
+}
+
 export interface ReviewState {
   ownerId: UUID;
   questionRevisionId: UUID;
