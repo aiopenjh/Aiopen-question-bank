@@ -2,13 +2,14 @@
 
 - 작성: 2026-09-24, 브랜치 `feature/android-app` (기준 커밋 `24fea05`)
 - 상태: **설계안 — 서버 코드 없음, 구현 전 결정 필요**
+- 개정: 2026-09-25 Gemini PDF 처리 한도 표기 정정(Files API도 50MB·1,000페이지), R2 파트별 사전서명 업로드를 확정 기능에서 단계 0 실험(V-T5)으로 변경
 - 관련 규칙: `AGENTS.md` §2-A-2 로컬 퍼스트와 명시적 외부 전송, §2-A-6 서버 신뢰 경계, §2-A-7 복구 가능성
 
 ## 0. 요약
 
 선생님이 PDF 교재 하나(200MB 이상 고화질 스캔 포함) 또는 스캔 이미지 묶음을 **한 번만** 서버에 올리면, 서버가 페이지 분리·축소·회전 보정·OCR을 끝까지 처리한다. 이후에는 원본을 다시 고르지 않고 1~20, 21~40페이지처럼 구간만 바꿔 반복 출제한다. AI에는 선택 구간의 가공 페이지나 OCR 텍스트만 보낸다.
 
-- 앱·Worker는 원본 파일 전체를 메모리에 올리지 않는다. 앱은 파트 단위(예: 16MiB)로 R2에 직접 올리고, Worker는 승인·상태 API만 맡는다.
+- 앱·Worker는 원본 파일 전체를 메모리에 올리지 않는다. 앱은 파트 단위(예: 16MiB)로 R2에 직접 올리고, Worker는 승인·상태 API만 맡는다. 단, 파트별 사전서명 업로드(UploadPart)는 **단계 0 실기기 실험(V-T5)을 통과해야 확정**한다(5.1).
 - 무거운 작업(PDF 렌더링, HEIC 변환, OCR)은 Worker가 아니라 **디스크가 있는 별도 처리기**(권장: Cloudflare Containers)가 한 페이지씩 처리한다.
 - 문제·풀이 기록은 지금처럼 기기에 남는다. 서버에는 교재 파일과 교재 메타데이터만 둔다.
 - 이 기능은 "학습 데이터는 기기에 저장" 원칙의 **명시적 예외**다. 사용자 동의 없이는 켜지지 않는다.
@@ -33,13 +34,13 @@
 | Workers 메모리 | 격리 환경당 128MB | Worker에서 PDF·ZIP 파싱 금지 |
 | Workers CPU | 유료 기본 30초, 최대 5분 | 페이지 처리 부적합 |
 | R2 멀티파트 | 파트 5MiB~5GiB, 최대 10,000개, 마지막 파트 외 동일 크기, 미완료 업로드 기본 7일 후 자동 중단 | 16MiB 파트면 최대 약 156GiB |
-| R2 presigned URL | GET·HEAD·PUT·DELETE, 1초~7일, S3 API 도메인에서만 동작 | 파트별 PUT URL 발급. 브라우저 업로드는 버킷 CORS 필요 |
+| R2 presigned URL | 공식 문서가 명시한 메서드는 GET·HEAD·PUT·DELETE. 1초~7일, S3 API 도메인에서만 동작 | 멀티파트 **UploadPart의 파트별 사전서명은 공식 문서에 명시되지 않음** → 확정 기능이 아니라 단계 0 실험 항목(V-T5). 브라우저 업로드는 버킷 CORS 필요 |
 | R2 요금 | 저장 $0.015/GB-월, Class A $4.50/백만, Class B $0.36/백만, 이그레스 무료, 무료 10GB-월 | 교재 200MB 1권 저장비 약 $0.003/월 |
 | Queues | 메시지 128KB, 재시도 최대 100회, 소비자 실행 최대 15분, 보존 최대 14일 | 메시지에는 ID만 넣고 파일은 넣지 않는다 |
 | Workflows | 단계 결과 1MiB, 단계 CPU 최대 5분, 상태 보존 30일 | 선택 사항: 단계별 재개가 필요할 때 |
 | D1 | DB 최대 10GB(유료), 행·문자열 최대 2MB, 쿼리당 바인딩 100개 | OCR 텍스트는 D1이 아니라 R2에 둔다 |
 | Containers | 2026-04-13 정식 출시(Workers Paid), 최대 4 vCPU·12GiB·디스크 20GB | 무거운 PDF·OCR 실행 위치 1순위 |
-| Gemini 입력 | PDF 50MB 또는 1,000페이지, inline 요청 100MB, Files API 파일당 2GB·48시간 보관 | 선택 구간만 보내면 한도 여유가 크다 |
+| Gemini 입력 | **PDF 문서 처리는 inline·Files API 모두 50MB 또는 1,000페이지까지.** inline 요청 전체 100MB. Files API의 파일당 2GB는 일반 파일 한도이며 PDF 처리 한도가 아니다. 업로드 파일은 48시간 보관 | 원본 교재를 Gemini에 통째로 보내지 않는다. 선택 구간의 가공 페이지·텍스트만 보내므로 PDF 한도 안에 든다 |
 
 ## 3. 업로드부터 출제까지 상태 흐름
 
@@ -105,8 +106,12 @@ AI 입력 방식은 텍스트, 이미지, 텍스트+이미지 중에서 고른�
 
 ### 5.1 직접 업로드 (Worker 본문 미통과)
 
+> **확정 전 검증 필요:** R2는 멀티파트 API를 지원하지만, 공식 사전서명 URL 문서는 GET·HEAD·PUT·DELETE만 명시한다. 아래 2~4번의 파트별 사전서명(UploadPart)·ETag·ListParts·CompleteMultipartUpload 흐름은 **단계 0 실험 V-T5를 통과한 뒤에 확정**한다. 실험이 실패하면 아래 대안 중에서 고른다.
+> - 대안 A: Worker가 파트를 받아 R2 바인딩 `uploadPart`로 넘긴다. 파트는 Worker 요청 본문 한도(100MB) 미만이어야 하고, 본문을 메모리에 모으지 않도록 스트림으로 넘긴다(길이 고정 스트림이 필요한지 함께 확인). Worker 요청 수와 비용이 는다.
+> - 대안 B: 5GiB 이하 파일은 사전서명 단일 PUT(공식 지원). 중간 재개가 안 되므로 실패하면 처음부터 다시 올린다.
+
 1. **생성:** `POST /v1/textbooks` → Worker가 한도를 확인하고 R2 멀티파트를 연다(`createMultipartUpload`). 응답은 `{ textbookId, uploadId, partSize, partCount }`.
-2. **URL 발급:** `POST /v1/textbooks/{id}/upload-urls` `{ partNumbers }` → 파트별 presigned PUT URL(UploadPart). 만료는 짧게, 예: 1시간.
+2. **URL 발급 (V-T5 통과 시):** `POST /v1/textbooks/{id}/upload-urls` `{ partNumbers }` → 파트별 사전서명 PUT URL(UploadPart). 만료는 짧게, 예: 1시간.
 3. **전송:** 앱이 파트를 하나씩 읽어 PUT한다.
    - Android: 새 `File.open()`의 `FileHandle.readBytes(partSize)`로 파트 크기만큼만 읽는다.
    - 웹: `Blob.slice()`.
@@ -245,7 +250,7 @@ owners/{ownerId}/textbooks/{textbookId}/text/{0001}.txt
 |---|---|---|---|
 | `POST /v1/owners` | — | `{ ownerId, credential }` | 처음 한 번. IP 요청 제한 |
 | `POST /v1/textbooks` | `{ title, sourceType, fileName, sizeBytes, mimeType, consentVersion }` | 201 `{ textbookId, uploadId, partSize, partCount }` | 한도 초과 413·429 |
-| `POST /v1/textbooks/{id}/upload-urls` | `{ partNumbers: number[] }` (최대 20개) | `{ urls: [{ partNumber, url, expiresAt }] }` | |
+| `POST /v1/textbooks/{id}/upload-urls` | `{ partNumbers: number[] }` (최대 20개) | `{ urls: [{ partNumber, url, expiresAt }] }` | V-T5 통과 시에만. 실패하면 5.1 대안으로 교체 |
 | `GET /v1/textbooks/{id}/upload` | — | `{ uploadedParts: [{ partNumber, etag, size }] }` | 재개용 |
 | `POST /v1/textbooks/{id}/upload/complete` | `{ parts: [{ partNumber, etag }] }` | 202 `{ status: 'queued' }` | 크기 불일치 422 |
 | `DELETE /v1/textbooks/{id}/upload` | — | 204 | 멀티파트 중단 |
@@ -361,7 +366,7 @@ owners/{ownerId}/textbooks/{textbookId}/text/{0001}.txt
 
 | 단계 | 내용 | 변경·신규 파일 (예상) |
 |---|---|---|
-| 0. 결정·검증 | 소유자 인증 방식, 보존 기간, 한도, 동의 문구, 법률 검토. 실기기 검증 V-T1~V-T4(아래) | 이 문서 |
+| 0. 결정·검증 | 소유자 인증 방식, 보존 기간, 한도, 동의 문구, 법률 검토. 실기기 검증 V-T1~V-T5(아래) | 이 문서 |
 | 1. 서버 골격 | 교재 Worker, D1 마이그레이션, R2 버킷·CORS·수명 주기, 생성·URL 발급·완료·조회·삭제 API. 처리 없음 | 신규 `apps/textbook-worker/`(wrangler.toml, src/, migrations/, tests/), `docs/textbook/TEXTBOOK_API_SPEC.md` |
 | 2. 처리기 (PDF) | 큐 소비 Worker, 컨테이너 이미지(PDF 렌더링·텍스트 추출·이미지 축소·회전 보정), 진행률 기록, 재시도, 정리 작업 | 신규 `apps/textbook-processor/`(Dockerfile, 처리 스크립트), textbook-worker의 큐 소비·cron |
 | 3. 앱 업로드·출제 | 동의 화면, 파트 업로드·재개 기록, 진행률 카드, 원격 자료 출제, 백업 메타데이터 | `src/contracts/types.ts`, `src/hooks/useSourceManager.ts`, 신규 `src/hooks/useTextbookUpload.ts`, 신규 `src/integrations/textbook_client.ts`, `src/data/repositories/source_repository.ts`, `src/data/repositories/backup_repository.ts`, `src/domain/ai_client.ts`(여러 부분 입력), `src/domain/generator.ts`, `src/domain/curriculum_generator.ts`, `src/components/modals/SourceUploadModal.tsx`, `src/features/library/*`, `src/components/modals/UserManualModal.tsx`, 테스트 |
@@ -374,6 +379,12 @@ owners/{ownerId}/textbooks/{textbookId}/text/{0001}.txt
 - V-T2: `content://` 원본을 앱 폴더로 네이티브 복사하는 시간과 여유 공간 확인 방법.
 - V-T3: 네이티브 `UploadTask`가 `content://`나 앱 폴더 파일을 presigned PUT으로 올릴 수 있는지.
 - V-T4: 파일 선택기 권한이 앱 재시작 후에도 유지되는지.
+- V-T5: R2 멀티파트 파트별 사전서명 업로드가 Android 실기기에서 끝까지 동작하는지. 테스트용 버킷과 16MiB 이상 파트 3개 이상으로 아래를 모두 확인한다.
+  - presign: Worker(S3 호환 서명)가 만든 UploadPart URL로 PUT이 성공하는지.
+  - ETag: 응답의 `ETag` 헤더를 앱에서 읽을 수 있는지(웹은 버킷 CORS `ExposeHeaders`에 `ETag` 필요).
+  - ListParts: 앱을 종료했다가 다시 열었을 때 서버가 올라간 파트 목록과 ETag를 정확히 돌려주는지.
+  - CompleteMultipartUpload: 수집한 ETag로 조립한 객체의 크기와 SHA-256이 원본과 같은지.
+  - 실패하면 5.1의 대안 A 또는 B로 업로드 방식을 바꾸고 API 초안(8장)을 고친다.
 
 ## 16. 무거운 PDF·OCR 작업의 실행 위치
 
@@ -399,7 +410,7 @@ owners/{ownerId}/textbooks/{textbookId}/text/{0001}.txt
 ## 참고 (확인일 2026-09-24)
 
 - Cloudflare Workers limits — https://developers.cloudflare.com/workers/platform/limits/
-- Cloudflare R2 limits / multipart / presigned URLs / pricing — https://developers.cloudflare.com/r2/platform/limits/ , https://developers.cloudflare.com/r2/objects/multipart-objects/ , https://developers.cloudflare.com/r2/api/s3/presigned-urls/ , https://developers.cloudflare.com/r2/pricing/
+- Cloudflare R2 limits / multipart / upload objects / presigned URLs / pricing — https://developers.cloudflare.com/r2/platform/limits/ , https://developers.cloudflare.com/r2/objects/multipart-objects/ , https://developers.cloudflare.com/r2/objects/upload-objects/ , https://developers.cloudflare.com/r2/api/s3/presigned-urls/ , https://developers.cloudflare.com/r2/pricing/
 - Cloudflare Queues limits — https://developers.cloudflare.com/queues/platform/limits/
 - Cloudflare Workflows limits — https://developers.cloudflare.com/workflows/reference/limits/
 - Cloudflare D1 limits — https://developers.cloudflare.com/d1/platform/limits/
