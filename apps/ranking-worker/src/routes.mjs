@@ -304,13 +304,43 @@ export async function requestDeletion(request, env, origin) {
     return errorResponse('INVALID_DEVICE_TOKEN', '백업을 이용해 복구해 주세요.', 401, origin);
   }
 
-  const now = new Date();
+  return markParticipantForDeletion(participant, env, origin);
+}
+
+/** 앱을 설치하지 않은 사용자를 위한 웹 탈퇴 요청. 복구 토큰으로 소유권을 확인한다. */
+export async function requestDeletionByRecovery(request, env, origin) {
+  const body = await readJson(request);
+  const { participantId, recoveryToken } = body || {};
+  if (
+    typeof participantId !== 'string' || !/^pt_[0-9a-f]{48}$/.test(participantId) ||
+    typeof recoveryToken !== 'string' || !/^rt_[0-9a-f]{48}$/.test(recoveryToken)
+  ) {
+    return errorResponse('INVALID_INPUT', '전체 백업의 랭킹 복구 정보를 확인해 주세요.', 400, origin);
+  }
+
+  const participant = await env.DB.prepare(
+    'SELECT * FROM participants WHERE id = ? AND recovery_token_hash = ?'
+  )
+    .bind(participantId, await sha256Hex(recoveryToken))
+    .first();
+  if (!participant) {
+    return errorResponse('INVALID_DEVICE_TOKEN', '랭킹 계정 복구 정보가 일치하지 않습니다.', 401, origin);
+  }
+
+  return markParticipantForDeletion(participant, env, origin);
+}
+
+async function markParticipantForDeletion(participant, env, origin) {
+  // 재시도나 다른 기기 요청이 와도 최초 요청의 3일 유예를 늘리지 않는다.
+  const now = participant.deleted_at ? new Date(participant.deleted_at) : new Date();
   const graceDays = Number(env.DELETION_GRACE_PERIOD_DAYS || 3);
   const scheduledDeletionAt = new Date(now.getTime() + graceDays * 24 * 60 * 60 * 1000).toISOString();
 
-  await env.DB.prepare('UPDATE participants SET deleted_at = ?, updated_at = ? WHERE id = ?')
-    .bind(now.toISOString(), now.toISOString(), participant.id)
-    .run();
+  if (!participant.deleted_at) {
+    await env.DB.prepare('UPDATE participants SET deleted_at = ?, updated_at = ? WHERE id = ?')
+      .bind(now.toISOString(), now.toISOString(), participant.id)
+      .run();
+  }
 
   return jsonResponse({ status: 'PENDING_DELETION', scheduledDeletionAt }, 202, origin);
 }

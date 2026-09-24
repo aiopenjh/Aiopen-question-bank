@@ -8,6 +8,7 @@ import {
   syncToday,
   getLeaderboard,
   requestDeletion,
+  requestDeletionByRecovery,
   purgeExpiredDeletions,
 } from './routes.mjs';
 
@@ -47,6 +48,9 @@ export default {
       }
       if (path === '/participants/me' && request.method === 'DELETE') {
         return await requestDeletion(request, env, origin);
+      }
+      if (path === '/participants/deletion-request' && request.method === 'POST') {
+        return await requestDeletionByRecovery(request, env, origin);
       }
       return errorResponse('INVALID_INPUT', '알 수 없는 경로입니다.', 404, origin);
     } catch (err) {

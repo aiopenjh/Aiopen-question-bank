@@ -193,7 +193,9 @@ newMaxKillerLevel = MAX(storedMaxKillerLevel, requestedMaxKillerLevel)
 
 탈퇴 요청 시 즉시 삭제하지 않고 `participants.deleted_at`에 요청 시각을 기록한다. 닉네임은 탈퇴 요청 즉시 공개 랭킹(`GET /leaderboard`)에서 제외한다. 서버는 `deleted_at`으로부터 3일이 지난 참여자와 그 `daily_learning`, `participant_stats` 기록을 일괄 삭제한다(스케줄 작업 또는 조회 시 지연 삭제로 구현).
 
-유예 기간(3일) 중 같은 `deviceToken` 또는 `recoveryToken`으로 `POST /sync/today` 또는 `POST /participants/recover`를 호출하면 탈퇴 요청은 취소되고 `deleted_at`을 초기화한다.
+유예 기간(3일) 중 `POST /participants/recover`로 복구하면 탈퇴 요청이 취소되고 `deleted_at`이 초기화된다. 탈퇴 요청 상태에서 `POST /sync/today`는 거부한다.
+
+앱이 없어도 웹에서 탈퇴를 요청할 수 있도록 `POST /participants/deletion-request`를 제공한다. 요청 본문은 전체 백업의 `participantId`와 `recoveryToken`이다. 서버는 복구 토큰 해시가 해당 참여자와 일치할 때만 기존 탈퇴와 같은 처리를 한다. 백업 JSON 전체를 서버에 보내지 않으며, 잘못된 복구 정보는 `401 INVALID_DEVICE_TOKEN`으로 거부한다.
 
 응답:
 

@@ -6,6 +6,7 @@ import {
   syncToday,
   getLeaderboard,
   requestDeletion,
+  requestDeletionByRecovery,
   purgeExpiredDeletions,
 } from '../src/routes.mjs';
 import { createMockD1 } from './mock-d1.mjs';
@@ -253,6 +254,49 @@ test('탈퇴: 요청 시 PENDING_DELETION이며 즉시 리더보드에서 제외
 
   const board = await (await getLeaderboard(null, env, null)).json();
   assert.equal(board.mostSolved.length, 0, '탈퇴 요청 즉시 공개 랭킹에서 제외되어야 한다');
+});
+
+test('웹 탈퇴: 전체 백업의 복구 토큰으로만 삭제를 예약한다', async () => {
+  const env = makeEnv();
+  const participant = await register(env, '웹탈퇴자');
+
+  const invalid = await requestDeletionByRecovery(
+    jsonRequest({ participantId: participant.participantId, recoveryToken: 'rt_' + '0'.repeat(48) }),
+    env,
+    null
+  );
+  assert.equal(invalid.status, 401);
+  assert.equal(env.DB._stores.participants.get(participant.participantId).deleted_at, null);
+
+  const accepted = await requestDeletionByRecovery(
+    jsonRequest({ participantId: participant.participantId, recoveryToken: participant.recoveryToken }),
+    env,
+    null
+  );
+  assert.equal(accepted.status, 202);
+  assert.equal((await accepted.json()).status, 'PENDING_DELETION');
+  const firstRequestedAt = env.DB._stores.participants.get(participant.participantId).deleted_at;
+  assert.ok(firstRequestedAt);
+
+  const retried = await requestDeletionByRecovery(
+    jsonRequest({ participantId: participant.participantId, recoveryToken: participant.recoveryToken }),
+    env,
+    null
+  );
+  assert.equal(retried.status, 202);
+  assert.equal(env.DB._stores.participants.get(participant.participantId).deleted_at, firstRequestedAt);
+});
+
+test('웹 탈퇴: 복구 토큰 형식 오류는 계정을 변경하지 않는다', async () => {
+  const env = makeEnv();
+  const participant = await register(env, '형식검사자');
+  const response = await requestDeletionByRecovery(
+    jsonRequest({ participantId: participant.participantId, recoveryToken: '잘못된 토큰' }),
+    env,
+    null
+  );
+  assert.equal(response.status, 400);
+  assert.equal(env.DB._stores.participants.get(participant.participantId).deleted_at, null);
 });
 
 test('탈퇴: 유예 기간 중 복구를 시도하면 탈퇴가 취소된다', async () => {
