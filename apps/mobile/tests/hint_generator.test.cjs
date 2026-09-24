@@ -85,7 +85,7 @@ test('AI 힌트 생성: API 키가 없으면 명확한 오류를 던진다', asy
   const mod = harness(undefined, { key: '' });
   await assert.rejects(
     () => mod.generateHintForExistingQuestion(makeQuestion()),
-    /API Key/
+    /AI 연결/
   );
 });
 
