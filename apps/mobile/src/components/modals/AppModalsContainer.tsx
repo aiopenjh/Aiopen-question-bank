@@ -79,6 +79,7 @@ export interface AppModalsContainerProps {
   sourceText?: string;
   sourceFileName?: string | null;
   sourcePageCount?: number | null;
+  isSourceFileLoading: boolean;
   sourcePageStart: number;
   sourcePageEnd: number;
   onChangeSourcePageStart: (page: number) => void;
@@ -146,6 +147,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   sourceText,
   sourceFileName,
   sourcePageCount,
+  isSourceFileLoading,
   sourcePageStart,
   sourcePageEnd,
   onChangeSourcePageStart,
@@ -231,6 +233,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
         sourceText={sourceText}
         sourceFileName={sourceFileName}
         sourcePageCount={sourcePageCount}
+        isSourceFileLoading={isSourceFileLoading}
         sourcePageStart={sourcePageStart}
         sourcePageEnd={sourcePageEnd}
         onChangeSourcePageStart={onChangeSourcePageStart}

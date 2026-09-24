@@ -25,7 +25,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     lastStudiedTopicId, questions, units, setUnitModalVisible, handleDeleteTopic,
     handleDeleteUnit, handleGenerateCurriculumForTopic,
     handlePromptQuizCount, handleDeduplicateUnits, startExam, handleDeleteQuestion, sources,
-    sourceTitle, setSourceTitle, sourceText, sourceFileName, sourcePageCount,
+    sourceTitle, setSourceTitle, sourceText, sourceFileName, sourcePageCount, isSourceFileLoading,
     sourcePageStart, setSourcePageStart, sourcePageEnd, setSourcePageEnd,
     handleSaveSource, handlePickSourceFile, handleReconnectSource, hasPdfInMemory,
     setSourceTopicId, handleDeleteSource, incorrectQuestions,
@@ -298,6 +298,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
           sourceText={sourceText}
           sourceFileName={sourceFileName}
           sourcePageCount={sourcePageCount}
+          isSourceFileLoading={isSourceFileLoading}
           sourcePageStart={sourcePageStart}
           sourcePageEnd={sourcePageEnd}
           onChangeSourcePageStart={setSourcePageStart}

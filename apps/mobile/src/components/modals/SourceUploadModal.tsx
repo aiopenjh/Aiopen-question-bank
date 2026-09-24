@@ -19,6 +19,7 @@ interface SourceUploadModalProps {
   sourceText?: string;
   sourceFileName?: string | null;
   sourcePageCount?: number | null;
+  isSourceFileLoading: boolean;
   sourcePageStart: number;
   sourcePageEnd: number;
   onChangeSourcePageStart: (page: number) => void;
@@ -41,6 +42,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
   sourceText,
   sourceFileName,
   sourcePageCount,
+  isSourceFileLoading,
   sourcePageStart,
   sourcePageEnd,
   onChangeSourcePageStart,
@@ -100,12 +102,19 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
 
             {/* 2단계: 파일 첨부 버튼 (PDF, TXT, ZIP) */}
             <Text style={[styles.stepLabel, { marginTop: 12 }]}>2️⃣ 교재 파일 첨부</Text>
-            <TouchableOpacity style={styles.uploadBtn} onPress={onPickSourceFile} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={[styles.uploadBtn, isSourceFileLoading && styles.uploadBtnDisabled]}
+              onPress={onPickSourceFile}
+              disabled={isSourceFileLoading}
+              activeOpacity={0.8}
+            >
               <Text style={styles.uploadBtnIcon}>📁</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.uploadBtnTitle}>교재 / 문제집 파일 선택하기</Text>
                 <Text style={styles.uploadBtnSub}>
-                  {sourcePageCount
+                  {isSourceFileLoading
+                    ? '⏳ 파일을 읽는 중입니다…'
+                    : sourcePageCount
                     ? `✅ ${sourceFileName || 'PDF'} · 총 ${sourcePageCount}페이지`
                     : sourceText
                     ? `✅ ${sourceFileName || '파일'} 내용 준비 완료`
@@ -113,7 +122,9 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                 </Text>
               </View>
               <View style={styles.uploadTag}>
-                <Text style={styles.uploadTagText}>{sourceText || sourcePageCount ? '변경' : '파일 탐색'}</Text>
+                <Text style={styles.uploadTagText}>
+                  {isSourceFileLoading ? '읽는 중' : sourceText || sourcePageCount ? '변경' : '파일 탐색'}
+                </Text>
               </View>
             </TouchableOpacity>
 
@@ -148,12 +159,12 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
             <TouchableOpacity
               style={[
                 styles.saveBtn,
-                !sourceTitle.trim() && styles.saveBtnDisabled,
+                (!sourceTitle.trim() || isSourceFileLoading) && styles.saveBtnDisabled,
               ]}
               onPress={async () => {
                 if (await onSaveSource()) onClose();
               }}
-              disabled={!sourceTitle.trim()}
+              disabled={!sourceTitle.trim() || isSourceFileLoading}
               activeOpacity={0.8}
             >
               <Text style={styles.saveBtnText}>💾 교재 자료 등록하기</Text>
@@ -263,6 +274,9 @@ const styles = StyleSheet.create({
     padding: 13,
     marginBottom: 6,
     gap: 10,
+  },
+  uploadBtnDisabled: {
+    opacity: 0.65,
   },
   uploadBtnIcon: {
     fontSize: 24,

@@ -100,6 +100,7 @@ export function useSourceManager(params: {
   const [sourcePageStart, setSourcePageStart] = useState(1);
   const [sourcePageEnd, setSourcePageEnd] = useState(RECOMMENDED_PDF_PAGE_BLOCK);
   const [pendingPdf, setPendingPdf] = useState<PdfMemoryEntry | null>(null);
+  const [isSourceFileLoading, setIsSourceFileLoading] = useState(false);
 
   function applyLargePdfDefault(pageCount: number): boolean {
     setSourcePageStart(1);
@@ -131,9 +132,12 @@ export function useSourceManager(params: {
   }
 
   async function handlePickSourceFile() {
+    let startedLoading = false;
     try {
       const file = await pickSingleDocument();
       if (!file) return;
+      startedLoading = true;
+      setIsSourceFileLoading(true);
       const fileName = file.name;
       const ext = fileName.split('.').pop()?.toLowerCase() || '';
 
@@ -145,6 +149,10 @@ export function useSourceManager(params: {
         return;
       }
 
+      // 새 파일을 읽는 동안 이전 파일의 준비 상태가 새 파일명과 섞이지 않게 비운다.
+      setPendingPdf(null);
+      setSourceText('');
+      setSourcePageCount(null);
       if (!sourceTitle.trim()) setSourceTitle(fileName.replace(/\.[^/.]+$/, ''));
       setSourceFileName(fileName);
 
@@ -190,10 +198,16 @@ export function useSourceManager(params: {
     } catch (error: any) {
       console.warn('파일 첨부 실패:', error);
       showAlert('파일 불러오기 실패', error?.message || '파일을 읽지 못했습니다.');
+    } finally {
+      if (startedLoading) setIsSourceFileLoading(false);
     }
   }
 
   async function handleSaveSource(): Promise<boolean> {
+    if (isSourceFileLoading) {
+      showAlert('알림', '파일을 읽는 중입니다. 완료된 뒤 다시 눌러 주세요.');
+      return false;
+    }
     if (!sourceTitle.trim()) {
       showAlert('알림', '자료 이름을 입력해 주세요.');
       return false;
@@ -366,6 +380,7 @@ export function useSourceManager(params: {
     setSourceTopicId,
     sourceFileName,
     sourcePageCount,
+    isSourceFileLoading,
     sourcePageStart,
     setSourcePageStart,
     sourcePageEnd,
