@@ -6,6 +6,8 @@ Celueste 선택형 공동 랭킹 API. Cloudflare Workers + D1.
 
 운영 Worker: `https://celueste-ranking-api.celueste-ranking-worker.workers.dev`
 
+웹 랭킹 탈퇴 요청 페이지: `apps/mobile/public/delete-account.html` (웹 배포 후 `/Aiopen-question-bank/delete-account.html`). 전체 백업 JSON에서 랭킹 복구 정보만 브라우저가 읽고 `POST /v1/participants/deletion-request`로 전송한다. 백업이 없는 사용자는 기존 의견 접수 경로로 지원을 요청한다.
+
 운영 D1 `celueste-ranking`은 APAC에 생성되어 있으며, Worker에는 요청 제한과
 매일 04:00 UTC 탈퇴 유예 정리 Cron이 연결되어 있다.
 
