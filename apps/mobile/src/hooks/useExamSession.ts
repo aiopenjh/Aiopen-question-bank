@@ -218,9 +218,11 @@ export function useExamSession({
         }
         run.records = records;
 
+        // 모든 문항이 채점 미완료면 단원 완료로 처리하지 않는다. 정상 채점 문항이 있으면 기존대로.
         const sessionUnitId = results[0]?.question.unitId;
         const targetUnit = units.find((u) => u.id === sessionUnitId);
-        if (targetUnit) await markUnitAsCompleted(targetUnit.id);
+        const hasGradedResult = results.some((item) => !isGradingIncomplete(item));
+        if (targetUnit && hasGradedResult) await markUnitAsCompleted(targetUnit.id);
 
         await onRefreshData();
         if (isChallenge) {

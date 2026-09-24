@@ -71,8 +71,31 @@ ${answerText}
 { "correct": true }`;
 }
 
+const INVALID_RESPONSE_REASON = 'AI 채점 응답 형식을 확인할 수 없습니다.';
+
+/**
+ * 서술형 체크리스트 응답 검증: 모든 항목 ID가 정확히 한 번씩 있고 met이 boolean이어야 한다.
+ * 누락·중복·알 수 없는 ID·잘못된 타입이 하나라도 있으면 null(채점 실패)을 돌려준다.
+ */
+function readChecklistResult(
+  checklist: NonNullable<QuestionRevision['gradingChecklist']>,
+  raw: unknown
+): { id: string; met: boolean }[] | null {
+  if (!Array.isArray(raw) || raw.length !== checklist.length) return null;
+  const expectedIds = new Set(checklist.map((item) => item.id));
+  const metById = new Map<string, boolean>();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+    const { id, met } = entry as Record<string, unknown>;
+    if (typeof id !== 'string' || !expectedIds.has(id) || metById.has(id) || typeof met !== 'boolean') return null;
+    metById.set(id, met);
+  }
+  return checklist.map((item) => ({ id: item.id, met: metById.get(item.id) === true }));
+}
+
 /**
  * 서술형/단답형 답안 채점. 재시도는 하지 않으며 실패 시 failed 상태를 반환합니다.
+ * AI 응답 형식이 올바르지 않으면 0점이 아니라 채점 실패로 처리합니다(AGENTS.md §2-A-4).
  */
 export async function gradeSubjectiveAnswer(
   question: QuestionRevision,
@@ -96,31 +119,24 @@ export async function gradeSubjectiveAnswer(
     const completion = await callUniversalAiCompletion(apiKey.trim(), prompt);
     const parsed = parseAiJsonResponse<Record<string, unknown>>(completion.text);
 
+    const response = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+
     if (question.questionType === 'essay' && question.gradingChecklist) {
-      const rawResult = Array.isArray(parsed.checklistResult) ? parsed.checklistResult : null;
-      if (!rawResult) {
-        return { gradingStatus: 'failed', gradingFailedReason: 'AI 채점 응답 형식을 확인할 수 없습니다.' };
+      const checklistResult = readChecklistResult(question.gradingChecklist, response?.checklistResult);
+      if (!checklistResult) {
+        return { gradingStatus: 'failed', gradingFailedReason: INVALID_RESPONSE_REASON };
       }
-      const metById = new Map<string, boolean>();
-      for (const raw of rawResult) {
-        if (raw && typeof raw === 'object' && typeof (raw as Record<string, unknown>).id === 'string') {
-          const r = raw as Record<string, unknown>;
-          metById.set(r.id as string, r.met === true);
-        }
-      }
-      const checklistResult = question.gradingChecklist.map((item) => ({
-        id: item.id,
-        met: metById.get(item.id) === true,
-      }));
       const score = question.gradingChecklist.reduce((sum, item, idx) => {
         return sum + (checklistResult[idx].met ? item.points : 0);
       }, 0);
       return { gradingStatus: 'graded', gradingScore: Math.round(score), gradingChecklistResult: checklistResult };
     }
 
-    // short_answer
-    const correct = parsed.correct === true;
-    return { gradingStatus: 'graded', gradingScore: correct ? 100 : 0 };
+    // short_answer: correct가 실제 boolean일 때만 채점 완료
+    if (typeof response?.correct !== 'boolean') {
+      return { gradingStatus: 'failed', gradingFailedReason: INVALID_RESPONSE_REASON };
+    }
+    return { gradingStatus: 'graded', gradingScore: response.correct ? 100 : 0 };
   } catch (err: any) {
     // 제공자/네트워크 예외 원문에는 키·요청 정보가 섞일 수 있으므로 사용자 기록에 보존하지 않는다.
     return {
