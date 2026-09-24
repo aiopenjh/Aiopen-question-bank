@@ -14,9 +14,10 @@ import { FeedbackModal } from '../features/study/FeedbackCard';
 import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
 import { DAILY_GOAL_DEFAULT } from '../domain/daily_goal';
 import { AppController } from '../hooks/useAppController';
+import { StorageSafeModeScreen } from './common/StorageSafeModeScreen';
 
 export function AppView({ controller }: { controller: AppController }) {  const {
-    loading, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
+    loading, storageError, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
     appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
     handleTouchMove, handleTouchEnd, onLayoutContainer, routine, todayAttempts, dueQuestions,
     refreshing, handlePullRefresh, handleStartExamWithAutoGenerate,
@@ -59,6 +60,10 @@ export function AppView({ controller }: { controller: AppController }) {  const 
         </SafeAreaView>
       </SafeAreaProvider>
     );
+  }
+
+  if (storageError) {
+    return <StorageSafeModeScreen error={storageError} onRetry={() => void controller.loadAppData(false)} />;
   }
 
   return (

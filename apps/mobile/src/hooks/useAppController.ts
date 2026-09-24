@@ -42,6 +42,7 @@ export function useAppController() {
   // 1. Core Data Hook
   const {
     loading,
+    storageError,
     refreshing,
     routine,
     topics,
@@ -390,7 +391,7 @@ export function useAppController() {
   };
 
   return {
-    loading, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
+    loading, storageError, loadAppData, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
     appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
     handleTouchMove, handleTouchEnd, onLayoutContainer, routine, todayAttempts, dueQuestions,
     refreshing, handlePullRefresh, handleStartExamWithAutoGenerate, handleGenerateMoreQuestions,
