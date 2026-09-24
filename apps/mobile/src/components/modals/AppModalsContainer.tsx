@@ -255,7 +255,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
 
       {/* AI 문제 출제 대기 안내 모달 */}
       {generatingWaitStatus?.active && (
-        <Modal visible transparent animationType="fade">
+        <Modal visible transparent animationType="fade" onRequestClose={onCancelGeneration}>
           <LoadingWaitOverlay status={generatingWaitStatus} onCancel={onCancelGeneration} />
         </Modal>
       )}

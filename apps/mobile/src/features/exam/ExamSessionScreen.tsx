@@ -13,6 +13,7 @@ import type { ExamAnswerResult } from '../../domain/exam_grading';
 export type { ExamAnswerResult } from '../../domain/exam_grading';
 import { updateQuestionHint } from '../../data/db';
 import { generateHintForExistingQuestion } from '../../domain/hint_generator';
+import { useAndroidBackHandler } from '../../hooks/useAndroidBackHandler';
 
 
 interface ExamSessionScreenProps {
@@ -54,6 +55,12 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   const [hintOverrides, setHintOverrides] = useState<Record<string, string>>({});
   const [isGeneratingHint, setIsGeneratingHint] = useState(false);
   const [hintError, setHintError] = useState<string | null>(null);
+  // 풀이공간이 열려 있으면 닫기만 하고, 아니면 ✕ 나가기와 같은 경로(채점 중 안내·종료 확인·결과 화면 나가기).
+  useAndroidBackHandler(() => {
+    if (showScratchpad && !isSubmitted) setShowScratchpad(false);
+    else handlePressExit();
+    return true;
+  });
 
   if (!questions || questions.length === 0) return null;
 

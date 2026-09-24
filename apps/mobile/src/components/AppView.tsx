@@ -15,6 +15,7 @@ import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
 import { DAILY_GOAL_DEFAULT } from '../domain/daily_goal';
 import { AppController } from '../hooks/useAppController';
 import { StorageSafeModeScreen } from './common/StorageSafeModeScreen';
+import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler';
 
 export function AppView({ controller }: { controller: AppController }) {  const {
     loading, storageError, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
@@ -51,6 +52,13 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     setVisitedPages(previous => previous.has(currentPage)
       ? previous : new Set([...previous, currentPage]));
   }, [currentPage]);
+  // 설정(2) → 과목자료함(1) → 홈(0). 홈에서는 가로채지 않아 Android 기본 종료를 허용한다.
+  // 시험 중에는 ExamSessionScreen이 처리한다.
+  useAndroidBackHandler(() => {
+    if (loading || storageError || examSessionActive || currentPage <= 0) return false;
+    goToPage(currentPage - 1, true);
+    return true;
+  });
   if (loading) {
     return (
       <SafeAreaProvider>
