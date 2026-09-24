@@ -43,7 +43,7 @@ interface PdfMemoryEntry {
 const pdfMemoryCache = new Map<string, PdfMemoryEntry>();
 
 // 네이티브는 선택기가 넘겨준 원본 URI(Android content://)를 새 File API로 직접 읽는다.
-// 캐시 복사본은 구형 FileSystem에서 READ 권한 오류가 나므로 사용하지 않는다.
+// Android는 캐시 복사본을 구형 FileSystem으로 읽을 때 READ 권한 오류가 나므로 원본을 쓴다.
 async function readPickedBytes(file: DocumentPicker.DocumentPickerAsset): Promise<Uint8Array> {
   if (Platform.OS === 'web' && (file as any).file) {
     return new Uint8Array(await (file as any).file.arrayBuffer());
@@ -80,7 +80,9 @@ async function fingerprintBytes(bytes: Uint8Array): Promise<string> {
 async function pickSingleDocument(): Promise<DocumentPicker.DocumentPickerAsset | null> {
   const result = await DocumentPicker.getDocumentAsync({
     type: '*/*',
-    copyToCacheDirectory: false,
+    // Android: 원본 content:// 권한으로 읽는다. iOS: 선택 즉시 읽으려면 캐시 복사가 필요하다
+    // (Expo DocumentPicker 문서). 웹은 브라우저 File 객체를 쓰므로 영향이 없다.
+    copyToCacheDirectory: Platform.OS !== 'android',
   });
   return result.canceled || !result.assets?.length ? null : result.assets[0];
 }

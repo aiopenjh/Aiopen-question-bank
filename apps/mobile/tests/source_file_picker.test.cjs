@@ -94,6 +94,20 @@ test('Android PDF is read from the original content URI with File.bytes() and it
   assert.match(alerts.at(-1)[1], /총 12페이지/);
 });
 
+test('iOS keeps the cache copy so the picked file can be read immediately', async () => {
+  const bytes = await makePdf(4);
+  const uri = 'file:///var/mobile/Containers/Data/Application/cache/DocumentPicker/book.pdf';
+  const { manager, alerts, pickerOptions, nativeReads } = loadSourceManager({
+    platform: 'ios',
+    asset: { uri, name: 'book.pdf' },
+    nativeFile: { bytes },
+  });
+  await manager.handlePickSourceFile();
+  assert.equal(pickerOptions[0].copyToCacheDirectory, true);
+  assert.deepEqual(nativeReads, [['bytes', uri]]);
+  assert.match(alerts.at(-1)[1], /총 4페이지/);
+});
+
 test('Android text and ZIP materials use File.text() and File.bytes()', async () => {
   const text = loadSourceManager({
     asset: { uri: 'content://docs/1', name: 'notes.md' },
@@ -120,12 +134,13 @@ test('web keeps reading the browser File object and never touches the native fil
     arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
     text: async () => 'unused',
   };
-  const { manager, alerts, nativeReads } = loadSourceManager({
+  const { manager, alerts, nativeReads, pickerOptions } = loadSourceManager({
     platform: 'web',
     asset: { uri: 'blob:http://localhost/1', name: 'web.pdf', file: browserFile },
     nativeFile: {},
   });
   await manager.handlePickSourceFile();
+  assert.equal(pickerOptions[0].copyToCacheDirectory, true); // 수정 전과 같은 값
   assert.deepEqual(nativeReads, []);
   assert.match(alerts.at(-1)[1], /총 3페이지/);
 });
