@@ -8,6 +8,7 @@ import { ExamActiveView } from './ExamActiveView';
 import { ExamResultView } from './ExamResultView';
 import { ExamHintModal } from './ExamHintModal';
 import { ScratchpadPanel } from './ScratchpadPanel';
+import { QuestionReportModal } from './QuestionReportModal';
 import { gradeExamAnswers } from '../../domain/exam_grading';
 import type { ExamAnswerResult } from '../../domain/exam_grading';
 export type { ExamAnswerResult } from '../../domain/exam_grading';
@@ -55,6 +56,8 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   const [hintOverrides, setHintOverrides] = useState<Record<string, string>>({});
   const [isGeneratingHint, setIsGeneratingHint] = useState(false);
   const [hintError, setHintError] = useState<string | null>(null);
+  // 신고 대상 문제. 신고는 답안·채점 상태와 분리된 별도 상태다.
+  const [reportTarget, setReportTarget] = useState<QuestionRevision | null>(null);
   // 풀이공간이 열려 있으면 닫기만 하고, 아니면 ✕ 나가기와 같은 경로(채점 중 안내·종료 확인·결과 화면 나가기).
   useAndroidBackHandler(() => {
     if (showScratchpad && !isSubmitted) setShowScratchpad(false);
@@ -234,6 +237,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
           onNextQuestion={handleNextQuestion}
           onSubmitExam={handleSubmitExam}
           isSaving={isSaving}
+          onReportQuestion={() => setReportTarget(q)}
         />
       ) : (
         <ExamResultView
@@ -245,6 +249,7 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
           onUndoCorrection={onUndoCorrection}
           onExitExam={onExitExam}
           onReinforceIncorrectConcepts={onReinforceIncorrectConcepts}
+          onReportQuestion={setReportTarget}
         />
       )}
 
@@ -258,6 +263,10 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
         isGeneratingHint={isGeneratingHint}
         generateHintError={hintError}
       />
+
+      {reportTarget ? (
+        <QuestionReportModal key={reportTarget.id} question={reportTarget} onClose={() => setReportTarget(null)} />
+      ) : null}
 
       {/* 풀이공간(Scratchpad) — 계산/풀이 보조용, 채점 미반영 */}
       {!isSubmitted && (

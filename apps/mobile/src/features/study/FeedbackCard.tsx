@@ -16,6 +16,31 @@ import { colors, radius, shadows, spacing } from '../../styles/designTokens';
 
 const FEEDBACK_ENDPOINT = 'https://formspree.io/f/xgavekne';
 
+/** 의견·문제 신고 공용 전송(Formspree). 20초 안에 응답이 없으면 'TIMEOUT', 실패 응답은 상태 코드로 오류를 던진다. */
+export async function postFeedback(fields: Record<string, string>): Promise<void> {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const response = await Promise.race([fetch(FEEDBACK_ENDPOINT, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fields),
+    }), new Promise<never>((_, reject) => {
+      timeout = setTimeout(() => {
+        reject(new Error('TIMEOUT'));
+        controller.abort();
+      }, 20000);
+    })]);
+    if (!response.ok) throw new Error(String(response.status));
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export interface FeedbackCardProps {
   compact?: boolean;
   onOpen?: () => void;
@@ -109,30 +134,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ visible, onClose }
     submittingRef.current = true;
     setIsSubmitting(true);
     setErrorMessage('');
-    const controller = new AbortController();
-    let timeout: ReturnType<typeof setTimeout> | undefined;
     let sent = false;
 
     try {
-      const response = await Promise.race([fetch(FEEDBACK_ENDPOINT, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: trimmedMessage,
-          _subject: 'Celueste 앱 사용자 의견',
-        }),
-      }), new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => {
-          reject(new Error('TIMEOUT'));
-          controller.abort();
-        }, 20000);
-      })]);
-
-      if (!response.ok) throw new Error(String(response.status));
+      await postFeedback({
+        message: trimmedMessage,
+        _subject: 'Celueste 앱 사용자 의견',
+      });
 
       sent = true;
       setMessage('');
@@ -146,7 +154,6 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ visible, onClose }
           : '의견을 보내지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.'
       );
     } finally {
-      clearTimeout(timeout);
       if (!sent) submittingRef.current = false;
       setIsSubmitting(false);
     }
@@ -257,7 +264,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ visible, onClose }
   );
 };
 
-const styles = StyleSheet.create({
+// 문제 신고 모달도 같은 모양을 쓴다.
+export const feedbackStyles = StyleSheet.create({
   cardContainer: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
@@ -458,3 +466,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
 });
+
+const styles = feedbackStyles;

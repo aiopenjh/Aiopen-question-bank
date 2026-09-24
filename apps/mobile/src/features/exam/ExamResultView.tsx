@@ -9,6 +9,7 @@ import { CurrentReferenceNotice } from '../../components/common/CurrentReference
 import { colors } from '../../styles/designTokens';
 import type { ExamAnswerResult } from './ExamSessionScreen';
 import { MathText } from '../../components/common/MathText';
+import { ReportQuestionButton } from './QuestionReportModal';
 
 export interface ExamResultViewProps {
   questions: QuestionRevision[];
@@ -20,6 +21,7 @@ export interface ExamResultViewProps {
   onUndoCorrection?: (index: number) => Promise<void> | void;
   onExitExam: () => void;
   onReinforceIncorrectConcepts?: (questions: QuestionRevision[]) => Promise<void> | void;
+  onReportQuestion?: (question: QuestionRevision) => void;
 }
 
 export const ExamResultView: React.FC<ExamResultViewProps> = ({
@@ -31,6 +33,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
   onUndoCorrection,
   onExitExam,
   onReinforceIncorrectConcepts,
+  onReportQuestion,
 }) => {
   const [reasonPickerIndex, setReasonPickerIndex] = useState<number | null>(null);
   const [correctionBusy, setCorrectionBusy] = useState(false);
@@ -278,6 +281,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                   .trim()}
               />
               <CurrentReferenceNotice reference={item.currentReference} />
+              {onReportQuestion ? <ReportQuestionButton onPress={() => onReportQuestion(item)} /> : null}
             </View>
 
             {/* 사용자 정정: 원래 채점은 보존하고 이 화면·오답노트·복습 일정에만 반영 */}
