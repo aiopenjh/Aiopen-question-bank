@@ -506,3 +506,39 @@ test('delete unit rolls back all collections when its batched write fails', asyn
   await assert.rejects(() => session.db.deleteUnit(unit.id));
   assert.deepEqual(sortedEntries(session.data), before);
 });
+
+test('legacy questions without questionType are read as multiple choice without rewriting storage', async () => {
+  const session = setup();
+  await session.db.initializeDatabase();
+  const essay = { ...question, id: 'essay', questionId: 'essay', questionType: 'essay', options: [], answerOptionId: '' };
+  const raw = JSON.stringify([{ ...question, id: 'legacy' }, { ...question, id: 'no-options', options: undefined }, essay]);
+  session.data.set(key('questions'), raw);
+
+  const loaded = await session.db.getQuestions();
+  const byId = new Map(loaded.map(item => [item.id, item]));
+  assert.equal(byId.get('legacy').questionType, 'multiple_choice');
+  assert.equal(byId.get('legacy').options.length, 2);
+  assert.equal(byId.get('no-options').questionType, 'multiple_choice');
+  assert.equal(byId.get('no-options').options.length, 0);
+  assert.equal(byId.get('essay').questionType, 'essay');
+  assert.equal(session.data.get(key('questions')), raw);
+});
+
+test('backup restore stores legacy questions as multiple choice and keeps other types', async () => {
+  const source = setup();
+  await source.db.initializeDatabase();
+  const topic = await source.db.createTopic('legacy math');
+  await source.db.addQuestions([
+    { ...question, topicId: topic.id },
+    { ...question, id: 'essay', questionId: 'essay', topicId: topic.id, questionType: 'essay', stem: '설명하시오', options: [], answerOptionId: '' },
+  ]);
+  const backup = await source.db.exportBackupJSON();
+  assert.ok(JSON.parse(backup).questions.some(item => item.id === 'q1' && !('questionType' in item)));
+
+  const target = setup();
+  await target.db.initializeDatabase();
+  assert.equal((await target.db.restoreBackupJSON(backup)).success, true);
+  const stored = new Map(JSON.parse(target.data.get(key('questions'))).map(item => [item.id, item]));
+  assert.equal(stored.get('q1').questionType, 'multiple_choice');
+  assert.equal(stored.get('essay').questionType, 'essay');
+});

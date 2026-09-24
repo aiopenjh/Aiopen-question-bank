@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { QuestionRevision } from '../../contracts/types';
 import { styles } from './libraryStyles';
+import { hasMissingOptions, MISSING_OPTIONS_LABEL } from '../../domain/question_integrity';
 
 export interface UnassignedQuestionsCardProps {
   questions: QuestionRevision[];
@@ -61,6 +62,11 @@ export const UnassignedQuestionsCard: React.FC<UnassignedQuestionsCardProps> = (
               <View key={`${q.id}-${qIdx}`} style={styles.questionItemCard}>
                 <View style={styles.questionItemHeader}>
                   <Text style={styles.questionItemNumber}>Q{qIdx + 1}.</Text>
+                  {hasMissingOptions(q) && (
+                    <View style={styles.missingOptionsBadge}>
+                      <Text style={styles.missingOptionsBadgeText}>{MISSING_OPTIONS_LABEL}</Text>
+                    </View>
+                  )}
                   <Text style={styles.questionItemStem} numberOfLines={isDetailOpen ? undefined : 2}>
                     {q.stem}
                   </Text>

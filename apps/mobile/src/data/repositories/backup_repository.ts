@@ -26,6 +26,7 @@ import {
 } from '../../contracts/types';
 import { normalizeAlarmConfig, type AlarmConfig } from '../../utils/notifications';
 import { filterCorrectionsForAttempts, normalizeAttemptCorrections } from '../../domain/attempt_outcome';
+import { normalizeStoredQuestions } from '../../domain/question_integrity';
 import { STORAGE_KEYS, CURRENT_DB_VERSION, getCurrentISOTime } from '../storage_keys';
 
 export type BackupKind = 'question-bank' | 'full';
@@ -294,7 +295,7 @@ function normalizeBackupPayload(value: unknown): AppBackupPayload {
     topicSourceLinks: readArray<TopicSourceLink>(value, 'topicSourceLinks'),
     units: readArray<Unit>(value, 'units'),
     learningSpecs: readArray<LearningSpec>(value, 'learningSpecs'),
-    questions: readArray<QuestionRevision>(value, 'questions', true),
+    questions: normalizeStoredQuestions(readArray<QuestionRevision>(value, 'questions', true)),
     sessions: readArray<StudySession>(value, 'sessions'),
     sessionItems: readArray<SessionItem>(value, 'sessionItems'),
     attempts,

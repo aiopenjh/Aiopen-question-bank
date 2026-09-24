@@ -9,6 +9,7 @@ import {
   AttemptCorrectionReason,
 } from '../contracts/types';
 import { distributeQuestionAnswersRandomly } from '../domain/question_distribution';
+import { hasMissingOptions, MISSING_OPTIONS_LABEL } from '../domain/question_integrity';
 import { calculateNextReviewState } from '../domain/spaced_repetition';
 import { isGradingIncomplete } from '../domain/attempt_outcome';
 import {
@@ -109,6 +110,17 @@ export function useExamSession({
         );
         return;
       }
+
+      // 보기 누락 객관식은 풀 수 없으므로 제외한다(문제는 삭제하지 않는다).
+      const playable = list.filter((q) => !hasMissingOptions(q));
+      if (playable.length === 0) {
+        showAlert(
+          '풀 수 있는 문제 없음',
+          `선택한 ${list.length}문제 모두 보기가 누락되어 시험을 시작할 수 없습니다.\n문제 목록의 '${MISSING_OPTIONS_LABEL}' 표시를 확인해 주세요.`
+        );
+        return;
+      }
+      list = playable;
 
       // 문제의 소속 대단원 파악하여 최근 학습 대단원으로 자동 기억 및 저장
       const firstQTopicId = list[0]?.topicId;
