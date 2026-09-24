@@ -113,7 +113,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                 <Text style={styles.uploadBtnTitle}>교재 / 문제집 파일 선택하기</Text>
                 <Text style={styles.uploadBtnSub}>
                   {isSourceFileLoading
-                    ? '⏳ 파일을 읽는 중입니다…'
+                    ? '⏳ 파일을 읽는 중입니다. 용량에 따라 몇 분 걸릴 수 있습니다.'
                     : sourcePageCount
                     ? `✅ ${sourceFileName || 'PDF'} · 총 ${sourcePageCount}페이지`
                     : sourceText

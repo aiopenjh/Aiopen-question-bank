@@ -160,7 +160,7 @@ export function useSourceManager(params: {
         if (!warnedForSize) {
           showAlert(
             'PDF 불러오기 완료',
-            `${fileName}\n총 ${pageCount}페이지를 확인했습니다.\n\nPDF 원본은 저장하지 않으며 선택한 페이지는 목차나 문제를 만들 때만 Gemini에 전달됩니다.`
+            `${fileName}\n총 ${pageCount}페이지를 확인했습니다.\n\nPDF 원본은 저장하지 않고 Celueste에 연결됩니다. 목차나 문제를 만들 때 선택한 페이지만 AI 분석에 사용됩니다.`
           );
         }
         return;
@@ -196,7 +196,7 @@ export function useSourceManager(params: {
 
   async function handleSaveSource(): Promise<boolean> {
     if (isSourceFileLoading) {
-      showAlert('알림', '파일을 읽는 중입니다. 완료된 뒤 다시 눌러 주세요.');
+      showAlert('알림', '파일을 읽는 중입니다. 용량에 따라 몇 분 걸릴 수 있으니 완료될 때까지 기다려 주세요.');
       return false;
     }
     if (!sourceTitle.trim()) {
@@ -299,7 +299,10 @@ export function useSourceManager(params: {
       const { PDFDocument } = await loadPdfLibrary();
       const pdf = await PDFDocument.load(bytes, { ignoreEncryption: false });
       pdfMemoryCache.set(sourceId, { bytes, fingerprint, fileName: file.name, pageCount: pdf.getPageCount() });
-      showAlert('원본 PDF 연결 완료', 'PDF는 저장하지 않고 이번 실행 중에만 목차와 문제 출제에 사용합니다.');
+      showAlert(
+        '원본 PDF 연결 완료',
+        'PDF 원본을 저장하지 않고 Celueste에 연결했습니다. 이번 실행 중 목차나 문제를 만들 때 선택한 페이지만 AI 분석에 사용됩니다.'
+      );
     } catch (error: any) {
       showAlert('PDF 연결 실패', error?.message || 'PDF를 다시 읽지 못했습니다.');
     }
