@@ -2,34 +2,36 @@
 
 ## 작업 ID
 
-`anthropic-sonnet-46-20260925`
+`android-real-device-round1-20260925`
 
 ## 사용자 요청과 역할
 
-사용자가 퇴역한 Claude 3.5 Sonnet 대신 `claude-sonnet-4-6` 사용을 승인했다. 복잡한 코드 수정은 Claude가, 검토·원격 반영·배포는 Codex가 담당한다.
+사용자가 첫 Celueste Android APK `2.3.6 (7)` 실기기 시험에서 문제 11개를 보고했다. 간단한 입력창·페이지 번호·자료 제목·의견 창·아이콘은 Codex가 먼저 `82dc54b`에 수정했다. 복잡한 기능과 플랫폼 차이는 Claude가 구현하고 Codex가 교차검토한다. `D:/ai bank`의 기존 작업 트리는 수정하지 않는다.
 
-## 기준과 작업 폴더
+## 기준
 
-- Android: `origin/feature/android-app@c124929`, 작업 폴더 `C:/Users/choor/.codex/worktrees/android-web-hotfix-sync/ai bank`
-- 웹: `origin/main@bf4f8f2`, 작업 폴더 `C:/Users/choor/.codex/worktrees/anthropic-sonnet-46-web/ai bank`
-- `D:/ai bank`의 작업 트리는 건드리지 않는다.
+- 작업 폴더: `C:/Users/choor/.codex/worktrees/android-web-hotfix-sync/ai bank`
+- 브랜치: `feature/android-release-candidate`
+- 시작 커밋: `82dc54b` (원격 `feature/android-app@99fd5f2` 위의 로컬 커밋)
+- 사용자 캡처는 2026-09-25 대화의 1~13번 이미지. 코드와 캡처를 대조할 것.
+- 새 커밋 메시지는 짧고 명확한 한글. 기존 커밋 재작성 금지.
 
-## 승인된 변경 범위
+## Claude 구현 범위
 
-1. 두 브랜치의 `apps/mobile/src/domain/ai_client.ts`에서 Anthropic Messages API 모델을 `claude-sonnet-4-6`으로 교체하고, Claude 3.5로 적힌 주석·오류 문구를 현재 모델에 맞춘다.
-2. 웹 main에는 Android 브랜치에서 이미 검증된 `anthropic-dangerous-direct-browser-access: true` 헤더도 적용한다. Android의 같은 헤더는 유지한다.
-3. 기존 API 키 경로, AI 전송 안내, 요청 취소, Gemini/OpenAI 경로, PDF·검색 기능 제한은 유지한다.
-4. Anthropic 요청 모델·헤더와 정상·빈 응답·오류 처리를 실제 동작 기준으로 검사하는 최소 회귀 테스트를 추가한다. 실제 API 키나 사용자 데이터를 사용하지 않는다.
-5. 두 작업 폴더의 코드를 각각 커밋한다. 새 커밋 메시지는 한글로 쓰고 이전 커밋 이력은 재작성하지 않는다.
+1. **네이티브 알림창 디자인 (#3·#6·#9 및 미답변 확인)**: Android에서 과목 등록 완료, PDF 불러오기/등록 완료, 미답변 확인 등이 기본 OS 알림창으로 보인다. `showAlert`, `registerAlertListener`, `AppAlertModal`, `UniversalModal`과 네이티브 Modal 계층을 추적해 왜 그런지 확인하고, 해당 화면에서 앱 디자인의 확인창을 보이게 한다. 확인/취소 콜백과 Android 뒤로가기 동작을 보존한다. 단순히 `Alert.alert` 폴백을 지워 알림이 사라지게 하지 않는다.
+2. **PDF 문제집 내보내기 (#4)**: `DataBackupSection.tsx`는 네이티브에서 미리보기 버튼이 웹 전용 오류를 띄우고, 직접 저장 버튼은 아무 반응 없이 return한다. 두 버튼 모두 거짓 약속을 하지 않게 정리하고 Android에서 실제 PDF 생성·저장/공유가 가능한 경로를 구현한다. 현재 `workbookPdf.ts`는 DOM Canvas 의존, `expo-file-system`·`expo-sharing`·`pdf-lib`은 이미 설치되어 있다. 한글 텍스트·정답/해설·복수 과목·긴 문제 페이지 나눔을 보존한다. **새 의존성이 필수면 설치 전에 정확한 패키지/이유/대안만 보고하고 이 하위 작업은 보류한다.** 다른 항목은 계속 진행한다.
+3. **사용설명서 (#5)**: 펼친 항목에서 Android 스크롤·닫기·시스템 뒤로가기가 매우 느리거나 반응하지 않는 현상을 조사·개선한다. `UserManualModal.tsx`의 긴 콘텐츠 렌더링과 중첩 터치 구조를 우선 확인하고, 설명 내용은 유지한다.
+4. **문제 신고 배치 (#10)**: Play의 인앱 AI 콘텐츠 신고 통로는 유지하되 문제마다 반복되는 신고 버튼은 제거한다. 시험장 상단의 눈에 띄지만 간결한 `문제 신고` 진입점 1개로 바꾼다. 풀이 중에는 현재 문제를 신고하고, 결과 화면에서는 신고할 문제를 선택할 수 있게 한다. 기존 Formspree 전송 항목/비전송 항목·사용자 확인·실패 재시도·답안/채점 분리는 유지한다. 메일은 기존 수신 경로를 쓰며 새 서버를 만들지 않는다.
 
-## 검증과 인수인계
+## Codex 수정과 충돌 방지
 
-- 각 브랜치에서 관련 테스트와 `cmd.exe /c npx tsc --noEmit`을 실행한다. 이미 검증한 무관한 전체 테스트를 반복할 필요는 없다.
-- `CLAUDE_REPORT.md`에 브랜치별 커밋·변경 파일·검증 결과·남은 위험을 기록한다.
-- `STATUS.json`을 `codex_review`로 바꾸고 `activeAgent`를 `codex`로 넘긴다.
-- Claude는 push, main 병합, 웹 배포, EAS 빌드를 하지 않는다.
+- `82dc54b`에서 Android 키보드 가림 개선, 페이지 숫자 편집, 파일 변경 시 자동 제목 교체, 의견 창 높이, Android 아이콘을 수정했다. 우선 이 파일들을 수정하지 말고 위 범위에 집중한다: `SourceUploadModal.tsx`, `TopicModal.tsx`, `ApiKeySection.tsx`, `SettingsScreen.tsx`, `FeedbackCard.tsx`, `useSourceManager.ts`, `app.json`.
+- 기존에 **저장된** 잘못된 자료 제목은 조용히 대량 변경하지 않는다. 새 파일 선택 시 자동 제목만 갱신되도록 Codex가 고쳤다.
+- 다른 기능·디자인·데이터 스키마·랭킹·AI 모델·웹 운영 배포를 바꾸지 않는다.
 
-## 알려진 별도 제약
+## 완료 조건과 인수인계
 
-- Celueste의 기존 EAS 프로젝트 ID와 Android 서명키는 아직 식별되지 않았다. Expo Go의 `Bank` 프로젝트는 Celueste 빌드 프로젝트로 확인되지 않았다.
-- 이번 모델 교체는 실제 사용자 Anthropic API 키로 호출하지 않는다. 네트워크 요청은 테스트에서 모의 처리한다.
+- 변경 범위에 맞는 최소 테스트와 Windows `cmd.exe /c npx tsc --noEmit`을 실행한다. APK 실기기 검증을 했다고 주장하지 않는다.
+- 수정 내역, 근거, 미해결/새 의존성 필요 사항을 `docs/ai-handoff/CLAUDE_REPORT.md`에 기록한다.
+- 관련 코드만 한글 커밋으로 기록하고 `STATUS.json`을 `codex_review`, `activeAgent: codex`로 넘긴다.
+- Claude는 push, main 병합, 웹 배포, EAS 빌드, 데이터 삭제를 하지 않는다.
