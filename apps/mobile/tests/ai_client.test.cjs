@@ -24,7 +24,7 @@ function harness(fetchImpl, noticeAccepted = true) {
       ? { ensureAiDataNoticeAccepted: async () => noticeAccepted }
       : { DEFAULT_GEMINI_MODEL: defaultModel },
     fetch: async (url, request) => {
-      requests.push({ model: url.match(/models\/([^:]+):/)[1], request });
+      requests.push({ url, model: url.match(/models\/([^:]+):/)?.[1], request });
       return fetchImpl(url, request);
     },
   }, { filename });
@@ -104,5 +104,51 @@ test('cancelling during a limited request prevents further model attempts', asyn
 test('declining the AI data notice sends no network request', async () => {
   const h = harness(success, false);
   await assert.rejects(() => h.call('synthetic-secret', 'prompt'), /AI 전송 안내/);
+  assert.equal(h.requests.length, 0);
+});
+
+const anthropicReply = (content, status = 200) => () => ({
+  ok: status < 400, status, json: async () => ({ content }),
+});
+
+test('Anthropic key sends one Sonnet 4.6 Messages request with browser access header', async () => {
+  const controller = new AbortController();
+  const h = harness(anthropicReply([{ type: 'text', text: '{"ok":true}' }]));
+  const result = await h.call('  sk-ant-synthetic  ', 'prompt', controller.signal);
+  // result comes from the vm realm, so compare fields instead of deepEqual on prototypes.
+  assert.deepEqual(Object.keys(result).sort(), ['groundingSources', 'text']);
+  assert.equal(result.text, '{"ok":true}');
+  assert.ok(Array.isArray(result.groundingSources));
+  assert.equal(result.groundingSources.length, 0);
+  assert.equal(h.requests.length, 1);
+  const { url, request } = h.requests[0];
+  assert.equal(url, 'https://api.anthropic.com/v1/messages');
+  assert.equal(request.signal, controller.signal);
+  assert.equal(request.headers['x-api-key'], 'sk-ant-synthetic');
+  assert.equal(request.headers['anthropic-version'], '2023-06-01');
+  assert.equal(request.headers['anthropic-dangerous-direct-browser-access'], 'true');
+  assert.ok(!('dangerously-allow-browser' in request.headers));
+  const body = JSON.parse(request.body);
+  assert.equal(body.model, 'claude-sonnet-4-6');
+  assert.deepEqual(body.messages, [{ role: 'user', content: 'prompt' }]);
+});
+
+test('Anthropic empty response and HTTP error fail without Gemini fallback', async () => {
+  const empty = harness(anthropicReply([]));
+  await assert.rejects(empty.call('sk-ant-synthetic', 'prompt'), /Claude로부터 빈 응답/);
+  const failed = harness(anthropicReply(undefined, 401));
+  await assert.rejects(failed.call('sk-ant-synthetic', 'prompt'), /Claude Sonnet 4\.6 통신 실패 \(401\)/);
+  for (const h of [empty, failed]) {
+    assert.equal(h.requests.length, 1);
+    assert.equal(h.requests[0].url, 'https://api.anthropic.com/v1/messages');
+  }
+});
+
+test('Anthropic key rejects PDF and current-information requests before any network call', async () => {
+  const h = harness(anthropicReply([{ type: 'text', text: '{}' }]));
+  await assert.rejects(h.call('sk-ant-synthetic', 'p', undefined,
+    { mimeType: 'application/pdf', base64Data: 'Zml4dHVyZQ==' }), /PDF 분석을 지원하는/);
+  await assert.rejects(h.call('sk-ant-synthetic', 'p', undefined, undefined, { enableGoogleSearch: true }),
+    /최신 정보 확인/);
   assert.equal(h.requests.length, 0);
 });
