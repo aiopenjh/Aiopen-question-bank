@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Keyboard, Platform } from 'react-native';
 import { QuestionRevision } from '../../contracts/types';
 import { styles } from './examStyles';
 import { colors } from '../../styles/designTokens';
@@ -42,10 +42,29 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
   const q = questions[currentIndex];
   const currentSelectedOptionId = userAnswers[currentIndex] || null;
   const currentClozeAnswers = userClozeAnswers[currentIndex] || [];
+  const bodyRef = useRef<ScrollView>(null);
+  const focusedInputRef = useRef<unknown>(null);
+
+  function revealFocusedInput(node: unknown) {
+    bodyRef.current?.scrollResponderScrollNativeHandleToKeyboard(node, 24, true);
+  }
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      if (focusedInputRef.current !== null) revealFocusedInput(focusedInputRef.current);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  function handleAnswerFocus(node: unknown) {
+    focusedInputRef.current = node;
+    if (Platform.OS === 'android') revealFocusedInput(node);
+  }
 
   return (
     <>
-      <ScrollView style={styles.examBody} contentContainerStyle={styles.examContentContainer}>
+      <ScrollView ref={bodyRef} style={styles.examBody} contentContainerStyle={styles.examContentContainer} keyboardShouldPersistTaps="handled">
         {/* 문제 번호 및 마킹 상태 바 */}
         <View style={styles.quickNavRow}>
           {questions.map((_, idx) => {
@@ -136,6 +155,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
                     styles.answerInputText,
                   ]}
                   placeholder={`${idx + 1}번 빈칸 답안`}
+                  onFocus={(event) => handleAnswerFocus(event.target)}
                   value={currentClozeAnswers[idx] || ''}
                   onChangeText={(text) => onClozeAnswerChange(idx, text)}
                 />
@@ -162,6 +182,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
               multiline
               maxLength={q.maxAnswerLength || 2000}
               placeholder={q.questionType === 'essay' ? '서술형 답안을 입력하세요 (최대 2,000자)' : '단답형 답안을 입력하세요'}
+              onFocus={(event) => handleAnswerFocus(event.target)}
               value={currentSelectedOptionId || ''}
               onChangeText={onAnswerTextChange}
             />
