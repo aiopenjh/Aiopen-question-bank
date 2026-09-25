@@ -21,9 +21,9 @@
 - 배포 대상: GitHub Pages 정적 웹, EAS Android 빌드
 - 선택형 랭킹 서버: Cloudflare Workers + D1 + Rate Limiting
 
-중앙 학습 서버 없이도 저장된 문제의 기본 학습 기능이 동작하는 로컬 퍼스트 구조입니다. 네트워크는 AI 문제 생성·채점, 업데이트 확인, 선택형 랭킹, 의견·문제 신고처럼 명시적인 기능에서만 사용합니다.
+중앙 학습 서버 없이도 저장된 문제의 기본 학습 기능이 동작하는 로컬 퍼스트 구조입니다. 네트워크는 AI 문제 생성·채점, 웹 버전 업데이트 확인, 선택형 랭킹, 의견·문제 신고처럼 명시적인 기능에서만 사용합니다. Android 설치 APK의 `갱신`은 서버 조회·자동 설치가 아닙니다.
 
-핵심 흐름은 `App.tsx → AppView/useAppController → 기능 훅 → domain → repository → app_storage → IndexedDB/SQLite`입니다. Android의 AsyncStorage는 기존 데이터 이관·복구 경계에 남아 있습니다. 화면은 저장소나 외부 API를 직접 다루지 않고 각 계층의 책임을 거칩니다.
+핵심 학습 흐름은 `App.tsx → AppView/useAppController → 기능 훅 → domain → repository → app_storage → IndexedDB/SQLite`입니다. Android의 AsyncStorage는 기존 데이터 이관 경계에 남아 있습니다. 다만 의견·문제 신고 모달은 공용 `postFeedback()`을 화면에서 직접 호출하는 현재 구현의 예외입니다.
 
 | 계층 | 책임 | 대표 위치 |
 | --- | --- | --- |
@@ -168,7 +168,7 @@ node --test tests/*.cjs
 5. 저장소 계층이 문제 리비전과 제출키를 웹 IndexedDB 또는 Android SQLite에 기록합니다.
 6. `ExamSessionScreen`은 저장된 문제를 받아 CBT 오버레이를 표시합니다.
 
-화면 컴포넌트에서 AI 제공자나 저장 엔진을 직접 호출하지 않습니다. 생성 실패 시 부분 결과나 가짜 문제를 저장하지 않습니다.
+문제 생성 화면은 AI 제공자나 저장 엔진을 직접 호출하지 않습니다. 생성 실패 시 부분 결과나 가짜 문제를 저장하지 않습니다. 의견·신고의 공용 전송 함수는 앞서 설명한 화면 계층 예외입니다.
 
 ## 5. AI 생성 파이프라인
 
@@ -216,13 +216,15 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
   - 저장소 초기화와 공개 데이터 API
 - `apps/mobile/src/data/repositories/`
   - 과목, 문제, 자료, 백업, 랭킹 저장 책임 분리
+- `apps/mobile/src/data/repositories/backup_payload.ts`, `backup_validation.ts`
+  - 백업 형식 정규화와 중첩 항목·주요 ID 및 참조 검사. 구형 데이터 호환을 위해 일부 과거 고아 참조는 허용
 - `apps/mobile/src/data/storage_keys.ts`
   - 저장 키의 단일 정의
 
 백업은 JSON만 생성하고 복원도 JSON만 받습니다. 설정의 `백업하기`에서 두 종류를 고르며, 파일의 `backupKind`로 종류를 구분합니다(`backup_repository.ts`).
 
 - 문제만 백업(`backupKind: "question-bank"`): `topics`, `units`, `learningSpecs`, `questions`만 포함합니다. 복원하면 이 4개 키만 교체하고 풀이·복습·교재·설정·랭킹 연결은 유지합니다.
-- 전체 백업(`backupKind: "full"`): 위 항목과 프로필, 루틴, 교재(`sources`, `sourceRevisions`, `sourceChunks`, `topicSourceLinks`), 세션, `attempts`(도전 기록 포함), `reviewStates`, 수동 완료, 오답노트, 선호 모델, 최근 학습 과목, 알람 설정, 랭킹 복구 정보(`rankingNickname`, `rankingParticipantId`, `rankingRecoveryToken`)를 포함합니다. 복원하면 이 데이터를 교체하고, 실패 시 복원 대상 키 전체를 이전 스냅샷으로 되돌립니다. 랭킹 복구 토큰이 있을 때만 현재 기기 연결을 복구 seed로 전환합니다.
+- 전체 백업(`backupKind: "full"`): 위 항목과 프로필, 루틴, 교재(`sources`, `sourceRevisions`, `sourceChunks`, `topicSourceLinks`), 세션, `attempts`(도전 기록 포함), 사용자 정정 기록(`attemptCorrections`), `reviewStates`, 수동 완료, 오답노트, 선호 모델, 최근 학습 과목, 알람 설정, 랭킹 복구 정보(`rankingNickname`, `rankingParticipantId`, `rankingRecoveryToken`)를 포함합니다. 복원하면 이 데이터를 교체하고, 실패 시 복원 대상 키 전체를 이전 스냅샷으로 되돌립니다. 랭킹 복구 토큰이 있을 때만 현재 기기 연결을 복구 seed로 전환합니다.
 - `backupKind`가 없는 이전 JSON은 전체 백업 전용 필드가 있으면 전체, 없으면 문제만 백업으로 판별합니다.
 - API 키와 기기 토큰(deviceToken)은 두 종류 모두 제외합니다. 두 종류 모두 복원 전에 확인창을 띄웁니다.
 
@@ -358,8 +360,8 @@ npm run deploy
 6. 배포된 변경을 `CHANGELOG.md`에 기록합니다.
 7. 앱 릴리스라면 `app.json`의 `version`과 `buildInfo.ts`·`public/version.json`의 버전을 맞추고, 뒤 두 파일의 빌드 시각도 맞춥니다.
    - 첫 정식 출시 때 사용자에게 보이는 버전은 `1.0.0`으로 시작합니다. 개발·테스트 때 사용한 `2.3.x` 표기를 그대로 출시하지 않습니다. Android 내부 `versionCode`는 기존 테스트 앱을 덮어 설치할 수 있도록 EAS 원격 값에서 계속 증가시키며 초기화하지 않습니다.
-8. `main`을 푸시한 뒤 승인된 대상만 Worker와 GitHub Pages에 배포합니다.
-9. 운영 `version.json`, Worker `/health`, GitHub Pages Actions 결과를 확인합니다.
+8. 웹 배포라면 `main` 반영을 별도 승인받은 뒤 승인된 대상만 Worker와 GitHub Pages에 배포합니다. Android 빌드는 이 순서와 별개입니다.
+9. 웹 배포 시 운영 `version.json`, Worker `/health`, GitHub Pages Actions 결과를 확인합니다.
 
 문구 정리나 사용설명서 보완처럼 사용자가 버전 유지 배포를 명시한 경우에는 `buildInfo.ts`와 버전 번호를 변경하지 않습니다. 이 경우에도 문서와 커밋에는 실제 변경 내용을 남깁니다.
 
@@ -389,12 +391,15 @@ npx eas-cli build -p android --profile preview
 
 - 주관식 채점은 AI 통신이 필요합니다. 현재 채점 실패 답안은 보존되지만 자동 재채점 화면은 없습니다.
 - 주관식 채점은 `domain/exam_grading.ts`에서 동시에 최대 2개 요청으로 제한합니다. 공급자 제한과 비용은 Beta에서 관찰해야 합니다.
-- 백업은 최상위 스키마를 검사하지만 중첩 객체 검증을 더 강화할 여지가 있습니다.
+- 백업은 `backup_validation.ts`에서 중첩 항목 형식, 주요 ID 중복과 참조를 검사합니다. 구형 백업 호환을 위해 일부 과거 고아 참조를 허용하므로 모든 관계가 완전하다고 주장하지 않습니다.
+- Android 설정의 `갱신`은 새 APK를 검색·설치하지 않고 현재 표시 버전 안내만 보여줍니다. 테스트 APK 업데이트는 새 빌드를 받아 설치해야 합니다.
 - 웹 자동 회귀는 도메인 테스트 중심이며 실제 브라우저 E2E는 아직 별도 구축 대상입니다.
 - 랭킹 Worker와 D1은 운영 배포되어 있습니다. 로컬 Expo는 기본적으로 `localhost:8787`을 사용하므로 운영 서버 시험 시 환경 변수 주입이 필요합니다.
 - 현재 테스트 APK의 표시 버전은 `v2.3.6`이며 EAS 내부 빌드 번호는 13까지 사용했습니다. 이는 첫 정식 출시 버전이 아닙니다. 공개 출시 때 표시 버전 `1.0.0`을 맞추되 내부 빌드 번호는 계속 증가시킵니다.
 
-## 13. 성능 보수 경계 (2026-09-22)
+## 13. 성능 보수 기록 (2026-09-22 당시)
+
+이 절은 해당 날짜에 적용·보류한 작업의 기록입니다. 현재 Android 저장 방식은 6절의 SQLite 설명을 따릅니다.
 
 - `question_history.ts`: 기존 submissionKey 부분 일치와 저장 순서를 유지하는 오답 인덱스. 초기 로딩·시험 완료 시 이미 읽은 배열을 재사용합니다.
 - `exam_grading.ts`: 화면에서 분리한 유형별 채점 조정. 최대 동시 요청 2개, 결과 순서 보존. 기존 화면의 타입 export는 호환성을 위해 유지합니다.
@@ -404,10 +409,10 @@ npx eas-cli build -p android --profile preview
 - TypeScript는 `noUnusedLocals`와 `noUnusedParameters`를 기본 적용하여 사용되지 않는 import, props와 콜백이 다시 누적되지 않게 합니다.
 - `topic_unit_repository.ts`의 다중 저장은 공통 롤백 경계를 사용해 과목·단원 삭제 중 실패 시 기존 스냅샷 복원 순서를 유지합니다.
 - 생성기 내 구형 주석 검증기 제거, 힌트 검증은 `generator_validation.ts`로 통합하고 기존 export를 유지합니다.
-- 현재 저장 스키마와 백업 형식은 유지합니다. 문제별 IndexedDB 레코드 전환은 별도 마이그레이션·복구 검증이 필요한 후속 작업입니다.
+- 당시 웹 저장 스키마와 백업 형식은 유지했습니다. 이후 Android는 SQLite 키-값 저장소로 전환했지만, 웹의 문제별 IndexedDB 레코드 전환이나 SQLite 개별 엔티티 테이블 분리는 아직 하지 않았습니다. 각각 별도 마이그레이션·복구 검증이 필요합니다.
 - 목록 가상화, ZIP 비동기 처리, PDF 메모리 한도, 방문 후 화면 렌더링 최적화 및 이미지 용량 축소는 추가 계측 후 진행할 항목입니다.
 
-## 14. 개발 수준과 다음 성장 기준 (2026-09-23)
+## 14. 개발 수준과 다음 성장 기준 (2026-09-23에 기록한 운영 원칙)
 
 기능을 구현하는 순수 코딩 능력만 놓고 보면 실무 연차별 차이가 항상 크지는 않습니다. 연차가 높아질수록 더 크게 드러나는 차이는 코드의 화려함보다 **운영 중 발생할 문제를 미리 예상하고 통제하는 판단력**입니다.
 
@@ -424,6 +429,8 @@ Celueste는 현재 로컬 퍼스트 학습 데이터, AI 문제 생성, 여러 �
 따라서 이 프로젝트의 다음 목표는 “더 복잡한 코드를 작성하는 것”이 아니라 **실패·확장·데이터·보안·비용·배포를 예측 가능하게 관리하는 제품 운영 역량을 갖추는 것**입니다. 개발자 수준은 특정 연차의 이름보다 이러한 과정을 독립적으로 판단하고 끝까지 책임져 본 경험으로 평가합니다.
 
 ## 15. 추후 개발 의향: 외부 교재·문제은행 연결 통로
+
+이 절은 학원·기관으로 확장할 때의 구상이며, 현재 우선 대상인 일반 개인용 출시 범위에 포함된 기능이 아닙니다.
 
 개인 사용자는 지금처럼 기기에서 소수의 PDF·텍스트 자료를 직접 선택하는 흐름을 유지합니다. 학원·교육기관은 대용량 교재, 기출문제와 다수의 문제지를 반복해서 사용하므로 파일을 매번 기기에 복사하거나 다시 선택하는 방식만으로는 운영하기 어렵습니다.
 
