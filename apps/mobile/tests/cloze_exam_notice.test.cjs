@@ -11,14 +11,18 @@ const ROOT = path.resolve(__dirname, '..');
 function harness() {
   const state = [];
   let cursor = 0;
+  const keyboardListeners = {};
   const jsx = (type, props) => ({ type, props: { ...(props || {}), children: [props?.children].flat(Infinity).filter(c => c !== undefined && c !== null && c !== false) } });
   const react = {
     useState(v) { const i = cursor++; if (!(i in state)) state[i] = v; return [state[i], n => { state[i] = typeof n === 'function' ? n(state[i]) : n; }]; },
     useRef(v) { const i = cursor++; if (!(i in state)) state[i] = { current: v }; return state[i]; },
-    useEffect() {},
+    useEffect(callback) { callback(); },
   };
   react.default = react;
-  const native = new Proxy({ Platform: { OS: 'android' }, StyleSheet: { create: s => s }, Keyboard: { addListener: () => ({ remove() {} }) } }, {
+  const native = new Proxy({ Platform: { OS: 'android' }, StyleSheet: { create: s => s }, Keyboard: { addListener: (name, callback) => {
+    keyboardListeners[name] = callback;
+    return { remove() { delete keyboardListeners[name]; } };
+  } } }, {
     get: (t, k) => (k in t ? t[k] : String(k)),
   });
   const cache = new Map();
@@ -31,6 +35,7 @@ function harness() {
     }).outputText;
     vm.runInNewContext(code, {
       module, exports: module.exports, Array, Object, Math, Set, Map,
+      setTimeout(callback) { callback(); return 1; }, clearTimeout() {},
       require: name => {
         if (name === 'react') return react;
         if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' };
@@ -45,7 +50,7 @@ function harness() {
     return module.exports;
   };
   const render = (component, props) => { cursor = 0; return component(props); };
-  return { load, render };
+  return { load, render, showKeyboard: event => keyboardListeners.keyboardDidShow(event) };
 }
 
 const all = (tree, out = []) => {
@@ -99,7 +104,7 @@ test('non-cloze questions do not render the cloze abbreviation notice', () => {
   assert.ok(!textOf(tree).includes(CLOZE_ABBREVIATION_NOTICE));
 });
 
-test('focusing a blank scrolls that input above the Android keyboard', () => {
+test('focusing a blank scrolls by its actual overlap with the Android keyboard', () => {
   const h = harness();
   const { ExamActiveView } = h.load(path.join(ROOT, 'src/features/exam/ExamActiveView.tsx'));
   const tree = h.render(ExamActiveView, {
@@ -110,15 +115,11 @@ test('focusing a blank scrolls that input above the Android keyboard', () => {
   const body = all(tree).find(n => n.type === 'ScrollView');
   const inputs = all(tree).filter(n => n.type === 'TextInput');
   const calls = [];
-  body.props.ref.current = {
-    scrollResponderScrollNativeHandleToKeyboard(target, offset, preventNegative) {
-      calls.push([target, offset, preventNegative]);
-    },
-  };
-  const focusedTarget = { nativeTag: 42 };
-  inputs[1].props.onFocus({ target: focusedTarget });
+  body.props.ref.current = { scrollTo(options) { calls.push(options); } };
+  inputs[1].props.ref({ measureInWindow(callback) { callback(0, 420, 300, 48); } });
+  inputs[1].props.onFocus();
+  h.showKeyboard({ endCoordinates: { screenY: 450, height: 300 } });
   assert.equal(calls.length, 1);
-  assert.equal(calls[0][0], focusedTarget);
-  assert.equal(calls[0][1], 24);
-  assert.equal(calls[0][2], true);
+  assert.equal(calls[0].y, 42);
+  assert.equal(calls[0].animated, true);
 });

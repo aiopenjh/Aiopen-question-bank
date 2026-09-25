@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, Keyboard, Platform } from 'react-native';
 import { QuestionRevision } from '../../contracts/types';
 import { styles } from './examStyles';
@@ -46,28 +46,61 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
   const currentSelectedOptionId = userAnswers[currentIndex] || null;
   const currentClozeAnswers = userClozeAnswers[currentIndex] || [];
   const bodyRef = useRef<ScrollView>(null);
-  const focusedInputRef = useRef<unknown>(null);
+  const focusedInputRef = useRef<TextInput | null>(null);
+  const blankInputRefs = useRef<(TextInput | null)[]>([]);
+  const writtenInputRef = useRef<TextInput>(null);
+  const keyboardTopRef = useRef<number | null>(null);
+  const scrollYRef = useRef(0);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [keyboardPadding, setKeyboardPadding] = useState(0);
 
-  function revealFocusedInput(node: unknown) {
-    bodyRef.current?.scrollResponderScrollNativeHandleToKeyboard(node, 24, true);
+  function revealFocusedInput() {
+    const input = focusedInputRef.current;
+    const keyboardTop = keyboardTopRef.current;
+    if (!input || keyboardTop === null) return;
+    input.measureInWindow((_x, y, _width, height) => {
+      const overlap = y + height + 24 - keyboardTop;
+      if (overlap <= 0) return;
+      const targetY = scrollYRef.current + overlap;
+      scrollYRef.current = targetY;
+      bodyRef.current?.scrollTo({ y: targetY, animated: true });
+    });
   }
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    const subscription = Keyboard.addListener('keyboardDidShow', () => {
-      if (focusedInputRef.current !== null) revealFocusedInput(focusedInputRef.current);
+    const shown = Keyboard.addListener('keyboardDidShow', (event) => {
+      keyboardTopRef.current = event.endCoordinates.screenY;
+      setKeyboardPadding(event.endCoordinates.height + 48);
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = setTimeout(revealFocusedInput, 80);
     });
-    return () => subscription.remove();
+    const hidden = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardTopRef.current = null;
+      setKeyboardPadding(0);
+    });
+    return () => {
+      shown.remove();
+      hidden.remove();
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    };
   }, []);
 
-  function handleAnswerFocus(node: unknown) {
-    focusedInputRef.current = node;
-    if (Platform.OS === 'android') revealFocusedInput(node);
+  function handleAnswerFocus(input: TextInput | null) {
+    focusedInputRef.current = input;
+    if (Platform.OS === 'android') revealFocusedInput();
   }
 
   return (
     <>
-      <ScrollView ref={bodyRef} style={styles.examBody} contentContainerStyle={styles.examContentContainer} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={bodyRef}
+        style={styles.examBody}
+        contentContainerStyle={[styles.examContentContainer, keyboardPadding > 0 && { paddingBottom: keyboardPadding }]}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={(event) => { scrollYRef.current = event.nativeEvent.contentOffset.y; }}
+      >
         {/* 문제 번호 및 마킹 상태 바 */}
         <View style={styles.quickNavRow}>
           {questions.map((_, idx) => {
@@ -145,6 +178,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
                   <Text style={styles.optionIndexText}>{idx + 1}</Text>
                 </View>
                 <TextInput
+                  ref={(input) => { blankInputRefs.current[idx] = input; }}
                   style={[
                     {
                       flex: 1,
@@ -159,7 +193,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
                     styles.answerInputText,
                   ]}
                   placeholder={`${idx + 1}번 빈칸 답안`}
-                  onFocus={(event) => handleAnswerFocus(event.target)}
+                  onFocus={() => handleAnswerFocus(blankInputRefs.current[idx])}
                   value={currentClozeAnswers[idx] || ''}
                   onChangeText={(text) => onClozeAnswerChange(idx, text)}
                 />
@@ -170,6 +204,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
           // 주관식(단답형/서술형): 자유 텍스트 입력. fontSize 16 고정(Law #6, 모바일 확대 방지)
           <View>
             <TextInput
+              ref={writtenInputRef}
               style={[
                 {
                   minHeight: q.questionType === 'essay' ? 160 : 60,
@@ -186,7 +221,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
               multiline
               maxLength={q.maxAnswerLength || 2000}
               placeholder={q.questionType === 'essay' ? '서술형 답안을 입력하세요 (최대 2,000자)' : '단답형 답안을 입력하세요'}
-              onFocus={(event) => handleAnswerFocus(event.target)}
+              onFocus={() => handleAnswerFocus(writtenInputRef.current)}
               value={currentSelectedOptionId || ''}
               onChangeText={onAnswerTextChange}
             />

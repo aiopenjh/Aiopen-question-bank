@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { showAlert } from '../../utils/alert';
 import { styles } from './settingsStyles';
@@ -8,7 +8,7 @@ export interface ApiKeySectionProps {
   onChangeApiKey: (text: string) => void;
   onSaveApiKey: (keyToSave?: string) => Promise<void>;
   onDeleteApiKey?: () => Promise<void>;
-  onInputFocus?: () => void;
+  onInputFocus?: (input: TextInput | null) => void;
 }
 
 export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
@@ -19,6 +19,7 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
   onInputFocus,
 }) => {
   const [newKeyInput, setNewKeyInput] = useState('');
+  const keyInputRef = useRef<TextInput>(null);
   const [isEditingKey, setIsEditingKey] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -118,12 +119,13 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
 
           <View style={styles.apiInputRow}>
             <TextInput
+              ref={keyInputRef}
               style={styles.keyInputField}
               placeholder="새로운 API Key 붙여넣기"
               placeholderTextColor="#94a3b8"
               value={newKeyInput}
               onChangeText={setNewKeyInput}
-              onFocus={onInputFocus}
+              onFocus={() => onInputFocus?.(keyInputRef.current)}
               autoCapitalize="none"
               secureTextEntry={true}
               autoCorrect={false}
