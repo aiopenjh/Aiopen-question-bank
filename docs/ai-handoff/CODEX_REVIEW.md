@@ -14,6 +14,7 @@
 - Windows 타입 검사와 전체 앱 테스트 210개 통과. Codex가 Android 입력칸 포커스 시 스크롤 호출 테스트 1개를 추가했고 통과했다.
 - 채점 함수·기존 저장 문제·답안은 변경하지 않았다. `Pa`·`Ds`는 정답 목록에 없으면 그대로 오답이며, 시험 전 화면에 기준을 표시한다. 새 출제는 자료에 근거 있는 약어를 허용할 때만 지문에도 허용 사실을 알린다.
 - 남은 검증은 Android 실기기에서 키보드 가림과 실제 AI가 새 지침대로 출제하는지 확인하는 것이다.
+- Android 테스트 브랜치에 `d2e1657`까지 반영했고, EAS preview APK 빌드 `f0f48aee-1d5d-4bff-8d11-cf3770a0333e`가 완료됐다. 내부 빌드 번호 `9`, APK 주소는 `https://expo.dev/artifacts/eas/ER8D23VYivH_jvB1xqyC_h9_ZPsotkCcjdwgdsHnJoM.apk`. 같은 EAS 프로젝트·서명키를 사용했다. Play 정식 배포는 하지 않았다.
 
 ---
 

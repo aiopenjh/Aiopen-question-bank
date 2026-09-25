@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "taskId": "android-cloze-abbreviation-20260925",
   "title": "Android 빈칸형 약어 안내와 채점 일관성",
-  "phase": "codex_final_review",
-  "activeAgent": "codex",
+  "phase": "owner_approval",
+  "activeAgent": "owner",
   "implementationAgent": "claude",
   "reviewAgent": "codex",
   "iteration": 1,
@@ -11,8 +11,8 @@
   "baseBranch": "origin/feature/android-app",
   "workBranch": "feature/android-release-candidate",
   "baseCommit": "1952b74",
-  "headCommit": "52f2785",
-  "note": "Claude가 세션 한도 직전에 신규 출제 프롬프트의 풀네임 요구·약어 허용 모순을 바로잡고 테스트를 보강해 둔 것을 Codex가 확인했다. Codex는 Android 포커스 스크롤 회귀 테스트를 추가했다. Windows 타입 검사와 앱 테스트 210개 통과. 기존 채점 함수·저장 문제·답안은 변경하지 않았다. Android preview APK 빌드와 실기기 재검증이 남았다.",
+  "headCommit": "d2e1657",
+  "note": "Codex Windows 타입 검사와 앱 테스트 211개 통과. Android 키보드 가림 수정 52f2785와 빈칸형 약어 안내·출제 규칙 수정 d2e1657을 origin/feature/android-app에 반영했다. EAS preview APK f0f48aee-1d5d-4bff-8d11-cf3770a0333e(versionCode 9) 빌드 완료. 기존 앱 삭제 없이 덮어 설치한 뒤 키보드 가림과 사전 안내를 실기기에서 재검증해야 한다. 기존 문제·답안·채점 함수는 변경하지 않았고 main 병합·Play 정식 배포는 하지 않았다.",
   "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
     "push",
@@ -20,5 +20,5 @@
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-25T18:40:00+09:00"
+  "updatedAt": "2026-09-25T17:21:50+09:00"
 }
