@@ -2,28 +2,27 @@
 
 ## 작업 정보
 
-- 작업 ID: `android-web-hotfix-sync-20260925`
-- 검토 대상: 병합 커밋 `2653f9a`, Anthropic 헤더 커밋 `a46de44`, 백업 분리 커밋 `91a5eb2`
-- 판정: Android 브랜치 반영 가능
+- 작업 ID: `anthropic-sonnet-46-20260925`
+- Claude 구현: Android `07acf3b`, 웹 `1642ce6`
+- 판정: Sonnet 4.6 전환 통과. 웹은 운영 배포 완료, Android는 APK 빌드 전까지 브랜치 반영.
 
-## 확인한 내용
+## 코드 확인
 
-- `2653f9a`의 부모는 Android `b0cbf0f`와 운영 웹 `bf4f8f2`다. 규칙 13은 한 번만 남고 규칙 14가 추가됐다.
-- Android의 채점 정정·문제 신고·채점 미완료 화면을 유지하면서 `exam_result_summary.ts`가 객관식 100/0, 주관식·빈칸형 부분점수, 사용자 정정 100점을 평균낸다. 채점 실패는 분모에서 제외하고 전부 실패하면 숫자 점수를 표시하지 않는다.
-- 백업 분리 후 공개 내보내기 이름과 저장·복원 흐름이 유지됐다. `DEVELOPER.md`의 버전 점검 문구는 이미 `ac17890`에 반영되어 중복된 `1d45e0c`은 적용하지 않았다.
-- `a46de44`는 Anthropic 브라우저 직접 호출 헤더 이름만 고친다. 사용자 API 키를 앱 번들에 넣지 않는다.
+- 두 브랜치의 Anthropic Messages 요청 모델이 공식 ID `claude-sonnet-4-6`이다.
+- 웹의 직접 호출 헤더를 `anthropic-dangerous-direct-browser-access: true`로 교정했다. Android에는 같은 헤더가 이미 있었다.
+- API 키 분기, 전송 안내, 요청 취소, Gemini/OpenAI 경로와 PDF·검색 제한은 변경하지 않았다.
+- Anthropic 모의 요청 테스트가 모델·헤더·키·본문·취소 신호·정상 응답·빈 응답·401 오류·미지원 입력을 확인한다.
 
 ## 검증
 
-- Windows `cmd.exe /c npx tsc --noEmit`: 오류 0건
-- 전체 앱 테스트: 198/198 통과
-- `npx expo export -p web`: 성공
-- `npx expo export -p android`: 성공 (APK 빌드와는 별개)
-- `git diff --check`: 통과
+- Android `ai_client.test.cjs`: 9/9 통과
+- 웹 `ai_client.test.cjs`: 8/8 통과
+- 양쪽 Windows `cmd.exe /c npx tsc --noEmit`: 오류 0건
+- 웹 `npx expo export -p web`, Android `npx expo export -p android`: 성공
+- 웹 `main@1dbf7bd` 반영, `gh-pages@bd7a0b9` 배포. 공개 번들에서 새 모델 ID와 헤더 확인.
+- 실제 Anthropic API 호출은 수행하지 않았다. 테스트는 가짜 키와 모의 응답을 사용했다.
 
-## 다음 단계에 남은 사항
+## 다음 작업
 
-- 현재 Anthropic 모델 `claude-3-5-sonnet-20241022`는 퇴역했다. 새 헤더만으로 Anthropic 출제·채점이 복구되지는 않는다. 모델 선택 후 웹과 Android 모두 교체하고 요청·응답 형식을 검증해야 한다.
-- EAS CLI가 로그인되지 않았고 `app.json`에 기존 프로젝트 ID가 없다. 이전 APK의 EAS 프로젝트와 서명키를 확인하기 전에는 새 프로젝트를 만들지 않는다.
-- 실제 Anthropic 요청, Android 실기기 화면·파일/백업 동작, 덮어 설치와 서명키는 아직 검증하지 않았다.
-
+- Android 브랜치를 원격에 반영한다.
+- Celueste의 기존 EAS 프로젝트 ID·서명키가 아직 식별되지 않았다. Expo Go의 `Bank` 프로젝트에는 브랜치가 없고 Celueste와 동일한 프로젝트라는 근거가 없다. APK 빌드는 연결 경로를 확인한 뒤 진행한다.
