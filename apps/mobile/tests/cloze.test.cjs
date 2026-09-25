@@ -97,6 +97,25 @@ test('cloze grading is local, normalized, supports accepted variants and partial
   assert.deepEqual(Array.from(partial.gradingChecklistResult, item => item.met), [true, false]);
 });
 
+test('cloze grading never accepts an abbreviation by guessed meaning, only when explicitly listed', () => {
+  // 사용자 실기기 사례: 'Pa'/'Ds' 같은 2글자 약어는 뜻이 비슷해 보여도 정답 목록에 없으면 오답이다.
+  const blanks = [
+    { id: 'b1', correctAnswers: ['Physical AI'] },
+    { id: 'b2', correctAnswers: ['AI 데이터 사이언티스트'] },
+  ];
+  const guessed = grading.gradeClozeAnswers(blanks, ['Pa', 'Ds']);
+  assert.equal(guessed.gradingScore, 0);
+  assert.deepEqual(Array.from(guessed.gradingChecklistResult, item => item.met), [false, false]);
+
+  // 출제 시 자료 근거로 약어를 정답 목록에 명시적으로 포함했다면 그 약어는 인정된다.
+  const withApprovedAbbreviation = [
+    { id: 'b1', correctAnswers: ['Physical AI', 'PAI'] },
+  ];
+  const accepted = grading.gradeClozeAnswers(withApprovedAbbreviation, ['PAI']);
+  assert.equal(accepted.gradingScore, 100);
+  assert.equal(accepted.gradingChecklistResult[0].met, true);
+});
+
 test('subjective grading never stores a raw provider exception', async () => {
   const result = await grading.gradeSubjectiveAnswer({ questionType: 'short_answer' }, '답');
   assert.equal(result.gradingStatus, 'failed');

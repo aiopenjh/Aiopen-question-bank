@@ -2,23 +2,23 @@
   "schemaVersion": 1,
   "taskId": "android-cloze-abbreviation-20260925",
   "title": "Android 빈칸형 약어 안내와 채점 일관성",
-  "phase": "claude_implementation",
-  "activeAgent": "claude",
+  "phase": "codex_final_review",
+  "activeAgent": "codex",
   "implementationAgent": "claude",
   "reviewAgent": "codex",
-  "iteration": 0,
+  "iteration": 1,
   "maxReviewIterations": 2,
   "baseBranch": "origin/feature/android-app",
   "workBranch": "feature/android-release-candidate",
   "baseCommit": "1952b74",
   "headCommit": "52f2785",
-  "note": "사용자 2차 실기기 피드백. Codex가 키보드 가림 수정 52f2785와 타입 검사 통과를 완료했다. Claude는 TASK.md의 현재 작업 블록에 따라 빈칸형 약어 사전 안내와 향후 출제 기준을 수정한다. 이전 작업 내용은 역사 참고만 한다.",
-  "nextFile": "docs/ai-handoff/TASK.md",
+  "note": "Claude가 세션 한도 직전에 신규 출제 프롬프트의 풀네임 요구·약어 허용 모순을 바로잡고 테스트를 보강해 둔 것을 Codex가 확인했다. Codex는 Android 포커스 스크롤 회귀 테스트를 추가했다. Windows 타입 검사와 앱 테스트 210개 통과. 기존 채점 함수·저장 문제·답안은 변경하지 않았다. Android preview APK 빌드와 실기기 재검증이 남았다.",
+  "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
     "push",
     "merge",
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-25T18:05:00+09:00"
+  "updatedAt": "2026-09-25T18:40:00+09:00"
 }

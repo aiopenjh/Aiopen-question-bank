@@ -25,6 +25,9 @@ function renderClozeStemPreview(stem: string): string {
   return stem.replace(/\{\{(\d+)\}\}/g, (_match, n) => `( ${n} )`);
 }
 
+// 빈칸형 입력 전 안내. 저장된 정답 목록은 노출하지 않고 채점 기준만 알린다. 모든 빈칸형에 동일 적용.
+export const CLOZE_ABBREVIATION_NOTICE = '정식 명칭으로 입력하세요. 약어는 정답으로 등록된 경우에만 인정됩니다.';
+
 export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
   questions,
   currentIndex,
@@ -135,6 +138,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
         ) : q.questionType === 'cloze' ? (
           // 빈칸형: 지문 안의 {{N}} 순서대로 빈칸마다 별도 입력칸. fontSize 16 고정(Law #6/#7)
           <View style={{ gap: 10 }}>
+            <Text style={{ fontSize: 13, color: colors.inkMuted }}>{CLOZE_ABBREVIATION_NOTICE}</Text>
             {(q.clozeBlanks || []).map((blank, idx) => (
               <View key={blank.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={styles.optionIndexBadge}>

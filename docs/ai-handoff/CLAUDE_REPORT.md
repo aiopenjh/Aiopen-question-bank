@@ -1,5 +1,66 @@
 # Claude 구현 보고서
 
+## 작업 ID `android-cloze-abbreviation-20260925` — Android 빈칸형 약어 안내와 채점 일관성
+
+- 작업 폴더: `C:/Users/choor/.codex/worktrees/android-web-hotfix-sync/ai bank`
+- 브랜치: `feature/android-release-candidate`
+- 기준 커밋: `52f2785`(Codex 키보드 스크롤 수정, 유지함) 위, `b07a11c`(인수인계 문서) 포함
+- 이 절 이후의 "## 작업 정보"부터는 이전 작업(`android-real-device-round1-20260925`)의 기록이며 이번 지시가 아니다. 이번 작업은 TASK.md의 "Claude 구현 범위" 1~4항만 다룬다.
+- **커밋 미완료**: 이 세션도 `git add`/`git commit`, `node --test`, `cmd.exe /c npx tsc --noEmit` 등 실행형 명령이 전부 "requires approval"로 거부되어 실행하지 못했다. 지시에 따라 반복 시도하지 않았다. Codex가 아래 "Codex가 실행해야 하는 명령"을 직접 실행해 확인해야 한다.
+
+### 1. `gradeClozeAnswers()`/`correctAnswers` 생성·검증 경로 확인 — 코드 변경 없음(이미 요구사항 충족 확인)
+
+- `apps/mobile/src/domain/grading.ts`의 `gradeClozeAnswers()`는 `normalizeComparableText()`(공백 정리·소문자화만 수행, 의미 유사도 판단 없음)로 정규화한 뒤 `blank.correctAnswers`와 **정확히 일치**하는 경우에만 `met: true`로 채점한다. `Pa`·`Ds` 같은 약어가 정답 목록에 없으면 뜻이 비슷해도 무조건 `met: false`다. AI 재채점이나 의미 유사도 판정 경로가 전혀 없다(`gradeExamAnswers`는 cloze 유형에서 AI를 호출하지 않고 이 함수만 로컬 호출).
+- `apps/mobile/src/domain/generator_validation.ts`의 `readClozeBlanks()`도 AI가 응답한 `correctAnswers` 배열을 다듬기(빈 문자열 제거, trim)만 하고, 약어를 추정해 목록에 추가하거나 다른 표기를 자동 생성하는 로직이 없다. 즉 출제·저장·채점 세 경로 모두 "AI가 명시한 목록에 있는 것만 정답"이라는 원칙을 이미 지키고 있어 이번 요구사항(임의 약어를 뜻이 비슷하다는 이유로 정답 처리하지 않기)에 대해서는 **코드 수정이 필요하지 않았다.** 대표 사례(`Pa`/`Ds`)와 명시적으로 등록된 약어(`PAI`) 모두를 검증하는 회귀 테스트를 추가했다(아래 4번).
+
+### 2. 시험 입력 전 빈칸형 안내 문구 — 완료
+
+- `apps/mobile/src/features/exam/ExamActiveView.tsx`에 권장 문구 그대로 `CLOZE_ABBREVIATION_NOTICE = '정식 명칭으로 입력하세요. 약어는 정답으로 등록된 경우에만 인정됩니다.'`를 상수로 추가하고, cloze 문제의 입력 칸 목록 바로 위(첫 입력칸보다 먼저, 답안 입력 전)에 `<Text>`로 렌더링했다.
+- 이 안내는 데이터가 아니라 `questionType === 'cloze'`일 때 항상 렌더링되는 고정 UI라서, **이미 저장된 빈칸형 문제에도 자동으로 적용된다**(저장된 문제 데이터를 건드리지 않고도 모든 빈칸 문제에 같은 규칙이 보인다).
+- 생성된 `correctAnswers`나 `explanation`, `deepReasoningHint` 등 정답 관련 정보는 노출하지 않는다(문구 자체가 고정 텍스트이고 문제 데이터를 참조하지 않음).
+- Codex의 `52f2785`(키보드가 열리면 현재 입력칸으로 스크롤)가 쓰는 `bodyRef`/`focusedInputRef`/`useEffect`/`handleAnswerFocus`는 전혀 건드리지 않았다. 새 `<Text>` 한 줄만 cloze 입력 목록 `View` 안에 추가했다.
+- 변경 파일: `apps/mobile/src/features/exam/ExamActiveView.tsx`
+
+### 3. 출제 프롬프트에 정식 명칭/약어 허용 기준 추가 — 완료
+
+- `apps/mobile/src/domain/prompts.ts`의 `buildQuestionGenerationPrompt()` 안 cloze 규칙(기존 규칙 4번) 끝에 다음 문장을 추가했다: "빈칸이 명칭이나 용어를 묻을 때는 지문에서 정식 명칭(풀네임)으로 답하도록 요구하고 correctAnswers에도 정식 명칭을 넣습니다. 자료에 그 약어가 명확히 쓰여 있어 정답으로도 인정할 때만 correctAnswers에 그 약어를 별도 항목으로 추가하세요. 약어의 의미를 추정해서 확인 없이 정답 목록에 넣지 마세요. 지문이 요구하는 형식과 correctAnswers의 채점 기준은 항상 서로 일치해야 합니다."
+- 이 문장은 (a) 지문이 요구하는 답변 형식(풀네임)과 채점 기준(correctAnswers)을 일치시키고, (b) 약어를 정답에 넣는 조건을 "자료에 명확한 근거가 있을 때"로 한정해 AI가 약어의 뜻을 임의로 추정해 정답 목록에 넣는 것을 금지한다. 새 의존성이나 스키마 변경 없이 프롬프트 문자열만 수정했다.
+- 변경 파일: `apps/mobile/src/domain/prompts.ts`
+
+### 4. 회귀 테스트 — 신규/수정
+
+- `apps/mobile/tests/cloze.test.cjs`: 기존 파일에 테스트 1개 추가. 저장된 정답이 `['Physical AI']`/`['AI 데이터 사이언티스트']`일 때 사용자가 `Pa`/`Ds`를 입력하면 두 빈칸 모두 오답(`gradingScore: 0`, `met: false`)임을 확인하고, 정답 목록에 약어(`PAI`)가 명시적으로 포함된 경우에는 그 약어가 정답으로 인정됨(`gradingScore: 100`)을 확인한다.
+- `apps/mobile/tests/cloze_exam_notice.test.cjs`(신규): `ExamActiveView`를 얕은 렌더 하네스로 직접 렌더링해 (1) cloze 문제에서 `CLOZE_ABBREVIATION_NOTICE` 문구가 입력칸보다 먼저 나타나고 저장된 정답·해설·힌트 문자열이 전혀 노출되지 않는지, (2) 객관식 문제에서는 이 문구가 렌더링되지 않는지 확인한다.
+- `apps/mobile/tests/prompts_cloze_abbreviation.test.cjs`(신규): `buildQuestionGenerationPrompt()`가 반환한 문자열에 위 3번 항목에서 추가한 세 문장이 그대로 포함되는지 정규식으로 확인해, 향후 프롬프트 리팩터링 중 이 규칙이 실수로 삭제되는 것을 방지한다.
+
+### 5. 1차 검토 반영(iteration 1) — 지문 요구 형식과 채점 기준 불일치 수정, 오탈자, 테스트 보강 — 완료
+
+`CODEX_REVIEW.md` "현재 작업 검토" 절의 필수 수정 1건을 처리했다. 문제: 기존 3번 절 문장이 "모든 명칭형 빈칸은 지문에서 정식 명칭을 요구"하면서 동시에 "자료 근거가 있으면 약어도 correctAnswers에 추가"했다. 그러면 지문은 풀네임만 허용한다고 읽히는데 실제 채점은 약어도 정답으로 받아들여, 사용자가 보는 안내와 채점 기준이 어긋났다.
+
+- `apps/mobile/src/domain/prompts.ts`의 cloze 규칙(4번)을 두 갈래로 명확히 나눴다: **(a)** 자료에 약어가 명확히 쓰여 있어 정답으로 인정하는 경우 — `correctAnswers`에 정식 명칭과 약어를 함께 넣고, 지문에는 정답 약어 자체를 쓰지 않은 채 "정식 명칭이나 자료에 쓰인 약어로 답하세요"처럼 **약어가 허용된다는 사실만** 밝힌다(정답 약어 자체는 비노출). **(b)** 그런 근거가 없는 경우 — 지문은 정식 명칭(풀네임)만 요구한다고 명시하고 `correctAnswers`에도 정식 명칭만 넣으며, 약어 허용은 지문에서 아예 언급하지 않는다. 두 경우 모두 "지문에 적은 요구 형식과 correctAnswers의 채점 기준이 항상 서로 일치하게 하세요"를 앞머리에 명시해 어긋남 자체를 규칙으로 금지했다.
+- 오탈자 수정: "명칭이나 용어를 **묻을** 때" → "명칭이나 용어를 **물을** 때"(묻다는 ㄷ불규칙 동사로 관형형이 '물을'이 맞는 표준어).
+- `apps/mobile/tests/prompts_cloze_abbreviation.test.cjs`를 두 갈래 규칙을 각각 확인하도록 보강했다: (a) 약어 허용 분기 문구와 "정답 약어 자체를 쓰지 않은 채 ... 약어가 허용된다는 사실만 밝힙니다" 문구, (b) 정식 명칭만 요구하는 분기 문구("약어 허용을 언급하지 않음"), 오탈자 회귀 방지("물을 때"는 있고 "묻을 때"는 없음)를 각각 정규식으로 검증한다.
+- `gradeClozeAnswers()`/`readClozeBlanks()`(정확 일치만 채점, 자동 추가 없음)와 `ExamActiveView.tsx`의 `CLOZE_ABBREVIATION_NOTICE`, Codex의 `52f2785` 키보드 스크롤 코드는 이번 수정에서 건드리지 않았다. 기존 저장 문제의 채점·답안도 변하지 않는다(이 수정은 프롬프트 문자열과 그 프롬프트 문구를 확인하는 테스트에만 영향).
+- 변경 파일: `apps/mobile/src/domain/prompts.ts`(수정), `apps/mobile/tests/prompts_cloze_abbreviation.test.cjs`(수정)
+- 이 세션도 `node --test`가 "requires approval"로 거부되어 실행하지 못했다(1회 시도 후 반복하지 않음). Codex가 아래 명령으로 확인해야 한다.
+
+### Codex가 실행해야 하는 명령
+
+```
+cd apps/mobile && cmd.exe /c npx tsc --noEmit
+cd apps/mobile && node --test tests/cloze.test.cjs tests/cloze_exam_notice.test.cjs tests/prompts_cloze_abbreviation.test.cjs
+```
+
+기존 관련 스위트(`generator.test.cjs`, `question_type_plan.test.cjs`, `subjective_suitability.test.cjs`, `maintenance.test.cjs`)도 함께 돌려 회귀가 없는지 확인 요청.
+
+### 회피 목록
+
+TASK.md가 명시한 회피 대상은 없었다(이번 작업은 새 파일 세트). 이전 작업의 회피 목록(`SourceUploadModal.tsx` 등)과 이번 `ExamActiveView.tsx`/`prompts.ts`/`grading.ts`/`generator_validation.ts`는 서로 다른 파일이라 충돌 없음. `git diff --stat` 기준 변경 파일은 `ExamActiveView.tsx`(수정), `prompts.ts`(수정), `cloze.test.cjs`(수정), `cloze_exam_notice.test.cjs`(신규), `prompts_cloze_abbreviation.test.cjs`(신규) 5개뿐이며, 데이터 스키마·저장된 문제·오답노트·랭킹·웹 배포는 건드리지 않았다.
+
+---
+
+# 이전 작업 기록 (`android-real-device-round1-20260925`) — 아래는 이번 지시가 아님
+
 ## 작업 정보
 
 - 작업 ID: `android-real-device-round1-20260925`
