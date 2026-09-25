@@ -13,7 +13,7 @@ export function buildQuestionGenerationPrompt(params: {
   questionTypePlan?: QuestionType[];
 }): string {
   const { intent, resolvedDomain, category, unitTitle, customContext, currentInformationInstruction } = params;
-  const questionTypePlan = params.questionTypePlan ?? createQuestionTypePlan(intent.targetCount);
+  const questionTypePlan = params.questionTypePlan ?? createQuestionTypePlan(intent.targetCount, undefined, intent.questionTypeMode);
 
   return `당신은 사용자가 선택한 어떤 학습 주제에도 대응하는 문제 출제 전문가입니다.
 아래 주제의 의미를 먼저 판정한 뒤, 지정된 JSON 중 하나만 출력하세요.
@@ -40,7 +40,7 @@ ${currentInformationInstruction ? `\n${currentInformationInstruction}` : ''}
 
 [READY일 때 문제 작성 규칙]
 1. 정확히 ${intent.targetCount}문항을 작성합니다.
-2. 앱이 각 문항의 유형을 독립적으로 무작위 추첨했습니다. questions 배열의 questionType은 다음 순서를 정확히 따르세요: ${JSON.stringify(questionTypePlan)}. 같은 유형만 연속되거나 전체가 한 유형이어도 그대로 출제합니다. 비율을 맞추거나 유형을 변경하지 마세요. 모든 난이도에서 모든 유형을 허용하되, 단답형·서술형의 요구 지식과 답안 길이도 지정된 학습자 수준에 맞추세요.
+2. 앱이 각 문항의 유형을 정했습니다. questions 배열의 questionType은 다음 순서를 정확히 따르세요: ${JSON.stringify(questionTypePlan)}. 같은 유형만 연속되거나 전체가 한 유형이어도 그대로 출제합니다. 비율을 맞추거나 유형을 변경하지 마세요. 모든 난이도에서 모든 유형을 허용하되, 단답형·서술형의 요구 지식과 답안 길이도 지정된 학습자 수준에 맞추세요.
 3. questionType이 "multiple_choice"인 문제는 보기 1번, 2번, 3번, 4번의 4지선다이며 정답은 하나만 존재해야 합니다. correctOptionNumber에는 사용자에게 보이는 정답 번호 1, 2, 3, 4 중 하나를 기록합니다. 0부터 시작하는 번호를 사용하지 마세요. 오답은 실제로 혼동하기 쉬운 인접 개념으로 만들고, 각 오답 이유를 설명합니다.
 4. questionType이 "cloze"인 문제는 options/correctOptionNumber를 생략합니다. stem 안에 빈칸을 {{1}}, {{2}}... 순서대로(1부터, 건너뛰지 않고) 표시하고, blanks 배열에 그 순서와 정확히 대응하는 항목을 각각 작성합니다. blanks 각 항목의 correctAnswers는 그 빈칸에 들어갈 정답 표현들의 배열입니다(표기가 여러 개 가능하면 모두 나열, 최소 1개). 한 문제에 빈칸은 1~3개로 합니다.
 5. questionType이 "short_answer"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(핵심 키워드 중심의 짧은 모범답안 한 문장)만 작성합니다. 답이 여러 표현으로 가능하면 modelAnswer에 핵심 키워드를 명시합니다.

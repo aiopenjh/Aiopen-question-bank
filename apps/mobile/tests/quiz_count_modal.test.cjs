@@ -144,3 +144,18 @@ test('old level 50 is preserved with explanation while first sequential challeng
   assert.equal(modal.selected[0].options.shouldReplaceExisting, false);
   assert.equal(modal.saved.length, 0);
 });
+
+test('question type choice defaults to mixed and is passed with the selected count', () => {
+  const modal = setupModal({ existingCount: 0 });
+  modal.pressCount('3문제');
+  assert.equal(modal.selected[0].options.questionTypeMode, 'mixed');
+
+  const chip = label => modal.render().find(node => node.type === 'TouchableOpacity' && modal.textOf(node) === label);
+  for (const label of ['혼합', '객관식만', '주관식만']) assert.ok(chip(label), label);
+  chip('주관식만').props.onPress();
+  assert.ok(modal.render().some(node => modal.textOf(node).includes('빈칸형은 포함하지 않습니다')));
+  modal.pressCount('5문제');
+  assert.equal(modal.selected[1].count, 5);
+  assert.equal(modal.selected[1].options.questionTypeMode, 'subjective');
+  assert.equal(modal.selected[1].options.difficultyLevel, 2);
+});

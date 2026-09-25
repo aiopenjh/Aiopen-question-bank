@@ -303,7 +303,7 @@ async function generateViaUniversalAiApi(params: {
   );
   const referenceDate = currentInformationRequired ? getKoreanReferenceDate() : undefined;
 
-  const questionTypePlan = createQuestionTypePlan(intent.targetCount);
+  const questionTypePlan = createQuestionTypePlan(intent.targetCount, undefined, intent.questionTypeMode);
   const prompt = buildQuestionGenerationPrompt({
     questionTypePlan,
     intent,

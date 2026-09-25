@@ -23,6 +23,7 @@ import { buildUnitGenerationContext, formatIntentMessage } from './quizGeneratio
 import { getLocalDateString } from '../domain/routine';
 import { CHALLENGE_START_LEVEL, getUnlockedChallengeLevel } from '../domain/challenge_progress';
 import type { ExamStartOptions } from './useExamSession';
+import type { QuestionTypeMode } from '../domain/question_type_plan';
 
 const DAILY_FREE_QUESTION_GUIDE = 15;
 
@@ -148,6 +149,7 @@ export function useQuizGeneration({
         learnerLevel?: LearnerKnowledgeLevel;
         difficultyLevel?: number;
         shouldReplaceExisting?: boolean;
+        questionTypeMode?: QuestionTypeMode;
       }
     ) => {
       abortRef.current = false;
@@ -177,6 +179,7 @@ export function useQuizGeneration({
             learnerLevel: targetLevel,
             difficultyLevel: targetDifficulty,
             targetCount,
+            questionTypeMode: options?.questionTypeMode,
           }
         );
 
@@ -290,6 +293,7 @@ export function useQuizGeneration({
         learnerLevel?: LearnerKnowledgeLevel;
         difficultyLevel?: number;
         shouldReplaceExisting?: boolean;
+        questionTypeMode?: QuestionTypeMode;
       }
     ) => {
       setQuizCountModalVisible(false);

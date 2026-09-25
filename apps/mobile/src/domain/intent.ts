@@ -4,6 +4,7 @@
  */
 
 import { CognitiveLevel, LearnerKnowledgeLevel } from '../contracts/types';
+import type { QuestionTypeMode } from './question_type_plan';
 import {
   getDifficultyProfile,
   legacyLevelToDifficulty,
@@ -73,6 +74,7 @@ export interface ScopedIntent {
   levelBriefing?: string;
   style: string;
   targetCount: number;
+  questionTypeMode?: QuestionTypeMode;
   focusConcepts: string[];
   factReferencePolicy: string;
 }
@@ -89,6 +91,7 @@ export function analyzeUserIntent(
     difficultyLevel?: number;
     knownScope?: string;
     targetCount?: number;
+    questionTypeMode?: QuestionTypeMode;
   }
 ): ScopedIntent {
   const text = inputPrompt.trim();
@@ -135,6 +138,7 @@ export function analyzeUserIntent(
     levelBriefing,
     style: '사용자가 지정한 주제의 검증 가능한 사실 기반 4지선다형',
     targetCount,
+    ...(options?.questionTypeMode ? { questionTypeMode: options.questionTypeMode } : {}),
     focusConcepts: [text],
     factReferencePolicy: '주제에 적합한 신뢰 가능한 지식과 사용자 제공 자료 우선',
   };

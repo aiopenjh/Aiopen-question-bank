@@ -375,3 +375,37 @@ test('concurrent identical generation requests share one in-flight provider call
   assert.equal((await generator.generateFactBasedQuestions(params)).status, 'READY');
   assert.equal(calls, 2);
 });
+
+test('question type mode drives the plan, the prompt and response validation', async () => {
+  const subjective = (type, i) => ({
+    questionType: type, stem: `수도 문제 ${i + 1}`, modelAnswer: '서울',
+    gradingChecklist: [{ criterion: '국가 식별', points: 50 }, { criterion: '도시 식별', points: 50 }],
+    explanation: '대한민국의 수도는 서울입니다.', deepReasoningHint: '나라의 행정 중심지를 떠올려 보세요.',
+  });
+  const run = async (mode, draw, questions) => {
+    let sentPrompt;
+    const generator = harness(async (_url, request) => {
+      sentPrompt = JSON.parse(request.body).contents[0].parts[0].text;
+      return response(providerPayload(questions));
+    }, { planRandom: () => draw });
+    const params = args(generator, 3);
+    params.intent = generator.analyzeUserIntent('덧셈', undefined, { difficultyLevel: 1, targetCount: 3, questionTypeMode: mode });
+    return { result: await generator.generateFactBasedQuestions(params), sentPrompt };
+  };
+
+  // 객관식만: 혼합이었다면 빈칸형이 뽑히는 값이어도 전부 객관식
+  const mcQuestions = [1, 2, 3].map((n) => question({ questionType: 'multiple_choice', stem: `${n} + ${n} = ?` }));
+  const mc = await run('multiple_choice', 0.9, mcQuestions);
+  assert.equal(mc.result.status, 'READY', mc.result.message);
+  assert.deepEqual(Array.from(mc.result.questions, q => q.questionType), Array(3).fill('multiple_choice'));
+  assert.ok(mc.sentPrompt.includes(JSON.stringify(Array(3).fill('multiple_choice'))));
+
+  // 주관식만: 혼합이었다면 객관식이 뽑히는 값이어도 단답형·서술형만, 객관식 응답은 거부
+  const short = await run('subjective', 0, [0, 1, 2].map(i => subjective('short_answer', i)));
+  assert.equal(short.result.status, 'READY', short.result.message);
+  assert.deepEqual(Array.from(short.result.questions, q => q.questionType), Array(3).fill('short_answer'));
+  assert.ok(short.sentPrompt.includes(JSON.stringify(Array(3).fill('short_answer'))));
+  const rejected = await run('subjective', 0, mcQuestions);
+  assert.equal(rejected.result.status, 'FAILED');
+  assert.match(rejected.result.message, /문제 유형/);
+});
