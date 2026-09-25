@@ -1,6 +1,6 @@
-// "맞았는데 계속 50점" 재현(현재 운영 main 동작 기록). 수정 승인 후 기대값을 바꾼다.
+// "맞았는데 계속 50점" 회귀 테스트(고객 좌표계 사례).
 // A. 문항별 50점: 서술형 체크리스트 2항목(각 50점) 중 1개만 충족으로 처리되는 경로
-// B. 시험 전체 50점: 부분점수를 합산하지 않고 '100점 문항 수 / 전체 문항 수'로 계산
+// B. 시험 전체 50점: 부분점수를 합산하지 않고 '100점 문항 수 / 전체 문항 수'로 계산하던 문제
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -47,25 +47,34 @@ function gradingWith(responseText) {
   return { grading, prompts };
 }
 
-test('재현 A1: AI가 두 번째 항목을 미충족으로 판정하면 50점(코드 계산은 판정대로)', async () => {
+test('A1: AI가 두 번째 항목을 미충족으로 판정하면 판정대로 50점, 채점 지시문에는 괄호·여러 환경 판정 기준이 있다', async () => {
   const { grading, prompts } = gradingWith(JSON.stringify({ checklistResult: [{ id: 'c1', met: true }, { id: 'c2', met: false }] }));
   const result = await grading.gradeSubjectiveAnswer(essay, answer);
   assert.equal(result.gradingStatus, 'graded');
   assert.equal(result.gradingScore, 50);
-  // 운영 채점 지시문에는 괄호 속 설명·여러 환경 구분 답안의 판정 기준이 없다.
-  assert.equal(prompts[0].includes('괄호'), false);
-  assert.equal(prompts[0].includes('여러 환경'), false);
+  assert.match(prompts[0], /괄호, 부연 설명, 예시 안에 쓴 내용도 답안의 일부/);
+  assert.match(prompts[0], /여러 환경이나 기준\(예: Win32 화면 좌표와 DirectX 좌표\)/);
+  assert.match(prompts[0], /사실과 반대로 설명했거나 항목의 핵심 요소가 답안 어디에도 없을 때만 met: false/);
+  const both = await gradingWith(JSON.stringify({ checklistResult: [{ id: 'c1', met: true }, { id: 'c2', met: true }] }))
+    .grading.gradeSubjectiveAnswer(essay, answer);
+  assert.equal(both.gradingScore, 100);
 });
 
-test('재현 A2: AI 응답에서 항목이 빠지거나 met이 문자열이어도 채점 완료 50점이 된다', async () => {
+test('A2: AI 응답에서 항목이 빠지거나 형식이 틀리면 50점이 아니라 채점 실패', async () => {
   for (const checklistResult of [
     [{ id: 'c1', met: true }], // c2 누락
     [{ id: 'c1', met: true }, { id: 'c2', met: 'true' }], // 문자열 true
     [{ id: 'c1', met: true }, { id: 'C2', met: true }], // 알 수 없는 ID
+    [{ id: 'c1', met: true }, { id: 'c1', met: false }], // 중복
   ]) {
     const result = await gradingWith(JSON.stringify({ checklistResult })).grading.gradeSubjectiveAnswer(essay, answer);
-    assert.equal(result.gradingStatus, 'graded', JSON.stringify(checklistResult));
-    assert.equal(result.gradingScore, 50, JSON.stringify(checklistResult));
+    assert.equal(result.gradingStatus, 'failed', JSON.stringify(checklistResult));
+    assert.equal(result.gradingScore, undefined, JSON.stringify(checklistResult));
+  }
+  const shortAnswer = { ...essay, questionType: 'short_answer', gradingChecklist: undefined };
+  for (const text of ['{"correct":"true"}', '{}', '{"correct":1}']) {
+    const result = await gradingWith(text).grading.gradeSubjectiveAnswer(shortAnswer, answer);
+    assert.equal(result.gradingStatus, 'failed', text);
   }
 });
 
