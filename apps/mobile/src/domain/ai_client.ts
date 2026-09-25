@@ -102,7 +102,7 @@ export async function callUniversalAiCompletion(
         'Content-Type': 'application/json',
         'x-api-key': trimmedKey,
         'anthropic-version': '2023-06-01',
-        'dangerously-allow-browser': 'true',
+        'anthropic-dangerous-direct-browser-access': 'true', // 웹(브라우저) 직접 호출 CORS 허용 헤더
       },
       signal,
       body: JSON.stringify({
