@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
-  "taskId": "android-web-hotfix-sync-20260925",
-  "title": "웹 출제·채점 수정 Android 통합",
-  "phase": "complete",
-  "activeAgent": null,
+  "taskId": "anthropic-sonnet-46-20260925",
+  "title": "Anthropic Sonnet 4.6 전환",
+  "phase": "claude_implementation",
+  "activeAgent": "claude",
   "implementationAgent": "claude",
   "reviewAgent": "codex",
   "iteration": 1,
   "maxReviewIterations": 2,
   "baseBranch": "origin/feature/android-app",
   "workBranch": "feature/android-release-candidate",
-  "baseCommit": "ac17890",
-  "headCommit": "91a5eb2",
-  "nextFile": null,
+  "baseCommit": "c124929",
+  "headCommit": "c124929",
+  "nextFile": "docs/ai-handoff/TASK.md",
   "approvalRequiredFor": [
     "push",
     "merge",
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-25T14:36:35+09:00"
+  "updatedAt": "2026-09-25T15:00:11+09:00"
 }
