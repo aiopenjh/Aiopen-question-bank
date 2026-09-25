@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "Celueste",
+  "short_name": "Celueste",
+  "description": "나만의 AI 맞춤형 CBT 문제은행",
+  "lang": "ko-KR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#111B45",
+  "background_color": "#F8F6F3",
+  "icons": [
+    {
+      "src": "./app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
