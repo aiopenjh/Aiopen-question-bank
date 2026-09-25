@@ -1,5 +1,16 @@
 # Codex 검토 — Android 첫 실기기 피드백
 
+## 현재 작업: 시험·API 입력칸 키보드 가림 재수정 (2026-09-25)
+
+- 작업 ID: `android-keyboard-visibility-20260925`, 구현 커밋 `33096e8`.
+- 이전 수정은 시험에서 `scrollResponderScrollNativeHandleToKeyboard`를, 설정에서 AI 연결 그룹 제목 위치로만 스크롤하는 방식을 썼다. 실기기 사진에서 두 번째 빈칸과 API 키 입력칸이 여전히 키보드에 가렸다. 정확한 기기별 레이아웃 원인은 실기기에서 추가 계측하지 못했으나, 두 방식 모두 입력칸·키보드의 실제 겹침 거리를 직접 확인하지 않는 한계가 있다.
+- 이번 수정은 Android 키보드 표시 후 입력칸의 `measureInWindow` 위치와 키보드 `screenY`를 비교해 겹친 거리만큼 ScrollView를 이동한다. 키보드 높이만큼 스크롤 하단 공간도 확보한다. 두 화면의 위치 기반 동작을 자동 테스트로 확인했다.
+- Windows 타입 검사와 앱 테스트 213개 통과. 사용자 보고에 따라 백업·복구, 기존 저장 문제·채점 기준은 변경하지 않았다.
+- `origin/feature/android-app`에 반영했고 EAS preview APK `7b65c953-ee61-4b2b-a81a-e4086a22505d`(내부 빌드 번호 10)를 만들었다. APK: `https://expo.dev/artifacts/eas/I1LTEgCtDE7RvKE9TCt-30UhYMLtz3ur0kMpWPOclg0.apk`.
+- 남은 검증: 사용자가 약 한 시간 뒤 Android 실기기에서 시험 두 번째 빈칸과 API 키 입력칸을 각각 눌러 가림이 없어졌는지 확인한다. main 병합·Google Play 정식 배포는 하지 않았다.
+
+---
+
 ## 현재 작업 검토: 빈칸형 약어 기준 (2026-09-25)
 
 - 작업 ID: `android-cloze-abbreviation-20260925`

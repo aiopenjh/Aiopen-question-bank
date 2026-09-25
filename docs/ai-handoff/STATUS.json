@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "taskId": "android-cloze-abbreviation-20260925",
-  "title": "Android 빈칸형 약어 안내와 채점 일관성",
+  "taskId": "android-keyboard-visibility-20260925",
+  "title": "Android 시험·API 입력칸 키보드 가림 재수정",
   "phase": "owner_approval",
   "activeAgent": "owner",
-  "implementationAgent": "claude",
+  "implementationAgent": "codex",
   "reviewAgent": "codex",
-  "iteration": 1,
+  "iteration": 0,
   "maxReviewIterations": 2,
   "baseBranch": "origin/feature/android-app",
   "workBranch": "feature/android-release-candidate",
-  "baseCommit": "1952b74",
-  "headCommit": "d2e1657",
-  "note": "Codex Windows 타입 검사와 앱 테스트 211개 통과. Android 키보드 가림 수정 52f2785와 빈칸형 약어 안내·출제 규칙 수정 d2e1657을 origin/feature/android-app에 반영했다. EAS preview APK f0f48aee-1d5d-4bff-8d11-cf3770a0333e(versionCode 9) 빌드 완료. 기존 앱 삭제 없이 덮어 설치한 뒤 키보드 가림과 사전 안내를 실기기에서 재검증해야 한다. 기존 문제·답안·채점 함수는 변경하지 않았고 main 병합·Play 정식 배포는 하지 않았다.",
+  "baseCommit": "3c35571",
+  "headCommit": "33096e8",
+  "note": "사용자 실기기에서 시험 두 번째 빈칸과 설정 API 키 입력칸 키보드 가림이 반복됐다. Codex가 입력칸의 실제 화면 위치와 키보드 윗선을 비교해 필요한 거리만큼 스크롤하고 하단 여유 공간을 확보했다. Windows 타입 검사와 앱 테스트 213개 통과. origin/feature/android-app에 33096e8 반영, EAS preview APK 7b65c953-ee61-4b2b-a81a-e4086a22505d(versionCode 10) 빌드 완료. 사용자는 약 한 시간 뒤 실기기 확인 예정. main 병합·Play 정식 배포는 하지 않았다.",
   "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
     "push",
@@ -20,5 +20,5 @@
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-25T17:21:50+09:00"
+  "updatedAt": "2026-09-25T17:42:08+09:00"
 }
