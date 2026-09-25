@@ -383,7 +383,8 @@ test('mid-restore failure rolls back every modified key', async () => {
   await session.db.initializeDatabase();
   const payload = JSON.parse(await session.db.exportBackupJSON('full'));
   payload.profile.displayName = 'NEW';
-  payload.topics = [{ id: 'new', ownerId: payload.profile.id, name: 'new', description: '' }];
+  // 기존 단원·문제가 가리키는 과목은 유지해야 사전 검사를 통과해 실제 저장·롤백 경로를 탄다.
+  payload.topics = [...payload.topics, { id: 'new', ownerId: payload.profile.id, name: 'new', description: '' }];
   const before = sortedEntries(session.data);
   let once = true;
   session.setFailure(storageKey => storageKey === key('questions') && once ? (once = false, true) : false);

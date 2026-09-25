@@ -24,6 +24,7 @@ import { normalizeAlarmConfig, type AlarmConfig } from '../../utils/notification
 import { filterCorrectionsForAttempts, normalizeAttemptCorrections } from '../../domain/attempt_outcome';
 import { normalizeStoredQuestions } from '../../domain/question_integrity';
 import { CURRENT_DB_VERSION } from '../storage_keys';
+import { validateBackupPayload } from './backup_validation';
 
 export type BackupKind = 'question-bank' | 'full';
 
@@ -237,7 +238,7 @@ export function normalizeBackupPayload(value: unknown): AppBackupPayload {
   }
 
   const attempts = readArray<Attempt>(value, 'attempts');
-  return {
+  const payload: AppBackupPayload = {
     backupKind: readBackupKind(value),
     version,
     exportedAt: typeof value.exportedAt === 'string' ? value.exportedAt : '',
@@ -274,6 +275,9 @@ export function normalizeBackupPayload(value: unknown): AppBackupPayload {
     rankingParticipantId: readOptionalString(value, 'rankingParticipantId'),
     rankingRecoveryToken: readOptionalString(value, 'rankingRecoveryToken'),
   };
+  // 항목 필드·ID 유일성·참조 무결성이 틀리면 저장소 스냅샷·쓰기 전에 복원을 거부한다.
+  validateBackupPayload(payload);
+  return payload;
 }
 
 export interface BackupInspection {
