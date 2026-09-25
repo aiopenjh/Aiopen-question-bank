@@ -13,8 +13,8 @@
       "package": "com.celueste.app",
       "versionCode": 6,
       "adaptiveIcon": {
-        "backgroundColor": "#F8F6F3",
-        "foregroundImage": "./assets/android-icon-foreground-v2.png"
+        "backgroundColor": "#F4D4D7",
+        "foregroundImage": "./assets/app-icon.png"
       },
       "predictiveBackGestureEnabled": false
     },

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, ScrollView, View, Text, TouchableOpacity, RefreshControl, Platform, Linking } from 'react-native';
+import { Image, ScrollView, View, Text, TouchableOpacity, RefreshControl, Platform, Linking, type LayoutChangeEvent } from 'react-native';
 import { AlarmConfig, DEFAULT_ALARM_CONFIG } from '../../utils/notifications';
 import { styles } from './settingsStyles';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
@@ -21,6 +21,7 @@ interface SettingsGroupProps {
   description: string;
   children: React.ReactNode;
   collapsible?: boolean;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }
 
 const SettingsGroup: React.FC<SettingsGroupProps> = ({
@@ -29,6 +30,7 @@ const SettingsGroup: React.FC<SettingsGroupProps> = ({
   description,
   children,
   collapsible = false,
+  onLayout,
 }) => {
   const [expanded, setExpanded] = React.useState(!collapsible);
   const headerContents = (
@@ -43,7 +45,7 @@ const SettingsGroup: React.FC<SettingsGroupProps> = ({
   );
 
   return (
-    <View style={styles.settingsGroup}>
+    <View style={styles.settingsGroup} onLayout={onLayout}>
       {collapsible ? (
         <TouchableOpacity
           style={[styles.groupHeader, !expanded && styles.groupHeaderCollapsed]}
@@ -117,9 +119,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     refreshing,
     onRefresh,
   });
+  const scrollRef = React.useRef<ScrollView>(null);
+  const apiGroupTop = React.useRef(0);
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.tabContent}
       contentContainerStyle={[styles.scrollPadding, { flexGrow: 1 }]}
       bounces={true}
@@ -209,12 +214,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         title="AI 연결"
         description="문제 생성에 사용할 AI 연결 상태를 관리합니다."
         collapsible
+        onLayout={(event) => { apiGroupTop.current = event.nativeEvent.layout.y; }}
       >
         <ApiKeySection
           apiKey={apiKey}
           onChangeApiKey={onChangeApiKey}
           onSaveApiKey={onSaveApiKey}
           onDeleteApiKey={onDeleteApiKey}
+          onInputFocus={() => {
+            if (Platform.OS === 'web') return;
+            setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, apiGroupTop.current - 12), animated: true }), 200);
+          }}
         />
       </SettingsGroup>
 

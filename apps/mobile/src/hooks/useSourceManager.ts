@@ -84,6 +84,7 @@ export function useSourceManager(params: {
 }) {
   const { topics, setSources } = params;
   const [sourceTitle, setSourceTitle] = useState('');
+  const lastSuggestedTitleRef = useRef('');
   const [sourceText, setSourceText] = useState('');
   const [sourceTopicId, setSourceTopicId] = useState<string | null>(null);
   const [sourceFileName, setSourceFileName] = useState<string | null>(null);
@@ -147,7 +148,11 @@ export function useSourceManager(params: {
       setPendingPdf(null);
       setSourceText('');
       setSourcePageCount(null);
-      if (!sourceTitle.trim()) setSourceTitle(fileName.replace(/\.[^/.]+$/, ''));
+      const suggestedTitle = fileName.replace(/\.[^/.]+$/, '');
+      if (!sourceTitle.trim() || sourceTitle === lastSuggestedTitleRef.current) {
+        setSourceTitle(suggestedTitle);
+      }
+      lastSuggestedTitleRef.current = suggestedTitle;
       setSourceFileName(fileName);
 
       if (ext === 'pdf') {
@@ -278,6 +283,7 @@ export function useSourceManager(params: {
         : `“${newSource.title}” 자료를 저장했습니다.`
     );
     setSourceTitle('');
+    lastSuggestedTitleRef.current = '';
     setSourceText('');
     setSourceFileName(null);
     setSourcePageCount(null);

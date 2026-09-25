@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -116,6 +118,10 @@ export const TopicModal: React.FC<TopicModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
+      >
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable
           style={[styles.card, isCompact && styles.cardCompact]}
@@ -278,6 +284,7 @@ export const TopicModal: React.FC<TopicModalProps> = ({
           </View>
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

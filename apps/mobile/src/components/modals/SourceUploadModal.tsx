@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   View,
   Text,
@@ -34,6 +36,39 @@ interface SourceUploadModalProps {
   onClose: () => void;
 }
 
+const PageNumberInput: React.FC<{
+  page: number;
+  onChangePage: (page: number) => void;
+  label: string;
+}> = ({ page, onChangePage, label }) => {
+  const [draft, setDraft] = useState(String(page));
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(String(page));
+  }, [page, editing]);
+
+  return (
+    <TextInput
+      style={styles.pageInput}
+      value={draft}
+      onFocus={() => setEditing(true)}
+      onChangeText={(value) => {
+        const digits = value.replace(/\D/g, '');
+        setDraft(digits);
+        if (digits) onChangePage(Number(digits));
+      }}
+      onBlur={() => {
+        setEditing(false);
+        if (!draft) setDraft(String(page));
+      }}
+      selectTextOnFocus
+      keyboardType="number-pad"
+      accessibilityLabel={label}
+    />
+  );
+};
+
 export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
   visible,
   topics,
@@ -58,6 +93,10 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
 }) => {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
+      >
       <TouchableOpacity
         activeOpacity={1}
         style={styles.overlay}
@@ -85,7 +124,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             {/* 1단계: 학습 과목(대단원) 이름 직접 입력 */}
             <Text style={styles.stepLabel}>1️⃣ 학습 과목(대단원) 이름</Text>
             <TextInput
@@ -135,21 +174,9 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                   PDF 원본은 저장하지 않습니다. 30페이지가 넘으면 10~20페이지씩 나누어 출제하는 것을 권장합니다.
                 </Text>
                 <View style={styles.pageRangeRow}>
-                  <TextInput
-                    style={styles.pageInput}
-                    value={String(sourcePageStart)}
-                    onChangeText={(value) => onChangeSourcePageStart(Number(value.replace(/\D/g, '')) || 1)}
-                    keyboardType="number-pad"
-                    accessibilityLabel="시작 페이지"
-                  />
+                  <PageNumberInput page={sourcePageStart} onChangePage={onChangeSourcePageStart} label="시작 페이지" />
                   <Text style={styles.pageRangeSeparator}>~</Text>
-                  <TextInput
-                    style={styles.pageInput}
-                    value={String(sourcePageEnd)}
-                    onChangeText={(value) => onChangeSourcePageEnd(Number(value.replace(/\D/g, '')) || 1)}
-                    keyboardType="number-pad"
-                    accessibilityLabel="끝 페이지"
-                  />
+                  <PageNumberInput page={sourcePageEnd} onChangePage={onChangeSourcePageEnd} label="끝 페이지" />
                   <Text style={styles.pageRangeTotal}>/ {sourcePageCount}쪽</Text>
                 </View>
               </View>
@@ -210,11 +237,15 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
           </ScrollView>
         </TouchableOpacity>
       </TouchableOpacity>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardContainer: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(64, 48, 56, 0.44)',
@@ -258,6 +289,7 @@ const styles = StyleSheet.create({
   },
   scrollArea: {
     maxHeight: 520,
+    flexShrink: 1,
   },
   stepLabel: {
     fontSize: 12,
@@ -331,6 +363,7 @@ const styles = StyleSheet.create({
   },
   pageInput: {
     width: 64,
+    fontSize: 16,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,

@@ -8,6 +8,7 @@ export interface ApiKeySectionProps {
   onChangeApiKey: (text: string) => void;
   onSaveApiKey: (keyToSave?: string) => Promise<void>;
   onDeleteApiKey?: () => Promise<void>;
+  onInputFocus?: () => void;
 }
 
 export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
@@ -15,6 +16,7 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
   onChangeApiKey,
   onSaveApiKey,
   onDeleteApiKey,
+  onInputFocus,
 }) => {
   const [newKeyInput, setNewKeyInput] = useState('');
   const [isEditingKey, setIsEditingKey] = useState(false);
@@ -121,6 +123,7 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
               placeholderTextColor="#94a3b8"
               value={newKeyInput}
               onChangeText={setNewKeyInput}
+              onFocus={onInputFocus}
               autoCapitalize="none"
               secureTextEntry={true}
               autoCorrect={false}

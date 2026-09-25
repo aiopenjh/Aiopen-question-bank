@@ -170,7 +170,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ visible, onClose }
               style={[
                 styles.modalMotion,
                 {
-                  maxHeight: webModalMaxHeight,
+                  maxHeight: webModalMaxHeight ?? '100%',
                   transform: [{ translateY: modalTranslateY }],
                 },
               ]}
@@ -336,10 +336,12 @@ export const feedbackStyles = StyleSheet.create({
   modalMotion: {
     width: '100%',
     maxWidth: 440,
+    flexShrink: 1,
   },
   modalCard: {
     width: '100%',
-    maxHeight: '90%',
+    maxHeight: '100%',
+    flexShrink: 1,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
