@@ -1,5 +1,45 @@
 # Claude 구현 보고서
 
+## 작업 ID `android-data-preservation-sync-20260925` — Android 최신 코드에 학습 데이터 보존 수정 통합
+
+- 작업 폴더: `C:/Users/choor/.codex/worktrees/android-data-preservation-sync`, 브랜치 `feature/android-data-preservation-sync`
+- 기준: `b05d96f` 위 `14a4a25`(인수인계 문서). 구현 커밋 **`8cf6f7f`** (`수정: 목차 재생성·단원 정리·백업 복원 학습 기록 보존 통합`)
+- 원본: `feature/data-preservation`의 `90ab2ba`, `551e702`, `a8df0d2` (공통 조상 `d0b5652`). `git cherry-pick -n`으로 코드만 가져와 검토 후 한 커밋으로 기록했다. push·병합·APK 빌드·배포는 하지 않았다.
+
+### 변경 파일
+
+| 파일 | 내용 |
+| --- | --- |
+| `src/data/repositories/unit_reference_plan.ts` (신규) | 목차 재생성 대응·보존 계획, 중복 단원 병합 계획(소유자별 완료 기록, 최신 `changedAt` 유지, 충돌 시 병합 취소), 삭제 문제의 풀이·정정 정리. 원본과 동일 |
+| `src/data/repositories/topic_unit_repository.ts` | 위 계획을 `replaceTopicUnits`·중복 정리·단원/과목 삭제에 적용, 다중 키 저장 실패 시 스냅샷 롤백. 원본과 동일(공통 조상 이후 기준 브랜치에서 이 파일은 변경되지 않음) |
+| `src/data/repositories/backup_validation.ts` (신규) | 백업 항목 필드·ID 유일성·참조 무결성 사전 검사. 원본 대비 `AppBackupPayload` 타입 import만 `./backup_repository` → `./backup_payload`로 변경 |
+| `src/data/repositories/backup_payload.ts` | `normalizeBackupPayload()` 끝에서 `validateBackupPayload(payload)` 호출. 복원 미리보기(`inspectBackupJSON`)와 실제 복원이 같은 검사를 거치고, 실패하면 저장소 스냅샷·쓰기 전에 거부 |
+| `tests/data_preservation.test.cjs` (신규) | 원본 회귀 테스트 11개 + 통합 테스트 1개 |
+| `tests/storage.test.cjs` | 롤백 테스트 픽스처가 사전 검사를 통과하도록 기존 과목 유지(원본과 동일한 3줄). 기준 브랜치의 새 테스트는 그대로 유지 |
+
+### 충돌 해결
+
+- 유일한 충돌은 `backup_repository.ts`. 원본은 이 파일 안의 `normalizeBackupPayload`에 검사를 넣었지만 최신 브랜치는 해당 함수를 `backup_payload.ts`로 분리했다. `backup_repository.ts`는 **기준 브랜치 내용 그대로(변경 0줄)** 두고 검사 호출을 `backup_payload.ts`로 옮겼다. 옛 파일 내용이 되살아나지 않았다.
+- 공통 조상 이후 기준 브랜치에서 바뀐 시험·키보드·PDF·빈칸형·신고·설정 파일, `useCurriculumManager.ts`, `contracts/types.ts`는 이번 커밋에서 건드리지 않았다. 의존성·프롬프트·디자인 변경 없음. 구버전 이관 코드도 그대로다.
+
+### 추가 회귀 테스트
+
+- `split backup_payload module applies the pre-check and a current Android full backup still round-trips`: 현재 앱에서 과목·단원 난이도·빈칸형(복수 정답)·서술형(채점 체크리스트)·AI 힌트·빈칸형 풀이 기록을 만든 뒤 전체 백업을 내보낸다. (1) `backup_payload.ts` 단독 `normalizeBackupPayload`와 `inspectBackupJSON`이 끊긴 과목 참조를 거부하고, (2) 손상 백업 복원은 저장소를 전혀 바꾸지 않으며, (3) 정상 백업은 위 필드를 모두 보존해 복원된다.
+- 변이 확인: `validateBackupPayload` 호출을 일시 제거하면 새 테스트 포함 3개가 실패하고, 복구 후 전부 통과했다.
+
+### 검증 결과
+
+- 전체 앱 테스트: `node --test tests/*.test.cjs` → **225개 통과, 실패 0** (기준 213 + 원본 이관 11 + 통합 1).
+- 타입 검사: **오류 0**. 이 worktree에는 `node_modules`가 없고 junction 생성이 권한상 막혀, 같은 `b05d96f` 기준인 `android-web-hotfix-sync/ai bank/apps/mobile/node_modules`를 읽기 전용으로 참조했다. 테스트는 `NODE_PATH`, 타입 검사는 저장소 밖 임시 tsconfig(`expo/tsconfig.base` 확장, 프로젝트와 같은 `strict`·`noUnusedLocals`·`noUnusedParameters`, `paths`로 해당 node_modules 지정)로 실행했고 변경 파일 3개를 포함한 앱 소스 146개가 검사 대상이었다. **Windows `cmd.exe /c npx tsc --noEmit`는 직접 실행하지 못했다.** Codex가 의존성이 설치된 환경에서 재확인해야 한다.
+
+### 미검증 항목
+
+- 실기기·APK 동작(목차 재생성, 단원 삭제·중복 정리, 백업 복원 화면) 미검증.
+- 사용자 결정에 따라 구버전 데이터 이관·덮어 설치는 검증하지 않았다(통과로 표시하지 않음).
+- 백업 사전 검사가 기존 사용자의 실제 오래된 백업 파일을 모두 받아들이는지는 테스트 픽스처로만 확인했다. 실제 백업 파일은 사용하지 않았다.
+
+---
+
 ## 작업 ID `android-cloze-abbreviation-20260925` — Android 빈칸형 약어 안내와 채점 일관성
 
 - 작업 폴더: `C:/Users/choor/.codex/worktrees/android-web-hotfix-sync/ai bank`
