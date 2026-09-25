@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "taskId": "android-real-device-round1-20260925",
   "title": "Android 첫 실기기 피드백 수정",
-  "phase": "codex_final_review",
-  "activeAgent": "codex",
+  "phase": "owner_approval",
+  "activeAgent": "owner",
   "implementationAgent": "claude",
   "reviewAgent": "codex",
   "iteration": 1,
@@ -11,14 +11,14 @@
   "baseBranch": "origin/feature/android-app",
   "workBranch": "feature/android-release-candidate",
   "baseCommit": "82dc54b",
-  "headCommit": "066002d",
-  "note": "CODEX_REVIEW.md 필수 수정 3건(userManualSections.tsx TDZ, question_report.test.cjs 배치 반영, ExamSessionScreen 헤더 좁은 화면 겹침) 처리 완료. 사용자 추가 승인에 따라 expo-print 기반 네이티브 실제 PDF 저장(DataBackupSection.tsx)도 구현하고 새 테스트(workbook_pdf_native.test.cjs)를 추가했다. expo-print 패키지 설치는 하지 않았다(Codex가 npx expo install expo-print 실행). 이 세션은 git add/commit/npx tsc/node --test/node -e가 전부 승인 거부되어 커밋과 타입체크·테스트 실행을 못 했다 — 지시에 따라 반복 시도하지 않았다. 작업 폴더에 미커밋 변경이 누적되어 있다(1차분 8개 + 2차분 4개: userManualSections.tsx, question_report.test.cjs, ExamSessionScreen.tsx, examActiveStyles.ts 수정 + workbook_pdf_native.test.cjs, DataBackupSection.tsx 신규/추가 수정). Codex가 expo-print 설치, tsc --noEmit, 대상 테스트 실행, 실기기/에뮬레이터 PDF 인쇄 CSS 육안 확인 후 한글 커밋까지 맡는다.",
-  "nextFile": "docs/ai-handoff/CLAUDE_REPORT.md",
+  "headCommit": "fab8c7c",
+  "note": "Codex Windows 타입 검사와 앱 테스트 206개 통과. 수정본 fab8c7c를 origin/feature/android-app에 반영했고 Android preview APK 빌드 74a30943-c4e3-48c2-95b6-7a015935a6eb(versionCode 8)가 완료됐다. 기존 앱 삭제 없이 덮어 설치 후 사용자 실기기 재검증이 필요하다. 첫 정식 출시 버전 표시는 1.0.0으로 맞추되 내부 빌드 번호는 계속 증가한다. main 병합·Play 배포는 하지 않았다.",
+  "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
     "push",
     "merge",
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-25T17:10:00+09:00"
+  "updatedAt": "2026-09-25T17:45:00+09:00"
 }

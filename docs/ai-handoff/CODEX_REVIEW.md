@@ -28,3 +28,4 @@
 - Android에 웹 전용 'PDF 저장 화면 열기' 버튼을 노출하지 않고, 실제 저장 버튼만 보여주게 했다.
 - 첫 정식 출시 표시 버전 `1.0.0`, 내부 Android 빌드 번호 유지·증가 원칙을 `DEVELOPER.md`에 기록했다. 이번 테스트 APK 표시 버전은 그대로 둔다.
 - 남은 검증: 새 APK 실기기에서 키보드 위치, 의견창, 사용설명서 속도, PDF 한글·저장, 신고 버튼 배치, 아이콘을 확인해야 한다.
+- Android 테스트 브랜치 `origin/feature/android-app`에 `fab8c7c`를 반영했고, EAS preview APK 빌드 `74a30943-c4e3-48c2-95b6-7a015935a6eb`가 완료됐다. 내부 빌드 번호는 `8`, 다운로드 주소는 `https://expo.dev/artifacts/eas/Mkiwk_Kq1-uDzu6_NWITcHD6DRdCIdL_II64zRJh-DQ.apk`다. 첫 정식 출시는 아직 진행하지 않았다.
