@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "taskId": null,
-  "title": null,
-  "phase": "idle",
-  "activeAgent": null,
+  "taskId": "android-web-hotfix-sync-20260925",
+  "title": "웹 출제·채점 수정 Android 통합",
+  "phase": "claude_implementation",
+  "activeAgent": "claude",
   "implementationAgent": "claude",
   "reviewAgent": "codex",
-  "iteration": 0,
+  "iteration": 1,
   "maxReviewIterations": 2,
-  "baseBranch": null,
-  "workBranch": null,
-  "baseCommit": null,
+  "baseBranch": "origin/feature/android-app",
+  "workBranch": "feature/android-web-hotfix-sync",
+  "baseCommit": "ac17890",
   "headCommit": null,
   "nextFile": "TASK.md",
   "approvalRequiredFor": [
@@ -19,5 +19,5 @@
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": null
+  "updatedAt": "2026-09-25T14:27:43+09:00"
 }
