@@ -4,7 +4,6 @@ import { QuestionRevision } from '../../contracts/types';
 import { styles } from './examStyles';
 import { colors } from '../../styles/designTokens';
 import { MathText } from '../../components/common/MathText';
-import { ReportQuestionButton } from './QuestionReportModal';
 
 export interface ExamActiveViewProps {
   questions: QuestionRevision[];
@@ -19,7 +18,6 @@ export interface ExamActiveViewProps {
   onNextQuestion: () => void;
   onSubmitExam: () => void;
   isSaving: boolean;
-  onReportQuestion?: () => void;
 }
 
 // cloze 지문의 {{1}},{{2}}... 마커를 읽기 좋은 빈칸 표시로 바꿔서 보여준다(입력은 아래 별도 칸에서).
@@ -40,7 +38,6 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
   onNextQuestion,
   onSubmitExam,
   isSaving,
-  onReportQuestion,
 }) => {
   const q = questions[currentIndex];
   const currentSelectedOptionId = userAnswers[currentIndex] || null;
@@ -88,7 +85,6 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
             style={styles.questionStem}
             text={q.questionType === 'cloze' ? renderClozeStemPreview(q.stem) : q.stem}
           />
-          {onReportQuestion ? <ReportQuestionButton onPress={onReportQuestion} /> : null}
         </View>
 
         {/* 4지선다 보기 (선택 마킹만, 정답 미노출) */}

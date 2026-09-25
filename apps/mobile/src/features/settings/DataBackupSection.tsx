@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Platform, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Platform, StyleSheet, Image } from 'react-native';
 import { styles } from './settingsStyles';
 import { UniversalModal as Modal } from '../../components/common/UniversalModal';
 import { ViewportPopupLayer } from '../../components/common/ViewportPopupLayer';
@@ -8,6 +8,16 @@ import { generateWorkbookHtml } from '../../utils/workbookHtml';
 import { showAlert } from '../../utils/alert';
 import type { BackupKind } from '../../data/db';
 import { colors, radius, shadows, spacing } from '../../styles/designTokens';
+
+// 워터마크 이미지 URL: 웹은 번들 URI를 현재 문서 기준 절대 URL로, 네이티브는
+// Image.resolveAssetSource로 로컬 파일 URI를 얻는다. HTML의 background-image url()에 그대로 쓴다.
+function resolveWatermarkImageUrl(): string {
+  const watermarkAsset = require('../../../assets/android-icon-foreground-v2.png');
+  if (Platform.OS === 'web') {
+    return watermarkAsset?.uri ? new URL(watermarkAsset.uri, window.location.href).href : '';
+  }
+  return Image.resolveAssetSource(watermarkAsset)?.uri || '';
+}
 
 export interface DataBackupSectionProps {
   onExportBackup: (backupKind?: BackupKind) => Promise<void>;
@@ -49,15 +59,12 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
       showAlert('PDF 저장', '현재 PDF 저장은 웹 버전에서 이용할 수 있습니다.');
       return;
     }
-    const watermarkAsset = require('../../../assets/android-icon-foreground-v2.png');
-    const watermarkImageUrl = watermarkAsset?.uri
-      ? new URL(watermarkAsset.uri, window.location.href).href : '';
     const html = generateWorkbookHtml(
       selectedTopics,
       units,
       questions.filter((question) => selectedTopicIds.includes(question.topicId || '')),
       includeExplanations,
-      watermarkImageUrl,
+      resolveWatermarkImageUrl(),
       window.location.href
     );
     setWorkbookVisible(false);
@@ -76,28 +83,53 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
       showAlert('과목 선택', '문제집에 담을 과목을 하나 이상 선택해 주세요.');
       return;
     }
-    if (Platform.OS !== 'web' || savingPdf) return;
+    if (savingPdf) return;
     setSavingPdf(true);
     try {
-      const watermarkAsset = require('../../../assets/android-icon-foreground-v2.png');
-      const watermarkImageUrl = watermarkAsset?.uri
-        ? new URL(watermarkAsset.uri, window.location.href).href : '';
-      const { createWorkbookPdf } = await import('../../utils/workbookPdf');
-      const bytes = await createWorkbookPdf(
-        selectedTopics,
-        units,
-        questions.filter((question) => selectedTopicIds.includes(question.topicId || '')),
-        includeExplanations,
-        watermarkImageUrl
-      );
-      const url = URL.createObjectURL(new Blob([new Uint8Array(bytes).buffer], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Celueste_Workbook_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      const filteredQuestions = questions.filter((question) => selectedTopicIds.includes(question.topicId || ''));
+      if (Platform.OS === 'web') {
+        const { createWorkbookPdf } = await import('../../utils/workbookPdf');
+        const bytes = await createWorkbookPdf(
+          selectedTopics,
+          units,
+          filteredQuestions,
+          includeExplanations,
+          resolveWatermarkImageUrl()
+        );
+        const url = URL.createObjectURL(new Blob([new Uint8Array(bytes).buffer], { type: 'application/pdf' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Celueste_Workbook_${new Date().toISOString().slice(0, 10)}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } else {
+        // 네이티브(Android/iOS): DOM Canvas 없이 HTML을 그대로 네이티브 렌더러(WebView 인쇄 경로)로
+        // PDF 변환한다. workbookHtml.ts는 @media print에서 미리보기 전용 닫기 링크와
+        // 페이지별 워터마크 각주를 숨기고 단일 하단 각주만 남기도록 이미 작성되어 있다.
+        const html = generateWorkbookHtml(
+          selectedTopics,
+          units,
+          filteredQuestions,
+          includeExplanations,
+          resolveWatermarkImageUrl(),
+          ''
+        );
+        const { printToFileAsync } = await import('expo-print');
+        const { uri } = await printToFileAsync({ html, base64: false });
+        const Sharing = await import('expo-sharing');
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: `Celueste_Workbook_${new Date().toISOString().slice(0, 10)}.pdf`,
+            UTI: 'com.adobe.pdf',
+          });
+        } else {
+          // 공유 시트를 못 여는 기기에서도 PDF 파일 자체는 uri 위치에 이미 만들어져 있다.
+          showAlert('PDF 저장', `PDF를 만들었지만 이 기기에서는 공유 기능을 사용할 수 없습니다.\n\n${uri}`);
+        }
+      }
       setWorkbookVisible(false);
     } catch (error) {
       showAlert('PDF 저장 실패', error instanceof Error ? error.message : 'PDF를 만드는 중 오류가 발생했습니다.');
@@ -186,15 +218,17 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
               <Text style={workbookStyles.rowText}>정답과 해설 포함</Text>
             </TouchableOpacity>
             <TouchableOpacity style={workbookStyles.directSave} onPress={saveWorkbookPdf} disabled={savingPdf}>
-              <Text style={workbookStyles.directSaveText}>{savingPdf ? 'PDF 만드는 중…' : 'PDF 파일 바로 저장'}</Text>
+              <Text style={workbookStyles.directSaveText}>{savingPdf ? 'PDF 만드는 중…' : Platform.OS === 'web' ? 'PDF 파일 바로 저장' : 'PDF 만들고 저장하기'}</Text>
             </TouchableOpacity>
             <View style={workbookStyles.actions}>
               <TouchableOpacity style={workbookStyles.cancel} onPress={() => setWorkbookVisible(false)}>
                 <Text style={workbookStyles.cancelText}>취소</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={workbookStyles.submit} onPress={exportWorkbook}>
-                <Text style={workbookStyles.submitText}>PDF 저장 화면 열기</Text>
-              </TouchableOpacity>
+              {Platform.OS === 'web' ? (
+                <TouchableOpacity style={workbookStyles.submit} onPress={exportWorkbook}>
+                  <Text style={workbookStyles.submitText}>PDF 저장 화면 열기</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
         </View>

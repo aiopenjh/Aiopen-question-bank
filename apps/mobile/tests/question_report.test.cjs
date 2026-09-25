@@ -127,46 +127,71 @@ test('report is sent only on 신고 보내기, keeps input on failure, and shows
   assert.match(textOf(tree), /신고를 전달했습니다/);
 });
 
-test('exam and result screens open the report for that question without touching answers', async () => {
+test('header report entry targets the current question while solving, then a chosen question after submission, without touching answers or grading', async () => {
   const h = harness(async () => ({ ok: true }));
   const { ExamSessionScreen } = h.load(path.join(ROOT, 'src/features/exam/ExamSessionScreen.tsx'));
-  const props = { questions: [question], onExitExam() {}, onCompleteExam: async () => {} };
+  const second = { ...question, id: 'rev-2', questionId: 'q-2' };
+  const props = { questions: [question, second], onExitExam() {}, onCompleteExam: async () => {} };
   let tree = h.render(ExamSessionScreen, props);
   const active = () => all(tree).find(n => n.type === 'ExamActiveView');
+
+  // 풀이 중: 헤더의 단일 '문제 신고' 버튼은 현재 보고 있는 문제를 바로 신고 대상으로 지정한다.
   active().props.onSelectOption('o3');
   tree = h.render(ExamSessionScreen, props);
-  active().props.onReportQuestion();
+  button(tree, '문제 신고').props.onPress();
   tree = h.render(ExamSessionScreen, props);
-  const modal = all(tree).find(n => isType(n, 'QuestionReportModal'));
+  let modal = all(tree).find(n => isType(n, 'QuestionReportModal'));
   assert.equal(modal.props.question.id, 'rev-1');
   assert.equal(active().props.userAnswers[0], 'o3');
   modal.props.onClose();
   tree = h.render(ExamSessionScreen, props);
   assert.equal(all(tree).find(n => isType(n, 'QuestionReportModal')), undefined);
   assert.equal(active().props.userAnswers[0], 'o3');
+
+  // 두 번째 문제까지 답하고 제출하면 결과 화면으로 전환된다.
+  active().props.onNextQuestion();
+  tree = h.render(ExamSessionScreen, props);
+  active().props.onSelectOption('o4');
+  tree = h.render(ExamSessionScreen, props);
+  await active().props.onSubmitExam();
+  tree = h.render(ExamSessionScreen, props);
+  const result = () => all(tree).find(n => n.type === 'ExamResultView');
+  assert.ok(result(), 'switches to the result view after submission');
+  assert.equal(result().props.userAnswers[0], 'o3');
+  assert.equal(result().props.userAnswers[1], 'o4');
+  assert.equal(result().props.results.length, 2);
+
+  // 결과 화면: 같은 버튼을 누르면 신고할 문제를 먼저 고르는 선택 창이 뜬다.
+  button(tree, '문제 신고').props.onPress();
+  tree = h.render(ExamSessionScreen, props);
+  const picker = all(tree).find(n => isType(n, 'QuestionReportPickerModal'));
+  assert.ok(picker, 'result screen opens a question picker instead of reporting directly');
+  assert.equal(picker.props.questions.length, 2);
+  picker.props.onSelect(second);
+  tree = h.render(ExamSessionScreen, props);
+  modal = all(tree).find(n => isType(n, 'QuestionReportModal'));
+  assert.equal(modal.props.question.id, 'rev-2');
+  assert.equal(all(tree).find(n => isType(n, 'QuestionReportPickerModal')), undefined);
+  modal.props.onClose();
+  tree = h.render(ExamSessionScreen, props);
+  // 신고 흐름이 채점 결과나 답안을 바꾸지 않았는지 재확인.
+  assert.equal(result().props.userAnswers[0], 'o3');
+  assert.equal(result().props.userAnswers[1], 'o4');
+  assert.equal(result().props.results.length, 2);
 });
 
-test('report button sits under the stem during the exam and in each explanation card after submission', () => {
+test('exam active and result views no longer render a per-question report button', () => {
   const h = harness(async () => ({ ok: true }));
-  const reported = [];
   const { ExamActiveView } = h.load(path.join(ROOT, 'src/features/exam/ExamActiveView.tsx'));
   const activeTree = h.render(ExamActiveView, {
     questions: [question], currentIndex: 0, userAnswers: {}, userClozeAnswers: {}, isSaving: false,
-    onReportQuestion: () => reported.push('active'),
   });
-  // 지문(MathText)과 같은 카드의 바로 아래 자식이어야 한다.
-  const stemCard = all(activeTree).find(n => n.props.children.some(c => c?.type === 'MathText') && n.props.children.some(c => isType(c, 'ReportQuestionButton')));
-  assert.ok(stemCard, 'report button is inside the stem card');
-  all(stemCard).find(c => isType(c, 'ReportQuestionButton')).props.onPress();
+  assert.equal(all(activeTree).find(n => isType(n, 'ReportQuestionButton')), undefined);
 
   const { ExamResultView } = h.load(path.join(ROOT, 'src/features/exam/ExamResultView.tsx'));
   const second = { ...question, id: 'rev-2' };
   const resultTree = h.render(ExamResultView, {
     questions: [question, second], userAnswers: { 0: 'o4', 1: 'o3' }, onExitExam() {},
-    onReportQuestion: item => reported.push(item.id),
   });
-  const buttons = all(resultTree).filter(n => isType(n, 'ReportQuestionButton'));
-  assert.equal(buttons.length, 2);
-  buttons.forEach(b => b.props.onPress());
-  assert.deepEqual(reported, ['active', 'rev-1', 'rev-2']);
+  assert.equal(all(resultTree).find(n => isType(n, 'ReportQuestionButton')), undefined);
 });

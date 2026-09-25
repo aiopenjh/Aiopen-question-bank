@@ -34,10 +34,42 @@ export function buildQuestionReportPayload(question: QuestionRevision, reason: s
   };
 }
 
-export const ReportQuestionButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
-  <TouchableOpacity style={styles.trigger} onPress={onPress} accessibilityRole="button" activeOpacity={0.8}>
-    <Text style={styles.triggerText}>문제 신고</Text>
-  </TouchableOpacity>
+/**
+ * 결과 화면에서 신고할 문제 하나를 고르는 선택 창.
+ * 문제마다 반복되는 신고 버튼 대신, 시험장 상단의 단일 진입점에서 이 창을 거쳐 문제를 지정한다.
+ */
+export const QuestionReportPickerModal: React.FC<{
+  questions: QuestionRevision[];
+  onSelect: (question: QuestionRevision) => void;
+  onClose: () => void;
+}> = ({ questions, onSelect, onClose }) => (
+  <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+    <View style={fs.modalBackdrop}>
+      <View style={[fs.modalCard, styles.card]}>
+        <Text style={fs.modalTitle}>신고할 문제 선택</Text>
+        <Text style={fs.modalDescription}>신고하고 싶은 문제 번호를 골라주세요.</Text>
+        <ScrollView style={styles.pickerList} contentContainerStyle={styles.pickerListContent}>
+          {questions.map((question, idx) => (
+            <TouchableOpacity
+              key={question.id}
+              style={styles.pickerRow}
+              onPress={() => onSelect(question)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.pickerRowText} numberOfLines={2}>
+                {idx + 1}번. {question.stem}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <View style={fs.buttonRow}>
+          <TouchableOpacity style={fs.secondaryButton} onPress={onClose} activeOpacity={0.8}>
+            <Text style={fs.secondaryButtonText}>닫기</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </Modal>
 );
 
 export const QuestionReportModal: React.FC<{ question: QuestionRevision; onClose: () => void }> = ({ question, onClose }) => {
@@ -154,19 +186,6 @@ export const QuestionReportModal: React.FC<{ question: QuestionRevision; onClose
 };
 
 const styles = StyleSheet.create({
-  trigger: {
-    alignSelf: 'flex-end',
-    minHeight: 32,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  triggerText: {
-    color: colors.inkMuted,
-    fontSize: 12,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-  },
   card: {
     maxWidth: 440,
   },
@@ -208,5 +227,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginTop: spacing.md,
+  },
+  pickerList: {
+    maxHeight: 360,
+    marginTop: spacing.md,
+  },
+  pickerListContent: {
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  pickerRow: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  pickerRowText: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

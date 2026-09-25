@@ -354,6 +354,7 @@ npm run deploy
 5. 구조·환경 변수·운영 절차 변경을 `DEVELOPER.md`에 반영합니다.
 6. 배포된 변경을 `CHANGELOG.md`에 기록합니다.
 7. 앱 릴리스라면 `app.json`의 `version`과 `buildInfo.ts`·`public/version.json`의 버전을 맞추고, 뒤 두 파일의 빌드 시각도 맞춥니다.
+   - 첫 정식 출시 때 사용자에게 보이는 버전은 `1.0.0`으로 시작합니다. 개발·테스트 때 사용한 `2.3.x` 표기를 그대로 출시하지 않습니다. Android 내부 `versionCode`는 기존 테스트 앱을 덮어 설치할 수 있도록 EAS 원격 값에서 계속 증가시키며 초기화하지 않습니다.
 8. `main`을 푸시한 뒤 승인된 대상만 Worker와 GitHub Pages에 배포합니다.
 9. 운영 `version.json`, Worker `/health`, GitHub Pages Actions 결과를 확인합니다.
 

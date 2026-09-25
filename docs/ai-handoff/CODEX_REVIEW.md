@@ -1,28 +1,30 @@
-# Codex 검토 보고서
+# Codex 검토 — Android 첫 실기기 피드백
 
-## 작업 정보
+- 작업 ID: `android-real-device-round1-20260925`
+- 기준: `066002d` 위 Claude 미커밋 변경
+- 판정: **수정 필요 (`claude_revision`, 1회차)**
 
-- 작업 ID: `anthropic-sonnet-46-20260925`
-- Claude 구현: Android `07acf3b`, 웹 `1642ce6`
-- 판정: Sonnet 4.6 전환 통과. 웹은 운영 배포 완료, Android는 APK 빌드 전까지 브랜치 반영.
+## 필수 수정
 
-## 코드 확인
+1. `userManualSections.tsx`: `USER_MANUAL_SECTIONS` 상수가 `styles` 선언보다 앞에 있어 모듈 평가 시 TDZ에 걸린다. Windows `cmd.exe /c npx tsc --noEmit`에서 `TS2448`/`TS2454`가 다수 발생한다. `styles`를 상수보다 먼저 선언하거나 안전한 구조로 바꾸고 타입 오류 0건으로 만든다.
+2. `apps/mobile/tests/question_report.test.cjs`: 기존 4개 중 2개가 새 배치와 충돌해 실패한다. 기존 지문/해설 카드 버튼 기대를 지우는 것만으로 끝내지 말고, **헤더 단일 버튼 → 풀이 중 현재 문제 / 결과 중 문제 선택 → 신고 모달**, 답안·채점 불변을 새 테스트로 확인한다. 실제 실패 메시지는 `active(...).props.onReportQuestion is not a function` 및 stem 카드 내 `ReportQuestionButton` 기대 실패다.
+3. `ExamSessionScreen.tsx`: 현재 1행 헤더에 `✕ 나가기`, 진행 표시, `📐 풀이공간`, `💡 힌트`, `🚩 문제 신고`가 모두 들어간다. `examActiveStyles.ts`에는 줄바꿈/축소가 없어서 폭 360px 안팎에서 넘칠 가능성이 크다. 작은 Android 화면에서도 세 기능과 진행 표시가 보이고 눌리도록 레이아웃을 분리·축약하고, 기존 디자인을 유지한다.
 
-- 두 브랜치의 Anthropic Messages 요청 모델이 공식 ID `claude-sonnet-4-6`이다.
-- 웹의 직접 호출 헤더를 `anthropic-dangerous-direct-browser-access: true`로 교정했다. Android에는 같은 헤더가 이미 있었다.
-- API 키 분기, 전송 안내, 요청 취소, Gemini/OpenAI 경로와 PDF·검색 제한은 변경하지 않았다.
-- Anthropic 모의 요청 테스트가 모델·헤더·키·본문·취소 신호·정상 응답·빈 응답·401 오류·미지원 입력을 확인한다.
+## 권장 확인
 
-## 검증
+- `utils/alert.ts` 리스너 스택 수정은 랭킹 모달이 메인 리스너를 덮어쓰던 코드 경로와 맞는다. 등록→랭킹 열기→랭킹 닫기→메인 알림 호출의 회귀 테스트를 추가하면 좋다. 폴백은 유지한다.
+- 사용설명서 렌더 비용 감소는 가능하지만 실기기 속도 측정은 없다. '원인 확정/완료'라고 단정하지 말고 실기기 재검증 필요로 보고한다.
+- PDF 내보내기는 네이티브 실제 저장이 미완료였으나, 사용자가 2026-09-25에 **`expo-print` 추가를 승인했다.** 이번 수정에서 실제 Android PDF 생성·공유/저장을 구현한다. 다른 새 의존성은 추가하지 않는다. 공식 SDK 57 문서의 권장 버전은 `~57.0.2`다.
 
-- Android `ai_client.test.cjs`: 9/9 통과
-- 웹 `ai_client.test.cjs`: 8/8 통과
-- 양쪽 Windows `cmd.exe /c npx tsc --noEmit`: 오류 0건
-- 웹 `npx expo export -p web`, Android `npx expo export -p android`: 성공
-- 웹 `main@1dbf7bd` 반영, `gh-pages@bd7a0b9` 배포. 공개 번들에서 새 모델 ID와 헤더 확인.
-- 실제 Anthropic API 호출은 수행하지 않았다. 테스트는 가짜 키와 모의 응답을 사용했다.
+## 인수인계
 
-## 다음 작업
+변경 파일은 보존하고 위 항목만 수정한다. Claude 실행 환경에서 명령이 계속 거부되면 반복 시도하지 말고 보고서에 명시한다. Codex가 타입 검사·대상 테스트를 실행하고 한글 커밋을 맡는다. push/빌드/배포는 하지 않는다.
 
-- Android 브랜치를 원격에 반영한다.
-- Celueste의 기존 EAS 프로젝트 ID·서명키가 아직 식별되지 않았다. Expo Go의 `Bank` 프로젝트에는 브랜치가 없고 Celueste와 동일한 프로젝트라는 근거가 없다. APK 빌드는 연결 경로를 확인한 뒤 진행한다.
+## 최종 검토 (Codex)
+
+- 필수 수정 3건 반영을 확인했다. Windows `npx tsc --noEmit` 통과, 대상 테스트 8개 및 전체 앱 테스트 205개 통과.
+- 새 `expo-print ~57.0.2`는 사용자 승인에 따라 추가했다. Android에서 PDF를 생성하고 OS 공유 시트를 여는 경로를 확인했다. 다만 실제 한글·쪽 배치와 저장 동작은 새 APK 실기기 검증이 필요하다.
+- 테스트 실행기에서 VM 객체를 직접 깊은 비교한 테스트 1건은 필드별 비교로 바로잡았다. 기존 알림 화면 복귀 회귀 테스트 1건을 추가해 통과했다.
+- Android에 웹 전용 'PDF 저장 화면 열기' 버튼을 노출하지 않고, 실제 저장 버튼만 보여주게 했다.
+- 첫 정식 출시 표시 버전 `1.0.0`, 내부 Android 빌드 번호 유지·증가 원칙을 `DEVELOPER.md`에 기록했다. 이번 테스트 APK 표시 버전은 그대로 둔다.
+- 남은 검증: 새 APK 실기기에서 키보드 위치, 의견창, 사용설명서 속도, PDF 한글·저장, 신고 버튼 배치, 아이콘을 확인해야 한다.

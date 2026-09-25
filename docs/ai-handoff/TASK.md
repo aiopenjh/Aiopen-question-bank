@@ -25,6 +25,10 @@
 
 ## Codex 수정과 충돌 방지
 
+### 사용자 추가 승인 (2026-09-25)
+
+사용자가 Android 문제집 PDF 실제 저장을 위해 **`expo-print` 패키지 추가를 승인했다.** SDK 57 공식 권장 버전은 `~57.0.2`이며 `npx expo install expo-print`로 설치한다. `generateWorkbookHtml()` 재사용, `Print.printToFileAsync({ html })`와 이미 설치된 `expo-sharing`으로 Android PDF 공유/저장 경로를 구현한다. PDF가 앱 캐시에만 남고 사용자가 저장하지 못하는 상태를 성공으로 안내하지 않는다. 다른 새 의존성은 승인되지 않았다. HTML의 웹 전용 닫기 링크·인쇄 CSS가 PDF에 노출되지 않는지 확인한다.
+
 - `82dc54b`에서 Android 키보드 가림 개선, 페이지 숫자 편집, 파일 변경 시 자동 제목 교체, 의견 창 높이, Android 아이콘을 수정했다. 우선 이 파일들을 수정하지 말고 위 범위에 집중한다: `SourceUploadModal.tsx`, `TopicModal.tsx`, `ApiKeySection.tsx`, `SettingsScreen.tsx`, `FeedbackCard.tsx`, `useSourceManager.ts`, `app.json`.
 - 기존에 **저장된** 잘못된 자료 제목은 조용히 대량 변경하지 않는다. 새 파일 선택 시 자동 제목만 갱신되도록 Codex가 고쳤다.
 - 다른 기능·디자인·데이터 스키마·랭킹·AI 모델·웹 운영 배포를 바꾸지 않는다.
