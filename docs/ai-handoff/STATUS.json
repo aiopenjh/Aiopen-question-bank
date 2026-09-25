@@ -11,7 +11,7 @@
   "baseBranch": "feature/android-app",
   "workBranch": "feature/android-apk12-fixes",
   "baseCommit": "c53dc7e",
-  "headCommit": "c53dc7e",
+  "headCommit": "e12b2e4",
   "note": "Claude 구현 후 Codex 최종 검토 완료. Codex는 신규 테스트 지문 한 줄만 정정했다. 앱 테스트 229개와 Windows tsc 통과. 원격 push·APK 빌드·실기기 재검증은 별도 단계.",
   "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
