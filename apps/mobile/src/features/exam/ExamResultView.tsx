@@ -85,7 +85,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
             ) : (
               <>
                 <Text style={styles.reportScoreSub}>
-                  맞힌 문제: <Text style={{ color: '#f43f5e', fontWeight: 'bold' }}>{summary.correct + summary.corrected}</Text> / {summary.graded}문항 ({scorePercent}점)
+                  맞힌 문제: <Text style={{ color: '#f43f5e', fontWeight: 'bold' }}>{summary.correct + summary.corrected}</Text> / {summary.graded}문항 · 점수 {scorePercent}점
                 </Text>
                 <Text style={styles.reportScoreBreakdown}>{breakdown}</Text>
                 {summary.gradingFailed > 0 ? (

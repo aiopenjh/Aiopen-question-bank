@@ -135,7 +135,8 @@ test('result summary counts corrections as correct and removes grading failures 
   assert.equal(summary.incorrect, 2);
   assert.equal(summary.gradingFailed, 1);
   assert.equal(summary.graded, 4);
-  assert.equal(summary.scorePercent, 50);
+  // 문항별 점수 평균: 정답 100 + 정정 100 + 부분점수 50 + 오답 0 → 250 / 4 = 62.5 → 63점
+  assert.equal(summary.scorePercent, 63);
 });
 
 test('grading failure is saved without changing the review schedule', async () => {

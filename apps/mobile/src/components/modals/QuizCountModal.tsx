@@ -18,11 +18,13 @@ import { quizCountModalStyles as styles } from './QuizCountModal.styles';
 import { showAlert } from '../../utils/alert';
 import { getAttempts } from '../../data/db';
 import { getUnlockedChallengeLevel, CHALLENGE_START_LEVEL } from '../../domain/challenge_progress';
+import type { QuestionTypeMode } from '../../domain/question_type_plan';
 
 export interface QuizCountModalOptions {
   learnerLevel?: LearnerKnowledgeLevel;
   difficultyLevel?: number;
   shouldReplaceExisting?: boolean;
+  questionTypeMode?: QuestionTypeMode;
 }
 
 interface QuizCountModalProps {
@@ -43,6 +45,12 @@ const COUNT_OPTIONS = [
   { count: 3, title: '3문제', meta: '빠른 확인', description: '핵심 개념을 짧게 점검해요.', recommended: false },
   { count: 5, title: '5문제', meta: '추천', description: '개념과 응용을 균형 있게 풀어요.', recommended: true },
 ] as const;
+
+const QUESTION_TYPE_MODES: { mode: QuestionTypeMode; label: string }[] = [
+  { mode: 'mixed', label: '혼합' },
+  { mode: 'multiple_choice', label: '객관식만' },
+  { mode: 'subjective', label: '주관식만' },
+];
 
 export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   visible,
@@ -65,6 +73,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   const canAdjustDifficulty = existingCount > 0;
   const [selectedDifficulty, setSelectedDifficulty] = useState(fixedDifficulty);
   const [isSaving, setIsSaving] = useState(false);
+  const [questionTypeMode, setQuestionTypeMode] = useState<QuestionTypeMode>('mixed');
   const savingRef = useRef(false);
   const closeModal = () => { if (!savingRef.current) onClose(); };
   const cardRef = useRef<any>(null);
@@ -136,6 +145,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
         learnerLevel: difficultyToLegacyLevel(selectedDifficulty),
         difficultyLevel: selectedDifficulty,
         shouldReplaceExisting: replaceExisting,
+        questionTypeMode,
       });
     } catch {
       showAlert('레벨 저장 실패', '레벨을 저장하지 못했습니다. 기존 레벨과 문제는 유지됩니다. 다시 시도해 주세요.');
@@ -152,6 +162,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
         learnerLevel: difficultyToLegacyLevel(selectedDifficulty),
         difficultyLevel: selectedDifficulty,
         shouldReplaceExisting: false,
+        questionTypeMode,
       });
       return;
     }
@@ -246,6 +257,28 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                 새 과목을 만들 때 선택한 난이도로 첫 문제가 출제됩니다.
               </Text>
             )}
+
+            <Text style={[styles.sectionTitle, styles.countSectionTitle]}>문제 유형</Text>
+            <View style={styles.levelRow}>
+              {QUESTION_TYPE_MODES.map((item) => {
+                const active = questionTypeMode === item.mode;
+                return (
+                  <TouchableOpacity
+                    key={item.mode}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active }}
+                    style={[styles.levelChip, active && styles.levelChipActive]}
+                    onPress={() => setQuestionTypeMode(item.mode)}
+                    disabled={isSaving}
+                  >
+                    <Text style={[styles.levelChipText, active && styles.levelChipTextActive]}>{item.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {questionTypeMode === 'subjective' ? (
+              <Text style={styles.privacyNote}>주관식은 단답형·서술형으로 출제하며 빈칸형은 포함하지 않습니다.</Text>
+            ) : null}
 
             <Text style={[styles.sectionTitle, styles.countSectionTitle]}>문항 수</Text>
             {storedDifficulty > unlockedLevel && !loadingProgress ? <Text style={styles.privacyNote}>저장된 레벨 {storedDifficulty}은 유지됩니다. 순차 도전은 레벨 {unlockedLevel}부터 진행해 주세요.</Text> : null}

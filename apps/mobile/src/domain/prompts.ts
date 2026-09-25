@@ -13,7 +13,7 @@ export function buildQuestionGenerationPrompt(params: {
   questionTypePlan?: QuestionType[];
 }): string {
   const { intent, resolvedDomain, category, unitTitle, customContext, currentInformationInstruction } = params;
-  const questionTypePlan = params.questionTypePlan ?? createQuestionTypePlan(intent.targetCount);
+  const questionTypePlan = params.questionTypePlan ?? createQuestionTypePlan(intent.targetCount, undefined, intent.questionTypeMode);
 
   return `당신은 사용자가 선택한 어떤 학습 주제에도 대응하는 문제 출제 전문가입니다.
 아래 주제의 의미를 먼저 판정한 뒤, 지정된 JSON 중 하나만 출력하세요.
@@ -40,7 +40,7 @@ ${currentInformationInstruction ? `\n${currentInformationInstruction}` : ''}
 
 [READY일 때 문제 작성 규칙]
 1. 정확히 ${intent.targetCount}문항을 작성합니다.
-2. 앱이 각 문항의 유형을 독립적으로 무작위 추첨했습니다. questions 배열의 questionType은 다음 순서를 정확히 따르세요: ${JSON.stringify(questionTypePlan)}. 같은 유형만 연속되거나 전체가 한 유형이어도 그대로 출제합니다. 비율을 맞추거나 유형을 변경하지 마세요. 모든 난이도에서 모든 유형을 허용하되, 단답형·서술형의 요구 지식과 답안 길이도 지정된 학습자 수준에 맞추세요.
+2. 앱이 각 문항의 유형을 정했습니다. questions 배열의 questionType은 다음 순서를 정확히 따르세요: ${JSON.stringify(questionTypePlan)}. 같은 유형만 연속되거나 전체가 한 유형이어도 그대로 출제합니다. 비율을 맞추거나 유형을 변경하지 마세요. 모든 난이도에서 모든 유형을 허용하되, 단답형·서술형의 요구 지식과 답안 길이도 지정된 학습자 수준에 맞추세요.
 3. questionType이 "multiple_choice"인 문제는 보기 1번, 2번, 3번, 4번의 4지선다이며 정답은 하나만 존재해야 합니다. correctOptionNumber에는 사용자에게 보이는 정답 번호 1, 2, 3, 4 중 하나를 기록합니다. 0부터 시작하는 번호를 사용하지 마세요. 오답은 실제로 혼동하기 쉬운 인접 개념으로 만들고, 각 오답 이유를 설명합니다.
 4. questionType이 "cloze"인 문제는 options/correctOptionNumber를 생략합니다. stem 안에 빈칸을 {{1}}, {{2}}... 순서대로(1부터, 건너뛰지 않고) 표시하고, blanks 배열에 그 순서와 정확히 대응하는 항목을 각각 작성합니다. blanks 각 항목의 correctAnswers는 그 빈칸에 들어갈 정답 표현들의 배열입니다(표기가 여러 개 가능하면 모두 나열, 최소 1개). 한 문제에 빈칸은 1~3개로 합니다.
 5. questionType이 "short_answer"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(핵심 키워드 중심의 짧은 모범답안 한 문장)만 작성합니다. 답이 여러 표현으로 가능하면 modelAnswer에 핵심 키워드를 명시합니다.
@@ -52,6 +52,7 @@ ${currentInformationInstruction ? `\n${currentInformationInstruction}` : ''}
 11. 수식이 필요한 문제(지문/보기/해설/힌트 어디든)는 모든 수식을 반드시 $...$ 기호로 감싸고, 분수는 \\frac{분자}{분모}, 제곱근은 \\sqrt{...}, 지수는 ^{...}, 아래첨자는 _{...}, 그리스 문자·시그마·적분 등은 \\sigma, \\sum, \\int 같은 LaTeX 명령으로 씁니다.
 12. deepReasoningHint(힌트)는 모든 문제 유형에 반드시 작성합니다. 최대 1~2개의 짧은 문장(200자 이내)으로 쓰고 정답 번호, 정답 문구, 최종 수치나 완성된 계산식을 노출하지 마세요.
 13. 좌표계의 축 방향·원점 위치, 인덱스 시작 번호, 단위, 표기법, 버전별 동작처럼 도구·표준·환경마다 관례가 다른 내용은 지문에 기준 환경을 명시하세요(예: "Win32 화면 좌표 기준", "Unity 2D 월드 좌표 기준"). 서로 다른 기준(예: 게임 엔진의 월드 좌표와 모니터 화면 좌표)을 한 문장에 섞지 마세요. 기준을 명시할 수 없으면 그 내용으로 출제하지 마세요. 객관식은 지문에 적은 기준에서 정답이 정확히 하나여야 하며, 널리 쓰이는 다른 기준으로 보면 오답 보기가 정답이 되는 문제는 만들지 마세요. 단답형·서술형의 modelAnswer와 gradingChecklist도 지문에 적은 기준으로 작성합니다.
+14. 단답형·서술형은 정의·원리·사실·절차처럼 객관적으로 확인할 수 있는 핵심 답안 요소와 채점 기준이 있는 문제만 출제합니다. 답안 문장을 하나로 고정할 필요는 없지만, 표현이 달라도 같은 핵심 요소로 채점할 수 있어야 합니다. 의견·가치판단·찬반, "어떤 입장이 더 옳은가"처럼 여러 논증이 가능한 질문, 학습자의 경험이나 생각을 묻는 질문, 기준이 모호한 지문은 만들지 마세요(예: "칸트 정언명령의 개념을 설명하시오"는 가능, "어떤 윤리관이 더 옳은가"는 불가). 지정된 유형으로 이런 조건을 지킨 문제를 만들 수 없으면 READY를 반환하지 말고 NEEDS_CLARIFICATION으로 이유를 알리십시오.
 
 [출력 JSON]
 READY (questionType별로 필드가 다름에 유의):

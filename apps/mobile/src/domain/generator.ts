@@ -33,6 +33,8 @@ import {
   requiresCurrentOfficialSources,
 } from './current_information';
 import { MAX_ESSAY_ANSWER_LENGTH, readOptionalText, validateGeneratedQuestions } from './generator_validation';
+import type { GeneratedQuestionInput } from './generator_validation';
+import { findUnverifiableSubjective } from './subjective_suitability';
 
 // 100% 하위 호환성을 위한 re-export
 export {
@@ -301,7 +303,7 @@ async function generateViaUniversalAiApi(params: {
   });
   const referenceDate = currentInformationRequired ? getKoreanReferenceDate() : undefined;
 
-  const questionTypePlan = createQuestionTypePlan(intent.targetCount);
+  const questionTypePlan = createQuestionTypePlan(intent.targetCount, undefined, intent.questionTypeMode);
   const prompt = buildQuestionGenerationPrompt({
     questionTypePlan,
     intent,
@@ -317,36 +319,48 @@ async function generateViaUniversalAiApi(params: {
   const documentPrompt = documentInput
     ? `${prompt}\n\n첨부된 PDF의 ${documentInput.pageStart}~${documentInput.pageEnd}페이지를 문제의 최우선 근거로 사용하십시오. PDF 밖의 내용을 임의로 섞지 마십시오.`
     : prompt;
-  const completion = await callUniversalAiCompletion(
-    apiKey,
-    documentPrompt,
-    signal,
-    documentInput,
-    { enableGoogleSearch: currentInformationRequired }
-  );
-  const parsed = parseAiJsonResponse<unknown>(completion.text);
-  const intentDecision = readStudyIntentDecision(parsed);
-  if (intentDecision.status !== 'READY') {
-    return {
-      status: intentDecision.status,
-      message:
-        intentDecision.message ||
-        (intentDecision.status === 'NEEDS_CLARIFICATION'
-          ? '학습하려는 주제의 관계나 범위를 조금 더 구체적으로 알려 주세요.'
-          : '입력한 내용에서 학습 주제를 확인하기 어렵습니다.'),
-      clarificationChoices: intentDecision.clarificationChoices || [],
-    };
-  }
-  const generatedQuestions = validateGeneratedQuestions(
-    parsed,
-    intent.targetCount,
-    currentInformationRequired,
-    referenceDate,
-    completion.groundingSources.length > 0,
-    true
-  );
-  if (!matchesQuestionTypePlan(generatedQuestions, questionTypePlan)) {
-    throw new GenerationContentError('AI가 추첨된 문제 유형을 따르지 않았습니다. 다시 출제해 주세요.');
+  let generatedQuestions: GeneratedQuestionInput[] = [];
+  // 객관적으로 채점하기 어려운 주관식이 섞이면 저장하지 않고 같은 유형 계획으로 한 번 더 요청한다.
+  // 그래도 안 되면 다른 유형으로 바꾸지 않고 이유를 알린다.
+  for (let attempt = 1; ; attempt++) {
+    const completion = await callUniversalAiCompletion(
+      apiKey,
+      documentPrompt,
+      signal,
+      documentInput,
+      { enableGoogleSearch: currentInformationRequired }
+    );
+    const parsed = parseAiJsonResponse<unknown>(completion.text);
+    const intentDecision = readStudyIntentDecision(parsed);
+    if (intentDecision.status !== 'READY') {
+      return {
+        status: intentDecision.status,
+        message:
+          intentDecision.message ||
+          (intentDecision.status === 'NEEDS_CLARIFICATION'
+            ? '학습하려는 주제의 관계나 범위를 조금 더 구체적으로 알려 주세요.'
+            : '입력한 내용에서 학습 주제를 확인하기 어렵습니다.'),
+        clarificationChoices: intentDecision.clarificationChoices || [],
+      };
+    }
+    generatedQuestions = validateGeneratedQuestions(
+      parsed,
+      intent.targetCount,
+      currentInformationRequired,
+      referenceDate,
+      completion.groundingSources.length > 0,
+      true
+    );
+    if (!matchesQuestionTypePlan(generatedQuestions, questionTypePlan)) {
+      throw new GenerationContentError('AI가 추첨된 문제 유형을 따르지 않았습니다. 다시 출제해 주세요.');
+    }
+    const unsuitable = findUnverifiableSubjective(generatedQuestions);
+    if (unsuitable === null) break;
+    if (attempt >= 2) {
+      throw new GenerationContentError(
+        `객관적으로 채점할 수 있는 주관식 문제를 만들지 못했습니다(${unsuitable}번 문제가 의견·가치판단형이거나 채점 기준이 주관적입니다). 단원이나 요청을 더 구체적으로 정하거나 문제 유형을 바꿔 다시 출제해 주세요.`
+      );
+    }
   }
   const questions: QuestionRevision[] = [];
   const validations: ValidationRecord[] = [];
