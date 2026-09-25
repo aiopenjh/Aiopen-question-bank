@@ -1,24 +1,24 @@
 {
   "schemaVersion": 1,
-  "taskId": "android-real-device-round1-20260925",
-  "title": "Android 첫 실기기 피드백 수정",
-  "phase": "owner_approval",
-  "activeAgent": "owner",
+  "taskId": "android-cloze-abbreviation-20260925",
+  "title": "Android 빈칸형 약어 안내와 채점 일관성",
+  "phase": "claude_implementation",
+  "activeAgent": "claude",
   "implementationAgent": "claude",
   "reviewAgent": "codex",
-  "iteration": 1,
+  "iteration": 0,
   "maxReviewIterations": 2,
   "baseBranch": "origin/feature/android-app",
   "workBranch": "feature/android-release-candidate",
-  "baseCommit": "82dc54b",
-  "headCommit": "fab8c7c",
-  "note": "Codex Windows 타입 검사와 앱 테스트 206개 통과. 수정본 fab8c7c를 origin/feature/android-app에 반영했고 Android preview APK 빌드 74a30943-c4e3-48c2-95b6-7a015935a6eb(versionCode 8)가 완료됐다. 기존 앱 삭제 없이 덮어 설치 후 사용자 실기기 재검증이 필요하다. 첫 정식 출시 버전 표시는 1.0.0으로 맞추되 내부 빌드 번호는 계속 증가한다. main 병합·Play 배포는 하지 않았다.",
-  "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
+  "baseCommit": "1952b74",
+  "headCommit": "52f2785",
+  "note": "사용자 2차 실기기 피드백. Codex가 키보드 가림 수정 52f2785와 타입 검사 통과를 완료했다. Claude는 TASK.md의 현재 작업 블록에 따라 빈칸형 약어 사전 안내와 향후 출제 기준을 수정한다. 이전 작업 내용은 역사 참고만 한다.",
+  "nextFile": "docs/ai-handoff/TASK.md",
   "approvalRequiredFor": [
     "push",
     "merge",
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-25T17:45:00+09:00"
+  "updatedAt": "2026-09-25T18:05:00+09:00"
 }
