@@ -22,7 +22,7 @@ AI 응답과 무작위 추첨 결과 자체가 매번 같을 수는 없습니다
 - 생성 통로가 없으면 `NEEDS_CONNECTION` 또는 명확한 오류 상태를 반환하고, 사용자가 연결 방법을 선택하도록 안내합니다.
 
 #### 2. 로컬 퍼스트와 명시적 외부 전송 (Local-First & Explicit Network Boundary)
-- 과목, 단원, 문제, 오답과 학습 기록의 기본 저장소는 사용자 기기(`IndexedDB` / `AsyncStorage`)입니다.
+- 과목, 단원, 문제, 오답과 학습 기록의 기본 저장소는 사용자 기기(웹 `IndexedDB`, Android `SQLite`)입니다. 구형 Android `AsyncStorage` 데이터는 검증 후 이관하며 원본을 임의로 삭제하지 않습니다.
 - AI 생성·채점, 선택형 랭킹, 의견 전송처럼 네트워크가 필요한 기능은 목적과 전송 범위를 분리하고 사용자에게 명확히 알립니다.
 - API 키는 일반 학습 데이터와 분리해 보안 저장하고 백업에 포함하지 않습니다. 로컬 퍼스트를 모든 데이터의 완전한 암호화나 무전송으로 과장하지 않습니다.
 
@@ -70,18 +70,18 @@ AI 응답과 무작위 추첨 결과 자체가 매번 같을 수는 없습니다
 | **커리큘럼 훅** | `apps/mobile/src/hooks/useCurriculumManager.ts` | 5단계/30단계 마이크로 목차 자동 생성, 단계별 목차 확장, 단원 중복 정리 전담 |
 | **문제출제 훅** | `apps/mobile/src/hooks/useQuizGeneration.ts` | 단원별 문제 출제, 문항 수 선택, 추가 자율 학습, 오답 비계 풀이 전담 |
 | **출제 프롬프트** | `apps/mobile/src/domain/prompts.ts` | 공인 시험 출제위원 프롬프트, 도메인 고정, 교차 충돌·무의미 입력 방어 규칙 정의 |
-| **AI 통신 엔진** | `apps/mobile/src/domain/ai_client.ts` | Gemini 3.5 이상 모델 내 캐스케이드 및 타임아웃 방어, Claude 3.5 Sonnet(`sk-ant-`), OpenAI GPT-4o(`sk-`) 멀티 프로바이더 통합 |
+| **AI 통신 엔진** | `apps/mobile/src/domain/ai_client.ts` | Gemini 3.5 이상 모델 캐스케이드와 제한 처리, Claude Sonnet 4.6(`sk-ant-`), OpenAI GPT-4o(`sk-`) 멀티 프로바이더 통합 |
 | **출제 파이프라인**| `apps/mobile/src/domain/generator.ts` | 문제 출제 오케스트레이션, JSON 무결성 검증, Fisher-Yates 정답 분산 호출 |
-| **문항 유형 계획** | `apps/mobile/src/domain/question_type_plan.ts` | 객관식·주관식·빈칸형을 문항별 독립 추첨하고 AI 응답 순서 일치 검증 |
+| **문항 유형 계획** | `apps/mobile/src/domain/question_type_plan.ts` | 혼합·객관식만·주관식만 선택, 혼합 시 문항별 독립 추첨과 AI 응답 순서 일치 검증 |
 | **응답 검증** | `apps/mobile/src/domain/generator_validation.ts` | 객관식·단답형·서술형·빈칸형의 유형별 필수 필드와 값 검증 |
 | **정답 셔플러** | `apps/mobile/src/domain/question_distribution.ts` | 4지선다 정답 위치(0~3) 균등 무작위 분산 및 연속 정답 방지 수학적 알고리즘 |
 | **채점 엔진** | `apps/mobile/src/domain/grading.ts` | 빈칸형 로컬 채점과 단답형·서술형 AI 채점 |
-| **영구 저장소** | `apps/mobile/src/data/app_storage.ts`, `apps/mobile/src/data/db.ts` | 웹 IndexedDB 자동 생성·기존 데이터 이관, 네이티브 AsyncStorage, 과목·단원·문제·오답노트 영구 보관 |
+| **영구 저장소** | `apps/mobile/src/data/app_storage.ts`, `apps/mobile/src/data/native_sqlite_backend.ts`, `apps/mobile/src/data/native_storage_migration.ts`, `apps/mobile/src/data/db.ts` | 웹 IndexedDB, Android SQLite 키-값 저장과 AsyncStorage 원본 보존형 이관 |
 | **CBT 시험장** | `apps/mobile/src/features/exam/ExamSessionScreen.tsx` | 전체화면 오버레이 시험장, 4단계 입체 해설지, 복습 완료 후 과목자료함(Page 1) 직행 복귀 |
 | **풀이공간** | `apps/mobile/src/features/exam/ScratchpadPanel.tsx`, `ScratchpadCanvas.*` | 문제별 필기, 마지막 획 되돌리기, 전체 지우기, 문제 이동 시 초기화 |
 | **랭킹 연동** | `apps/mobile/src/domain/ranking_client.ts`, `apps/ranking-worker/` | 사용자가 선택한 경우에만 최소 랭킹 데이터 동기화, 순위 조회 API 제공 |
 | **과목자료함** | `apps/mobile/src/features/library/LibraryScreen.tsx` | 과목 목록, 소단원 목록, 교재 텍스트 첨부, 문제은행 누적 보관 및 시험 응시 |
-| **출제 설정 팝업**| `apps/mobile/src/components/modals/QuizCountModal.tsx` | 과목 등록 시 선택한 난이도(입문/기본/실전/심화) 자동 고정 표시, 난이도 변경 영역, 3/5/10문제 선택 |
+| **출제 설정 팝업**| `apps/mobile/src/components/modals/QuizCountModal.tsx` | 과목의 시작 난이도 기본 표시, 난이도 변경, 혼합·객관식만·주관식만 선택과 3/5문제 선택 |
 | **과목 추가 팝업**| `apps/mobile/src/components/modals/TopicModal.tsx` | 과목명, 카테고리 칩, 시작 난이도 4단계 선택, 등록 즉시 과목자료함 직행 |
 | **배포 스크립트** | `deploy-gh-pages.ps1` | `npx expo export` 정적 빌드, `.nojekyll`, `404.html`, `version.json` 포함 원클릭 GitHub Pages 배포 |
 
@@ -90,8 +90,8 @@ AI 응답과 무작위 추첨 결과 자체가 매번 같을 수는 없습니다
 ## 🔄 4. 최근 핵심 아키텍처 개편 및 버그 픽스 내역 (Recent Updates)
 
 1. **과목 난이도 자동 고정 시스템 도입**:
-   - `Topic` 엔티티에 `learnerLevel` 필드를 추가하여 AsyncStorage에 영구 저장.
-   - 단원의 [출제/풀기] 팝업([QuizCountModal](file:///d:/ai%20bank/apps/mobile/src/components/modals/QuizCountModal.tsx)) 오픈 시, 처음에 과목 등록할 때 설정했던 난이도(예: `👑 심화`)가 기본값으로 100% 고정되어 노출.
+   - `Topic` 엔티티에 `learnerLevel` 필드를 추가하여 앱 저장소에 영구 저장.
+   - 단원의 [출제/풀기] 팝업([QuizCountModal](apps/mobile/src/components/modals/QuizCountModal.tsx)) 오픈 시, 처음에 과목 등록할 때 설정했던 난이도(예: `👑 심화`)가 기본값으로 노출.
    - 단원별로 난이도를 변경하고 싶을 때만 하단 칩을 눌러 변경 가능하며, `↺ 처음 설정으로 복원` 지원.
 2. **독립 시험장(CBT) 오버레이 아키텍처 전환**:
    - 기존의 조기 리턴 방식(`if (examSessionActive) return ...`)을 제거하고 최상위 전체화면 오버레이(`StyleSheet.absoluteFillObject`, `zIndex: 9999`)로 전환.
@@ -111,6 +111,8 @@ AI 응답과 무작위 추첨 결과 자체가 매번 같을 수는 없습니다
    - 객관식 정답 위치 분산과 문항 유형 무작위 추첨은 서로 다른 단계로 유지.
    - 웹·네이티브 풀이공간에 연속 필기, 마지막 획 되돌리기, 전체 지우기와 문제별 초기화를 적용.
 
+현재 Android 테스트 브랜치(`feature/android-app`)에는 SQLite 이관, Android PDF 생성·공유, 채점 미완료와 부분점수 처리, 사용자 정정, 문제 신고가 추가되어 있습니다. 이 브랜치의 코드는 `main`이나 공개 웹에 자동 반영되지 않습니다. 과거 변경 내역은 당시 적용 범위를 설명한 기록으로 읽습니다.
+
 ---
 
 ## 🛠️ 5. AI 개발자 공통 작업 및 배포 프로토콜
@@ -124,12 +126,13 @@ AI 응답과 무작위 추첨 결과 자체가 매번 같을 수는 없습니다
    ```
    (TypeScript 에러가 0건이어야 작업을 진행할 수 있습니다.)
 
-2. **Git Commit & Push (`main` 브랜치)**:
+2. **현재 작업 브랜치에 범위 지정 커밋**:
    ```powershell
-   git add .
-   git commit -m "feat/fix: 명확한 변경 내역"
-   git push origin main
+   git add <변경 파일>
+   git commit -m "수정: 명확한 변경 내역"
    ```
+
+   원격 푸시, `main` 병합, APK 빌드, 웹 배포는 각각 별도의 승인·검증 단계입니다. 작업 브랜치에서 `main`으로 바로 푸시하지 않습니다.
 
 3. **GitHub Pages 프로덕션 배포 (`gh-pages` 브랜치)**:
    ```powershell

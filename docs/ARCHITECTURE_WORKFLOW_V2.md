@@ -1,6 +1,6 @@
-# Celueste v2.4 아키텍처와 워크플로
+# Celueste 현재 아키텍처와 워크플로
 
-이 문서는 로컬 `main`에 통합된 v2.4 Beta 후보 코드의 상세 구조와 실행 흐름을 기록합니다. 배포 버전 표시는 아직 v2.3.4이며, 이 문서의 v2.4는 **현재 개발 아키텍처 기준**을 뜻합니다.
+이 문서는 2026-09-25 `feature/android-app`의 Android 테스트 코드를 기준으로 합니다. 공개 웹 `main`과 `gh-pages`는 별도 브랜치·배포 단계이며 Android 변경이 자동 반영되지 않습니다. 테스트 APK의 표시 버전은 2.3.6이고 첫 정식 출시 버전은 아직 정해진 코드에 반영되지 않았습니다.
 
 ![Celueste v2 코드 전체 진행 방향](./assets/celueste-v2-code-direction.svg)
 
@@ -21,7 +21,7 @@ GitHub에서는 아래 Mermaid 블록이 아키텍처 그림으로 렌더링됩�
 flowchart TB
     User[사용자]
 
-    subgraph App["Celueste 앱 · Web / Android / iOS"]
+    subgraph App["Celueste 앱 · Web / Android (iOS 실기기 미검증)"]
         UI[화면과 모달<br/>AppView]
         Controller[앱 제어<br/>useAppController]
         Hooks[기능 훅<br/>커리큘럼 · 생성 · 시험 · 백업]
@@ -35,7 +35,8 @@ flowchart TB
 
     subgraph Local["사용자 기기 로컬 데이터"]
         IDB[(IndexedDB<br/>Web)]
-        Async[(AsyncStorage<br/>Native)]
+        Sqlite[(SQLite 키-값<br/>Android)]
+        Legacy[(구형 AsyncStorage<br/>이관 원본)]
         KeyStore[(Web AES-GCM /<br/>OS SecureStore)]
     end
 
@@ -55,17 +56,18 @@ flowchart TB
         Worker --> D1
     end
 
-    Feedback[Formspree<br/>의견 보내기]
+    Feedback[Formspree<br/>의견 · 문제 신고]
 
     User --> UI
     Repos --> IDB
-    Repos --> Async
+    Repos --> Sqlite
+    Legacy -- 1회 복사·검증 --> Sqlite
     Secure --> KeyStore
     Domain --> BYOK
     Domain -. 대안 .-> Proxy
     Domain -. 향후 .-> OnDevice
     Repos -- 사용자 동의 시 최소 랭킹 데이터 --> Worker
-    UI -- 사용자가 작성한 의견 --> Feedback
+    UI -- 사용자가 명시적으로 보낸 의견·신고 --> Feedback
 ```
 
 핵심 경계는 다음과 같습니다.
@@ -91,7 +93,7 @@ App.tsx
        │    └─ 유형별 채점
        └─ repository → app_storage
             ├─ IndexedDB (Web)
-            └─ AsyncStorage (Native)
+            └─ SQLite 키-값 (Android) ← 구형 AsyncStorage 이관
 ```
 
 | 계층 | 주요 파일 | 책임 |
@@ -101,11 +103,11 @@ App.tsx
 | 페이징 | `src/hooks/useBookPagerGesture.ts` | 메인·자료함·설정 이동과 모바일 뷰포트 보호 |
 | 커리큘럼 | `src/hooks/useCurriculumManager.ts` | 5단계 생성, 30단계 확장, 중복 정리 |
 | 문제 생성 | `src/hooks/useQuizGeneration.ts` | 생성 요청, 저장, 시험 시작 조정 |
-| 출제 도메인 | `src/domain/question_type_plan.ts`, `prompts.ts`, `generator_validation.ts`, `generator.ts` | 유형 추첨, 프롬프트, 검증, 모델 변환 |
+| 출제 도메인 | `src/domain/question_type_plan.ts`, `prompts.ts`, `generator_validation.ts`, `subjective_suitability.ts`, `generator.ts` | 유형 선택·계획, 객관적 주관식 검사, AI 응답 검증 |
 | 정답 분산 | `src/domain/question_distribution.ts` | 객관식 정답 위치 Fisher-Yates 분산과 연속 번호 방지 |
 | 채점 | `src/domain/grading.ts` | 객관식·빈칸 로컬 판정, 단답·서술 AI 판정 |
 | 시험 | `src/features/exam/*` | 답안 입력, 풀이공간, 제출, 결과·해설 |
-| 저장 | `src/data/app_storage.ts`, `src/data/db.ts`, `src/data/repositories/*` | 로컬 저장, 이관, 연쇄 삭제, 백업·복원 |
+| 저장 | `src/data/app_storage.ts`, `src/data/native_sqlite_backend.ts`, `src/data/native_storage_migration.ts`, `src/data/db.ts`, `src/data/repositories/*` | 웹 IndexedDB·Android SQLite, 구형 데이터 이관, 연쇄 삭제, 백업·복원 |
 | 외부 연결 | `src/domain/ai_client.ts`, `src/domain/ranking_client.ts`, `src/integrations/*`, `apps/ranking-worker/` | AI, 보안 키, 랭킹, 의견 전송 |
 
 `App.tsx`에는 도메인 로직을 추가하지 않습니다. 화면은 저장소와 외부 API를 직접 호출하지 않고 기능 훅과 repository 경계를 거칩니다.
@@ -114,13 +116,13 @@ App.tsx
 
 1. 사용자가 과목, 자료, 시작 난이도를 정합니다.
 2. 커리큘럼 훅이 5개 단원을 만들고 필요할 때 30단계까지 확장합니다.
-3. 사용자가 단원, 문항 수, 레벨, 기존 문제 유지 여부를 선택합니다.
-4. `createQuestionTypePlan()`이 문항마다 객관식·주관식 범주·빈칸형을 독립 추첨합니다.
+3. 사용자가 단원, 문항 수, 레벨, 문제 유형(혼합·객관식만·주관식만), 기존 문제 유지 여부를 선택합니다.
+4. `createQuestionTypePlan()`이 선택 모드에 맞게 유형을 계획합니다. 혼합은 객관식·주관식 범주·빈칸형을 독립 추첨하고, 주관식만은 빈칸형을 제외합니다.
 5. 주관식 범주가 선택되면 단답형과 서술형을 다시 같은 확률로 추첨합니다.
 6. `prompts.ts`가 정확한 유형 순서, 학습 범위, 난이도, 기존 문제를 AI에 전달합니다.
 7. `generator_validation.ts`가 유형별 필수 필드와 값 범위를 검사합니다.
 8. AI가 반환한 유형 배열이 계획과 다르면 저장하지 않습니다.
-9. 객관식 정답 위치를 분산한 뒤 전체 문항 순서를 다시 섞습니다.
+9. 주관식이 객관적으로 채점하기 어려운 의견형이면 같은 유형 계획으로 한 번만 다시 생성하고, 재발하면 저장하지 않습니다. 객관식 정답 위치를 분산한 뒤 전체 문항 순서를 다시 섞습니다.
 10. 유사도 검사와 로컬 저장이 성공한 문제만 CBT로 전달합니다.
 
 유형 비율을 강제로 보정하지 않으므로 3문항이 모두 같은 유형일 수 있습니다. API 키가 없거나 생성이 실패하면 가짜 문제로 대체하지 않습니다.
@@ -136,7 +138,7 @@ App.tsx
 
 시험은 최상위 오버레이로 열려 기존 3페이지 뷰가 unmount되지 않습니다. 풀이공간은 문제별로 열고 닫을 수 있으며 연속 필기, 마지막 획 되돌리기, 전체 지우기를 제공합니다. 문제를 이동하면 이전 문제의 임시 필기를 다음 문제로 넘기지 않습니다.
 
-주관식 채점 실패 시 사용자 답안과 고정 안내는 보존하지만 현재 자동 재시도·재채점 UI는 없습니다. 이 상태를 정상 오답과 구분하는 개선이 Beta 우선 과제입니다.
+주관식 채점 응답이 누락·중복·형식 오류이면 임의의 부분점수를 주지 않고 `채점 미완료`로 처리합니다. 답안은 보존하며 자동 재채점 UI는 없습니다. 총점은 채점 완료 문항의 부분점수를 포함한 평균이며 미완료 문항은 분모에서 제외합니다. 사용자는 결과 화면에서 복습·오답노트 판정을 정정할 수 있지만 원래 채점, 도전 통과, 랭킹에는 적용되지 않습니다.
 
 ## 5. 자료와 개인정보 경계
 
@@ -150,6 +152,7 @@ App.tsx
 ## 6. 저장·복원 흐름
 
 - 웹 최초 실행 시 구형 AsyncStorage/localStorage 값을 IndexedDB로 복사하고 검증한 뒤 전환합니다.
+- Android는 기존 AsyncStorage 값을 SQLite 키-값 DB에 복사·재조회 검증한 다음 활성 저장소를 전환합니다. 이관 중 실패한 원본은 삭제하지 않으며, 완료 후 SQLite가 열리지 않으면 오래된 AsyncStorage로 조용히 되돌아가지 않습니다.
 - 이관 실패 시 구형 데이터를 삭제하지 않고 기존 경로를 유지합니다.
 - repository는 관련 레코드 스냅샷을 확보한 뒤 순차 변경하고 실패 시 복구를 시도합니다.
 - 단원·과목 삭제는 연결 문제까지 같은 책임 범위에서 처리합니다.
@@ -169,11 +172,12 @@ App.tsx
 | 기능 | 전송 범위 | 현재 상태 |
 | --- | --- | --- |
 | AI 생성·채점·힌트 | 선택 과목·단원·자료 구간·문제·답안 중 요청에 필요한 내용 | 사용자 API 키 기반 |
-| 의견 보내기 | 사용자가 작성한 문의와 필요한 앱 정보 | Formspree, 중복 잠금·20초 제한 |
-| 선택형 랭킹 | 동의한 사용자의 최소 식별자와 집계 점수 | Worker/D1 구조 구현, 운영 URL·D1 설정 확정 필요 |
+| 의견 보내기 | 사용자가 작성한 의견 | Formspree, 중복 잠금·20초 제한 |
+| 문제 신고 | 선택 문제의 ID·지문·보기 문구·사유·메모(답안·정답·API 키 제외) | 같은 Formspree 양식, 사용자가 보내기 실행 시에만 전송. HTTP 성공은 메일 수신 보증이 아님 |
+| 선택형 랭킹 | 동의한 사용자의 최소 식별자와 집계 점수 | Worker/D1 운영 연결. 앱 외부 전송과 보관 정책은 별도 점검 |
 | 업데이트 확인 | 현재 버전 비교에 필요한 버전 정보 | 사용자가 갱신 확인 실행 |
 
-랭킹은 문제 내용, 개인 교재, API 키를 보내지 않습니다. 운영 배포 전 `ranking_client.ts`의 개발 주소와 Worker의 D1 바인딩을 운영값으로 바꿔 검증해야 합니다.
+랭킹은 문제 내용, 개인 교재, API 키를 보내지 않습니다. 로컬 개발의 기본 주소와 운영 빌드에 주입하는 Worker URL을 구분하며, 공개 출시 전 실제 빌드의 연결·탈퇴 경로를 확인해야 합니다.
 
 ## 9. 실패 처리 기준
 
@@ -200,17 +204,17 @@ App.tsx
 
 1. 변경 범위 테스트
 2. `cmd.exe /c npx tsc --noEmit`
-3. 사용자 승인 후 `main` 커밋·푸시
-4. 별도 배포 승인 후 `deploy-gh-pages.ps1`
-5. 실주소, `version.json`, manifest, 아이콘 확인
+3. 작업 브랜치 범위 지정 커밋(한국어 메시지)
+4. 별도 승인 후 해당 브랜치 푸시, `main` 반영, APK 빌드 또는 `deploy-gh-pages.ps1` 실행
+5. 대상 플랫폼의 실주소·버전·아이콘·데이터 보존 확인
 
-일반 `main` 푸시와 `gh-pages` 배포는 서로 다른 작업입니다. 현재 릴리스 표기는 v2.3.4이므로 Beta 배포 전 `buildInfo.ts`, `CHANGELOG.md`, 태그를 함께 맞춥니다.
+일반 `main` 푸시와 `gh-pages` 배포는 서로 다른 작업입니다. 첫 정식 출시의 사용자 표시 버전은 `1.0.0`으로 정리하되 EAS Android 내부 빌드 번호는 초기화하지 않습니다.
 
 ## 12. 다음 우선순위
 
-1. 주관식 채점 실패를 오답과 분리하고 재채점 경로 제공
-2. 랭킹 Worker 운영 URL·D1·개인정보 고지 확정
-3. 실제 모바일 브라우저 E2E와 백업 복원 회귀 시나리오 추가
+1. 채점 미완료 답안의 재채점 여부와 UX 결정(오답 분리는 완료)
+2. 문제 신고의 Formspree 접수 내역·메일 알림 실제 동작 확인
+3. 웹·Android 변경 통합 전 양쪽 회귀와 백업 호환성 확인
 4. 최대 2개 동시 AI 채점의 비용·대기시간 관찰과 서버 할당량 연계
 5. 중첩 백업 스키마 검증 강화
 6. 큰 파일의 책임 경계 재점검과 선택적 분리

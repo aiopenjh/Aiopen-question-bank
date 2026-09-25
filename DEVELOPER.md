@@ -15,15 +15,15 @@
 
 - 클라이언트: Expo 57, React Native 0.86, React 19, TypeScript
 - 웹 저장소: IndexedDB 기반 로컬 저장소
-- 네이티브 저장소: AsyncStorage, API 키는 별도 보안 저장 경로
+- Android 학습 저장소: SQLite 키-값 테이블. 기존 AsyncStorage 데이터는 검증 후 1회 이관하며, API 키는 별도 보안 저장 경로를 사용
 - 로컬 알림: `expo-notifications`
-- 문서/백업: JSON 전용 백업·복원(문제만 백업 / 전체 백업), 웹 PDF 인쇄용 HTML 지원
+- 문서/백업: JSON 전용 백업·복원(문제만 백업 / 전체 백업), 웹 PDF 저장·미리보기 및 Android 네이티브 PDF 생성·공유
 - 배포 대상: GitHub Pages 정적 웹, EAS Android 빌드
 - 선택형 랭킹 서버: Cloudflare Workers + D1 + Rate Limiting
 
-중앙 서버 없이도 기본 학습 기능이 동작하는 로컬 퍼스트 구조입니다. 네트워크는 AI 문제 생성, 업데이트 확인, 선택형 랭킹·의견 전송처럼 명시적인 기능에서만 사용합니다.
+중앙 학습 서버 없이도 저장된 문제의 기본 학습 기능이 동작하는 로컬 퍼스트 구조입니다. 네트워크는 AI 문제 생성·채점, 업데이트 확인, 선택형 랭킹, 의견·문제 신고처럼 명시적인 기능에서만 사용합니다.
 
-핵심 흐름은 `App.tsx → AppView/useAppController → 기능 훅 → domain → repository → app_storage → IndexedDB/AsyncStorage`입니다. 화면은 저장소나 외부 API를 직접 다루지 않고 각 계층의 책임을 거칩니다.
+핵심 흐름은 `App.tsx → AppView/useAppController → 기능 훅 → domain → repository → app_storage → IndexedDB/SQLite`입니다. Android의 AsyncStorage는 기존 데이터 이관·복구 경계에 남아 있습니다. 화면은 저장소나 외부 API를 직접 다루지 않고 각 계층의 책임을 거칩니다.
 
 | 계층 | 책임 | 대표 위치 |
 | --- | --- | --- |
@@ -32,7 +32,7 @@
 | 기능 훅 | 출제, 목차, 시험, 랭킹 흐름 관리 | `src/hooks` |
 | 도메인 | AI 요청, 검증, 채점, 분산 규칙 | `src/domain` |
 | 저장소 | 엔티티별 읽기·쓰기와 백업 | `src/data/repositories` |
-| 저장 엔진 | 웹 IndexedDB와 네이티브 AsyncStorage 추상화 | `src/data/app_storage.ts` |
+| 저장 엔진 | 웹 IndexedDB와 Android SQLite 키-값 저장, 기존 AsyncStorage 이관 | `src/data/app_storage.ts`, `src/data/native_sqlite_backend.ts`, `src/data/native_storage_migration.ts` |
 | 선택형 서버 | 공개 랭킹과 최소 통계 처리 | `apps/ranking-worker` |
 
 ### Gemini 모델 선택과 사용량 제한 처리
@@ -165,7 +165,7 @@ node --test tests/*.cjs
 2. `useAppController`가 `useCurriculumManager` 또는 `useQuizGeneration`에 작업을 위임합니다.
 3. `generator.ts`가 AI 클라이언트를 호출하고 응답 구조를 검증합니다.
 4. 문제 유형 계획과 객관식 정답 위치 분산을 적용합니다.
-5. 저장소 계층이 문제 리비전과 제출키를 IndexedDB 또는 AsyncStorage에 기록합니다.
+5. 저장소 계층이 문제 리비전과 제출키를 웹 IndexedDB 또는 Android SQLite에 기록합니다.
 6. `ExamSessionScreen`은 저장된 문제를 받아 CBT 오버레이를 표시합니다.
 
 화면 컴포넌트에서 AI 제공자나 저장 엔진을 직접 호출하지 않습니다. 생성 실패 시 부분 결과나 가짜 문제를 저장하지 않습니다.
@@ -186,13 +186,13 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
 
 ### 문제 유형 추첨
 
-`createQuestionTypePlan()`은 문항마다 서로 독립적으로 다음 범주를 같은 확률로 추첨합니다.
+출제 설정에서 `혼합`(기본값), `객관식만`, `주관식만`을 선택합니다. `객관식만`은 전부 객관식, `주관식만`은 단답형·서술형 중 문항마다 추첨하며 빈칸형은 제외합니다. `혼합`일 때 `createQuestionTypePlan()`은 문항마다 서로 독립적으로 다음 범주를 같은 확률로 추첨합니다.
 
 - `multiple_choice`: 객관식, 확률 1/3
 - 주관식 범주: 확률 1/3. 범주 안에서 `short_answer`와 `essay`를 다시 1/2 확률로 선택
 - `cloze`: 빈칸형, 확률 1/3
 
-문항 구성 비율과 연속 유형을 보정하지 않으므로 3문항 모두 객관식·주관식·빈칸형인 결과도 허용합니다. 모든 난이도에서 네 유형을 사용할 수 있으며, 프롬프트가 답안 길이와 요구 지식을 학습자 난이도에 맞춥니다.
+혼합 모드에서는 문항 구성 비율과 연속 유형을 보정하지 않으므로 3문항 모두 같은 범주인 결과도 허용합니다. 프롬프트는 의견·가치판단을 묻는 주관식을 금지하고 객관적인 채점 요소를 요구하며, 생성 후 `subjective_suitability.ts`가 명백히 부적합한 주관식을 검사합니다. 적발 시 같은 계획으로 한 번만 재생성하고 다시 적발되면 저장하지 않습니다.
 
 추첨 배열은 프롬프트에 정확한 순서로 전달됩니다. AI 응답의 `questionType` 배열이 추첨 결과와 다르면 `matchesQuestionTypePlan()`에서 생성 실패로 처리해 의도하지 않은 유형 대체를 저장하지 않습니다. 이후 객관식 정답 위치를 분산하고 전체 문항 순서를 Fisher-Yates 방식으로 섞습니다.
 
@@ -203,13 +203,15 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
 - `short_answer`: 모범답안의 핵심 의미 일치를 AI에 요청해 0점 또는 100점 판정
 - `essay`: 2~5개의 체크리스트와 총 100점 배점을 기준으로 AI가 항목별 충족 여부를 반환
 
-주관식 AI 채점에 실패해도 제공자 예외 원문을 저장하지 않습니다. 고정 안내와 사용자의 제출 답안을 보존하며 자동 재시도하지 않습니다.
+빈칸형은 등록된 허용 답안을 기준으로 판정합니다. 명칭형 문제에서 자료에 근거한 약어를 허용할 때는 지문에도 그 사실을 밝히고, 그렇지 않으면 풀네임을 요구합니다. 주관식 AI 채점 응답의 항목이 누락·중복되거나 형식이 잘못되면 점수를 임의로 부여하지 않고 채점 미완료로 처리합니다. 제출 답안은 보존하고 제공자 예외 원문은 저장하지 않으며 자동 재시도하지 않습니다. 시험 점수는 채점 완료 문항의 개별 점수 평균이고 채점 미완료 문항은 분모에서 제외합니다. 결과 화면의 사용자 정정은 복습·오답노트에만 반영하며 원래 채점·도전 통과·랭킹은 바꾸지 않습니다.
 
 ## 6. 저장소와 백업
 
 - `apps/mobile/src/data/app_storage.ts`
-  - 웹 IndexedDB와 네이티브 AsyncStorage의 공통 어댑터
+  - 웹 IndexedDB와 Android SQLite의 공통 어댑터, 구형 Android AsyncStorage 읽기 경계
   - 구형 웹 저장값을 IndexedDB로 이관
+- `apps/mobile/src/data/native_sqlite_backend.ts`, `native_storage_migration.ts`
+  - Android SQLite 키-값 저장과 AsyncStorage 원본 보존형 1회 이관
 - `apps/mobile/src/data/db.ts`
   - 저장소 초기화와 공개 데이터 API
 - `apps/mobile/src/data/repositories/`
@@ -224,9 +226,9 @@ API 키가 없거나 통신에 실패할 때 임의 문제를 만들어 대체�
 - `backupKind`가 없는 이전 JSON은 전체 백업 전용 필드가 있으면 전체, 없으면 문제만 백업으로 판별합니다.
 - API 키와 기기 토큰(deviceToken)은 두 종류 모두 제외합니다. 두 종류 모두 복원 전에 확인창을 띄웁니다.
 
-문제집은 현재 탭의 Blob HTML 미리보기와 기존 `pdf-lib`를 이용한 Canvas A4 PDF 직접 저장을 제공합니다. 직접 저장한 PDF의 글자는 이미지이므로 선택할 수 없습니다. 새 창에 `document.write`하는 방식은 브라우저에 따라 빈 탭이 남을 수 있어 사용하지 않습니다. 워터마크 이미지 주소는 Metro 자산 모듈의 `uri`를 사용합니다.
+웹 문제집은 현재 탭의 Blob HTML 미리보기와 기존 `pdf-lib`를 이용한 Canvas A4 PDF 직접 저장을 제공합니다. 웹에서 직접 저장한 PDF의 글자는 이미지이므로 선택할 수 없습니다. Android는 `expo-print`로 PDF를 만들고 OS 공유 시트에서 저장 위치를 선택하며 웹 전용 미리보기 버튼을 노출하지 않습니다. 새 창에 `document.write`하는 방식은 사용하지 않습니다. 워터마크 이미지 주소는 플랫폼별 자산 URI를 사용합니다.
 
-문제집 미리보기(`workbookHtml.ts`)와 직접 저장 PDF(`workbookPdf.ts`)는 모두 단원별 새 A4 페이지, 왼쪽부터 채우는 2단, 페이지 하단의 출처 문구를 사용합니다. 문제와 정답 번호는 각 단원에서 1부터 다시 시작합니다. 주관식에는 글자·밑줄 없이 빈 공간만 남기고, 제목부터 해설까지 바탕 계열 글꼴을 적용합니다. 미리보기는 오른쪽 위 `×`로 앱에 복귀하며, 직접 저장 PDF는 기존 `pdf-lib` Canvas 경로로 생성합니다. 중복 보조 정보 줄을 제거했으므로 문제집 생성 중 랭킹 프로필 조회도 하지 않습니다.
+문제집 미리보기(`workbookHtml.ts`)와 웹 직접 저장 PDF(`workbookPdf.ts`)는 단원별 새 A4 페이지, 왼쪽부터 채우는 2단, 페이지 하단의 출처 문구를 사용합니다. 문제와 정답 번호는 각 단원에서 1부터 다시 시작합니다. 주관식에는 글자·밑줄 없이 빈 공간만 남깁니다. 웹 미리보기는 오른쪽 위 `×`로 앱에 복귀하고 웹 직접 저장은 `pdf-lib` Canvas 경로를 사용합니다. Android PDF는 같은 문제집 HTML을 `expo-print`로 변환합니다. 중복 보조 정보 줄을 제거했으므로 문제집 생성 중 랭킹 프로필 조회도 하지 않습니다.
 
 ### 랭킹 서버
 
@@ -304,7 +306,7 @@ interface AlarmConfig {
 5. 입력 폰트 16px 이상 유지
 6. `cmd.exe /c npx tsc --noEmit` 통과
 
-현재 전체 회귀 테스트는 다음 명령으로 실행하며, 2026-09-22 보수 후 89개입니다.
+전체 회귀 테스트 명령은 다음과 같습니다. 2026-09-25 Android 수정 브랜치에서 마지막으로 실행한 앱 테스트는 229개 통과였으며, 이후 코드가 바뀌면 다시 확인해야 합니다.
 
 ```powershell
 cd apps/mobile
@@ -321,13 +323,14 @@ node --test tests/*.cjs
 
 ## 10. 커밋과 배포
 
-일반 코드 반영:
+작업 브랜치 코드 기록(한국어 커밋 메시지):
 
 ```powershell
 git add <변경 파일>
-git commit -m "feat: 변경 내용"
-git push origin main
+git commit -m "수정: 변경 내용 정리"
 ```
+
+원격 푸시, `feature/android-app` 병합, `main` 반영, APK 빌드, 웹 배포는 서로 별도 단계입니다. 대상 브랜치와 승인을 확인한 뒤 각각 진행합니다. 현재 Android 테스트 코드는 `feature/android-app`에 있고 `main`과 웹 공개판에는 자동 반영되지 않습니다.
 
 GitHub Pages 배포는 별도 승인된 경우에만 실행합니다.
 
@@ -377,7 +380,7 @@ npx eas-cli build -p android --profile preview
 
 문서별 갱신 기준:
 
-- 사용자에게 보이는 버튼, 화면 순서, 개인정보 처리나 사용 방법이 바뀌면 `README.md`와 앱의 `UserManualModal.tsx`를 함께 확인합니다.
+- 사용자에게 보이는 버튼, 화면 순서, 개인정보 처리나 사용 방법이 바뀌면 `README.md`와 앱의 `userManualSections.tsx`를 함께 확인합니다.
 - 아키텍처, 환경 변수, 테스트, 서버나 배포 방식이 바뀌면 `DEVELOPER.md`를 갱신합니다.
 - 배포된 동작이 바뀌면 `CHANGELOG.md`에 해당 버전 또는 버전 유지 추가 배포 내역을 기록합니다.
 - 불변 원칙이나 AI 협업 규칙을 바꿀 때만 `AGENTS.md`를 수정합니다.
@@ -389,7 +392,7 @@ npx eas-cli build -p android --profile preview
 - 백업은 최상위 스키마를 검사하지만 중첩 객체 검증을 더 강화할 여지가 있습니다.
 - 웹 자동 회귀는 도메인 테스트 중심이며 실제 브라우저 E2E는 아직 별도 구축 대상입니다.
 - 랭킹 Worker와 D1은 운영 배포되어 있습니다. 로컬 Expo는 기본적으로 `localhost:8787`을 사용하므로 운영 서버 시험 시 환경 변수 주입이 필요합니다.
-- 현재 앱 릴리스 표시는 `v2.3.6`입니다. 다음 배포에서도 `buildInfo.ts`, `public/version.json`, 변경 이력을 같은 버전으로 갱신해야 합니다.
+- 현재 테스트 APK의 표시 버전은 `v2.3.6`이며 EAS 내부 빌드 번호는 13까지 사용했습니다. 이는 첫 정식 출시 버전이 아닙니다. 공개 출시 때 표시 버전 `1.0.0`을 맞추되 내부 빌드 번호는 계속 증가시킵니다.
 
 ## 13. 성능 보수 경계 (2026-09-22)
 

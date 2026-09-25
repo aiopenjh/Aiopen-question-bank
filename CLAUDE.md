@@ -1,5 +1,5 @@
 # CLAUDE.md — Claude Developer Guide for Celueste
-> This document instructs Anthropic Claude (Claude Code, Claude 3.5 Sonnet, Claude Desktop) to collaborate seamlessly with Gemini and GPT.
+> This document guides Claude on Celueste. Verify the current branch and `DEVELOPER.md` before acting; historical handoff notes may be stale.
 
 ## 📌 Master Instructions
 - Please read and strictly adhere to **`AGENTS.md`** at the project root for the product constitution, engineering safety rules, file responsibility map, and AI collaboration protocol.
@@ -10,13 +10,13 @@
 - **Typecheck**: `cd apps/mobile && cmd.exe /c npx tsc --noEmit`
 - **Run Local Web**: `cd apps/mobile && npm run web`
 - **Deploy to GitHub Pages**: `powershell -ExecutionPolicy Bypass -File .\deploy-gh-pages.ps1`
-- **Git Push to Main**: `git add . ; git commit -m "..." ; git push origin main`
+- **Git**: stage only requested files and use a short Korean commit message. Push, merge into `main`, build, and deploy require separate user approval.
 
 ## ⚖️ Critical Constraints
 1. **Never mock/hardcode questions**: Return `NEEDS_CONNECTION` when API keys are absent.
-2. **Local-First & Zero-Knowledge**: User data and API keys stay exclusively on the local device.
-3. **500-Line Limit**: Keep files modular and compact under 500 lines.
+2. **Local-First, not zero external transfer**: learning data is stored locally, but explicitly requested AI calls send necessary content and the user's API key to the provider; optional ranking and Formspree reports cross separate network boundaries.
+3. **Responsibility boundaries**: keep UI, domain, integrations and storage separate; do not refactor files just to satisfy a line-count target.
 4. **Strict Domain Isolation**: Follow prompt constitution in `apps/mobile/src/domain/prompts.ts`.
 5. **Answer Random Distribution**: Always maintain Fisher-Yates shuffle in `apps/mobile/src/domain/question_distribution.ts`.
-6. **Anti-Zoom on Mobile**: All text inputs must maintain `fontSize: 16` to prevent browser viewport collapse.
+6. **Mobile accessibility**: keep text inputs at least 16px on mobile web without disabling user zoom.
 7. **Anti-Duplication**: Prevent boilerplate carbon-copy questions within the same unit.

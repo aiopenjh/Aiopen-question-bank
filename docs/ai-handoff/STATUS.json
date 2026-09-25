@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "taskId": "android-apk12-fixes-20260925",
   "title": "Android APK 12 제보 수정과 사용설명서 최신화",
-  "phase": "owner_approval",
+  "phase": "complete",
   "activeAgent": null,
   "implementationAgent": "claude",
   "reviewAgent": "codex",
@@ -11,14 +11,14 @@
   "baseBranch": "feature/android-app",
   "workBranch": "feature/android-apk12-fixes",
   "baseCommit": "c53dc7e",
-  "headCommit": "e12b2e4",
-  "note": "Claude 구현 후 Codex 최종 검토 완료. Codex는 신규 테스트 지문 한 줄만 정정했다. 앱 테스트 229개와 Windows tsc 통과. 원격 push·APK 빌드·실기기 재검증은 별도 단계.",
-  "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
+  "headCommit": "16cd13e",
+  "note": "Android 수정 브랜치를 feature/android-app에 반영했고 테스트 APK 빌드 13을 실기기에서 확인했다. 기존·새 자료는 앱 재실행 뒤 유지됐다. 앱 테스트 229개와 Windows tsc는 코드 변경 직후 통과한 기록이다. 문제 신고 메일 수신은 별도 확인이 필요하다. main 병합·웹 배포·정식 Play 출시는 하지 않았다.",
+  "nextFile": "docs/PRODUCT_ROADMAP_AND_BETA_PLAN.md",
   "approvalRequiredFor": [
     "push",
     "merge",
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-25T21:46:24+09:00"
+  "updatedAt": "2026-09-25T22:47:17+09:00"
 }
