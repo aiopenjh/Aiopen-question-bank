@@ -95,7 +95,7 @@ git init -b gh-pages
 git config user.name "AI CBT Deployer"
 git config user.email "deployer@celueste.local"
 git add -A
-git commit -m "Deploy: Update GitHub Pages build" --allow-empty
+git commit -m "배포: GitHub Pages 웹 빌드 갱신" --allow-empty
 git remote add origin https://github.com/aiopenjh/Aiopen-question-bank.git
 git push origin gh-pages -f
 Remove-Item -Recurse -Force ".git"
