@@ -1,24 +1,24 @@
 {
   "schemaVersion": 1,
-  "taskId": "android-data-preservation-sync-20260925",
-  "title": "Android 최신 테스트 코드에 학습 데이터 보존 수정 통합",
-  "phase": "complete",
+  "taskId": "android-apk12-fixes-20260925",
+  "title": "Android APK 12 제보 수정과 사용설명서 최신화",
+  "phase": "owner_approval",
   "activeAgent": null,
   "implementationAgent": "claude",
   "reviewAgent": "codex",
-  "iteration": 0,
+  "iteration": 2,
   "maxReviewIterations": 2,
-  "baseBranch": "origin/feature/android-app",
-  "workBranch": "feature/android-data-preservation-sync",
-  "baseCommit": "b05d96f",
-  "headCommit": "8cf6f7f",
-  "note": "최신 Android b05d96f에 데이터 보존 수정 통합. Codex Windows 타입 검사 통과, 앱 테스트 225개 통과. 이번 테스트는 전원 새 설치, 구버전 이관 검증 제외. 실기기 검증은 7단계 후반에서 진행한다.",
-  "nextFile": null,
+  "baseBranch": "feature/android-app",
+  "workBranch": "feature/android-apk12-fixes",
+  "baseCommit": "c53dc7e",
+  "headCommit": "c53dc7e",
+  "note": "Claude 구현 후 Codex 최종 검토 완료. Codex는 신규 테스트 지문 한 줄만 정정했다. 앱 테스트 229개와 Windows tsc 통과. 원격 push·APK 빌드·실기기 재검증은 별도 단계.",
+  "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
     "push",
     "merge",
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-25T21:03:55+09:00"
+  "updatedAt": "2026-09-25T21:46:24+09:00"
 }

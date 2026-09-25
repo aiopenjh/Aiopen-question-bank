@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Pressable,
   StyleSheet,
   View,
   Text,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { colors } from '../../styles/designTokens';
 import { USER_MANUAL_SECTIONS } from './userManualSections';
@@ -21,6 +23,7 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
 }) => {
   // 처음에는 제목만 깔끔하게 보이고, 누르면 해당 항목이 열림
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!visible) setExpandedSection(null);
@@ -32,16 +35,16 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity
-        activeOpacity={1}
-        style={styles.overlay}
-        onPress={onClose}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.modalCard}
-          onPress={(e) => e.stopPropagation?.()}
-        >
+      {/* 배경 닫기 영역은 카드의 형제로 둔다. 카드·스크롤을 터치 요소로 감싸면
+          Android에서 터치 응답을 가로채 펼친 항목의 스크롤이 느려지거나 멈춘다. */}
+      <View style={styles.overlay}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="사용설명서 닫기"
+        />
+        <View style={[styles.modalCard, { paddingBottom: 12 + insets.bottom }]}>
           <View style={styles.headerRow}>
             <View style={styles.headerCopyRow}>
               <View style={styles.headerIconBadge}>
@@ -95,8 +98,8 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
             })}
           </ScrollView>
 
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 };
@@ -173,6 +176,8 @@ const styles = StyleSheet.create({
   },
   menuScroll: {
     maxHeight: 590,
+    // 작은 화면에서 카드(92%)보다 길어져 하단이 잘리지 않도록 남은 높이에 맞춘다.
+    flexShrink: 1,
   },
   menuScrollContent: {
     paddingBottom: 4,

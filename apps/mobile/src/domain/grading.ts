@@ -149,16 +149,46 @@ export async function gradeSubjectiveAnswer(
 }
 
 /**
+ * 지문에서 `{{n}}` 바로 뒤에 붙어 있는 글자 묶음(예: `{{1}}종` → `종`)을 돌려준다.
+ * 공백·문장부호·다른 빈칸 표시 앞에서 끊는다.
+ */
+function readAdjacentSuffix(stem: string, blankNumber: number): string {
+  const marker = `{{${blankNumber}}}`;
+  const at = stem.indexOf(marker);
+  if (at < 0) return '';
+  const match = stem.slice(at + marker.length).match(/^[^\s{}()[\]<>.,!?;:'"“”‘’`~·/\\|-]+/);
+  return match ? normalizeComparableText(match[0]) : '';
+}
+
+/**
+ * 제출 답이 정답 뒤에 지문의 인접 접미 글자를 한 번 더 적은 경우인지 판정한다.
+ * 예: 지문 `{{1}}종`, 정답 `1`, 입력 `1종` → 인정. 정답 자체는 정확 일치여야 하며
+ * 접미 글자만 입력하거나(`종`) 다른 값(`3종`)을 적으면 인정하지 않는다.
+ * 인접 접미 전체를 그대로 적은 경우만 인정한다(`{{1}}종류`에 `1종`처럼 앞부분만 적으면 오답).
+ */
+function matchesWithDuplicatedSuffix(submitted: string, answers: string[], suffix: string): boolean {
+  if (!suffix || !submitted.endsWith(suffix)) return false;
+  const core = submitted.slice(0, submitted.length - suffix.length).trim();
+  return core.length > 0 && answers.includes(core);
+}
+
+/**
  * 빈칸형(cloze) 답안 채점. AI 호출 없이 로컬에서 즉시 정확 일치로 판정한다(항상 성공).
- * submittedAnswers는 blanks와 배열 순서로 대응한다.
+ * submittedAnswers는 blanks와 배열 순서로 대응한다. stem을 넘기면 지문에서 빈칸 바로 뒤에
+ * 붙은 글자를 중복 입력한 경우(`{{1}}종`에 `1종`)만 추가로 인정한다.
  */
 export function gradeClozeAnswers(
   blanks: ClozeBlank[],
-  submittedAnswers: string[]
+  submittedAnswers: string[],
+  stem = ''
 ): SubjectiveGradingResult {
   const checklistResult = blanks.map((blank, idx) => {
     const submitted = normalizeComparableText(submittedAnswers[idx] || '');
-    const met = submitted.length > 0 && blank.correctAnswers.some((a) => normalizeComparableText(a) === submitted);
+    const answers = blank.correctAnswers.map((a) => normalizeComparableText(a));
+    const met = submitted.length > 0 && (
+      answers.includes(submitted)
+      || matchesWithDuplicatedSuffix(submitted, answers, readAdjacentSuffix(stem, idx + 1))
+    );
     return { id: blank.id, met };
   });
   const metCount = checklistResult.filter((r) => r.met).length;

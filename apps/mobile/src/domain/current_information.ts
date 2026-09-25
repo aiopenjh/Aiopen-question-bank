@@ -69,6 +69,7 @@ export function buildCurrentInformationInstruction(referenceDate: string): strin
 - 허용 출처: 국가법령정보센터, 국세청, 기획재정부, 국토교통부, 행정안전부, 위택스, 정부24, 공공데이터포털, 찾기쉬운 생활법령정보의 공식 페이지
 - 현재 시행 중인 법령·세율만 정답 근거로 사용하고, 공포 후 시행 전·입법예고·개정안은 현재 규정과 분리하십시오.
 - 공식 출처에서 확인되지 않은 수치나 요건은 문제로 만들지 마십시오.
+- 기관·직위 명칭은 기준일 현행 조문의 표기를 그대로 쓰고, 개정 전 옛 명칭(예: 지방경찰청 → 현행 시·도경찰청)은 지문·보기·정답·correctAnswers에 넣지 마십시오.
 - 모든 문항에 currentReference를 넣고, sourceUrl은 검색 결과의 공식 원문 URL을 기록하십시오.
 - 공식 출처를 확인하지 못하면 READY를 반환하지 말고 NEEDS_CLARIFICATION으로 확인 실패를 알리십시오.`;
 }

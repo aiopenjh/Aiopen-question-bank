@@ -9,6 +9,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { Topic, Source } from '../../contracts/types';
 import { colors } from '../../styles/designTokens';
@@ -91,6 +92,8 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
   hasPdfInMemory,
   onClose,
 }) => {
+  // Android 시스템 내비게이션 영역만큼 하단을 띄워 등록 자료 마지막 줄이 가리지 않게 한다.
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -104,7 +107,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
       >
         <TouchableOpacity
           activeOpacity={1}
-          style={styles.modalCard}
+          style={[styles.modalCard, { paddingBottom: Math.max(30, 16 + insets.bottom) }]}
           onPress={(e) => e.stopPropagation?.()}
         >
           {/* 헤더 */}
@@ -124,7 +127,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             {/* 1단계: 학습 과목(대단원) 이름 직접 입력 */}
             <Text style={styles.stepLabel}>1️⃣ 학습 과목(대단원) 이름</Text>
             <TextInput
@@ -290,6 +293,9 @@ const styles = StyleSheet.create({
   scrollArea: {
     maxHeight: 520,
     flexShrink: 1,
+  },
+  scrollContent: {
+    paddingBottom: 12,
   },
   stepLabel: {
     fontSize: 12,

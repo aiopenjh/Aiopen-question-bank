@@ -1,5 +1,70 @@
 # Claude 구현 보고서
 
+## 작업 ID `android-apk12-fixes-20260925` — Codex 1차 검토 재수정 (iteration 1)
+
+- **커밋·검증 미실행.** 이번 세션에서도 `git`·`node --test` 명령이 권한 승인 대기로 막혀 재시도하지 않았다. 변경은 미커밋 작업 트리에 있으며, Codex가 대상 테스트·Windows tsc·한글 커밋을 맡는다. 권장 메시지: `수정: 빈칸형 인접 접미 전체 일치 제한·현행 법령 지침 한정·설명서 AI 전송 안내`
+- 요청 3건만 수정했고 그 외 기존 미커밋 변경은 그대로 두었다. push·병합·빌드·배포 없음.
+
+| 요청 | 파일 | 수정 |
+| --- | --- | --- |
+| 1. 접미 앞부분 과허용 | `src/domain/grading.ts` | `matchesWithDuplicatedSuffix`의 `len = 1..suffix.length` 반복을 제거. 제출 답이 **인접 접미 전체**로 끝나고 나머지(trim)가 등록 정답과 정확히 같을 때만 인정. `{{1}}종`에 `1종`·`제1종` 인정, `Pa`/`Ds`·`3종`·`종`·`1종종` 등 기존 오답 판정은 동일 |
+| | `tests/cloze.test.cjs` | 반례 테스트 1개 추가: 지문 `{{1}}종류`/`{{2}}종류`, 정답 `1`/`2`에 `1종`·`2종`은 0점, `1종류`·`2 종류`는 100점 |
+| 2. 일반 프롬프트 범위 | `src/domain/prompts.ts` | 문장을 “현재 시행 중인 제도·법령을 묻는 빈칸이라면” 현행 표현만 넣고 옛 명칭을 섞지 않도록 한정하고, 역사·옛 법령 명칭 자체를 묻는 문제는 자료에 적힌 당시 명칭을 따른다고 명시. `current_information.ts`는 변경 없음 |
+| 3. 설명서 AI 전송 안내 | `src/components/modals/userManualSections.tsx` | 로컬 데이터 단락에 한 줄 추가: AI 출제·채점·힌트 사용 시 문제와 답안, 연결한 교재에서 선택한 페이지 등이 사용자가 연결한 AI 서비스 제공자에게 전송될 수 있으며 처리·보관 조건은 제공자의 약관·개인정보 처리방침을 확인. `AiDataNoticeModal` 문구에 맞췄고 새 보장·저장기간은 쓰지 않음 |
+
+- 기존 테스트 중 바뀐 프롬프트·설명서 문구를 직접 검사하는 것은 없음을 검색으로 확인했다(`현재 기준으로`, `옛 기관`, `외부 중앙 서버`). 실행 검증은 하지 않았다.
+- Codex 확인 권장: `node --test tests/cloze.test.cjs tests/current_information.test.cjs`(필요 시 프롬프트 테스트 포함)와 Windows `cmd.exe /c npx tsc --noEmit`.
+
+---
+
+## 작업 ID `android-apk12-fixes-20260925` — Android APK 12 제보 수정과 사용설명서 최신화
+
+- 작업 위치: `D:/ai bank`, 브랜치 `feature/android-apk12-fixes` (기준 `feature/android-app@c53dc7e`).
+- **커밋 없음.** 이번 세션에서 `git`·`node --test`·`npx tsc` 명령이 모두 권한 승인 대기로 막혀 반복 시도하지 않았다. 아래 변경은 작업 트리에 미커밋 상태로 남아 있다(인수인계 문서 `TASK.md`·`STATUS.json`·이 보고서 포함). 사용자 승인 후 한글 커밋이 필요하다. 권장 메시지: `수정: 빈칸형 인접 접미 채점·자료/설명서 하단 가림과 스크롤 개선, 사용설명서 최신화`
+- push·병합·EAS 빌드·배포는 하지 않았다.
+
+### 변경 파일
+
+| 파일 | 내용 |
+| --- | --- |
+| `src/domain/grading.ts` | `gradeClozeAnswers(blanks, answers, stem = '')`. 정확 일치(기존)에 더해, 지문에서 `{{n}}` **바로 뒤에 붙은 글자 묶음**의 앞부분을 답 끝에 중복 입력하고 나머지가 등록된 정답과 정확히 같을 때만 인정. 전역 정규화·약어 추측 없음 |
+| `src/domain/exam_grading.ts` | 빈칸형 채점에 `item.stem` 전달(1줄) |
+| `src/domain/current_information.ts` | 최신 법령 검증 지침에 한 줄 추가: 기관·직위 명칭은 기준일 현행 조문 표기, 옛 명칭(예: 지방경찰청 → 시·도경찰청)을 지문·보기·정답·correctAnswers에 넣지 않음. 기존 공식 출처·현행성 규칙은 그대로 |
+| `src/domain/prompts.ts` | 빈칸형 규칙 4번 끝에 한 문장: correctAnswers에 현재 기준 표현만, 개정으로 바뀐 옛 기관·직위 명칭 금지(법 과목으로 감지되지 않는 운전면허 등 일반 과목 대비) |
+| `src/components/modals/SourceUploadModal.tsx` | `useSafeAreaInsets()`로 카드 하단 여백을 `max(30, 16 + insets.bottom)`로, ScrollView `contentContainerStyle` 하단 12 추가. 웹은 inset 0이라 기존 30 유지. 텍스트·PDF 등록·키보드 로직 변경 없음 |
+| `src/components/modals/UserManualModal.tsx` | 배경 닫기 `TouchableOpacity`가 카드 `TouchableOpacity`를, 카드가 ScrollView를 감싸던 중첩 구조 제거 → 배경은 형제 `Pressable`(absoluteFill), 카드는 일반 `View`. ScrollView에 `flexShrink: 1`, 카드 하단 여백 `12 + insets.bottom` |
+| `src/components/modals/userManualSections.tsx` | 코드 대조 후 갱신(아래) |
+| `tests/cloze.test.cjs` | 회귀 테스트 2개 추가 |
+| `tests/current_information.test.cjs` | 지침 문구 테스트 1개 추가 |
+
+### 판단 근거
+
+1. **`경찰서`**: 채점 코드는 정답 목록과의 정확 일치라 이미 오답이며 그대로 유지. 저장된 문제·점수는 건드리지 않았다. 새 접미 규칙도 `경찰서`/`경찰서이`를 인정하지 않음을 테스트로 고정.
+2. **`1종`/`2종`**: 접미 인정은 `stem`이 주어지고 해당 빈칸 표시 바로 뒤에 공백 없이 붙은 글자가 있을 때만 동작한다. `3종`, `종` 단독, 순서 뒤바뀜(`2종`→1번 칸), `1종종`, 지문에 인접 접미가 없는 경우(`{{1}} 종류`), stem 미전달, `Pa`/`Ds`(및 `Pa는`)는 계속 오답.
+3. **자료 등록 창**: Android 시스템 내비게이션 영역만큼 카드 하단이 부족해 마지막 행이 가려지는 것으로 판단. 기존 `SafeAreaProvider`(AppView) 안에서 렌더되므로 새 의존성 없이 inset 사용.
+4. **사용설명서 스크롤 원인 판단**: (a) 스크롤 영역이 두 겹의 `TouchableOpacity` 응답자 안에 있어 Android에서 터치 시작을 Touchable이 먼저 잡고 ScrollView가 응답권을 넘겨받는 과정이 끼어 드래그가 늦거나 무시될 수 있음, (b) `maxHeight: 590` 고정값이 작은 화면에서 카드 `maxHeight: 92%`를 넘어 `overflow: hidden`에 하단이 잘리면 끝까지 스크롤되지 않아 멈춘 것처럼 보임, (c) 하단 안전 영역 미반영. 세 가지를 최소 수정했다. 배경 탭 닫기·닫기 버튼·뒤로가기(`onRequestClose`)는 유지.
+5. **사용설명서**: 실제 라벨·동작 대조 결과 반영
+   - 문제 유형 `[혼합]/[객관식만]/[주관식만]`과 주관식만의 빈칸형 제외(`QuizCountModal`, `question_type_plan`).
+   - 시험 상단 `[📐 풀이공간]`(채점 미반영), `[🚩 문제 신고]`(풀이 중 현재 문제/결과 화면 선택), 입력형 답안.
+   - 새 항목 “빈칸형·주관식 채점”: 객관식·빈칸형 로컬 채점, 빈칸형 약어 안내(`CLOZE_ABBREVIATION_NOTICE`와 같은 문구)와 인접 접미 인정, 빈칸 비율·서술형 항목별 부분점수, 채점 미완료(답안 보관·점수 제외), `[내 답도 정답으로 정정]`의 반영 범위.
+   - 낡은 라벨 `[다음 5개 단원 생성]` → 실제 `[AI 5개 단원 만들기]`, `[중복 정리]` 버튼.
+   - PDF 재연결: `[+ 자료]` 목록의 `[원본 선택]`/`[연결됨]`. 등록은 파일만 가능하므로 “텍스트 자료” → “PDF나 텍스트 파일”.
+   - 문제집 PDF: Android `[PDF 만들고 저장하기]` → 공유 화면, `[PDF 저장 화면 열기]`는 웹 전용으로 표시. 백업 저장(Android 공유 화면/웹 다운로드)과 `[복원하기 ➔ 백업 파일 선택]` 추가.
+   - 웹 전용 표시: `[갱신]`(네이티브는 서버 확인 없이 현재 버전 안내만 함), 홈 화면 추가, 웹사이트 데이터 삭제. Android 저장 위치(앱 내부 저장소)와 초기화 후 앱 삭제 안내 추가.
+   - 랭킹·알림·목표·새로고침 항목은 코드와 일치해 유지.
+
+### 검증 결과
+
+- **테스트·타입 검사 미실행.** `node --test tests/cloze.test.cjs`와 `npx tsc --noEmit`이 권한 승인 대기로 거부되어 반복하지 않았다. Codex가 `node --test tests/*.test.cjs`와 Windows `cmd.exe /c npx tsc --noEmit`을 실행해 확인해야 한다.
+- 추가 테스트: `cloze grading accepts a duplicated suffix only when it is adjacent to the blank in the stem`, `cloze grading keeps rejecting a different institution name and guessed abbreviations with a stem`, `current-law instruction keeps official-source rules and forbids outdated agency names`.
+
+### 미검증·한계
+
+- 실기기 미검증: 자료 등록 창 마지막 줄 노출, 사용설명서 펼친 뒤 스크롤·닫기 반응(특히 3버튼/제스처 내비게이션, 저사양 기기). 원인 판단은 코드 분석 기반이다.
+- 인접 접미는 빈칸 **뒤**만 본다. `제{{1}}종`처럼 앞 글자를 중복 입력(`제1`)하는 경우는 정답 목록에 있을 때만 인정된다.
+- 옛 기관 명칭 지침은 앞으로 생성할 문제에만 영향을 준다. 기존 저장 문제의 정답 목록은 바꾸지 않았다.
+- Android `[갱신]`이 서버 확인 없이 “최신 버전” 안내를 띄우는 동작 자체는 범위 밖이라 수정하지 않고 설명서에만 반영했다.
+
 ## 작업 ID `android-data-preservation-sync-20260925` — Android 최신 코드에 학습 데이터 보존 수정 통합
 
 - 작업 폴더: `C:/Users/choor/.codex/worktrees/android-data-preservation-sync`, 브랜치 `feature/android-data-preservation-sync`

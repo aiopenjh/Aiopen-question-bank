@@ -85,6 +85,7 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
           <Text style={styles.tipTitle}>📝 3. 문제 만들고 풀기</Text>
           <Text style={styles.tipText}>
             • 자료함에서 과목을 열고 단원의 <Text style={styles.bold}>[새 문제 만들기]</Text>를 누른 뒤 레벨과 3문제 또는 5문제를 선택합니다. 저장된 문제는 <Text style={styles.bold}>[기존 문제 풀기]</Text>로 AI 호출 없이 바로 시작합니다.{'\n'}
+            • 문제 유형은 <Text style={styles.bold}>[혼합] / [객관식만] / [주관식만]</Text> 중에서 고릅니다. 혼합은 문항마다 객관식·주관식(단답형·서술형)·빈칸형 중 하나를 무작위로 정하고, 주관식만은 빈칸형을 포함하지 않습니다.{'\n'}
             • 문제 순서와 객관식 정답 위치는 코드에서 무작위로 분산합니다. 출제 중 취소하면 진행 중인 요청과 저장을 중단합니다. 요청 한도(429)가 나오면 안내된 시간 뒤 다시 시도해 주세요.
           </Text>
         </View>
@@ -110,7 +111,7 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
         <View style={styles.tipBox}>
           <Text style={styles.tipTitle}>📲 1. 자료 먼저 등록하기</Text>
           <Text style={styles.tipText}>
-            • 화면 상단의 <Text style={styles.bold}>[+ 자료]</Text>에서 파일 또는 텍스트 자료를 등록합니다. 등록한 자료는 새 과목을 만들 때 <Text style={styles.bold}>[내 파일 불러오기]</Text>에서 선택합니다.{'\n'}
+            • 화면 상단의 <Text style={styles.bold}>[+ 자료]</Text>에서 PDF나 텍스트 파일을 등록합니다. 등록한 자료는 새 과목을 만들 때 <Text style={styles.bold}>[내 파일 불러오기]</Text>에서 선택합니다.{'\n'}
             • 스마트폰에서는 다운로드 폴더뿐 아니라 Google Drive, OneDrive 등 기기의 파일 선택 화면에 연결된 위치에서도 불러올 수 있습니다.
           </Text>
         </View>
@@ -121,7 +122,7 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
             • <Text style={styles.bold}>TXT, MD, CSV, JSON</Text>: 실제 본문을 읽어 등록하므로 문제 출제 자료로 가장 적합합니다.{'\n'}
             • <Text style={styles.bold}>ZIP</Text>: 압축 안의 TXT, MD, CSV, JSON 텍스트 파일을 함께 불러옵니다.{'\n'}
             • <Text style={styles.bold}>PDF</Text>: 선택한 페이지를 목차·문제 생성 요청에 전달합니다. PDF 분석을 지원하는 AI 연결이 필요하며 파일 원본과 전체 본문은 저장하지 않습니다.{'\n'}
-            • 텍스트 자료는 다시 사용할 수 있지만, 앱을 다시 연 뒤 PDF를 사용할 때는 보안을 위해 같은 원본 파일을 다시 선택해야 합니다.{'\n'}
+            • 텍스트 자료는 다시 사용할 수 있지만, 앱을 다시 연 뒤 PDF를 사용할 때는 <Text style={styles.bold}>[+ 자료]</Text> 목록의 <Text style={styles.bold}>[원본 선택]</Text>을 눌러 같은 원본 파일을 다시 선택해야 합니다. 연결되면 <Text style={styles.bold}>[연결됨]</Text>으로 표시됩니다.{'\n'}
             • 30페이지가 넘는 PDF는 10~20페이지씩 나누고, 문제도 한 번에 3~5문항씩 생성하는 것을 권장합니다. 하루 누적 15문항을 넘기면 무료 할당량 소진이나 429 제한이 발생할 수 있습니다.
           </Text>
         </View>
@@ -154,8 +155,8 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
         <View style={styles.tipBox}>
           <Text style={styles.tipTitle}>🪜 2. 목차를 5개씩 확장하기</Text>
           <Text style={styles.tipText}>
-            • 학습량이 한꺼번에 몰리지 않도록 목차는 5개 단위의 작은 단계로 구성됩니다. 현재 단계를 마친 뒤 <Text style={styles.bold}>[다음 5개 단원 생성]</Text>으로 30단원 이후까지 계속 확장할 수 있습니다.{'\n'}
-            • 이미 존재하는 단원과 비슷한 이름은 정리하고, 같은 단원에 문제를 추가할 때도 기존 문항과 지나치게 유사하면 저장하지 않습니다.
+            • 학습량이 한꺼번에 몰리지 않도록 목차는 5개 단위의 작은 단계로 구성됩니다. 현재 단계를 마친 뒤 과목 카드의 <Text style={styles.bold}>[AI 5개 단원 만들기]</Text>를 누르면 다음 5개 단원을 이어서 만들어 30단원 이후까지 확장할 수 있습니다.{'\n'}
+            • 이름이 겹치는 단원이 있으면 <Text style={styles.bold}>[중복 정리]</Text> 버튼이 나타납니다. 같은 단원에 문제를 추가할 때도 기존 문항과 지나치게 유사하면 저장하지 않습니다.
           </Text>
         </View>
 
@@ -183,13 +184,24 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
         <View style={styles.tipBox}>
           <Text style={styles.tipTitle}>📝 1. CBT 시험과 결과 확인</Text>
           <Text style={styles.tipText}>
-            • 답을 고른 뒤 제출하면 점수와 문항별 정답, 오답 원인, 핵심 개념, 풀이 과정을 확인할 수 있습니다. 미답변 문항이 있으면 제출 전에 다시 알려줍니다.{'\n'}
-            • 저장된 전용 힌트가 없는 문제는 <Text style={styles.bold}>[AI 힌트 만들기]</Text>를 눌렀을 때만 생성합니다. 만들어진 힌트는 해당 문제에 저장되어 다시 사용할 수 있습니다.
+            • 객관식은 보기를 고르고, 단답형·서술형·빈칸형은 답을 직접 입력합니다. 제출하면 점수와 문항별 정답, 오답 원인, 핵심 개념, 풀이 과정을 확인할 수 있습니다. 미답변 문항이 있으면 제출 전에 다시 알려줍니다.{'\n'}
+            • 시험 상단의 <Text style={styles.bold}>[📐 풀이공간]</Text>에서 필기할 수 있으며 채점에는 반영되지 않습니다. 저장된 전용 힌트가 없는 문제는 <Text style={styles.bold}>[AI 힌트 만들기]</Text>를 눌렀을 때만 생성하고, 만들어진 힌트는 해당 문제에 저장됩니다.{'\n'}
+            • 잘못되거나 부적절한 AI 문제는 상단의 <Text style={styles.bold}>[🚩 문제 신고]</Text>로 알릴 수 있습니다. 풀이 중에는 현재 문제를, 결과 화면에서는 고른 문제를 신고합니다.
           </Text>
         </View>
 
         <View style={styles.tipBox}>
-          <Text style={styles.tipTitle}>⭐ 2. 복습 예정과 나만의 오답노트</Text>
+          <Text style={styles.tipTitle}>✍️ 2. 빈칸형·주관식 채점</Text>
+          <Text style={styles.tipText}>
+            • 객관식과 빈칸형은 AI 호출 없이 기기에서 바로 채점합니다. 빈칸형은 정식 명칭으로 입력하세요. 약어는 정답으로 등록된 경우에만 인정됩니다. 빈칸 바로 뒤 글자까지 함께 적은 답(예: 빈칸 뒤에 '종'이 있을 때 1종)은 인정합니다.{'\n'}
+            • 빈칸이 여러 개면 맞힌 빈칸 비율만큼, 서술형은 채점 항목별로 <Text style={styles.bold}>부분점수</Text>를 받습니다. 단답형·서술형은 AI 연결로 채점합니다.{'\n'}
+            • AI 채점에 실패하면 오답이 아니라 <Text style={styles.bold}>채점 미완료</Text>로 표시되고, 답안은 그대로 보관되며 점수 계산에서 제외됩니다.{'\n'}
+            • 오답·부분점수·채점 미완료 문항은 <Text style={styles.bold}>[내 답도 정답으로 정정]</Text>으로 바꿀 수 있습니다. 원래 채점은 보관되고 오답노트와 복습 일정에만 반영되며, 레벨 31 이상 도전 통과와 랭킹에는 반영되지 않습니다.
+          </Text>
+        </View>
+
+        <View style={styles.tipBox}>
+          <Text style={styles.tipTitle}>⭐ 3. 복습 예정과 나만의 오답노트</Text>
           <Text style={styles.tipText}>
             • 틀린 문제는 메인의 <Text style={styles.bold}>[복습 예정]</Text>에서 다시 확인할 수 있습니다. 직접 오래 보관할 문제는 문제 보관함에서 <Text style={styles.bold}>[오답노트 저장]</Text>을 누릅니다.{'\n'}
             • 메인의 <Text style={styles.bold}>[나만의 오답노트]</Text>에서는 직접 고른 문제만 과목별로 모아 집중 복습하고 필요하면 보관을 해제할 수 있습니다.
@@ -197,7 +209,7 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
         </View>
 
         <View style={styles.tipBox}>
-          <Text style={styles.tipTitle}>✅ 3. 과목 전체 CBT와 삭제</Text>
+          <Text style={styles.tipTitle}>✅ 4. 과목 전체 CBT와 삭제</Text>
           <Text style={styles.tipText}>
             • 다음 목차 단계로 넘어가기 전 지금까지 해당 과목에 저장한 문제를 전체 CBT로 총정리할 수 있습니다. 시험을 마치면 자료함으로 돌아옵니다.{'\n'}
             • 과목과 단원 삭제는 해당 카드의 삭제 버튼에서 실행합니다. 삭제한 학습 데이터는 복구할 수 없으므로 먼저 백업하세요.
@@ -247,8 +259,8 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
         <View style={styles.tipBox}>
           <Text style={styles.tipTitle}>↻ 5. 최신 버전 확인</Text>
           <Text style={styles.tipText}>
-            • 설정 맨 아래의 <Text style={styles.bold}>[갱신]</Text>을 누르면 서버의 최신 버전을 확인합니다.{`\n`}
-            • 새 화면이 바로 보이지 않으면 브라우저나 홈 화면 앱을 완전히 종료한 뒤 다시 열어 주세요.
+            • <Text style={styles.bold}>웹 버전</Text>: 설정 맨 아래의 <Text style={styles.bold}>[갱신]</Text>을 누르면 서버의 최신 버전을 확인합니다. 새 화면이 바로 보이지 않으면 브라우저나 홈 화면 앱을 완전히 종료한 뒤 다시 열어 주세요.{`\n`}
+            • <Text style={styles.bold}>Android 설치 앱</Text>: [갱신]으로 앱이 업데이트되지 않습니다. 설정 맨 아래에서 현재 버전을 확인하고, 배포된 새 버전을 설치해 업데이트해 주세요.
           </Text>
         </View>
       </View>
@@ -300,14 +312,17 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
           <Text style={styles.tipTitle}>🔒 1. 로컬 학습 데이터</Text>
           <Text style={styles.tipText}>
             • Celueste는 외부 중앙 서버에 사용자의 개인 문제, 정답, 과목명이나 교재 본문을 수집하지 않습니다. 선택형 랭킹은 공개 닉네임과 순위 계산에 필요한 최소 기록만 처리합니다.{'\n'}
-            • 웹에서는 과목, 단원, 문제와 풀이 기록을 현재 기기의 개인 IndexedDB에 자동 보관합니다. 별도로 DB를 만들거나 설정할 필요가 없습니다. 브라우저 데이터 삭제나 앱 초기화 전에는 백업 파일을 만들어 두세요.
+            • 다만 AI 출제·채점·힌트 기능을 쓰면 문제와 답안, 연결한 교재에서 선택한 페이지 등이 사용자가 연결한 AI 서비스 제공자에게 전송될 수 있습니다. 처리·보관 조건은 제공자의 약관과 개인정보 처리방침을 확인하세요.{'\n'}
+            • 과목, 단원, 문제와 풀이 기록은 현재 기기에 자동 보관합니다. Android 설치 앱은 앱 내부 저장소, 웹 버전은 브라우저의 개인 IndexedDB를 사용하며 별도 설정은 필요 없습니다. 앱 삭제·브라우저 데이터 삭제·초기화 전에는 백업 파일을 만들어 두세요.
           </Text>
         </View>
 
         <View style={styles.tipBox}>
           <Text style={styles.tipTitle}>💾 2. 스마트폰 변경 시 데이터 이동 방법</Text>
           <Text style={styles.tipText}>
-            • <Text style={styles.bold}>[내 문제집 내보내기]</Text>에서 과목과 정답·해설 포함 여부를 고른 뒤 [PDF 파일 바로 저장]을 누릅니다. [PDF 저장 화면 열기]는 저장 전 배치를 확인하는 미리보기이며 오른쪽 위 ×로 돌아옵니다. 단원별 문제 번호는 1번부터 시작합니다.{'\n'}
+            • <Text style={styles.bold}>[설정 ➔ 데이터 관리 ➔ 문제집 만들기]</Text>에서 과목과 정답·해설 포함 여부를 고릅니다. Android 설치 앱은 <Text style={styles.bold}>[PDF 만들고 저장하기]</Text>를 누른 뒤 공유 화면에서 저장할 앱이나 위치를 선택합니다. 단원별 문제 번호는 1번부터 시작합니다.{'\n'}
+            • 웹 버전은 <Text style={styles.bold}>[PDF 파일 바로 저장]</Text>으로 내려받고, 웹 전용 <Text style={styles.bold}>[PDF 저장 화면 열기]</Text>로 저장 전 배치를 미리 볼 수 있습니다.{'\n'}
+            • <Text style={styles.bold}>[백업하기]</Text>를 누르면 Android는 공유 화면에서, 웹은 다운로드로 JSON 백업 파일을 저장합니다. 새 기기에서는 <Text style={styles.bold}>[복원하기 ➔ 백업 파일 선택]</Text>으로 불러옵니다.{'\n'}
             • <Text style={styles.bold}>[백업하기 → 문제만 백업]</Text>은 과목·단원·문제만 저장합니다. 다른 기기에서 복원해도 기존 풀이·복습·교재·설정은 유지됩니다.{'\n'}
             • <Text style={styles.bold}>[백업하기 → 전체 백업]</Text>은 기기 이전과 장애 복구용입니다. 풀이·복습·교재·설정과 랭킹 계정 복구 정보를 함께 저장하고, 복원하면 현재 학습 데이터를 교체합니다.{`\n`}
             • API 키는 어느 백업에도 포함되지 않습니다. 새 기기에서는 직접 다시 등록해야 하며, 전체 백업은 다른 사람에게 전달하지 말고 안전하게 보관하세요.
@@ -315,9 +330,10 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
         </View>
 
         <View style={styles.tipBox}>
-          <Text style={styles.tipTitle}>📱 3. 홈 화면에 앱 아이콘 추가</Text>
+          <Text style={styles.tipTitle}>📱 3. 홈 화면에 앱 아이콘 추가 (웹 버전 전용)</Text>
           <Text style={styles.tipText}>
-            • Android Chrome은 메뉴의 <Text style={styles.bold}>[홈 화면에 추가]</Text>, iPhone Safari는 공유 메뉴의 <Text style={styles.bold}>[홈 화면에 추가]</Text>를 사용합니다.{'\n'}
+            • Android 설치 앱은 설치할 때 아이콘이 생기므로 이 과정이 필요 없습니다.{'\n'}
+            • 웹 버전에서 Android Chrome은 메뉴의 <Text style={styles.bold}>[홈 화면에 추가]</Text>, iPhone Safari는 공유 메뉴의 <Text style={styles.bold}>[홈 화면에 추가]</Text>를 사용합니다.{'\n'}
             • 이전 바로가기가 기본 아이콘으로 보이면 기존 바로가기를 삭제한 뒤 다시 추가하세요.
           </Text>
         </View>
@@ -325,10 +341,10 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
         <View style={styles.tipBox}>
           <Text style={styles.tipTitle}>⚠️ 4. 학습 데이터 삭제 방법</Text>
           <Text style={styles.tipText}>
-            • 가장 확실한 방법은 앱의 <Text style={styles.bold}>[설정 ➔ 데이터 관리 ➔ 전체 데이터 초기화]</Text>를 먼저 실행한 뒤 홈 화면 아이콘을 삭제하는 것입니다. 과목, 단원, 문제, 풀이 기록과 등록한 API 키가 함께 삭제되며 복구할 수 없습니다.{'\n'}
+            • 가장 확실한 방법은 <Text style={styles.bold}>[설정 ➔ 데이터 관리 ➔ 전체 데이터 초기화]</Text>를 먼저 실행하는 것입니다. 과목, 단원, 문제, 풀이 기록과 등록한 API 키가 함께 삭제되며 복구할 수 없습니다.{'\n'}
             • 추후 문제은행 복구를 원하시면 전체 초기화 전에 <Text style={styles.bold}>[백업하기]</Text>에서 백업 데이터를 저장해 두시길 권장합니다.{'\n'}
-            • 홈 화면 아이콘만 삭제하는 것으로는 학습 데이터 삭제가 보장되지 않습니다. 같은 브라우저에서 기존 주소를 다시 열면 데이터가 남아 있을 수 있습니다.{'\n'}
-            • 앱에서 초기화하지 못한 경우에는 Android Chrome 또는 iPhone Safari 설정의 <Text style={styles.bold}>웹사이트 데이터</Text>에서 <Text style={styles.bold}>aiopenjh.github.io</Text> 항목을 삭제하세요.
+            • <Text style={styles.bold}>Android 설치 앱</Text>: 초기화한 뒤 앱을 삭제하세요.{'\n'}
+            • <Text style={styles.bold}>웹 버전</Text>: 홈 화면 아이콘만 삭제하는 것으로는 학습 데이터 삭제가 보장되지 않습니다. 앱에서 초기화하지 못한 경우에는 Android Chrome 또는 iPhone Safari 설정의 <Text style={styles.bold}>웹사이트 데이터</Text>에서 <Text style={styles.bold}>aiopenjh.github.io</Text> 항목을 삭제하세요.
           </Text>
         </View>
       </View>

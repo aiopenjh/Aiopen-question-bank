@@ -11,7 +11,7 @@ const loaded = { exports: {} };
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, { module: loaded, exports: loaded.exports, Intl, URL }, { filename: file });
-const { requiresCurrentOfficialSources } = loaded.exports;
+const { requiresCurrentOfficialSources, buildCurrentInformationInstruction } = loaded.exports;
 
 const check = (subject, category) => requiresCurrentOfficialSources({ category, texts: [subject] });
 
@@ -31,6 +31,14 @@ test('ordinary subjects ending in 법 are not treated as law', () => {
   for (const subject of ['영문법', '영어 문법', '문법', '기법', '요리법', '최소제곱법', '연상법 암기', '방법론', '파이썬 코딩 기법']) {
     assert.equal(check(subject, '언어/어학'), false, subject);
   }
+});
+
+test('current-law instruction keeps official-source rules and forbids outdated agency names', () => {
+  const instruction = buildCurrentInformationInstruction('2026-09-25');
+  assert.match(instruction, /현재 시행 중인 법령·세율만 정답 근거/);
+  assert.match(instruction, /currentReference/);
+  assert.match(instruction, /옛 명칭\(예: 지방경찰청 → 현행 시·도경찰청\)/);
+  assert.match(instruction, /correctAnswers에 넣지 마십시오/);
 });
 
 test('explicit legal and tax terms still require verification', () => {
