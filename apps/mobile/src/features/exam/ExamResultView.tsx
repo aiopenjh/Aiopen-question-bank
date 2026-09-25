@@ -37,7 +37,18 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
       ? userAnswers[idx] !== item.answerOptionId
       : !result || result.gradingStatus !== 'graded' || (result.gradingScore || 0) < 100;
   });
-  const scorePercent = Math.round((correctCount / questions.length) * 100);
+  // 점수는 문항별 점수 평균: 객관식 100/0, 주관식·빈칸형은 채점 점수(부분점수 포함).
+  // 채점 미완료 문항은 오답이 아니므로 평균에서 뺀다. 채점된 문항이 없으면 점수를 표시하지 않는다.
+  const itemScores = questions.map((item, idx) => {
+    if (item.questionType === 'multiple_choice') return userAnswers[idx] === item.answerOptionId ? 100 : 0;
+    const r = results?.[idx];
+    return r?.gradingStatus === 'graded' ? Math.max(0, Math.min(100, r.gradingScore || 0)) : null;
+  });
+  const gradedScores = itemScores.filter((score): score is number => score !== null);
+  const gradingFailedCount = itemScores.length - gradedScores.length;
+  const scorePercent = gradedScores.length > 0
+    ? Math.round(gradedScores.reduce((sum, score) => sum + score, 0) / gradedScores.length)
+    : null;
 
   return (
     <ScrollView style={styles.examBody} contentContainerStyle={styles.reportContentContainer}>
@@ -47,14 +58,18 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
           <StateIllustration kind="reviewComplete" width={82} />
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.reportScoreTitle}>
-              {scorePercent === 100
+              {scorePercent === null
+                ? '채점을 완료하지 못했습니다'
+                : scorePercent === 100
                 ? '완벽합니다! 100점 만점 🎉'
                 : scorePercent >= 80
                 ? '훌륭한 성적입니다! 🌟'
                 : '수고하셨습니다! 오답을 복습해 보세요 🌱'}
             </Text>
             <Text style={styles.reportScoreSub}>
-              맞힌 문제: <Text style={{ color: '#f43f5e', fontWeight: 'bold' }}>{correctCount}</Text> / {questions.length}문항 ({scorePercent}점)
+              맞힌 문제: <Text style={{ color: '#f43f5e', fontWeight: 'bold' }}>{correctCount}</Text> / {questions.length}문항
+              {scorePercent === null ? '' : ` · 점수 ${scorePercent}점`}
+              {gradingFailedCount > 0 ? ` (채점 미완료 ${gradingFailedCount}문항${scorePercent === null ? '' : ' 제외'})` : ''}
             </Text>
           </View>
         </View>

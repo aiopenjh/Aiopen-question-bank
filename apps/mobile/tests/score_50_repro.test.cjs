@@ -100,12 +100,19 @@ const mc = {
 const essayResult = { question: essay, selectedOptionId: '', isCorrect: false, gradingStatus: 'graded', gradingScore: 50,
   gradingChecklistResult: [{ id: 'c1', met: true }, { id: 'c2', met: false }] };
 
-test('재현 B: 시험 전체 점수는 부분점수를 합산하지 않는다', () => {
-  // 객관식 정답 + 서술형 50점 → 평균은 75점이지만 50점으로 표시
-  const mixed = renderResultView([mc, essay], { 0: 'a' }, [{ question: mc, selectedOptionId: 'a', isCorrect: true }, essayResult]);
-  assert.match(mixed, /맞힌 문제: 1 \/ 2문항 \(50점\)/);
-  // 서술형 50점 한 문항 → 0점으로 표시
+test('B: 시험 전체 점수는 문항별 점수 평균이며 부분점수를 반영하고 채점 미완료는 제외한다', () => {
+  const mcRight = { question: mc, selectedOptionId: 'a', isCorrect: true };
+  // 객관식 정답 + 서술형 50점 → 75점
+  const mixed = renderResultView([mc, essay], { 0: 'a' }, [mcRight, essayResult]);
+  assert.match(mixed, /맞힌 문제: 1 \/ 2문항 · 점수 75점/);
+  // 서술형 50점 한 문항 → 50점, 문항 배지는 부분점수 50점
   const single = renderResultView([essay], {}, [essayResult]);
-  assert.match(single, /맞힌 문제: 0 \/ 1문항 \(0점\)/);
+  assert.match(single, /맞힌 문제: 0 \/ 1문항 · 점수 50점/);
   assert.match(single, /부분점수 50점/);
+  // 채점 미완료 문항은 평균에서 빠진다
+  const failed = { question: essay, selectedOptionId: '', isCorrect: false, gradingStatus: 'failed', gradingFailedReason: 'x' };
+  assert.match(renderResultView([mc, essay], { 0: 'a' }, [mcRight, failed]), /점수 100점 \(채점 미완료 1문항 제외\)/);
+  const none = renderResultView([essay], {}, [failed]);
+  assert.match(none, /채점을 완료하지 못했습니다/);
+  assert.doesNotMatch(none, /점수 \d+점/);
 });
