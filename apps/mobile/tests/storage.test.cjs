@@ -475,3 +475,28 @@ test('delete unit rolls back all collections when its batched write fails', asyn
   await assert.rejects(() => session.db.deleteUnit(unit.id));
   assert.deepEqual(sortedEntries(session.data), before);
 });
+
+test('existing stored opinion-type subjective questions are kept as-is; the new generation rule never rewrites storage', async () => {
+  const opinionEssay = {
+    ...question, id: 'q-op', questionId: 'q-op', topicId: 't', unitId: 'u', questionType: 'essay',
+    stem: '공리주의와 의무론 중 어떤 윤리관이 더 옳은가? 자신의 생각을 쓰시오.', options: [],
+    modelAnswer: '관점에 따라 다르다.',
+    gradingChecklist: [{ id: 'c1', criterion: '논리적 일관성', points: 100 }],
+  };
+  const opinionShort = {
+    ...question, id: 'q-op2', questionId: 'q-op2', topicId: 't', unitId: 'u', questionType: 'short_answer',
+    stem: '당신의 생각을 한 단어로 쓰시오.', options: [], modelAnswer: '자유',
+  };
+  const raw = JSON.stringify([opinionEssay, opinionShort]);
+  const session = setup(new Map([[key('questions'), raw]]));
+  await session.db.initializeDatabase(); // 첫 실행 예시 문제 추가는 기존 동작이며, 저장된 문제 자체는 그대로여야 한다.
+  assert.deepEqual(JSON.parse(session.data.get(key('questions'))).filter(q => q.topicId === 't'), JSON.parse(raw));
+  assert.deepEqual(JSON.parse(JSON.stringify(await session.db.getQuestions('t'))), [opinionEssay, opinionShort]);
+
+  const fresh = { ...question, id: 'q-new', questionId: 'q-new', stem: '표준 기압에서 물의 끓는점은?', topicId: 't', unitId: 'u' };
+  await session.db.addQuestions([fresh]);
+  assert.deepEqual(Array.from(await session.db.getQuestions('t'), q => q.id), ['q-op', 'q-op2', 'q-new']);
+  const restarted = setup(session.data);
+  const saved = await restarted.db.getQuestions('t');
+  assert.deepEqual(JSON.parse(JSON.stringify(saved.slice(0, 2))), [opinionEssay, opinionShort]);
+});

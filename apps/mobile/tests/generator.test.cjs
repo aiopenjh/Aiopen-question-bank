@@ -409,3 +409,37 @@ test('question type mode drives the plan, the prompt and response validation', a
   assert.equal(rejected.result.status, 'FAILED');
   assert.match(rejected.result.message, /문제 유형/);
 });
+
+test('opinion-type subjective output is not saved: regenerate once with the same plan, then explain instead of switching type', async () => {
+  const subjective = (stem, i) => ({
+    questionType: 'essay', stem: `${stem} (${i + 1})`, modelAnswer: '정언명령은 조건 없이 따라야 하는 도덕 법칙이다.',
+    gradingChecklist: [{ criterion: '무조건적 명령임을 설명함', points: 50 }, { criterion: '보편화 가능성을 설명함', points: 50 }],
+    explanation: '칸트 윤리학의 핵심 개념입니다.', deepReasoningHint: '가언명령과 비교해 보세요.',
+  });
+  const opinion = [0, 1, 2].map(i => subjective('의무론과 공리주의 중 어떤 윤리관이 더 옳은가', i));
+  const objective = [0, 1, 2].map(i => subjective('칸트의 정언명령 개념을 설명하시오', i));
+  const run = async (responses) => {
+    const prompts = [];
+    const generator = harness(async (_url, request) => {
+      prompts.push(JSON.parse(request.body).contents[0].parts[0].text);
+      return response(providerPayload(responses[Math.min(prompts.length - 1, responses.length - 1)]));
+    }, { planRandom: () => 0.9 });
+    const params = args(generator, 3);
+    params.intent = generator.analyzeUserIntent('윤리', undefined, { difficultyLevel: 1, targetCount: 3, questionTypeMode: 'subjective' });
+    return { result: await generator.generateFactBasedQuestions(params), prompts };
+  };
+
+  const retried = await run([opinion, objective]);
+  assert.equal(retried.result.status, 'READY', retried.result.message);
+  assert.equal(retried.prompts.length, 2);
+  assert.equal(retried.prompts[0], retried.prompts[1]); // 같은 유형 계획으로 다시 요청
+  assert.ok(retried.result.questions.every(q => q.questionType === 'essay' && q.stem.startsWith('칸트')));
+  assert.match(retried.prompts[0], /14\. 단답형·서술형은 정의·원리·사실·절차처럼 객관적으로 확인할 수 있는/);
+  assert.match(retried.prompts[0], /13\. 좌표계의 축 방향·원점 위치/);
+
+  const failed = await run([opinion]);
+  assert.equal(failed.prompts.length, 2);
+  assert.equal(failed.result.status, 'FAILED');
+  assert.match(failed.result.message, /객관적으로 채점할 수 있는 주관식 문제를 만들지 못했습니다\(1번/);
+  assert.equal(failed.result.questions, undefined);
+});
