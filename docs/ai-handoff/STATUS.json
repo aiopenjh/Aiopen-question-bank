@@ -1,24 +1,24 @@
 {
   "schemaVersion": 1,
-  "taskId": "android-keyboard-visibility-20260925",
-  "title": "Android 시험·API 입력칸 키보드 가림 재수정",
-  "phase": "owner_approval",
-  "activeAgent": "owner",
-  "implementationAgent": "codex",
+  "taskId": "android-data-preservation-sync-20260925",
+  "title": "Android 최신 테스트 코드에 학습 데이터 보존 수정 통합",
+  "phase": "claude_implementation",
+  "activeAgent": "claude",
+  "implementationAgent": "claude",
   "reviewAgent": "codex",
   "iteration": 0,
   "maxReviewIterations": 2,
   "baseBranch": "origin/feature/android-app",
-  "workBranch": "feature/android-release-candidate",
-  "baseCommit": "3c35571",
-  "headCommit": "33096e8",
-  "note": "사용자 실기기에서 시험 두 번째 빈칸과 설정 API 키 입력칸 키보드 가림이 반복됐다. Codex가 입력칸의 실제 화면 위치와 키보드 윗선을 비교해 필요한 거리만큼 스크롤하고 하단 여유 공간을 확보했다. Windows 타입 검사와 앱 테스트 213개 통과. origin/feature/android-app에 33096e8 반영, EAS preview APK 7b65c953-ee61-4b2b-a81a-e4086a22505d(versionCode 10) 빌드 완료. 사용자는 약 한 시간 뒤 실기기 확인 예정. main 병합·Play 정식 배포는 하지 않았다.",
-  "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
+  "workBranch": "feature/android-data-preservation-sync",
+  "baseCommit": "b05d96f",
+  "headCommit": "b05d96f",
+  "note": "7단계 초반 완료. 최신 Android 테스트 브랜치에 오래된 기준의 데이터 보존 수정 세 커밋을 선택적으로 통합한다. 이번 테스트는 전원 새 설치이며 구버전 이관 검증을 제외한다. 오래된 D:/ai bank 작업 폴더는 보호한다.",
+  "nextFile": "docs/ai-handoff/TASK.md",
   "approvalRequiredFor": [
     "push",
     "merge",
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-25T17:42:08+09:00"
+  "updatedAt": "2026-09-25T20:57:49+09:00"
 }

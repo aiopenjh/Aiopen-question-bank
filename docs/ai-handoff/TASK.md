@@ -1,5 +1,32 @@
 # 현재 작업
 
+## Android 최신 테스트 코드에 학습 데이터 보존 수정 통합 (2026-09-25)
+
+- 작업 ID: `android-data-preservation-sync-20260925`
+- 기준: `origin/feature/android-app@b05d96f`, 작업 위치 `C:/Users/choor/.codex/worktrees/android-data-preservation-sync`, 브랜치 `feature/android-data-preservation-sync`.
+- 사용자 결정: 8단계 중 7단계 초반은 끝났고, 모든 테스트 참여자는 기존 앱을 삭제한 뒤 새 APK를 설치한다. 구버전 데이터 이관·덮어 설치 검증은 이번 테스트 범위에서 제외한다.
+- 전체 진행 순서: `docs/android/RESTART_PLAN_2026-09-25.md`.
+
+### Claude 구현 범위
+
+1. `feature/data-preservation@a8df0d2`의 세 커밋 `90ab2ba`, `551e702`, `a8df0d2`에서 **목차 재생성·단원 삭제/중복 정리·백업 복원**에 필요한 변경만 최신 Android 코드에 옮긴다. 기준 브랜치에 없는 옛 파일 내용 전체를 덮어쓰지 않는다.
+2. 최신 브랜치에는 `backup_payload.ts` 분리와 시험·키보드·PDF·주관식 수정이 이미 있다. 이 동작과 테스트를 유지한다. 특히 `backup_repository.ts`는 현재 구조에 맞게 통합한다.
+3. 다른 기능·디자인·AI 프롬프트·의존성은 변경하지 않는다. 구버전 이관 기능을 제거하지도 않는다. 이번 테스트에서 검증만 제외한다.
+4. 통합으로 필요한 회귀 테스트를 옮겨 현재 테스트 실행 방식에 맞게 조정한다. 테스트 삭제나 기대값 약화로 통과시키지 않는다.
+5. 한글 커밋 메시지로 구현을 기록한다. `CLAUDE_REPORT.md` 첫머리에 변경 파일·충돌 해결·테스트 결과·미검증 항목을 적고 `STATUS.json`을 `codex_review`, `activeAgent: codex`로 넘긴다.
+
+### 완료 조건
+
+- 기존 과목의 목차를 재생성해도 참조 중인 문제·학습 기록이 잘못된 단원에 남거나 사라지지 않는다.
+- 단원 삭제·중복 정리 후 연결된 문제·풀이·완료 기록이 일관된다.
+- 손상된 백업은 저장소 쓰기 전에 거부하고, 구형 유효 백업은 계속 읽는다.
+- 최신 Android 브랜치의 기존 기능·테스트를 보존한다. 타입 검사와 전체 앱 테스트 결과를 보고한다.
+- Claude는 원격 push, 기존 브랜치 병합, EAS 빌드, 앱 배포를 수행하지 않는다. Codex가 검토 후 사용자에게 보고한다.
+
+---
+
+## 아래는 이전 작업 기록이며 이번 구현 지시가 아님
+
 ## 현재 작업: Android 시험·API 입력칸 키보드 가림 재수정 (2026-09-25)
 
 - 작업 ID: `android-keyboard-visibility-20260925`
