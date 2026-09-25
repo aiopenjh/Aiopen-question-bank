@@ -66,7 +66,7 @@ export function parseAiJsonResponse<T>(rawText: string): T {
 /**
  * 범용 최신 AI 통신 엔진
  * - Gemini 3.5 Flash-Lite부터 최신 정식 모델까지 순서대로 시도
- * - Claude 3.5 Sonnet (sk-ant- 키) 및 OpenAI GPT-4o (sk- 키) 멀티 프로바이더 지원
+ * - Claude Sonnet 4.6 (sk-ant- 키) 및 OpenAI GPT-4o (sk- 키) 멀티 프로바이더 지원
  * - Gemini는 3.5 이상 모델 안에서만 자동 전환
  */
 export async function callUniversalAiCompletion(
@@ -79,7 +79,7 @@ export async function callUniversalAiCompletion(
   const trimmedKey = apiKey.trim();
   if (signal?.aborted) throw createGenerationCancelledError();
 
-  // 1. Anthropic Claude 3.5 Sonnet 지원 (sk-ant- 시작 키)
+  // 1. Anthropic Claude Sonnet 4.6 지원 (sk-ant- 시작 키)
   if (trimmedKey.startsWith('sk-ant-')) {
     if (options?.enableGoogleSearch) {
       throw new Error('최신 법령·세율 확인 출제는 Google 검색을 지원하는 Gemini API 키가 필요합니다.');
@@ -91,18 +91,18 @@ export async function callUniversalAiCompletion(
         'Content-Type': 'application/json',
         'x-api-key': trimmedKey,
         'anthropic-version': '2023-06-01',
-        'dangerously-allow-browser': 'true',
+        'anthropic-dangerous-direct-browser-access': 'true', // 웹(브라우저) 직접 호출 CORS 허용 헤더
       },
       signal,
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 4096,
         temperature: 0.2,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
     if (!res.ok) {
-      throw new Error(`Claude 3.5 통신 실패 (${res.status})`);
+      throw new Error(`Claude Sonnet 4.6 통신 실패 (${res.status})`);
     }
     const data = await res.json();
     const rawText = data.content?.[0]?.text;
