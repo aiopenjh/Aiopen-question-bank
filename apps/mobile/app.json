@@ -35,6 +35,12 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2bb43166-f3c8-44ec-ae57-f1afeed9d96c"
+      }
+    },
+    "owner": "aiopenjh"
   }
 }
