@@ -13,8 +13,9 @@
 - [ ] 문제 신고(`879daef`), AI 데이터 전송 안내(`f4a4488`), 웹 랭킹 탈퇴 요청(`d0b5652`)이 빌드에 포함됐다. (`origin/main` 웹 배포와는 별개)
 - [ ] 앱 화면 버전명(`src/constants/buildInfo.ts`)과 `app.json`의 `version`이 같다.
 - [ ] Android `versionCode`가 업데이트 대상 설치본보다 크다. 기존 앱 위에 덮어 설치하려면 `applicationId`와 서명 인증서도 기존 앱과 같아야 한다.
+- [ ] 기존 EAS 프로젝트에 연결했고, 이전 테스트 APK와 Android 서명 인증서가 같은지 확인했다. 새 프로젝트나 서명키를 만들기 전에는 기존 설치본 업데이트 가능 여부를 확인한다.
 - [ ] 배포 경로(APK 직접 설치 / Play 테스트 트랙)를 기록했다. Play 출시 때의 업데이트까지 검증하려면 가능하면 Play 테스트 트랙으로 설치·업데이트를 확인한다.
-- [ ] EAS는 원격 버전 관리(`appVersionSource: remote`)이고 `production`만 자동 증가하므로, `preview` 빌드의 `versionCode`를 별도로 확인·기록했다.
+- [ ] EAS는 원격 버전 관리(`appVersionSource: remote`)이고 `preview`와 `production` 모두 빌드할 때 번호가 자동 증가한다. 빌드 결과의 `versionCode`를 확인·기록했다.
 - [ ] 내부 테스트는 `preview` 프로필 APK로 한다. 공개 배포용 AAB(`production`)는 별도 단계로 둔다.
 - [ ] `expo-crypto`가 포함된 새 네이티브 빌드다(개발 빌드 재생성 포함).
 

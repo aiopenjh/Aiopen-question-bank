@@ -353,7 +353,7 @@ npm run deploy
 4. 사용자 화면·동작 변경을 `README.md`에 반영합니다.
 5. 구조·환경 변수·운영 절차 변경을 `DEVELOPER.md`에 반영합니다.
 6. 배포된 변경을 `CHANGELOG.md`에 기록합니다.
-7. 앱 릴리스라면 `buildInfo.ts`와 `public/version.json`의 버전·빌드 시각을 맞춥니다.
+7. 앱 릴리스라면 `app.json`의 `version`과 `buildInfo.ts`·`public/version.json`의 버전을 맞추고, 뒤 두 파일의 빌드 시각도 맞춥니다.
 8. `main`을 푸시한 뒤 승인된 대상만 Worker와 GitHub Pages에 배포합니다.
 9. 운영 `version.json`, Worker `/health`, GitHub Pages Actions 결과를 확인합니다.
 
