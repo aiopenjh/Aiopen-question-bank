@@ -12,7 +12,7 @@
 - 웹 서비스: https://aiopenjh.github.io/Aiopen-question-bank/
 - 기술 스택: React Native/Expo 57, TypeScript, IndexedDB(Web), SQLite(Android 키-값 저장), 구형 AsyncStorage 원본 보존형 이관
 - AI 연동: 사용자 키 기반 Gemini 3.5 이상 후보, Claude Sonnet 4.6, OpenAI GPT-4o. 운영자 비밀키를 앱 번들에 넣지 않음
-- 2026-09-29: `feature/android-app`의 코드를 `main`에 병합. 공개 웹(`gh-pages`) 배포와 새 APK 빌드는 별도 단계이며 이번 병합에 포함하지 않음.
+- 2026-09-29: `feature/android-app`의 코드를 `main`에 병합하고 공개 웹(`gh-pages`)에 별도로 배포. 새 APK 빌드는 EAS 로그인 부재로 진행하지 못함.
 - 2026-09-25 코드 기준: 웹 소스 `main@1dbf7bd`, Android 테스트 `feature/android-app`의 검증 코드 `16cd13e`, 공개 웹 배포는 별도 `gh-pages`. Android 코드가 웹 공개판에 자동 배포되지는 않음. 테스트 APK 표시 버전은 2.3.6, 첫 정식 출시 표시 버전은 1.0.0 예정(아직 미출시)
 - 단원 레벨은 사용자가 레벨을 고른 뒤 3문제/5문제를 누르고 기존 문제 유지 또는 삭제를 선택할 때 Unit.difficultyLevel에 저장. 과목 시작 레벨이나 다른 단원을 변경하지 않음. 앱 재실행/백업 복원 후 유지.
 - 의견과 문제 신고는 사용자가 보내기를 누를 때 Formspree의 같은 양식으로 전송. HTTP 성공은 운영자 메일 수신을 보증하지 않음. 오늘 풀이 집계는 UTC 문자열 앞부분이 아닌 로컬 날짜로 비교.
