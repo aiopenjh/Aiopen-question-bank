@@ -168,6 +168,7 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
             • <Text style={styles.bold}>레벨 21~30</Text>: 세부 조건, 오개념 판별, 종합 추론을 다룹니다.{'\n'}
             • <Text style={styles.bold}>레벨 31 이상</Text>: 매번 새로 생성한 3문제로 도전하며 2문제 이상 맞히면 다음 레벨이 열립니다. 기존 문제 재풀이는 복습으로만 남고 순차 통과와 초고난도 랭킹에는 반영되지 않습니다.{'\n'}
             • <Text style={styles.bold}>단원별 레벨 유지</Text>: 첫 출제는 과목의 시작 레벨을 사용합니다. 이후 원하는 레벨을 고르고 3문제 또는 5문제를 누른 뒤 변경 방식을 선택하면 해당 단원에 저장되어 앱을 다시 열어도 유지됩니다.{'\n'}
+            • <Text style={styles.bold}>전체 단원 종합</Text>: 첫 출제부터 레벨을 자유롭게 선택할 수 있으며, 선택한 레벨은 이번 종합 문제에만 적용됩니다.{'\n'}
             • <Text style={styles.bold}>문제 유지·삭제</Text>: <Text style={styles.bold}>기존문제유지 + 레벨변경</Text>은 새 문제를 누적하고, <Text style={styles.bold}>기존문제삭제 + 레벨변경</Text>은 새 문제 저장이 성공한 뒤 해당 단원의 이전 문제만 삭제합니다. 취소하거나 설정창을 닫으면 선택한 레벨은 저장되지 않습니다.
           </Text>
         </View>

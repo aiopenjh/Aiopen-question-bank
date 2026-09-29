@@ -48,6 +48,7 @@ export interface AppModalsContainerProps {
     existingCount?: number;
     initialLevel?: LearnerKnowledgeLevel;
     initialDifficultyLevel?: number;
+    allowInitialDifficultySelection?: boolean;
   } | null;
   onCloseQuizCountModal: () => void;
   onSelectQuizCount: (count: number, options?: any) => void;
@@ -198,6 +199,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
         existingCount={pendingQuizUnit?.existingCount}
         initialLevel={pendingQuizUnit?.initialLevel}
         initialDifficultyLevel={pendingQuizUnit?.initialDifficultyLevel}
+        allowInitialDifficultySelection={pendingQuizUnit?.allowInitialDifficultySelection}
         onClose={onCloseQuizCountModal}
         onSelectCount={onSelectQuizCount}
         onSaveDifficulty={onSaveUnitDifficulty}

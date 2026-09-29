@@ -35,6 +35,7 @@ interface QuizCountModalProps {
   existingCount?: number;
   initialLevel?: LearnerKnowledgeLevel;
   initialDifficultyLevel?: number;
+  allowInitialDifficultySelection?: boolean;
   onClose: () => void;
   onSelectCount: (count: number, options?: QuizCountModalOptions) => void;
   onSaveDifficulty: (difficultyLevel: number) => Promise<void>;
@@ -60,6 +61,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   existingCount = 0,
   initialLevel = 'basic',
   initialDifficultyLevel,
+  allowInitialDifficultySelection = false,
   onClose,
   onSelectCount,
   onSaveDifficulty,
@@ -70,7 +72,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
   const [progressError, setProgressError] = useState(false);
   const storedDifficulty = initialDifficultyLevel ?? legacyLevelToDifficulty(initialLevel);
   const fixedDifficulty = Math.min(storedDifficulty, unlockedLevel);
-  const canAdjustDifficulty = existingCount > 0;
+  const canAdjustDifficulty = existingCount > 0 || allowInitialDifficultySelection;
   const [selectedDifficulty, setSelectedDifficulty] = useState(fixedDifficulty);
   const [isSaving, setIsSaving] = useState(false);
   const [questionTypeMode, setQuestionTypeMode] = useState<QuestionTypeMode>('mixed');
@@ -157,7 +159,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
 
   const handleSelectCount = (count: number) => {
     if (savingRef.current || loadingProgress || progressError) return;
-    if (!canAdjustDifficulty || selectedDifficulty === fixedDifficulty) {
+    if (existingCount === 0 || selectedDifficulty === fixedDifficulty) {
       onSelectCount(count, {
         learnerLevel: difficultyToLegacyLevel(selectedDifficulty),
         difficultyLevel: selectedDifficulty,
@@ -224,19 +226,19 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                   레벨 {selectedDifficulty} · {selectedProfile.bandLabel}
                 </Text>
               </View>
-              <Text style={styles.originTag}>{canAdjustDifficulty ? '추가 출제' : '첫 출제 고정'}</Text>
+              <Text style={styles.originTag}>{allowInitialDifficultySelection ? '자유 선택' : canAdjustDifficulty ? '추가 출제' : '첫 출제 고정'}</Text>
             </View>
 
             {canAdjustDifficulty ? (
               <>
                 <View style={styles.sectionHeadingRow}>
-                  <Text style={styles.sectionTitle}>추가 문제 난이도</Text>
+                  <Text style={styles.sectionTitle}>{allowInitialDifficultySelection ? '종합 문제 난이도' : '추가 문제 난이도'}</Text>
                   {isModifiedFromDefault ? (
                     <TouchableOpacity onPress={() => setSelectedDifficulty(fixedDifficulty)}>
-                      <Text style={styles.resetText}>저장 레벨로 되돌리기</Text>
+                      <Text style={styles.resetText}>{allowInitialDifficultySelection ? '기본 레벨로 되돌리기' : '저장 레벨로 되돌리기'}</Text>
                     </TouchableOpacity>
                   ) : (
-                    <Text style={styles.sectionHint}>이 단원에만 저장</Text>
+                    <Text style={styles.sectionHint}>{allowInitialDifficultySelection ? '이번 출제에만 적용' : '이 단원에만 저장'}</Text>
                   )}
                 </View>
                 <DifficultyLevelControl
@@ -249,6 +251,8 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
                 <Text style={styles.adjustableLevelNote}>
                   {selectedDifficulty >= CHALLENGE_START_LEVEL
                     ? '통과 기록은 이 과목에만 적용됩니다.'
+                    : allowInitialDifficultySelection
+                    ? '원하는 레벨을 고른 뒤 3문제 또는 5문제를 선택하세요.'
                     : '원하는 레벨을 고른 뒤 3문제 또는 5문제를 누르면 기존 문제 처리 방식을 확인합니다.'}
                 </Text>
               </>

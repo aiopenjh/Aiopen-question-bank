@@ -47,6 +47,7 @@ export interface PendingQuizUnit {
   existingCount?: number;
   initialLevel?: LearnerKnowledgeLevel;
   initialDifficultyLevel?: number;
+  allowInitialDifficultySelection?: boolean;
 }
 
 export interface UseQuizGenerationProps {
@@ -107,7 +108,7 @@ export function useQuizGeneration({
   }, []);
 
   const handlePromptQuizCount = useCallback(
-    (topicId: string, topicName: string, unitId: string, unitTitle: string) => {
+    (topicId: string, topicName: string, unitId: string, unitTitle: string, allowInitialDifficultySelection = false) => {
       const currentTopic = topics.find((t) => t.id === topicId);
       const currentUnit = units.find((u) => u.id === unitId && u.topicId === topicId);
       const existingCount = questions.filter(
@@ -122,6 +123,7 @@ export function useQuizGeneration({
         initialLevel: currentTopic?.learnerLevel || 'basic',
         initialDifficultyLevel:
           currentUnit?.difficultyLevel ?? currentTopic?.difficultyLevel ?? legacyLevelToDifficulty(currentTopic?.learnerLevel),
+        allowInitialDifficultySelection,
       });
       setQuizCountModalVisible(true);
     },

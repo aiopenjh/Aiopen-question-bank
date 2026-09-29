@@ -303,7 +303,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
           }}
           onSelectTopicOverviewForGeneration={(topic) => {
             setIsUnitSelectModalVisible(false);
-            handlePromptQuizCount(topic.id, topic.name, generateUUID(), `${topic.name} 핵심 종합`);
+            handlePromptQuizCount(topic.id, topic.name, generateUUID(), `${topic.name} 핵심 종합`, true);
           }}
           onStartExamWithExistingQuestions={(qs) => {
             setIsUnitSelectModalVisible(false);
