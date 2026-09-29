@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { Platform } from 'react-native';
+import { File as ExpoFile } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
@@ -225,7 +226,7 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
-        copyToCacheDirectory: true,
+        copyToCacheDirectory: false,
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -236,9 +237,7 @@ export function useAppBackup(params: { onRefreshData: () => Promise<void> }) {
       // 백업은 JSON 텍스트만 지원한다.
       const content: string = Platform.OS === 'web' && (file as any).file
         ? await (file as any).file.text()
-        : await FileSystem.readAsStringAsync(file.uri, {
-            encoding: FileSystem.EncodingType.UTF8,
-          });
+        : await new ExpoFile(file.uri).text();
 
       if (!content || !content.trim()) {
         showAlert('오류', '선택한 파일의 내용이 비어 있거나 올바르지 않습니다.');

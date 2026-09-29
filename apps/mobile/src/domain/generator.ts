@@ -193,7 +193,7 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
       status: 'NEEDS_CONNECTION',
       provider: 'AI_PROVIDER',
       message: 'AI 출제 엔진 통로가 미연동 상태입니다. (하드코딩된 가짜 문제를 일절 배제합니다)',
-      requiredAction: '설정 탭에서 사용할 AI API Key를 등록해 주세요.',
+      requiredAction: '설정 탭에서 AI 연결을 완료해 주세요.',
     };
   }
 
@@ -297,12 +297,10 @@ async function generateViaUniversalAiApi(params: {
     ? topicName.trim()
     : intent.domain;
 
-  const currentInformationRequired = !documentInput && requiresCurrentOfficialSources(
-    resolvedDomain,
+  const currentInformationRequired = !documentInput && requiresCurrentOfficialSources({
     category,
-    unitTitle,
-    intent.focusConcepts.join(' ')
-  );
+    texts: [resolvedDomain, category, unitTitle, intent.focusConcepts.join(' ')],
+  });
   const referenceDate = currentInformationRequired ? getKoreanReferenceDate() : undefined;
 
   const questionTypePlan = createQuestionTypePlan(intent.targetCount, undefined, intent.questionTypeMode);

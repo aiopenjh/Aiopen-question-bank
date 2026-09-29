@@ -54,7 +54,7 @@ export async function generateHintForExistingQuestion(
   const apiKey = await getGeminiApiKey();
   if (!apiKey || apiKey.trim().length < 8) {
     throw new HintGenerationError(
-      'AI 힌트를 만들려면 먼저 설정 탭에서 AI API Key를 등록해 주세요.'
+      'AI 힌트를 만들려면 먼저 설정 탭에서 AI 연결을 완료해 주세요.'
     );
   }
 

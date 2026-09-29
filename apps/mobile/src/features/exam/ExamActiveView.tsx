@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Keyboard, Platform } from 'react-native';
 import { QuestionRevision } from '../../contracts/types';
 import { styles } from './examStyles';
 import { colors } from '../../styles/designTokens';
@@ -25,6 +25,9 @@ function renderClozeStemPreview(stem: string): string {
   return stem.replace(/\{\{(\d+)\}\}/g, (_match, n) => `( ${n} )`);
 }
 
+// 빈칸형 입력 전 안내. 저장된 정답 목록은 노출하지 않고 채점 기준만 알린다. 모든 빈칸형에 동일 적용.
+export const CLOZE_ABBREVIATION_NOTICE = '정식 명칭으로 입력하세요. 약어는 정답으로 등록된 경우에만 인정됩니다.';
+
 export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
   questions,
   currentIndex,
@@ -42,10 +45,62 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
   const q = questions[currentIndex];
   const currentSelectedOptionId = userAnswers[currentIndex] || null;
   const currentClozeAnswers = userClozeAnswers[currentIndex] || [];
+  const bodyRef = useRef<ScrollView>(null);
+  const focusedInputRef = useRef<TextInput | null>(null);
+  const blankInputRefs = useRef<(TextInput | null)[]>([]);
+  const writtenInputRef = useRef<TextInput>(null);
+  const keyboardTopRef = useRef<number | null>(null);
+  const scrollYRef = useRef(0);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [keyboardPadding, setKeyboardPadding] = useState(0);
+
+  function revealFocusedInput() {
+    const input = focusedInputRef.current;
+    const keyboardTop = keyboardTopRef.current;
+    if (!input || keyboardTop === null) return;
+    input.measureInWindow((_x, y, _width, height) => {
+      const overlap = y + height + 24 - keyboardTop;
+      if (overlap <= 0) return;
+      const targetY = scrollYRef.current + overlap;
+      scrollYRef.current = targetY;
+      bodyRef.current?.scrollTo({ y: targetY, animated: true });
+    });
+  }
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const shown = Keyboard.addListener('keyboardDidShow', (event) => {
+      keyboardTopRef.current = event.endCoordinates.screenY;
+      setKeyboardPadding(event.endCoordinates.height + 48);
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = setTimeout(revealFocusedInput, 80);
+    });
+    const hidden = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardTopRef.current = null;
+      setKeyboardPadding(0);
+    });
+    return () => {
+      shown.remove();
+      hidden.remove();
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    };
+  }, []);
+
+  function handleAnswerFocus(input: TextInput | null) {
+    focusedInputRef.current = input;
+    if (Platform.OS === 'android') revealFocusedInput();
+  }
 
   return (
     <>
-      <ScrollView style={styles.examBody} contentContainerStyle={styles.examContentContainer}>
+      <ScrollView
+        ref={bodyRef}
+        style={styles.examBody}
+        contentContainerStyle={[styles.examContentContainer, keyboardPadding > 0 && { paddingBottom: keyboardPadding }]}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={(event) => { scrollYRef.current = event.nativeEvent.contentOffset.y; }}
+      >
         {/* 문제 번호 및 마킹 상태 바 */}
         <View style={styles.quickNavRow}>
           {questions.map((_, idx) => {
@@ -116,12 +171,14 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
         ) : q.questionType === 'cloze' ? (
           // 빈칸형: 지문 안의 {{N}} 순서대로 빈칸마다 별도 입력칸. fontSize 16 고정(Law #6/#7)
           <View style={{ gap: 10 }}>
+            <Text style={{ fontSize: 13, color: colors.inkMuted }}>{CLOZE_ABBREVIATION_NOTICE}</Text>
             {(q.clozeBlanks || []).map((blank, idx) => (
               <View key={blank.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={styles.optionIndexBadge}>
                   <Text style={styles.optionIndexText}>{idx + 1}</Text>
                 </View>
                 <TextInput
+                  ref={(input) => { blankInputRefs.current[idx] = input; }}
                   style={[
                     {
                       flex: 1,
@@ -136,6 +193,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
                     styles.answerInputText,
                   ]}
                   placeholder={`${idx + 1}번 빈칸 답안`}
+                  onFocus={() => handleAnswerFocus(blankInputRefs.current[idx])}
                   value={currentClozeAnswers[idx] || ''}
                   onChangeText={(text) => onClozeAnswerChange(idx, text)}
                 />
@@ -146,6 +204,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
           // 주관식(단답형/서술형): 자유 텍스트 입력. fontSize 16 고정(Law #6, 모바일 확대 방지)
           <View>
             <TextInput
+              ref={writtenInputRef}
               style={[
                 {
                   minHeight: q.questionType === 'essay' ? 160 : 60,
@@ -162,6 +221,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
               multiline
               maxLength={q.maxAnswerLength || 2000}
               placeholder={q.questionType === 'essay' ? '서술형 답안을 입력하세요 (최대 2,000자)' : '단답형 답안을 입력하세요'}
+              onFocus={() => handleAnswerFocus(writtenInputRef.current)}
               value={currentSelectedOptionId || ''}
               onChangeText={onAnswerTextChange}
             />

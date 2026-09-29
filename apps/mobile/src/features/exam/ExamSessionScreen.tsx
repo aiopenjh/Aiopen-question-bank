@@ -1,24 +1,30 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { QuestionRevision } from '../../contracts/types';
+import { AttemptCorrectionReason, QuestionRevision } from '../../contracts/types';
 import { showAlert } from '../../utils/alert';
 import { styles } from './examStyles';
 import { ExamActiveView } from './ExamActiveView';
 import { ExamResultView } from './ExamResultView';
 import { ExamHintModal } from './ExamHintModal';
 import { ScratchpadPanel } from './ScratchpadPanel';
+import { QuestionReportModal, QuestionReportPickerModal } from './QuestionReportModal';
 import { gradeExamAnswers } from '../../domain/exam_grading';
 import type { ExamAnswerResult } from '../../domain/exam_grading';
 export type { ExamAnswerResult } from '../../domain/exam_grading';
 import { updateQuestionHint } from '../../data/db';
 import { generateHintForExistingQuestion } from '../../domain/hint_generator';
+import { useAndroidBackHandler } from '../../hooks/useAndroidBackHandler';
 
 
 interface ExamSessionScreenProps {
   questions: QuestionRevision[];
   onExitExam: () => void;
   onCompleteExam: (results: ExamAnswerResult[]) => Promise<void>;
+  /** 결과 화면 문항 번호(0부터) → 사용자 정정 사유 */
+  corrections?: Record<number, AttemptCorrectionReason>;
+  onCorrectResult?: (index: number, reason: AttemptCorrectionReason) => Promise<void> | void;
+  onUndoCorrection?: (index: number) => Promise<void> | void;
   onReinforceIncorrectConcepts?: (questions: QuestionRevision[]) => Promise<void> | void;
   // 온디맨드로 생성한 힌트를 저장소뿐 아니라 앱 상단의 questions 상태에도 즉시 반영한다.
   // 그렇지 않으면 시험을 나갔다가 다시 들어올 때 갱신 전 스냅샷을 다시 사용하게 되어
@@ -30,6 +36,9 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   questions,
   onExitExam,
   onCompleteExam,
+  corrections,
+  onCorrectResult,
+  onUndoCorrection,
   onReinforceIncorrectConcepts,
   onHintSaved,
 }) => {
@@ -47,6 +56,16 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   const [hintOverrides, setHintOverrides] = useState<Record<string, string>>({});
   const [isGeneratingHint, setIsGeneratingHint] = useState(false);
   const [hintError, setHintError] = useState<string | null>(null);
+  // 신고 대상 문제. 신고는 답안·채점 상태와 분리된 별도 상태다.
+  const [reportTarget, setReportTarget] = useState<QuestionRevision | null>(null);
+  // 결과 화면에서는 신고할 문제를 먼저 골라야 하므로 선택 창을 별도로 관리한다.
+  const [reportPickerOpen, setReportPickerOpen] = useState(false);
+  // 풀이공간이 열려 있으면 닫기만 하고, 아니면 ✕ 나가기와 같은 경로(채점 중 안내·종료 확인·결과 화면 나가기).
+  useAndroidBackHandler(() => {
+    if (showScratchpad && !isSubmitted) setShowScratchpad(false);
+    else handlePressExit();
+    return true;
+  });
 
   if (!questions || questions.length === 0) return null;
 
@@ -93,6 +112,10 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
   }
 
   function handlePressExit() {
+    if (isSaving) {
+      showAlert('채점 중', '채점 결과를 저장하고 있습니다. 잠시만 기다려 주세요.');
+      return;
+    }
     if (isSubmitted) {
       onExitExam();
       return;
@@ -101,6 +124,16 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
       { text: '계속 풀기', style: 'cancel' },
       { text: '나가기', style: 'destructive', onPress: onExitExam },
     ]);
+  }
+
+  // 풀이 중에는 현재 보고 있는 문제를 바로 신고하고, 결과 화면에서는 어떤 문제를
+  // 신고할지 먼저 고르게 한다(문제마다 반복되던 신고 버튼 대신 단일 진입점).
+  function handleOpenReport() {
+    if (!isSubmitted) {
+      setReportTarget(q);
+    } else {
+      setReportPickerOpen(true);
+    }
   }
 
   function handlePrevQuestion() {
@@ -171,17 +204,20 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
     <SafeAreaView style={styles.examContainer}>
       <StatusBar barStyle="dark-content" />
 
-      {/* 헤더 바 */}
+      {/* 헤더 바: 좁은 안드로이드 화면에서 나가기·진행률·기능 버튼이 한 줄에 눌려 겹치지
+          않도록, 위 줄(나가기·진행률)과 아래 줄(기능 버튼)로 나누고 버튼 줄은 줄바꿈을 허용한다. */}
       <View style={styles.examHeader}>
-        <TouchableOpacity onPress={handlePressExit} style={styles.backButton}>
-          <Text style={styles.backButtonText}>✕ 나가기</Text>
-        </TouchableOpacity>
+        <View style={styles.examHeaderTopRow}>
+          <TouchableOpacity onPress={handlePressExit} style={styles.backButton}>
+            <Text style={styles.backButtonText}>✕ 나가기</Text>
+          </TouchableOpacity>
 
-        <Text style={styles.examProgressText}>
-          {isSubmitted ? '📋 정답 및 종합 해설지' : `문제 ${currentIndex + 1} / ${questions.length}`}
-        </Text>
+          <Text style={styles.examProgressText} numberOfLines={1}>
+            {isSubmitted ? '📋 정답 및 종합 해설지' : `문제 ${currentIndex + 1} / ${questions.length}`}
+          </Text>
+        </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={styles.examHeaderActionsRow}>
           {!isSubmitted && (
             <>
               <TouchableOpacity
@@ -198,6 +234,9 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
               </TouchableOpacity>
             </>
           )}
+          <TouchableOpacity style={styles.hintHeaderBtn} onPress={handleOpenReport}>
+            <Text style={styles.hintHeaderBtnText}>🚩 문제 신고</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -222,6 +261,9 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
           questions={questions}
           userAnswers={userAnswers}
           results={submittedResults || undefined}
+          corrections={corrections}
+          onCorrectResult={onCorrectResult}
+          onUndoCorrection={onUndoCorrection}
           onExitExam={onExitExam}
           onReinforceIncorrectConcepts={onReinforceIncorrectConcepts}
         />
@@ -237,6 +279,21 @@ export const ExamSessionScreen: React.FC<ExamSessionScreenProps> = ({
         isGeneratingHint={isGeneratingHint}
         generateHintError={hintError}
       />
+
+      {reportPickerOpen ? (
+        <QuestionReportPickerModal
+          questions={questions}
+          onSelect={(question) => {
+            setReportPickerOpen(false);
+            setReportTarget(question);
+          }}
+          onClose={() => setReportPickerOpen(false)}
+        />
+      ) : null}
+
+      {reportTarget ? (
+        <QuestionReportModal key={reportTarget.id} question={reportTarget} onClose={() => setReportTarget(null)} />
+      ) : null}
 
       {/* 풀이공간(Scratchpad) — 계산/풀이 보조용, 채점 미반영.
           닫혀 있을 때는 아예 렌더링하지 않는다(닫힌 패널 잔상 방지, ScratchpadPanel 주석 참고). */}

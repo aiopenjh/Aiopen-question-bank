@@ -5,6 +5,7 @@
 
 import { DEFAULT_GEMINI_MODEL } from '../data/db';
 import { AiDocumentInput } from '../contracts/types';
+import { ensureAiDataNoticeAccepted } from './ai_data_notice';
 
 // 키와 모델별 단기 대기 상태. 메모리에만 보관하며 저장하거나 로그로 출력하지 않는다.
 const geminiRateLimits = new Map<string, Map<string, number>>();
@@ -47,6 +48,13 @@ function createGenerationCancelledError(): Error {
   return error;
 }
 
+// 출제 경로는 취소와 같은 이름으로 처리한다(기존 '문제 출제가 취소되었습니다' 안내).
+function createAiDataNoticeDeclinedError(): Error {
+  const error = new Error('AI 전송 안내를 확인하지 않아 요청을 보내지 않았습니다.');
+  error.name = 'GenerationCancelledError';
+  return error;
+}
+
 /**
  * AI JSON 응답 파싱 유틸리티 (마크다운 백틱 제거)
  */
@@ -78,13 +86,16 @@ export async function callUniversalAiCompletion(
 ): Promise<AiCompletionResult> {
   const trimmedKey = apiKey.trim();
   if (signal?.aborted) throw createGenerationCancelledError();
+  // 데이터 전송 안내를 확인하지 않으면 네트워크 요청을 보내지 않는다.
+  if (!(await ensureAiDataNoticeAccepted())) throw createAiDataNoticeDeclinedError();
+  if (signal?.aborted) throw createGenerationCancelledError();
 
   // 1. Anthropic Claude Sonnet 4.6 지원 (sk-ant- 시작 키)
   if (trimmedKey.startsWith('sk-ant-')) {
     if (options?.enableGoogleSearch) {
-      throw new Error('최신 법령·세율 확인 출제는 Google 검색을 지원하는 Gemini API 키가 필요합니다.');
+      throw new Error('최신 정보 확인 기능을 지원하는 AI 연결이 필요합니다.');
     }
-    if (documentInput) throw new Error('PDF 직접 출제는 Gemini API 키에서만 지원합니다.');
+    if (documentInput) throw new Error('PDF 분석을 지원하는 AI 연결이 필요합니다.');
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -113,9 +124,9 @@ export async function callUniversalAiCompletion(
   // 2. OpenAI GPT-4o 지원 (sk- 시작 키)
   if (trimmedKey.startsWith('sk-')) {
     if (options?.enableGoogleSearch) {
-      throw new Error('최신 법령·세율 확인 출제는 Google 검색을 지원하는 Gemini API 키가 필요합니다.');
+      throw new Error('최신 정보 확인 기능을 지원하는 AI 연결이 필요합니다.');
     }
-    if (documentInput) throw new Error('PDF 직접 출제는 Gemini API 키에서만 지원합니다.');
+    if (documentInput) throw new Error('PDF 분석을 지원하는 AI 연결이 필요합니다.');
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {

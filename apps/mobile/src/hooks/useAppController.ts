@@ -10,6 +10,7 @@ import {
 import {
   getAttempts,
   getReviewStates,
+  getAttemptCorrections,
   getSourceTextForSource,
 } from '../data/db';
 import { getLocalDateString } from '../domain/routine';
@@ -41,6 +42,7 @@ export function useAppController() {
   // 1. Core Data Hook
   const {
     loading,
+    storageError,
     refreshing,
     routine,
     topics,
@@ -131,6 +133,7 @@ export function useAppController() {
     setSourceTopicId,
     sourceFileName,
     sourcePageCount,
+    isSourceFileLoading,
     sourcePageStart,
     setSourcePageStart,
     sourcePageEnd,
@@ -171,8 +174,11 @@ export function useAppController() {
     examSessionActive,
     examSessionRunId,
     examQuestions,
+    examCorrections,
     startExam,
     handleCompleteExam,
+    correctExamResult,
+    undoExamResultCorrection,
     exitExamSession,
   } = useExamSession({
     questions,
@@ -184,13 +190,14 @@ export function useAppController() {
     setSelectedTopicId,
     setLastStudiedTopicId,
     onRefreshData: async () => {
-      const [updatedAttempts, updatedRS] = await Promise.all([
+      const [updatedAttempts, updatedRS, corrections] = await Promise.all([
         getAttempts(),
         getReviewStates(),
+        getAttemptCorrections(),
       ]);
       setAttempts(updatedAttempts);
       setReviewStates(updatedRS);
-      setIncorrectQuestions(selectIncorrectQuestions(questions, updatedAttempts));
+      setIncorrectQuestions(selectIncorrectQuestions(questions, updatedAttempts, corrections));
     },
   });
 
@@ -384,7 +391,7 @@ export function useAppController() {
   };
 
   return {
-    loading, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
+    loading, storageError, loadAppData, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
     appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
     handleTouchMove, handleTouchEnd, onLayoutContainer, routine, todayAttempts, dueQuestions,
     refreshing, handlePullRefresh, handleStartExamWithAutoGenerate, handleGenerateMoreQuestions,
@@ -393,7 +400,7 @@ export function useAppController() {
     lastStudiedTopicId, questions, units, completions, setUnitModalVisible, handleDeleteTopic,
     handleToggleUnitCompletion, handleDeleteUnit, handleGenerateCurriculumForTopic,
     handlePromptQuizCount, handleDeduplicateUnits, startExam, handleDeleteQuestion, sources,
-    sourceTitle, setSourceTitle, sourceText, setSourceText, sourceFileName, sourcePageCount,
+    sourceTitle, setSourceTitle, sourceText, setSourceText, sourceFileName, sourcePageCount, isSourceFileLoading,
     sourcePageStart, setSourcePageStart, sourcePageEnd, setSourcePageEnd,
     handleSaveSource, handlePickSourceFile, handleReconnectSource, hasPdfInMemory,
     sourceTopicId, setSourceTopicId, handleDeleteSource, incorrectQuestions, reviewStates,
@@ -407,6 +414,7 @@ export function useAppController() {
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive, examSessionRunId,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
+    examCorrections, correctExamResult, undoExamResultCorrection,
     handleQuestionHintSaved,
     appAlert, setAppAlert,
   };

@@ -20,6 +20,7 @@ import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 
 export interface LibraryScreenProps {
   isActive?: boolean;
+  androidBackHandlerRef?: React.MutableRefObject<(() => boolean) | null>;
   questions: QuestionRevision[];
   topics: Topic[];
   units: Unit[];
@@ -45,6 +46,7 @@ export interface LibraryScreenProps {
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   isActive = false,
+  androidBackHandlerRef,
   questions,
   topics,
   units,
@@ -150,6 +152,21 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
     setIsQuestionBankOpen(true);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
+
+  React.useEffect(() => {
+    if (!androidBackHandlerRef) return;
+    const handleBack = () => {
+      if (!isActive || (!selectedLibraryTopicId && !isQuestionBankOpen)) return false;
+      setSelectedLibraryTopicId(null);
+      setIsQuestionBankOpen(false);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      return true;
+    };
+    androidBackHandlerRef.current = handleBack;
+    return () => {
+      if (androidBackHandlerRef.current === handleBack) androidBackHandlerRef.current = null;
+    };
+  }, [androidBackHandlerRef, isActive, isQuestionBankOpen, selectedLibraryTopicId]);
 
   const handleUnitPress = (topic: Topic, unit: Unit) => {
     onQuickGenerateForUnit(topic.id, topic.name, unit.id, unit.title);

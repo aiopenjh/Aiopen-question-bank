@@ -37,7 +37,8 @@ function harness(fetchImpl = async () => { throw new Error('unexpected provider 
       console: { error: () => {}, log: () => {}, warn: () => {} },
       fetch: fetchImpl,
       setTimeout,
-      require: (name) => name === '../data/db'
+      // 데이터 전송 안내는 이미 확인한 상태로 둔다(ai_data_notice.test.cjs에서 따로 검증).
+      require: (name) => name === './ai_data_notice' ? { ensureAiDataNoticeAccepted: async () => true } : name === '../data/db'
         ? {
             DEFAULT_GEMINI_MODEL,
             generateUUID: () => 'synthetic-id',
@@ -85,7 +86,7 @@ test('AI 힌트 생성: API 키가 없으면 명확한 오류를 던진다', asy
   const mod = harness(undefined, { key: '' });
   await assert.rejects(
     () => mod.generateHintForExistingQuestion(makeQuestion()),
-    /API Key/
+    /AI 연결/
   );
 });
 

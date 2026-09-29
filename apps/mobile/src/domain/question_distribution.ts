@@ -8,7 +8,7 @@
  */
 
 import { QuestionRevision } from '../contracts/types';
-import { generateUUID } from '../data/db';
+import { hasMissingOptions } from './question_integrity';
 
 export function distributeQuestionAnswersRandomly(questions: QuestionRevision[]): QuestionRevision[] {
   if (!questions || questions.length === 0) return [];
@@ -40,8 +40,12 @@ export function distributeQuestionAnswersRandomly(questions: QuestionRevision[])
   return questions.map((q, qIdx) => {
     const targetSlot = targetSlots[qIdx]; // 0~3 중 이번 문제의 정답 위치
 
+    // 보기가 정확히 4개가 아니거나 정답 보기가 없으면 가짜 보기로 채우지 않고 그대로 둔다
+    // (보기 누락 문제는 시험 시작 시 제외된다).
+    if (hasMissingOptions(q)) return q;
+
     // 현재 문제의 공식 정답 선지 및 오답 선지 분리
-    const correctOption = q.options.find((o) => o.id === q.answerOptionId) || q.options[0];
+    const correctOption = q.options.find((o) => o.id === q.answerOptionId)!;
     const distractors = q.options.filter((o) => o.id !== correctOption.id);
 
     // 오답 선지 셔플
@@ -61,19 +65,11 @@ export function distributeQuestionAnswersRandomly(questions: QuestionRevision[])
           isDistractor: false,
         });
       } else {
-        if (distractors[distractorIdx]) {
-          newOptions.push({
-            ...distractors[distractorIdx],
-            isDistractor: true,
-          });
-          distractorIdx++;
-        } else {
-          newOptions.push({
-            id: generateUUID(),
-            text: `기타 선지 ${slot + 1}`,
-            isDistractor: true,
-          });
-        }
+        newOptions.push({
+          ...distractors[distractorIdx],
+          isDistractor: true,
+        });
+        distractorIdx++;
       }
     }
 

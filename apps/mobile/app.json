@@ -2,7 +2,7 @@
   "expo": {
     "name": "Celueste",
     "slug": "celueste",
-    "version": "2.3.4",
+    "version": "2.3.6",
     "orientation": "portrait",
     "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "light",
@@ -13,8 +13,8 @@
       "package": "com.celueste.app",
       "versionCode": 6,
       "adaptiveIcon": {
-        "backgroundColor": "#F8F6F3",
-        "foregroundImage": "./assets/android-icon-foreground-v2.png"
+        "backgroundColor": "#F4D4D7",
+        "foregroundImage": "./assets/app-icon.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -35,6 +35,12 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2bb43166-f3c8-44ec-ae57-f1afeed9d96c"
+      }
+    },
+    "owner": "aiopenjh"
   }
 }

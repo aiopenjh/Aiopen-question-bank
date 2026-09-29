@@ -266,6 +266,17 @@ export const libraryReviewStyles = StyleSheet.create({
     fontWeight: '700',
     color: '#ef4444',
   },
+  missingOptionsBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  missingOptionsBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#b45309',
+  },
   headerSourceBtn: {
     backgroundColor: '#fff1f2',
     borderWidth: 1,

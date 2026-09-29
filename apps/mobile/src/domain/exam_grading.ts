@@ -35,7 +35,7 @@ export async function gradeExamAnswers(
     if (item.questionType === 'cloze') {
       // 빈칸형: AI 재호출 없이 로컬에서 즉시 채점
       const clozeAnswers = userClozeAnswers[idx] || [];
-      const grading = gradeClozeAnswers(item.clozeBlanks || [], clozeAnswers);
+      const grading = gradeClozeAnswers(item.clozeBlanks || [], clozeAnswers, item.stem || '');
       return {
         question: item,
         selectedOptionId: '',

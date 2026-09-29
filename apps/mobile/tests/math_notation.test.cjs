@@ -135,3 +135,28 @@ test('math_notation: mayContainMathNotation은 수식 트리거 문자가 있을
   assert.equal(mod.mayContainMathNotation('x^2'), true);
   assert.equal(mod.mayContainMathNotation('$\\sigma$'), true);
 });
+
+test('math_notation: 백틱 없는 코드 이름의 밑줄은 $ 밖에서 아래첨자로 바꾸지 않는다', () => {
+  for (const source of [
+    'my_coroutine 함수와 asyncio.create_task를 비교합니다.',
+    '__init__ 메서드와 pos_y 변수',
+    '가격은 $5이고 snake_case_name을 씁니다.',
+  ]) {
+    const blocks = mod.parseMathText(source);
+    assert.equal(flatten(blocks), source.replace('$', ''), source);
+    const nodes = blocks.flatMap((block) => block.type === 'run' ? block.nodes : []);
+    assert.ok(nodes.every((node) => node.type === 'text'), source);
+  }
+});
+
+test('math_notation: 한 글자·중괄호 첨자와 $ 안의 첨자는 기존대로 아래첨자다', () => {
+  const subs = (source) => mod.parseMathText(source)
+    .flatMap((block) => block.type === 'run' ? block.nodes : [])
+    .filter((node) => node.type === 'sub')
+    .map((node) => node.value)
+    .join(',');
+  assert.equal(subs('x_i와 a_1, v_{max}'), 'i,1,max');
+  assert.equal(subs('오차 제곱합 $SS_E$와 $MS_{E}$'), 'E,E');
+  const frac = mod.parseMathText('$\\frac{SS_E}{df}$').find((block) => block.type === 'frac');
+  assert.ok(frac.numerator[0].nodes.some((node) => node.type === 'sub' && node.value === 'E'));
+});

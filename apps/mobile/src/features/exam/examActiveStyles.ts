@@ -13,14 +13,23 @@ export const examActiveStyles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
   examHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: '#ffffff',
+    gap: 8,
+  },
+  examHeaderTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  examHeaderActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 6,
   },
   backButton: {
     padding: 6,
@@ -31,6 +40,8 @@ export const examActiveStyles = StyleSheet.create({
     fontWeight: 'bold',
   },
   examProgressText: {
+    flex: 1,
+    textAlign: 'center',
     color: colors.ink,
     fontSize: 15,
     fontWeight: 'bold',
@@ -275,6 +286,6 @@ export const examActiveStyles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: 10,
-  },
+  },
 });
 

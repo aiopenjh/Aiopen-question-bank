@@ -4,10 +4,14 @@
  * Web data is stored in IndexedDB so the growing question bank is not bound by
  * localStorage's small quota. Existing AsyncStorage/localStorage values are
  * copied automatically on the first launch and retained as a recovery source.
- * Native builds continue to use AsyncStorage.
+ * Native builds store the same key-value data in SQLite (native_sqlite_backend.ts)
+ * after a verified one-time copy from AsyncStorage (native_storage_migration.ts).
  */
 
 import NativeAsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import type { NativeSqliteStore } from './native_sqlite_backend';
+import { initializeNativeStorage } from './native_storage_migration';
 
 const DATABASE_NAME = 'celueste-learning-data';
 const DATABASE_VERSION = 1;
@@ -24,9 +28,10 @@ const SECRET_STORAGE_KEYS = new Set([
 
 type StorageEntry = readonly [string, string | null];
 type WritableStorageEntry = readonly [string, string];
-type StorageBackend = 'indexeddb' | 'async-storage';
+type StorageBackend = 'indexeddb' | 'async-storage' | 'sqlite';
 
 let initializationPromise: Promise<StorageBackend> | null = null;
+let nativeSqliteStore: NativeSqliteStore | null = null;
 
 function canUseIndexedDB(): boolean {
   return typeof indexedDB !== 'undefined';
@@ -181,6 +186,13 @@ async function migrateLegacyWebStorage(): Promise<void> {
 }
 
 async function initializeBackend(): Promise<StorageBackend> {
+  if (Platform.OS !== 'web') {
+    // 네이티브: SQLite kv 저장소. 웹은 아래 IndexedDB 경로를 그대로 사용한다.
+    const selection = await initializeNativeStorage(shouldMigrateKey);
+    nativeSqliteStore = selection.backend === 'sqlite' ? selection.store : null;
+    return selection.backend;
+  }
+
   const activeMarker = await NativeAsyncStorage.getItem(ACTIVE_BACKEND_MARKER_KEY);
   const migrationWasActivated = activeMarker === ACTIVE_BACKEND_MARKER_VALUE;
 
@@ -228,14 +240,23 @@ async function getBackend(): Promise<StorageBackend> {
   return initializationPromise;
 }
 
+function sqliteStore(): NativeSqliteStore {
+  if (!nativeSqliteStore) throw new Error('SQLite 학습 저장소가 준비되지 않았습니다.');
+  return nativeSqliteStore;
+}
+
 async function getItem(key: string): Promise<string | null> {
-  return (await getBackend()) === 'indexeddb'
+  const backend = await getBackend();
+  if (backend === 'sqlite') return sqliteStore().getItem(key);
+  return backend === 'indexeddb'
     ? readIndexedValue(key)
     : NativeAsyncStorage.getItem(key);
 }
 
 async function setItem(key: string, value: string): Promise<void> {
-  if ((await getBackend()) === 'indexeddb') {
+  const backend = await getBackend();
+  if (backend === 'sqlite') return sqliteStore().setItem(key, value);
+  if (backend === 'indexeddb') {
     await writeIndexedEntries([[key, value]]);
     return;
   }
@@ -243,7 +264,9 @@ async function setItem(key: string, value: string): Promise<void> {
 }
 
 async function removeItem(key: string): Promise<void> {
-  if ((await getBackend()) === 'indexeddb') {
+  const backend = await getBackend();
+  if (backend === 'sqlite') return sqliteStore().removeItem(key);
+  if (backend === 'indexeddb') {
     await removeIndexedEntries([key]);
     return;
   }
@@ -251,7 +274,9 @@ async function removeItem(key: string): Promise<void> {
 }
 
 async function multiGet(keys: readonly string[]): Promise<[string, string | null][]> {
-  if ((await getBackend()) === 'indexeddb') {
+  const backend = await getBackend();
+  if (backend === 'sqlite') return sqliteStore().multiGet(keys);
+  if (backend === 'indexeddb') {
     return (await readIndexedEntries(keys)).map(([key, value]) => [key, value]);
   }
   const entries = await NativeAsyncStorage.multiGet([...keys]);
@@ -259,7 +284,9 @@ async function multiGet(keys: readonly string[]): Promise<[string, string | null
 }
 
 async function multiSet(entries: readonly WritableStorageEntry[]): Promise<void> {
-  if ((await getBackend()) === 'indexeddb') {
+  const backend = await getBackend();
+  if (backend === 'sqlite') return sqliteStore().multiSet(entries);
+  if (backend === 'indexeddb') {
     await writeIndexedEntries(entries);
     return;
   }
@@ -267,7 +294,9 @@ async function multiSet(entries: readonly WritableStorageEntry[]): Promise<void>
 }
 
 async function multiRemove(keys: readonly string[]): Promise<void> {
-  if ((await getBackend()) === 'indexeddb') {
+  const backend = await getBackend();
+  if (backend === 'sqlite') return sqliteStore().multiRemove(keys);
+  if (backend === 'indexeddb') {
     await removeIndexedEntries(keys);
     return;
   }
@@ -275,7 +304,9 @@ async function multiRemove(keys: readonly string[]): Promise<void> {
 }
 
 async function getAllKeys(): Promise<string[]> {
-  return (await getBackend()) === 'indexeddb'
+  const backend = await getBackend();
+  if (backend === 'sqlite') return sqliteStore().getAllKeys();
+  return backend === 'indexeddb'
     ? listIndexedKeys()
     : [...await NativeAsyncStorage.getAllKeys()].filter(
         (key) => key !== ACTIVE_BACKEND_MARKER_KEY
@@ -284,6 +315,15 @@ async function getAllKeys(): Promise<string[]> {
 
 async function clear(): Promise<void> {
   const backend = await getBackend();
+  if (backend === 'sqlite') {
+    // SQLite 사용자 데이터를 먼저 지운다. 스키마·이관 마커는 남긴다.
+    await sqliteStore().clear();
+    // 평상시에는 이관 원본을 보존하지만, 사용자가 전체 초기화를 실행한 경우에는
+    // AsyncStorage의 앱 데이터 키도 지운다. 저장소 상태 객체와 앱과 무관한 키는 남긴다.
+    const legacyKeys = (await NativeAsyncStorage.getAllKeys()).filter(isApplicationKey);
+    if (legacyKeys.length > 0) await NativeAsyncStorage.multiRemove(legacyKeys);
+    return;
+  }
   if (backend !== 'indexeddb') {
     const activeMarker = await NativeAsyncStorage.getItem(ACTIVE_BACKEND_MARKER_KEY);
     await NativeAsyncStorage.clear();
@@ -312,7 +352,7 @@ async function clear(): Promise<void> {
   );
 }
 
-export async function initializeAppStorage(): Promise<'indexeddb' | 'async-storage'> {
+export async function initializeAppStorage(): Promise<StorageBackend> {
   return getBackend();
 }
 

@@ -1,0 +1,303 @@
+# Android 네이티브 저장소 SQLite 전환 설계
+
+- 작성: 2026-09-23, 브랜치 `feature/android-app` (기준 커밋 `7d99fa0`)
+- 상태: **1단계 구현 완료** — 실제 앱 이관·강제 종료 실기기 검증 전
+- 관련 규칙: `AGENTS.md` §2-A-7 데이터 호환성과 복구 가능성
+
+## 1. 목적과 범위
+
+Android 앱의 학습 데이터 저장소를 AsyncStorage에서 SQLite(`expo-sqlite`)로 옮겨 용량 한계와 부분 저장 위험을 없앤다.
+
+- **대상:** 네이티브(Android, 추후 iOS)만.
+- **웹은 변경하지 않는다.** 운영 중인 웹의 IndexedDB 데이터 형식과 동작을 그대로 유지한다.
+- **API 키는 대상 아님.** `integrations/secure_storage.ts`(SecureStore)는 그대로 둔다.
+- **공개 함수 시그니처 유지.** `data/db.ts`와 `data/repositories/*`의 공개 함수 시그니처를 바꾸지 않아, 화면·훅 코드를 수정하지 않는다.
+
+## 2. 현재 구조 (코드 확인 결과)
+
+| 항목 | 현재 |
+|---|---|
+| 저장소 경계 | `src/data/app_storage.ts` — 웹: IndexedDB `celueste-learning-data`/`key-value` 스토어, 네이티브: AsyncStorage |
+| 공개 API | `getItem, setItem, removeItem, multiGet, multiSet, multiRemove, getAllKeys, clear` (+ `initializeAppStorage`) |
+| 사용처 | `db.ts`, `repositories/{question,source,topic_unit,backup,ranking}_repository.ts`, `utils/notifications.ts` |
+| 저장 방식 | 컬렉션 전체를 키 하나에 JSON 배열로 저장 (`STORAGE_KEYS.QUESTIONS`, `ATTEMPTS`, `REVIEW_STATES`, `SOURCE_CHUNKS` 등) |
+| 쓰기 패턴 | 읽기 → 배열 수정 → 전체 재저장. 예: `saveAttempt`는 제출 1건마다 ATTEMPTS 전체를 다시 씀 |
+| 다중 키 원자성 | 수동 스냅샷/복원 (`topic_unit_repository.ts` `writeWithRollback`, `backup_repository.ts` 복원 롤백) |
+| 기존 이관 선례 | 웹 AsyncStorage/localStorage → IndexedDB: 복사 → 값 검증 → 완료 마커 → 원본 보존, 실패 시 기존 저장소 유지 |
+| 테스트 | `tests/app_storage.test.cjs`(IndexedDB 가짜), `tests/storage.test.cjs`(백업 왕복, 롤백, 멱등 제출 등) |
+
+## 3. 문제
+
+Android AsyncStorage 공식 제한: **전체 기본 6MB**, **항목 1개 읽기 2MB 초과 불가**(CursorWindow).
+
+크기 근거 (추정 포함):
+
+- 기본 탑재 문제 3개 실측: 문제당 약 1.6KB. AI 생성 문제는 해설·개념 정의·힌트가 붙어 더 크다. → 천 개 전후에서 2MB에 근접 (추정)
+- **`SOURCE_CHUNKS`가 가장 먼저 한계에 닿는다.** 텍스트 자료는 청크 1개에 전문을 `rawText`와 `normalizedText`로 **두 번** 저장한다(`useSourceManager.ts` 자료 저장부). 한국어 약 35만 자(UTF-8 약 1MB) 교재 하나면 단일 키가 2MB를 넘는다 (계산값, 실측 아님)
+- `ATTEMPTS`는 풀이마다 누적되어 기간이 길수록 문제 수보다 빨리 커질 수 있다
+
+## 4. expo-sqlite 확인 결과
+
+공식 문서 기준 (docs.expo.dev/versions/latest/sdk/sqlite):
+
+- SQLite를 라이브러리에 **번들**해서 사용한다. Android 시스템 SQLiteDatabase/CursorWindow 경로가 아니다.
+- **트랜잭션 API 두 가지:**
+  - `withTransactionAsync`는 실행 중인 다른 쿼리까지 트랜잭션에 섞일 수 있다.
+  - `withExclusiveTransactionAsync`는 스코프 안의 쿼리만 포함한다.
+  - 쓰기 트랜잭션 중 다른 비동기 쓰기는 `database is locked`로 실패할 수 있다.
+- `expo-sqlite/kv-store`가 AsyncStorage 호환 API를 제공한다.
+- **웹 지원은 alpha**이고 COOP/COEP 헤더와 SharedArrayBuffer가 필요하다. GitHub Pages는 커스텀 헤더를 설정할 수 없어 웹에서는 사용하지 않는다.
+- WAL 모드 사용을 권장한다.
+- Expo Go에 포함되어 있어, EAS 빌드 전에도 실기기에서 검증할 수 있다.
+
+### 4.1 V1~V5 실기기 검증 결과
+
+- 검증 시각: `2026-09-23T16:48:37.292Z`
+- 검증 환경: Expo SDK `57.0.24`, `expo-sqlite` `57.0.3`
+
+| 항목 | 결과 | 시간 | 확인 내용 |
+|---|---:|---:|---|
+| V1. 5MB 단일 값 저장·읽기 | PASS | 357ms | 5,242,880바이트를 동일하게 읽음 |
+| V2. 예외 발생 시 exclusive 트랜잭션 롤백 | PASS | 43ms | 예외 뒤 삽입 데이터가 남지 않음 |
+| V3. 동시 비동기 쓰기 충돌 | PASS | 541ms | 같은 연결 실패 0건, 별도 연결 잠금 확인, 잠금 뒤 재사용 성공 |
+| V4. 문제 5,000개·풀이 20,000건 | PASS | 1,002ms | JSON 3,843,909자, 저장 376ms, 전체 읽기·파싱 347ms |
+| V5. SDK 57 패키지 호환성 | PASS | - | exclusive API 사용 가능 |
+
+**해석:**
+
+- V1·V2로 1단계의 대형 단일 값 저장과 롤백 전제가 확인됐다.
+- V3에서 별도 연결의 실제 잠금이 관찰됐으므로, D4의 **단일 쓰기 큐 + exclusive 트랜잭션**은 선택 사항이 아니라 필수다.
+- V4는 문제·풀이 25,000건을 개별 행으로 넣은 결과가 아니라, 현재 1단계 설계처럼 두 개의 큰 JSON 값으로 직렬화해 저장·읽기·파싱한 결과다. 따라서 **1단계 kv 백엔드의 성능 근거**로만 사용하며, 2단계 레코드 테이블 성능을 입증하지 않는다.
+- V4의 `3,843,909자`는 JavaScript 문자열 길이이므로 실제 UTF-8 바이트 수와 같다고 간주하지 않는다.
+
+## 5. 설계 결정
+
+| ID | 결정 | 이유 |
+|---|---|---|
+| D1 | 네이티브만 SQLite, 웹은 IndexedDB 유지 | 웹 SQLite는 alpha이고 GitHub Pages에서 필수 헤더를 설정할 수 없다. 운영 웹 데이터 이관 위험도 없앤다 |
+| D2 | `kv-store` 헬퍼 대신 단일 DB 파일 `celueste.db`에 자체 `kv` 테이블 | 작은 키와 이후 컬렉션 테이블을 **하나의 트랜잭션**으로 묶을 수 있다(백업 복원, 과목 삭제 연쇄). 구현량도 작다 |
+| D3 | 2단계 전환 | 1단계로 용량 한계를 먼저 제거하고, 성능 개선(2단계)은 측정 후 진행 |
+| D4 | 모든 쓰기를 단일 큐로 직렬화하고, 다중 쓰기는 `withExclusiveTransactionAsync` | `database is locked` 방지. 현재 코드의 비동기 쓰기 순서를 보존 |
+| D5 | 2단계의 웹 구현은 기존 키-값 JSON 배열을 그대로 쓰는 어댑터 | 웹 데이터 형식이 바뀌지 않아 웹 마이그레이션이 필요 없다. 백업 형식도 불변 |
+
+## 6. 1단계 — 네이티브 kv 백엔드 교체 (클로즈드 테스트 전 필수)
+
+### 6.1 스키마
+
+```sql
+PRAGMA journal_mode = WAL;
+CREATE TABLE IF NOT EXISTS kv (
+  key   TEXT PRIMARY KEY NOT NULL,
+  value TEXT NOT NULL
+);
+-- 스키마 버전·이관 마커는 예약 키로 kv에 저장: '__celueste:sqlite-schema', '__celueste:sqlite-migration-v1'
+```
+
+### 6.2 API 매핑 (`app_storage.ts` 공개 API 불변)
+
+| 공개 API | SQLite 구현 |
+|---|---|
+| `getItem(k)` | `SELECT value FROM kv WHERE key = ?` |
+| `setItem(k, v)` | `INSERT ... ON CONFLICT(key) DO UPDATE` (쓰기 큐 경유) |
+| `multiGet(ks)` | `SELECT key, value FROM kv WHERE key IN (...)`, 요청 순서대로 정렬해 반환 |
+| `multiSet(es)` | 단일 exclusive 트랜잭션 안에서 upsert 반복 → **다중 키 원자성 확보** |
+| `removeItem/multiRemove` | `DELETE` (multi는 단일 트랜잭션) |
+| `getAllKeys()` | `SELECT key FROM kv` (예약 키 제외) |
+| `clear()` | `DELETE FROM kv WHERE key NOT GLOB '__celueste:*'` + AsyncStorage에 남은 앱 키 제거 (웹 `clear`와 같은 의미). 예약 키(스키마·이관 마커)는 **남긴다** — 지우면 다음 실행에서 "표시는 있는데 마커가 없음"(6.4)으로 오판한다 |
+
+`StorageBackend` 타입에 `'sqlite'`를 추가한다. `initializeAppStorage()`의 반환 타입이 넓어지지만 앱 내 호출부는 `db.ts:112` 한 곳뿐이고 반환값을 쓰지 않는다. 테스트(`app_storage.test.cjs`)의 기대값은 웹 경로라 영향이 없다.
+
+### 6.3 AsyncStorage → SQLite 이관
+
+완료 표시는 **검증이 끝난 뒤 별도 트랜잭션**으로만 기록한다. 복사와 같은 트랜잭션에 기록하면, 커밋 직후·검증 전에 앱이 종료됐을 때 다음 실행이 검증 없이 완료로 판단한다.
+
+기록은 두 곳에 두되, **이관 완료 여부의 유일한 기준은 AsyncStorage 상태 객체**다.
+- SQLite `kv`의 `__celueste:sqlite-migration-v1`: 현재 DB 복사본이 검증을 통과했다는 내부 표시
+- AsyncStorage의 **저장소 상태 객체** `__celueste:native-storage-state`: 앱이 SQLite 사용을 시작해도 된다는 완료 표시이자 활성 DB 포인터. 앱 키 접두사가 아니라서 평상시 데이터 정리 대상에서 빠진다. 키 하나에 JSON 하나라 쓰기가 원자적이다.
+
+```json
+{
+  "version": 1,
+  "activeDatabase": "celueste.db",
+  "migratedAt": "2026-10-01T00:00:00.000Z",
+  "retainedDatabases": []
+}
+```
+
+- `activeDatabase`: 앱이 여는 **유일한** DB 파일. 앱 시작 시 이 값이 가리키는 파일만 연다. 상태 객체가 없으면 기본값 `celueste.db`
+- `retainedDatabases`: 복구로 교체된 이전 DB 파일 목록. 자동 삭제하지 않는다 (6.5)
+
+1. 상태 객체가 있으면 그 `activeDatabase`만 열고 SQLite 완료 마커를 확인한다. 열기 또는 마커 확인에 실패하면 폴백하지 않는다.
+2. 상태 객체가 없으면 SQLite 마커가 남아 있어도 완료로 간주하지 않고, AsyncStorage에서 앱 키(`@cogniquest:`, `@celueste:`, 비밀 키 제외)를 `multiGet`으로 읽는다. 이 시점까지 SQLite 사용자 쓰기를 허용하지 않았으므로 AsyncStorage가 최신이다.
+3. 단일 exclusive 트랜잭션에서 기존 SQLite 사용자 키와 이전 완료 마커를 지운 뒤 전체를 `kv`에 upsert하고 **커밋한다(새 마커는 쓰지 않는다).**
+4. 커밋 후 모든 키를 다시 조회해 원본과 1:1로 비교한다.
+5. 불일치하면 이번 실행은 AsyncStorage로 동작하고 다음 실행 때 재시도한다. 재시도는 원본 기준으로 다시 덮어쓰므로 멱등이다.
+6. 일치하면 **별도 트랜잭션**으로 SQLite 완료 마커를 기록하고, 그다음 상태 객체를 기록한다. 상태 객체 기록에 실패하면 초기화를 오류로 끝내며 SQLite 사용과 AsyncStorage 폴백을 모두 허용하지 않는다. 같은 실행에서 다시 시도할 수 있다.
+
+중단 지점별 동작:
+
+| 중단 시점 | 다음 실행 |
+|---|---|
+| 3번 커밋 전 | 롤백. 원본 그대로 재이관 |
+| 3번 커밋 후 ~ 6번 마커 전 | 마커 없음 → 원본 기준으로 재이관. 이 구간에는 SQLite에 사용자 쓰기가 없어 데이터 손실 없음 |
+| SQLite 마커 후 ~ 상태 객체 기록 전 | 상태 객체가 없으므로 SQLite를 사용하지 않음. 다음 실행에서 AsyncStorage 원본으로 다시 이관 |
+
+주의: AsyncStorage에 이미 2MB가 넘는 값이 있으면 절차 2번(원본 읽기)이 실패해 이관이 완료되지 않는다. 현재 네이티브 운영 사용자가 없어 실질 영향은 개발 기기로 한정된다.
+
+### 6.4 폴백 정책과 원본 보존
+
+| 상황 | 동작 |
+|---|---|
+| 이관 **완료 전** 실패 (열기·복사·검증) | AsyncStorage 폴백 허용 (원본이 아직 최신 데이터) |
+| 이관 **완료 후** SQLite 오류 | **AsyncStorage로 자동 폴백 금지.** 폴백하면 이관 시점의 오래된 데이터가 보여 최신 기록이 사라진 것처럼 보이고, 이후 쓰기가 두 저장소로 갈라진다. 오류를 사용자에게 표시하고 백업 복원 경로를 안내한다 |
+| 상태 객체는 있는데 `activeDatabase` 파일·마커가 없거나 열리지 않음 | 비정상 상태로 간주해 안전 모드(6.5) 진입 (폴백 금지) |
+
+- 이관이 끝난 뒤 AsyncStorage 앱 키에는 **다시 쓰지 않는다.** 원본은 이관 시점의 읽기 전용 스냅샷으로 남는다.
+- 원본은 최소 2개 릴리스 동안 보존한다. 수동 복구와 다운그레이드에 대비한 것이며, 일반 동작에서는 삭제하지 않는다.
+- 단, 사용자가 **전체 데이터 초기화**를 명시적으로 승인한 경우에는 SQLite 사용자 데이터를 먼저 지운 뒤 AsyncStorage의 앱 데이터 키도 삭제한다. 스키마·이관 마커, 상태 객체와 앱 외부 키는 남긴다.
+
+참고: 기존 웹 이관 코드(`app_storage.ts` `migrateLegacyWebStorage`, `initializeBackend`)에도 같은 두 패턴이 있다. 마커를 복사와 함께 기록하고 나서 검증하고, 초기화 중 어떤 오류든 AsyncStorage/localStorage로 폴백한다. 웹 변경은 이 설계의 범위 밖이라 별도로 보고한다.
+
+### 6.5 이관 완료 후 장애 안전 모드
+
+이관 완료 후 SQLite를 열거나 읽지 못하면 일반 앱 화면으로 진입하지 않는다. 일반 복원 기능도 SQLite 초기화에 의존하므로, 저장소와 분리된 최소 안전 모드를 먼저 표시한다.
+
+- `다시 시도`: SQLite 열기와 무결성 확인을 다시 실행한다.
+- `백업 파일로 복구`: 사용자가 선택한 백업을 새 SQLite에 복원한다. 기존 SQLite 파일은 자동으로 덮어쓰거나 삭제하지 않는다.
+- `이관 당시 스냅샷으로 복구`: 보존된 AsyncStorage 원본의 시점을 명확히 표시하고, 이후 학습 기록이 사라질 수 있다는 경고와 사용자 확인을 받은 뒤 새 SQLite로 복사한다.
+- 오류 원인과 복구 결과를 사용자에게 표시하며, 명시적 선택 전에는 SQLite 파일·마커·AsyncStorage 원본을 변경하지 않는다.
+
+안전 모드는 오래된 AsyncStorage 데이터를 정상 최신 데이터처럼 자동 노출하지 않는다. SQLite 파일 삭제·재생성이나 AsyncStorage 원본 삭제는 별도 확인을 거쳐야 한다.
+
+**복구 절차 (백업·스냅샷 공통) — 활성 DB 포인터 교체 방식**
+
+1. 후보 DB `celueste-recovery-{id}.db`를 새로 만든다. `{id}`는 생성 시각 기반 고유값이다.
+2. 후보 DB에 스키마를 만들고 복구 데이터를 쓴다.
+3. 후보 DB를 다시 열어 무결성(`PRAGMA integrity_check`)과 복원 건수를 검증하고, 완료 마커를 기록한다.
+4. **마지막 단계에서만** 상태 객체의 `activeDatabase`를 후보 DB로 바꾸고, 이전 DB 이름을 `retainedDatabases`에 추가한다.
+5. 포인터 변경에 실패하면 기존 `activeDatabase`를 그대로 사용한다. 이때 후보 DB는 고아 파일로 남을 뿐 사용되지 않는다.
+6. 다음 실행부터는 포인터가 가리키는 DB만 연다.
+
+- 이전 DB와 고아 후보 DB는 **자동 삭제하지 않는다.** 정리 기능은 저장공간 영향과 함께 별도 설계·승인한다.
+- **전제:** 백업으로 복구하려면 백업에 풀이·복습·도전 기록이 들어 있어야 한다. 현재 새 백업에는 이 기록이 없으므로, 전체 백업 개선을 **안전 모드 구현보다 먼저** 완료한다 (10장).
+
+### 6.6 영향 파일
+
+- 신규 `src/data/native_sqlite_backend.ts`: DB 열기, WAL, kv CRUD, 쓰기 큐, 트랜잭션 (500줄 이하)
+- 신규 `src/data/native_storage_migration.ts`: 6.3 이관 절차
+- 신규 저장소 안전 모드 화면 또는 최상위 복구 경계: 6.5의 재시도·백업 복원·스냅샷 복구 제공
+- 수정 `src/data/app_storage.ts`: 네이티브 분기를 sqlite 백엔드로 연결. 웹 분기는 변경 없음
+- 수정 `package.json`: `expo-sqlite` 추가 (**신규 의존성, 승인 필요**)
+- 신규 `tests/native_sqlite_storage.test.cjs`: Node 22 `node:sqlite`로 expo-sqlite 가짜 객체를 만들어 검증
+  - CRUD, 다중 키 원자성
+  - 이관 중단 지점별 재실행 (6.3 표)
+  - 완료 전/후 폴백 정책 (6.4 표)
+  - 이관 완료 후 SQLite 장애에서 자동 폴백 없이 안전 모드로 전환 (6.5)
+- 회귀 테스트: 기존 `tests/storage.test.cjs`, `tests/app_storage.test.cjs` 전부 통과
+
+## 7. 2단계 — 대형 컬렉션 레코드 분리 (성능, 측정 후 진행)
+
+1단계만 해도 용량 한계는 사라진다. 다만 "전체 배열 재저장"이 남아서 데이터가 커지면 저장이 느려진다.
+
+**진행 기준: 아래 중 하나라도 해당하면 진행한다.**
+- `QUESTIONS`, `ATTEMPTS`, `SOURCE_CHUNKS` 중 한 키의 값이 1MB 초과
+- 중급 Android 기기에서 풀이 저장 p95 100~150ms 초과
+- 앱 초기 데이터 로딩 p95 1초 초과
+- B2B(학원 전체) 배포 시작 전 (다른 지표와 관계없이 필수)
+
+(제안) 1단계 구현 때 키별 값 크기와 저장·로딩 시간을 개발 빌드에서만 기록하는 계측을 함께 넣어, 클로즈드 테스트 중 판단 근거로 쓴다. 기능 추가라서 별도 승인이 필요하다.
+
+### 7.1 대상과 스키마 (네이티브)
+
+```sql
+CREATE TABLE questions     (id TEXT PRIMARY KEY, topic_id TEXT, unit_id TEXT, data TEXT NOT NULL);
+CREATE INDEX idx_questions_unit ON questions(topic_id, unit_id);
+CREATE TABLE attempts      (id TEXT PRIMARY KEY, submission_key TEXT UNIQUE, data TEXT NOT NULL);
+CREATE TABLE review_states (question_revision_id TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE source_chunks (id TEXT PRIMARY KEY, revision_id TEXT, data TEXT NOT NULL);
+CREATE INDEX idx_chunks_revision ON source_chunks(revision_id);
+```
+
+- `data`에는 레코드 JSON 전체를 저장한다. 타입 필드가 추가되어도 스키마를 바꿀 필요가 없다.
+- 조회용 컬럼만 따로 복제한다.
+- 기존 배열 순서는 `ORDER BY rowid`로 보존한다.
+- `submission_key UNIQUE`는 기존 멱등 제출 규칙("repeated submissionKey saves only one attempt")과 대응한다.
+
+### 7.2 컬렉션 인터페이스
+
+```ts
+interface CollectionStore<T> {
+  getAll(): Promise<T[]>;
+  upsertMany(items: T[]): Promise<void>;
+  removeMany(ids: string[]): Promise<void>;
+  replaceAll(items: T[]): Promise<void>;   // 백업 복원용
+}
+// 여러 컬렉션·kv를 한 번에 바꾸는 작업(백업 복원, 과목 삭제 연쇄)
+runAtomic(fn: (tx) => Promise<void>): Promise<void>;
+```
+
+- **네이티브:** 테이블 구현. `runAtomic`은 단일 exclusive 트랜잭션.
+- **웹:** 기존 키의 JSON 배열을 읽고 쓰는 어댑터. `runAtomic`은 기존 스냅샷/복원 패턴을 재사용한다. 데이터 형식과 동작은 현재와 동일하다(D5).
+- 리포지토리 공개 함수는 유지하고 내부만 교체한다. 예: `saveAttempt` → `attempts.upsertMany([a])`, `deleteQuestionsForUnit` → 대상 id 조회 후 `removeMany`.
+
+### 7.3 kv 배열 → 테이블 이관
+
+- 컬렉션별로 exclusive 트랜잭션 안에서 처리한다: kv 배열 파싱 → 행 삽입 → 건수 검증 → 컬렉션별 마커 기록 → 원본 kv 값은 `__legacy:<key>`로 보존.
+- 실패하면 롤백하고, 해당 컬렉션은 kv 모드로 계속 동작한다.
+
+### 7.4 백업·복원·초기화
+
+- 백업 JSON 형식은 **변경하지 않는다.** 내보낼 때는 `getAll()` 결과를 기존과 같은 배열로 직렬화한다.
+- 복원은 `runAtomic` 안에서 `replaceAll`과 kv 쓰기를 한 번에 처리한다. 실패 시 전체 롤백 (기존 테스트 "mid-restore failure rolls back every modified key"가 기준).
+- 전체 초기화는 테이블 전체와 kv를 삭제하고, AsyncStorage에 남은 앱 키도 정리한다.
+
+## 8. 검증 계획
+
+1. **구현 전:** 실기기(Expo Go)에서 V1~V5 확인용 스크립트 실행 및 결과 기록 — **완료**
+2. **단위 테스트:** `node:sqlite` 기반 가짜 객체로 신규 테스트 작성, 기존 저장소 테스트 전부 회귀 통과
+3. **타입 검사:** `npx tsc --noEmit` 0건
+4. **실기기 시나리오:**
+   - 신규 설치 → 과목·문제 생성 → 풀이 → 앱 강제 종료 후 재실행해 데이터 유지 확인
+   - 5MB 교재 업로드
+   - 백업 → 초기화 → 복원
+   - AsyncStorage 데이터가 있는 기기에서 업데이트 설치 → 이관 확인
+   - 이관 중 강제 종료 → 재실행해 재이관 또는 정상 사용 확인 (6.3 중단 지점)
+5. **웹 회귀 (2단계에서 필수):** 웹 빌드 후 기존 IndexedDB 데이터로 동일 시나리오 확인. 1단계는 웹 코드 경로를 바꾸지 않는다
+
+## 9. 결정·승인 필요 사항 (교차 검토 반영 권장안)
+
+1. `expo-sqlite` 신규 의존성 추가 (1단계 착수 조건) — 승인 권장
+2. AsyncStorage 원본 — 최소 2개 릴리스 보존, **자동 폴백에는 사용하지 않음** (6.4). 사용자가 승인한 전체 초기화에서만 삭제
+3. 2단계 진행 기준 — 7장의 복합 기준 (키 1MB, 저장 p95, 로딩 p95, B2B 배포 전 필수)
+4. 2단계 웹 어댑터 방식(D5) — 승인 권장. 웹의 레코드 분리는 필요할 때 별도 설계
+
+## 10. 권장 일정
+
+1. 설계 문서에 활성 DB 포인터 반영 (완료)
+2. 전체 백업에 풀이·복습·도전 기록 포함 (완료, `3234bb3`)
+3. 임시 Expo 프로젝트로 V1~V5 실기기 확인 (완료)
+4. 1단계 백엔드·이관 구현 (완료, `f2a32ee`)
+5. Android 실기기에서 기존 데이터 이관·재실행·전체 초기화·강제 종료 시나리오 검증
+6. 장애 안전 모드 구현
+7. 클로즈드 테스트
+8. 2단계: 7장 기준에 해당하거나 B2B 배포 전에 진행
+
+별도 작업: 기존 웹 이관 코드 문제(6.4 참고)는 main에서 수정 완료했다 (`a3bc74f`).
+
+## 개정 이력
+
+- 2026-09-23 초안
+- 2026-09-23 교차 검토 반영
+  - 이관 완료 마커를 검증 후 별도 트랜잭션으로 기록
+  - 이관 완료 후에는 AsyncStorage 자동 폴백 금지
+  - 2단계 진행 기준을 복합 기준으로 변경
+- 2026-09-23 장애 안전 모드 추가 (`53d3f47`)
+- 2026-09-23 활성 DB 포인터 반영
+  - 상태 객체 `activeDatabase`를 도입하고, 후보 DB에 복구한 뒤 검증이 끝나면 포인터만 교체
+  - 이전 DB는 보존하고, 전체 백업을 안전 모드보다 먼저 하도록 일정 조정
+- 2026-09-24 V1~V5 실기기 검증 결과 반영
+  - 5MB 단일 값, 롤백, 동시 쓰기 잠금, 5천 문제·2만 풀이 kv 성능, SDK 57 호환성 확인
+  - V4는 1단계 JSON blob 방식의 성능 근거로만 한정
+- 2026-09-24 SQLite 1단계 구현 반영 (`f2a32ee`)
+  - 상태 객체를 유일한 이관 완료 기준으로 확정하고, 상태 기록 전 SQLite 사용자 쓰기 차단
+  - 명시적 전체 초기화에서만 보존 중인 AsyncStorage 앱 데이터 원본 삭제

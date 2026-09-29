@@ -19,7 +19,7 @@ function load(name, dependencies = {}) {
 }
 
 test('history indexing preserves legacy substring matches, overlap and last stored attempt', () => {
-  const { selectIncorrectQuestions } = load('question_history');
+  const { selectIncorrectQuestions } = load('question_history', { './attempt_outcome': load('attempt_outcome') });
   const questions = ['', 'q', 'q1', 'q10', 'missing', '한글'].map(id => ({ id }));
   const attempts = [
     { submissionKey: 'submit-q10-once', isCorrect: false },
@@ -35,7 +35,7 @@ test('history indexing preserves legacy substring matches, overlap and last stor
 });
 
 test('history indexing agrees with legacy calculation across a growing question bank', () => {
-  const { selectIncorrectQuestions } = load('question_history');
+  const { selectIncorrectQuestions } = load('question_history', { './attempt_outcome': load('attempt_outcome') });
   const questions = Array.from({ length: 500 }, (_, i) => ({ id: `question-${i}` }));
   const attempts = Array.from({ length: 2500 }, (_, i) => ({
     submissionKey: `sub-question-${i % 500}-run-${i}`, isCorrect: i % 3 === 0,

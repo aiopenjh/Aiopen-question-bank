@@ -152,5 +152,5 @@ export async function generateCurriculumUnits(params: {
     }
   }
 
-  throw new Error('AI API 키가 등록되지 않았습니다. [설정] 탭에서 사용할 API 키를 먼저 등록해 주세요. (가짜 하드코딩 목차 생성을 일절 배제합니다)');
+  throw new Error('AI 연결이 필요합니다. [설정] 탭에서 AI 연결을 완료해 주세요.');
 }

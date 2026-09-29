@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function harness(fetchImpl) {
+function harness(fetchImpl, noticeAccepted = true) {
   const filename = path.resolve(__dirname, '../src/domain/ai_client.ts');
   const db = fs.readFileSync(path.resolve(__dirname, '../src/data/db.ts'), 'utf8');
   const defaultModel = db.match(/export const DEFAULT_GEMINI_MODEL = '([^']+)'/)[1];
@@ -20,7 +20,9 @@ function harness(fetchImpl) {
     module, exports: module.exports, AbortController, setTimeout, clearTimeout,
     Date: class extends Date { static now() { return now; } },
     console: { warn: (message) => logs.push(message) },
-    require: () => ({ DEFAULT_GEMINI_MODEL: defaultModel }),
+    require: name => name === './ai_data_notice'
+      ? { ensureAiDataNoticeAccepted: async () => noticeAccepted }
+      : { DEFAULT_GEMINI_MODEL: defaultModel },
     fetch: async (url, request) => {
       requests.push({ url, model: url.match(/models\/([^:]+):/)?.[1], request });
       return fetchImpl(url, request);
@@ -99,6 +101,12 @@ test('cancelling during a limited request prevents further model attempts', asyn
   assert.equal(h.requests.length, 1);
 });
 
+test('declining the AI data notice sends no network request', async () => {
+  const h = harness(success, false);
+  await assert.rejects(() => h.call('synthetic-secret', 'prompt'), /AI 전송 안내/);
+  assert.equal(h.requests.length, 0);
+});
+
 const anthropicReply = (content, status = 200) => () => ({
   ok: status < 400, status, json: async () => ({ content }),
 });
@@ -139,8 +147,8 @@ test('Anthropic empty response and HTTP error fail without Gemini fallback', asy
 test('Anthropic key rejects PDF and current-information requests before any network call', async () => {
   const h = harness(anthropicReply([{ type: 'text', text: '{}' }]));
   await assert.rejects(h.call('sk-ant-synthetic', 'p', undefined,
-    { mimeType: 'application/pdf', base64Data: 'Zml4dHVyZQ==' }), /Gemini API 키/);
+    { mimeType: 'application/pdf', base64Data: 'Zml4dHVyZQ==' }), /PDF 분석을 지원하는/);
   await assert.rejects(h.call('sk-ant-synthetic', 'p', undefined, undefined, { enableGoogleSearch: true }),
-    /Gemini API 키/);
+    /최신 정보 확인/);
   assert.equal(h.requests.length, 0);
 });

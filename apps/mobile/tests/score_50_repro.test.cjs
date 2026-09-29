@@ -78,7 +78,14 @@ test('A2: AI 응답에서 항목이 빠지거나 형식이 틀리면 50점이 �
   }
 });
 
-function renderResultView(questions, userAnswers, results) {
+// Android 결과 화면은 domain/exam_result_summary.ts의 집계를 그대로 쓴다.
+function loadSummary() {
+  return compile(path.join(ROOT, 'src/domain/exam_result_summary.ts'), name => {
+    throw new Error(`Unexpected dependency ${name}`);
+  });
+}
+
+function renderResultView(questions, userAnswers, results, corrections) {
   const react = { createElement: (type, props, ...children) => ({ type, props: props || {}, children }), useState: v => [v, () => {}] };
   react.default = react;
   const view = compile(path.join(ROOT, 'src/features/exam/ExamResultView.tsx'), name => {
@@ -86,9 +93,11 @@ function renderResultView(questions, userAnswers, results) {
     if (name === 'react-native') return new Proxy({}, { get: (_t, k) => String(k) });
     if (name.endsWith('examStyles')) return { styles: new Proxy({}, { get: () => ({}) }) };
     if (name.endsWith('designTokens')) return { colors: new Proxy({}, { get: () => '#000' }) };
+    if (name.endsWith('exam_result_summary')) return loadSummary();
+    if (name.endsWith('attempt_outcome')) return { ATTEMPT_CORRECTION_REASONS: [], ATTEMPT_CORRECTION_REASON_LABELS: {} };
     return new Proxy({}, { get: (_t, k) => (k === '__esModule' ? true : String(k)) });
   });
-  const tree = view.ExamResultView({ questions, userAnswers, results, onExitExam() {} });
+  const tree = view.ExamResultView({ questions, userAnswers, results, corrections, onExitExam() {} });
   const text = node => (!node || typeof node !== 'object' ? String(node ?? '') : node.children.flat(Infinity).map(text).join(''));
   return text(tree);
 }
@@ -111,8 +120,36 @@ test('B: 시험 전체 점수는 문항별 점수 평균이며 부분점수를 �
   assert.match(single, /부분점수 50점/);
   // 채점 미완료 문항은 평균에서 빠진다
   const failed = { question: essay, selectedOptionId: '', isCorrect: false, gradingStatus: 'failed', gradingFailedReason: 'x' };
-  assert.match(renderResultView([mc, essay], { 0: 'a' }, [mcRight, failed]), /점수 100점 \(채점 미완료 1문항 제외\)/);
+  // Android 화면은 분모를 채점 완료 문항 수로 보여 주고, 미완료 안내를 별도 줄로 표시한다.
+  const withFailed = renderResultView([mc, essay], { 0: 'a' }, [mcRight, failed]);
+  assert.match(withFailed, /맞힌 문제: 1 \/ 1문항 · 점수 100점/);
+  assert.match(withFailed, /채점 미완료 1/);
+  assert.match(withFailed, /채점 미완료 문항은 오답이 아니며 점수 계산에서 제외했습니다/);
   const none = renderResultView([essay], {}, [failed]);
-  assert.match(none, /채점을 완료하지 못했습니다/);
+  assert.match(none, /채점 가능한 문항이 없습니다/);
   assert.doesNotMatch(none, /점수 \d+점/);
+});
+
+test('C: 사용자 정정 문항은 100점, 부분점수는 실제 점수, 채점 실패는 분모에서 제외한다', () => {
+  const { summarizeExamResults } = loadSummary();
+  const mcWrong = { question: mc, selectedOptionId: 'b', isCorrect: false };
+  const failed = { question: essay, selectedOptionId: '', isCorrect: false, gradingStatus: 'failed', gradingFailedReason: 'x' };
+  const zero = { ...essayResult, gradingScore: 0 };
+  // 객관식 오답(정정) + 서술형 50점 + 채점 실패 + 서술형 0점 → (100 + 50 + 0) / 3 = 50점
+  const questions = [mc, essay, essay, essay];
+  const results = [mcWrong, essayResult, failed, zero];
+  const summary = summarizeExamResults(questions, { 0: 'b' }, results, { 0: 'ambiguous_question' });
+  assert.deepEqual(Array.from(summary.statuses), ['corrected', 'partial', 'grading_failed', 'incorrect']);
+  assert.deepEqual(Array.from(summary.itemScores), [100, 50, null, 0]);
+  assert.equal(summary.graded, 3);
+  assert.equal(summary.scorePercent, 50);
+  // 부분점수 문항을 정정하면 부분점수 대신 100점으로 센다.
+  assert.equal(summarizeExamResults([mc, essay], { 0: 'a' }, [{}, essayResult], { 1: 'answer_meets_criteria' }).scorePercent, 100);
+  // 범위를 벗어난 채점 점수는 0~100으로 제한한다.
+  assert.equal(summarizeExamResults([essay, essay], {}, [{ ...essayResult, gradingScore: 150 }, essayResult]).scorePercent, 75);
+  // 화면에도 정정·부분점수·실패 제외가 반영된 점수가 표시된다.
+  const rendered = renderResultView(questions, { 0: 'b' }, results, { 0: 'ambiguous_question' });
+  assert.match(rendered, /맞힌 문제: 1 \/ 3문항 · 점수 50점/);
+  assert.match(rendered, /정정 1/);
+  assert.match(rendered, /채점 미완료 1/);
 });

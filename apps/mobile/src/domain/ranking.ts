@@ -5,6 +5,7 @@
 
 import { Attempt, ISODateString } from '../contracts/types';
 import { CHALLENGE_START_LEVEL, getTopicChallengeLevels } from './challenge_progress';
+import { isGradingIncomplete } from './attempt_outcome';
 import { getLocalDateString } from './routine';
 
 export const CONSISTENCY_MIN_QUESTIONS = 3;
@@ -23,6 +24,8 @@ export function countTodayCompletedQuestions(
 ): number {
   const solvedKeys = new Set<string>();
   for (const attempt of attempts) {
+    // 채점 미완료 기록은 학습 완료로 세지 않는다.
+    if (isGradingIncomplete(attempt)) continue;
     if (getLocalDateString(new Date(attempt.submittedAt)) !== today) continue;
     solvedKeys.add(attempt.submissionKey);
   }

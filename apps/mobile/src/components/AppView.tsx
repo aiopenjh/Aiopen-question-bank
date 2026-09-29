@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, StatusBar, ActivityIndicator, Animated, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { generateUUID } from '../data/db';
@@ -7,6 +7,7 @@ import { Header } from '../components/common/Header';
 import { UpdateNotificationBanner } from '../components/common/UpdateNotificationBanner';
 import { AppModalsContainer } from '../components/modals/AppModalsContainer';
 import { AppAlertModal } from '../components/modals/AppAlertModal';
+import { AiDataNoticeModal } from '../components/modals/AiDataNoticeModal';
 import { StudyMapScreen } from '../features/study/StudyMapScreen';
 import { LibraryScreen } from '../features/library/LibraryScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
@@ -14,9 +15,11 @@ import { FeedbackModal } from '../features/study/FeedbackCard';
 import { ExamSessionScreen } from '../features/exam/ExamSessionScreen';
 import { DAILY_GOAL_DEFAULT } from '../domain/daily_goal';
 import { AppController } from '../hooks/useAppController';
+import { StorageSafeModeScreen } from './common/StorageSafeModeScreen';
+import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler';
 
 export function AppView({ controller }: { controller: AppController }) {  const {
-    loading, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
+    loading, storageError, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
     appUpdate, containerWidth, translateX, panResponder, handleTouchStart,
     handleTouchMove, handleTouchEnd, onLayoutContainer, routine, todayAttempts, dueQuestions,
     refreshing, handlePullRefresh, handleStartExamWithAutoGenerate,
@@ -25,7 +28,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     lastStudiedTopicId, questions, units, setUnitModalVisible, handleDeleteTopic,
     handleDeleteUnit, handleGenerateCurriculumForTopic,
     handlePromptQuizCount, handleDeduplicateUnits, startExam, handleDeleteQuestion, sources,
-    sourceTitle, setSourceTitle, sourceText, sourceFileName, sourcePageCount,
+    sourceTitle, setSourceTitle, sourceText, sourceFileName, sourcePageCount, isSourceFileLoading,
     sourcePageStart, setSourcePageStart, sourcePageEnd, setSourcePageEnd,
     handleSaveSource, handlePickSourceFile, handleReconnectSource, hasPdfInMemory,
     setSourceTopicId, handleDeleteSource, incorrectQuestions,
@@ -39,16 +42,27 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     isUnitSelectModalVisible, setIsUnitSelectModalVisible, unitSelectTopic, isSourceUploadModalOpen,
     isUserManualOpen, generatingWaitStatus, handleCancelGeneration, examSessionActive, examSessionRunId,
     examQuestions, handleExitExam, handleCompleteExam, handleReinforceIncorrectConcepts,
+    examCorrections, correctExamResult, undoExamResultCorrection,
     handleQuestionHintSaved,
     appAlert, setAppAlert,
   } = controller;
   const [feedbackVisible, setFeedbackVisible] = useState(false);
+  const libraryBackHandlerRef = useRef<(() => boolean) | null>(null);
   // Retain visited pages so paging and modal state survive navigation.
   const [visitedPages, setVisitedPages] = useState(() => new Set([currentPage]));
   useEffect(() => {
     setVisitedPages(previous => previous.has(currentPage)
       ? previous : new Set([...previous, currentPage]));
   }, [currentPage]);
+  // 설정(2) → 과목자료함(1) → 홈(0). 홈에서는 가로채지 않아 Android 기본 종료를 허용한다.
+  // 시험 중에는 ExamSessionScreen이 처리한다.
+  useAndroidBackHandler(() => {
+    if (loading || storageError || examSessionActive) return false;
+    if (currentPage === 1 && libraryBackHandlerRef.current?.()) return true;
+    if (currentPage <= 0) return false;
+    goToPage(currentPage - 1, true);
+    return true;
+  });
   if (loading) {
     return (
       <SafeAreaProvider>
@@ -58,6 +72,10 @@ export function AppView({ controller }: { controller: AppController }) {  const 
         </SafeAreaView>
       </SafeAreaProvider>
     );
+  }
+
+  if (storageError) {
+    return <StorageSafeModeScreen error={storageError} onRetry={() => void controller.loadAppData(false)} />;
   }
 
   return (
@@ -169,6 +187,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
             >
               {(currentPage === 1 || visitedPages.has(1)) && <LibraryScreen
                 isActive={currentPage === 1}
+                androidBackHandlerRef={libraryBackHandlerRef}
                 questions={questions}
                 topics={topics}
                 units={units}
@@ -297,6 +316,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
           sourceText={sourceText}
           sourceFileName={sourceFileName}
           sourcePageCount={sourcePageCount}
+          isSourceFileLoading={isSourceFileLoading}
           sourcePageStart={sourcePageStart}
           sourcePageEnd={sourcePageEnd}
           onChangeSourcePageStart={setSourcePageStart}
@@ -316,13 +336,16 @@ export function AppView({ controller }: { controller: AppController }) {  const 
       </SafeAreaView>
 
       {/* 독립 시험장 (CBT) - 메인 화면 unmount 없이 최상위 오버레이로 안전하게 렌더링 */}
-      {examSessionActive && examQuestions.length > 0 && (
+      {examSessionActive && examSessionRunId && examQuestions.length > 0 && (
         <View style={[StyleSheet.absoluteFill, { zIndex: 9999, backgroundColor: '#ffffff' }]}>
           <ExamSessionScreen
             key={examSessionRunId}
             questions={examQuestions}
             onExitExam={handleExitExam}
-            onCompleteExam={handleCompleteExam}
+            onCompleteExam={(results) => handleCompleteExam(results, examSessionRunId)}
+            corrections={examCorrections}
+            onCorrectResult={correctExamResult}
+            onUndoCorrection={undoExamResultCorrection}
             onReinforceIncorrectConcepts={handleReinforceIncorrectConcepts}
             onHintSaved={handleQuestionHintSaved}
           />
@@ -331,6 +354,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
 
       {/* 모든 화면과 시험장보다 위에서 동작하는 전역 확인 팝업 */}
       <AppAlertModal alert={appAlert} onClose={() => setAppAlert(null)} />
+      <AiDataNoticeModal />
     </SafeAreaProvider>
   );
 }

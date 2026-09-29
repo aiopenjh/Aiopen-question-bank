@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "taskId": "android-apk12-fixes-20260925",
+  "title": "Android APK 12 제보 수정과 사용설명서 최신화",
+  "phase": "complete",
+  "activeAgent": null,
+  "implementationAgent": "claude",
+  "reviewAgent": "codex",
+  "iteration": 2,
+  "maxReviewIterations": 2,
+  "baseBranch": "feature/android-app",
+  "workBranch": "feature/android-apk12-fixes",
+  "baseCommit": "c53dc7e",
+  "headCommit": "16cd13e",
+  "note": "Android 수정 브랜치를 feature/android-app에 반영했고 테스트 APK 빌드 13을 실기기에서 확인했다. 기존·새 자료는 앱 재실행 뒤 유지됐다. 앱 테스트 229개와 Windows tsc는 코드 변경 직후 통과한 기록이다. 문제 신고 메일 수신은 별도 확인이 필요하다. main 병합·웹 배포·정식 Play 출시는 하지 않았다.",
+  "nextFile": "docs/PRODUCT_ROADMAP_AND_BETA_PLAN.md",
+  "approvalRequiredFor": [
+    "push",
+    "merge",
+    "deploy",
+    "destructive_change"
+  ],
+  "updatedAt": "2026-09-25T22:47:17+09:00"
+}

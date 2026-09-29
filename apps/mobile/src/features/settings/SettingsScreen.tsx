@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, ScrollView, View, Text, TouchableOpacity, RefreshControl, Platform, Linking } from 'react-native';
+import { Image, ScrollView, View, Text, TextInput, TouchableOpacity, RefreshControl, Keyboard, Platform, Linking, type LayoutChangeEvent } from 'react-native';
 import { AlarmConfig, DEFAULT_ALARM_CONFIG } from '../../utils/notifications';
 import { styles } from './settingsStyles';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
@@ -21,6 +21,7 @@ interface SettingsGroupProps {
   description: string;
   children: React.ReactNode;
   collapsible?: boolean;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }
 
 const SettingsGroup: React.FC<SettingsGroupProps> = ({
@@ -29,6 +30,7 @@ const SettingsGroup: React.FC<SettingsGroupProps> = ({
   description,
   children,
   collapsible = false,
+  onLayout,
 }) => {
   const [expanded, setExpanded] = React.useState(!collapsible);
   const headerContents = (
@@ -43,7 +45,7 @@ const SettingsGroup: React.FC<SettingsGroupProps> = ({
   );
 
   return (
-    <View style={styles.settingsGroup}>
+    <View style={styles.settingsGroup} onLayout={onLayout}>
       {collapsible ? (
         <TouchableOpacity
           style={[styles.groupHeader, !expanded && styles.groupHeaderCollapsed]}
@@ -117,17 +119,59 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     refreshing,
     onRefresh,
   });
+  const scrollRef = React.useRef<ScrollView>(null);
+  const focusedApiInputRef = React.useRef<TextInput | null>(null);
+  const keyboardTopRef = React.useRef<number | null>(null);
+  const scrollYRef = React.useRef(0);
+  const revealTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [keyboardPadding, setKeyboardPadding] = React.useState(0);
+
+  function revealApiInput() {
+    const input = focusedApiInputRef.current;
+    const keyboardTop = keyboardTopRef.current;
+    if (!input || keyboardTop === null) return;
+    input.measureInWindow((_x, y, _width, height) => {
+      const overlap = y + height + 24 - keyboardTop;
+      if (overlap <= 0) return;
+      const targetY = scrollYRef.current + overlap;
+      scrollYRef.current = targetY;
+      scrollRef.current?.scrollTo({ y: targetY, animated: true });
+    });
+  }
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const shown = Keyboard.addListener('keyboardDidShow', (event) => {
+      keyboardTopRef.current = event.endCoordinates.screenY;
+      setKeyboardPadding(event.endCoordinates.height + 48);
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = setTimeout(revealApiInput, 80);
+    });
+    const hidden = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardTopRef.current = null;
+      setKeyboardPadding(0);
+    });
+    return () => {
+      shown.remove();
+      hidden.remove();
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    };
+  }, []);
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.tabContent}
-      contentContainerStyle={[styles.scrollPadding, { flexGrow: 1 }]}
+      contentContainerStyle={[styles.scrollPadding, { flexGrow: 1 }, keyboardPadding > 0 && { paddingBottom: keyboardPadding }]}
       bounces={true}
       alwaysBounceVertical={true}
       overScrollMode="always"
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
-      onScroll={handleScroll}
+      onScroll={(event) => {
+        scrollYRef.current = event.nativeEvent.contentOffset.y;
+        handleScroll(event);
+      }}
       scrollEventThrottle={16}
       {...touchHandlers}
       refreshControl={
@@ -215,6 +259,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           onChangeApiKey={onChangeApiKey}
           onSaveApiKey={onSaveApiKey}
           onDeleteApiKey={onDeleteApiKey}
+          onInputFocus={(input) => {
+            focusedApiInputRef.current = input;
+            if (Platform.OS === 'android') revealApiInput();
+          }}
         />
       </SettingsGroup>
 

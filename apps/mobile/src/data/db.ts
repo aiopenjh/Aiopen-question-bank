@@ -74,6 +74,13 @@ export {
 } from './repositories/question_repository';
 
 export {
+  getAttemptCorrections,
+  saveAttemptCorrection,
+  removeAttemptCorrection,
+} from './repositories/correction_repository';
+export type { ReviewStateChange } from './repositories/correction_repository';
+
+export {
   getSources,
   addSource,
   deleteSource,

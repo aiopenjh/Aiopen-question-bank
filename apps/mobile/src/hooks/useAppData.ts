@@ -36,6 +36,7 @@ import {
   getSources,
   getReviewStates,
   getIncorrectQuestions,
+  getAttemptCorrections,
   getLastStudiedTopicId,
   saveLastStudiedTopicId,
   linkSourceToTopic,
@@ -57,6 +58,7 @@ export function useAppData(callbacks?: {
 }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
 
   // Core Data States
   const [routine, setRoutine] = useState<RoutineRevision | null>(null);
@@ -80,12 +82,13 @@ export function useAppData(callbacks?: {
 
   async function loadAppData(isPullRefresh: boolean = false) {
     try {
+      setStorageError(null);
       if (!isPullRefresh) {
         setLoading(true);
       }
       await initializeDatabase();
 
-      const [r, t, u, c, q, a, rStates, key, s, savedLastTId, aConfig] = await Promise.all([
+      const [r, t, u, c, q, a, rStates, key, s, savedLastTId, aConfig, corrections] = await Promise.all([
         getRoutine(),
         getTopics(),
         getUnits(),
@@ -97,6 +100,7 @@ export function useAppData(callbacks?: {
         getSources(),
         getLastStudiedTopicId(),
         getAlarmConfig(),
+        getAttemptCorrections(),
       ]);
 
       setRoutine(r);
@@ -117,25 +121,14 @@ export function useAppData(callbacks?: {
       setQuestions(q);
       setAttempts(a);
       setReviewStates(rStates);
-      setIncorrectQuestions(selectIncorrectQuestions(q, a));
+      setIncorrectQuestions(selectIncorrectQuestions(q, a, corrections));
       setApiKey(key || '');
       setSources(s);
       setAlarmConfig(aConfig);
     } catch (err: unknown) {
       console.error('앱 데이터 로드 실패:', err);
       const detail = err instanceof Error ? err.message : '알 수 없는 저장소 오류';
-      showAlert(
-        '학습 저장소를 열 수 없습니다',
-        `${detail}\n\n브라우저 데이터나 앱 저장공간을 삭제하지 말고 잠시 후 다시 시도해 주세요.`,
-        [
-          {
-            text: '다시 시도',
-            onPress: () => {
-              void loadAppData(false);
-            },
-          },
-        ]
-      );
+      setStorageError(detail);
     } finally {
       if (!isPullRefresh) {
         setLoading(false);
@@ -401,6 +394,7 @@ export function useAppData(callbacks?: {
 
   return {
     loading,
+    storageError,
     refreshing,
     routine,
     topics,

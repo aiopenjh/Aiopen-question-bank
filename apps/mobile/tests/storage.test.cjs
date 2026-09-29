@@ -48,6 +48,16 @@ function setup(existing = new Map()) {
     }).outputText;
     const localRequire = name => {
       if (name === '@react-native-async-storage/async-storage') return storage;
+      // 저장소 경계 아래를 키-값 Map으로 두고 리포지토리 동작을 검증한다(IndexedDB 없는 웹 경로).
+      // 네이티브 SQLite 백엔드는 native_sqlite_storage.test.cjs에서 검증한다.
+      if (name === 'react-native') return { Platform: { OS: 'web' } };
+      if (name === './native_storage_migration') {
+        return {
+          initializeNativeStorage: async () => {
+            throw new Error('Unexpected native storage initialization');
+          },
+        };
+      }
       if (name.includes('secure_storage')) {
         return {
           getEncryptedApiKey: async () => null,
@@ -205,6 +215,27 @@ test('full backup without ranking token preserves current ranking connection and
   assert.equal(JSON.parse(target.data.get('@celueste:ranking_recovery_seed')).participantId, 'keep-seed');
 });
 
+test('full backup restores legacy alarm config without selected days', async () => {
+  const session = setup();
+  await session.db.initializeDatabase();
+  const payload = JSON.parse(await session.db.exportBackupJSON('full'));
+  payload.alarmConfig = {
+    enabled: true,
+    hour: 9,
+    minute: 30,
+    weekendEnabled: false,
+  };
+
+  assert.equal((await session.db.restoreBackupJSON(JSON.stringify(payload))).success, true);
+  assert.deepEqual(JSON.parse(session.data.get('@celueste:alarm_config_v2')), {
+    schemaVersion: 2,
+    enabled: true,
+    times: [{ hour: 9, minute: 30 }],
+    selectedDays: ['월', '화', '수', '목', '금'],
+    weekendEnabled: false,
+  });
+});
+
 test('unit difficulty survives restart and backup without changing siblings, topic or questions', async () => {
   const session = setup();
   await session.db.initializeDatabase();
@@ -352,7 +383,8 @@ test('mid-restore failure rolls back every modified key', async () => {
   await session.db.initializeDatabase();
   const payload = JSON.parse(await session.db.exportBackupJSON('full'));
   payload.profile.displayName = 'NEW';
-  payload.topics = [{ id: 'new', ownerId: payload.profile.id, name: 'new', description: '' }];
+  // 기존 단원·문제가 가리키는 과목은 유지해야 사전 검사를 통과해 실제 저장·롤백 경로를 탄다.
+  payload.topics = [...payload.topics, { id: 'new', ownerId: payload.profile.id, name: 'new', description: '' }];
   const before = sortedEntries(session.data);
   let once = true;
   session.setFailure(storageKey => storageKey === key('questions') && once ? (once = false, true) : false);
@@ -474,6 +506,42 @@ test('delete unit rolls back all collections when its batched write fails', asyn
 
   await assert.rejects(() => session.db.deleteUnit(unit.id));
   assert.deepEqual(sortedEntries(session.data), before);
+});
+
+test('legacy questions without questionType are read as multiple choice without rewriting storage', async () => {
+  const session = setup();
+  await session.db.initializeDatabase();
+  const essay = { ...question, id: 'essay', questionId: 'essay', questionType: 'essay', options: [], answerOptionId: '' };
+  const raw = JSON.stringify([{ ...question, id: 'legacy' }, { ...question, id: 'no-options', options: undefined }, essay]);
+  session.data.set(key('questions'), raw);
+
+  const loaded = await session.db.getQuestions();
+  const byId = new Map(loaded.map(item => [item.id, item]));
+  assert.equal(byId.get('legacy').questionType, 'multiple_choice');
+  assert.equal(byId.get('legacy').options.length, 2);
+  assert.equal(byId.get('no-options').questionType, 'multiple_choice');
+  assert.equal(byId.get('no-options').options.length, 0);
+  assert.equal(byId.get('essay').questionType, 'essay');
+  assert.equal(session.data.get(key('questions')), raw);
+});
+
+test('backup restore stores legacy questions as multiple choice and keeps other types', async () => {
+  const source = setup();
+  await source.db.initializeDatabase();
+  const topic = await source.db.createTopic('legacy math');
+  await source.db.addQuestions([
+    { ...question, topicId: topic.id },
+    { ...question, id: 'essay', questionId: 'essay', topicId: topic.id, questionType: 'essay', stem: '설명하시오', options: [], answerOptionId: '' },
+  ]);
+  const backup = await source.db.exportBackupJSON();
+  assert.ok(JSON.parse(backup).questions.some(item => item.id === 'q1' && !('questionType' in item)));
+
+  const target = setup();
+  await target.db.initializeDatabase();
+  assert.equal((await target.db.restoreBackupJSON(backup)).success, true);
+  const stored = new Map(JSON.parse(target.data.get(key('questions'))).map(item => [item.id, item]));
+  assert.equal(stored.get('q1').questionType, 'multiple_choice');
+  assert.equal(stored.get('essay').questionType, 'essay');
 });
 
 test('existing stored opinion-type subjective questions are kept as-is; the new generation rule never rewrites storage', async () => {

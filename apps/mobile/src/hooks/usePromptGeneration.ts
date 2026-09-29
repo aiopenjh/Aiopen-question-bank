@@ -127,7 +127,7 @@ export function usePromptGeneration({
         });
 
         if (outcome.status === 'NEEDS_CONNECTION') {
-          showAlert('⚠️ API 키 필요', outcome.message, [
+          showAlert('⚠️ AI 연결 필요', outcome.message, [
             { text: '닫기' },
             { text: '설정 열기', onPress: onOpenSettings },
           ]);

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   View,
   Text,
@@ -7,6 +9,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UniversalModal as Modal } from '../common/UniversalModal';
 import { Topic, Source } from '../../contracts/types';
 import { colors } from '../../styles/designTokens';
@@ -19,6 +22,7 @@ interface SourceUploadModalProps {
   sourceText?: string;
   sourceFileName?: string | null;
   sourcePageCount?: number | null;
+  isSourceFileLoading: boolean;
   sourcePageStart: number;
   sourcePageEnd: number;
   onChangeSourcePageStart: (page: number) => void;
@@ -33,6 +37,39 @@ interface SourceUploadModalProps {
   onClose: () => void;
 }
 
+const PageNumberInput: React.FC<{
+  page: number;
+  onChangePage: (page: number) => void;
+  label: string;
+}> = ({ page, onChangePage, label }) => {
+  const [draft, setDraft] = useState(String(page));
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(String(page));
+  }, [page, editing]);
+
+  return (
+    <TextInput
+      style={styles.pageInput}
+      value={draft}
+      onFocus={() => setEditing(true)}
+      onChangeText={(value) => {
+        const digits = value.replace(/\D/g, '');
+        setDraft(digits);
+        if (digits) onChangePage(Number(digits));
+      }}
+      onBlur={() => {
+        setEditing(false);
+        if (!draft) setDraft(String(page));
+      }}
+      selectTextOnFocus
+      keyboardType="number-pad"
+      accessibilityLabel={label}
+    />
+  );
+};
+
 export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
   visible,
   topics,
@@ -41,6 +78,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
   sourceText,
   sourceFileName,
   sourcePageCount,
+  isSourceFileLoading,
   sourcePageStart,
   sourcePageEnd,
   onChangeSourcePageStart,
@@ -54,8 +92,14 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
   hasPdfInMemory,
   onClose,
 }) => {
+  // Android 시스템 내비게이션 영역만큼 하단을 띄워 등록 자료 마지막 줄이 가리지 않게 한다.
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
+      >
       <TouchableOpacity
         activeOpacity={1}
         style={styles.overlay}
@@ -63,7 +107,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
       >
         <TouchableOpacity
           activeOpacity={1}
-          style={styles.modalCard}
+          style={[styles.modalCard, { paddingBottom: Math.max(30, 16 + insets.bottom) }]}
           onPress={(e) => e.stopPropagation?.()}
         >
           {/* 헤더 */}
@@ -83,7 +127,7 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             {/* 1단계: 학습 과목(대단원) 이름 직접 입력 */}
             <Text style={styles.stepLabel}>1️⃣ 학습 과목(대단원) 이름</Text>
             <TextInput
@@ -100,12 +144,19 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
 
             {/* 2단계: 파일 첨부 버튼 (PDF, TXT, ZIP) */}
             <Text style={[styles.stepLabel, { marginTop: 12 }]}>2️⃣ 교재 파일 첨부</Text>
-            <TouchableOpacity style={styles.uploadBtn} onPress={onPickSourceFile} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={[styles.uploadBtn, isSourceFileLoading && styles.uploadBtnDisabled]}
+              onPress={onPickSourceFile}
+              disabled={isSourceFileLoading}
+              activeOpacity={0.8}
+            >
               <Text style={styles.uploadBtnIcon}>📁</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.uploadBtnTitle}>교재 / 문제집 파일 선택하기</Text>
                 <Text style={styles.uploadBtnSub}>
-                  {sourcePageCount
+                  {isSourceFileLoading
+                    ? '⏳ 파일을 읽는 중입니다. 용량에 따라 몇 분 걸릴 수 있습니다.'
+                    : sourcePageCount
                     ? `✅ ${sourceFileName || 'PDF'} · 총 ${sourcePageCount}페이지`
                     : sourceText
                     ? `✅ ${sourceFileName || '파일'} 내용 준비 완료`
@@ -113,7 +164,9 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                 </Text>
               </View>
               <View style={styles.uploadTag}>
-                <Text style={styles.uploadTagText}>{sourceText || sourcePageCount ? '변경' : '파일 탐색'}</Text>
+                <Text style={styles.uploadTagText}>
+                  {isSourceFileLoading ? '읽는 중' : sourceText || sourcePageCount ? '변경' : '파일 탐색'}
+                </Text>
               </View>
             </TouchableOpacity>
 
@@ -124,21 +177,9 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                   PDF 원본은 저장하지 않습니다. 30페이지가 넘으면 10~20페이지씩 나누어 출제하는 것을 권장합니다.
                 </Text>
                 <View style={styles.pageRangeRow}>
-                  <TextInput
-                    style={styles.pageInput}
-                    value={String(sourcePageStart)}
-                    onChangeText={(value) => onChangeSourcePageStart(Number(value.replace(/\D/g, '')) || 1)}
-                    keyboardType="number-pad"
-                    accessibilityLabel="시작 페이지"
-                  />
+                  <PageNumberInput page={sourcePageStart} onChangePage={onChangeSourcePageStart} label="시작 페이지" />
                   <Text style={styles.pageRangeSeparator}>~</Text>
-                  <TextInput
-                    style={styles.pageInput}
-                    value={String(sourcePageEnd)}
-                    onChangeText={(value) => onChangeSourcePageEnd(Number(value.replace(/\D/g, '')) || 1)}
-                    keyboardType="number-pad"
-                    accessibilityLabel="끝 페이지"
-                  />
+                  <PageNumberInput page={sourcePageEnd} onChangePage={onChangeSourcePageEnd} label="끝 페이지" />
                   <Text style={styles.pageRangeTotal}>/ {sourcePageCount}쪽</Text>
                 </View>
               </View>
@@ -148,12 +189,12 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
             <TouchableOpacity
               style={[
                 styles.saveBtn,
-                !sourceTitle.trim() && styles.saveBtnDisabled,
+                (!sourceTitle.trim() || isSourceFileLoading) && styles.saveBtnDisabled,
               ]}
               onPress={async () => {
                 if (await onSaveSource()) onClose();
               }}
-              disabled={!sourceTitle.trim()}
+              disabled={!sourceTitle.trim() || isSourceFileLoading}
               activeOpacity={0.8}
             >
               <Text style={styles.saveBtnText}>💾 교재 자료 등록하기</Text>
@@ -175,11 +216,12 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
                     </View>
                     {s.kind === 'pdf' && onReconnectSource ? (
                       <TouchableOpacity
-                        style={styles.reconnectSourceBtn}
+                        style={[styles.reconnectSourceBtn, isSourceFileLoading && styles.uploadBtnDisabled]}
                         onPress={() => onReconnectSource(s.id)}
+                        disabled={isSourceFileLoading}
                       >
                         <Text style={styles.reconnectSourceBtnText}>
-                          {hasPdfInMemory?.(s.id) ? '연결됨' : '원본 선택'}
+                          {isSourceFileLoading ? '확인 중…' : hasPdfInMemory?.(s.id) ? '연결됨' : '원본 선택'}
                         </Text>
                       </TouchableOpacity>
                     ) : null}
@@ -198,11 +240,15 @@ export const SourceUploadModal: React.FC<SourceUploadModalProps> = ({
           </ScrollView>
         </TouchableOpacity>
       </TouchableOpacity>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardContainer: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(64, 48, 56, 0.44)',
@@ -246,6 +292,10 @@ const styles = StyleSheet.create({
   },
   scrollArea: {
     maxHeight: 520,
+    flexShrink: 1,
+  },
+  scrollContent: {
+    paddingBottom: 12,
   },
   stepLabel: {
     fontSize: 12,
@@ -263,6 +313,9 @@ const styles = StyleSheet.create({
     padding: 13,
     marginBottom: 6,
     gap: 10,
+  },
+  uploadBtnDisabled: {
+    opacity: 0.65,
   },
   uploadBtnIcon: {
     fontSize: 24,
@@ -316,6 +369,7 @@ const styles = StyleSheet.create({
   },
   pageInput: {
     width: 64,
+    fontSize: 16,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,

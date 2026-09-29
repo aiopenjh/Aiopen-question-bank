@@ -5,6 +5,7 @@ import { getCustomNoteQuestionIds, toggleCustomNoteQuestion } from '../../data/d
 import { StateIllustration } from '../../components/common/StateIllustration';
 import { CurrentReferenceNotice } from '../../components/common/CurrentReferenceNotice';
 import { MathText } from '../../components/common/MathText';
+import { hasMissingOptions, MISSING_OPTIONS_LABEL } from '../../domain/question_integrity';
 import { styles } from './libraryStyles';
 
 const ALL_TOPICS_ID = '__all_topics__';
@@ -203,6 +204,11 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
                             {isIncorrect && (
                               <View style={styles.incorrectBadge}>
                                 <Text style={styles.incorrectBadgeText}>오답</Text>
+                              </View>
+                            )}
+                            {hasMissingOptions(q) && (
+                              <View style={styles.missingOptionsBadge}>
+                                <Text style={styles.missingOptionsBadgeText}>{MISSING_OPTIONS_LABEL}</Text>
                               </View>
                             )}
                           </View>

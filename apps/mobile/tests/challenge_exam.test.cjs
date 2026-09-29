@@ -48,6 +48,8 @@ function setup() {
         if (name === '../data/db') return db;
         if (name === '../domain/generator') return { distributeQuestionAnswersRandomly: questions => questions };
         if (name === '../utils/alert') return { showAlert: (...args) => alerts.push(args) };
+        // 랭킹 연동은 네트워크 모듈(process.env 사용)을 불러오므로 이 테스트에서는 대체한다.
+        if (name === '../domain/ranking_sync') return { syncRankingProgress: async () => {} };
         return load(path.resolve(path.dirname(file), name + '.ts'));
       },
     });
@@ -66,7 +68,8 @@ function setup() {
   return {
     attempts, reviews, alerts, ranking,
     failNextSave() { failOnce = true; },
-    start(questions) { hook.startExam(questions); return render(); },
+    // 새로 출제된 레벨 31+ 도전 시험으로 시작한다(startExam의 challengeEligible 옵션).
+    start(questions, options = { challengeEligible: true }) { hook.startExam(questions, options); return render(); },
   };
 }
 
@@ -118,4 +121,24 @@ test('ordinary, mixed and five-question exams retain reviews without challenge c
   s.start(questions()).exitExamSession();
   assert.equal(s.attempts.length, 11);
   assert.equal(s.ranking.getMaxQualifiedKillerLevel(s.attempts), 0);
+});
+
+test('a delayed result from an exited exam never writes into the next exam run', async () => {
+  const s = setup();
+  const first = questions(10, 'A');
+  const firstHook = s.start(first);
+  const firstRunId = firstHook.examSessionRunId;
+  firstHook.exitExamSession();
+
+  const second = questions(10, 'B');
+  const secondHook = s.start(second);
+  const secondRunId = secondHook.examSessionRunId;
+
+  await firstHook.handleCompleteExam(answers(first, 3), firstRunId);
+  assert.equal(s.attempts.length, 0);
+
+  await secondHook.handleCompleteExam(answers(second, 3), secondRunId);
+  assert.equal(s.attempts.length, 3);
+  assert.ok(s.attempts.every(attempt => attempt.submissionKey.includes(secondRunId)));
+  assert.ok(s.attempts.every(attempt => !attempt.submissionKey.includes(firstRunId)));
 });

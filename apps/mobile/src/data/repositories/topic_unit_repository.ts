@@ -18,9 +18,17 @@ import {
   ReviewState,
   ManualCompletion,
   TopicSourceLink,
+  AttemptCorrection,
 } from '../../contracts/types';
 import { STORAGE_KEYS, generateUUID, getCurrentISOTime } from '../storage_keys';
 import { legacyLevelToDifficulty, normalizeDifficultyLevel } from '../../domain/difficulty';
+import {
+  collectReferencedUnitIds,
+  filterCorrectionsAfterRemoval,
+  planTopicUnitReplacement,
+  planUnitDeduplication,
+  selectAttemptIdsForQuestions,
+} from './unit_reference_plan';
 
 type StorageSnapshot = [string, string | null][];
 
@@ -183,6 +191,7 @@ export async function deleteTopic(topicId: UUID): Promise<void> {
     STORAGE_KEYS.SESSIONS,
     STORAGE_KEYS.SESSION_ITEMS,
     STORAGE_KEYS.ATTEMPTS,
+    STORAGE_KEYS.ATTEMPT_CORRECTIONS,
     STORAGE_KEYS.REVIEW_STATES,
     STORAGE_KEYS.MANUAL_COMPLETIONS,
     STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS,
@@ -199,6 +208,7 @@ export async function deleteTopic(topicId: UUID): Promise<void> {
   const sessions = parseStoredArray<StudySession>(stored, STORAGE_KEYS.SESSIONS);
   const sessionItems = parseStoredArray<SessionItem>(stored, STORAGE_KEYS.SESSION_ITEMS);
   const attempts = parseStoredArray<Attempt>(stored, STORAGE_KEYS.ATTEMPTS);
+  const corrections = parseStoredArray<AttemptCorrection>(stored, STORAGE_KEYS.ATTEMPT_CORRECTIONS);
   const reviewStates = parseStoredArray<ReviewState>(stored, STORAGE_KEYS.REVIEW_STATES);
   const completions = parseStoredArray<ManualCompletion>(stored, STORAGE_KEYS.MANUAL_COMPLETIONS);
   const customNotes = parseStoredArray<string>(stored, STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
@@ -222,6 +232,15 @@ export async function deleteTopic(topicId: UUID): Promise<void> {
       )
       .map((item) => item.id)
   );
+  // 풀이 기록은 submissionKey로 문제를 가리킨다. 다른 과목 문제 ID가 부분 문자열로 겹쳐도 지우지 않는다.
+  const removedAttemptIds = selectAttemptIdsForQuestions(
+    attempts,
+    questions.flatMap((item) => [item.id, item.questionId]),
+    removedQuestionIds
+  );
+  attempts
+    .filter((item) => removedSessionItemIds.has(item.sessionItemId))
+    .forEach((item) => removedAttemptIds.add(item.id));
 
   const values: [string, string][] = [
     [STORAGE_KEYS.TOPICS, JSON.stringify(topics.filter((item) => item.id !== topicId))],
@@ -230,15 +249,10 @@ export async function deleteTopic(topicId: UUID): Promise<void> {
     [STORAGE_KEYS.QUESTIONS, JSON.stringify(questions.filter((item) => item.topicId !== topicId))],
     [STORAGE_KEYS.SESSIONS, JSON.stringify(sessions.filter((item) => !removedSessionIds.has(item.id)))],
     [STORAGE_KEYS.SESSION_ITEMS, JSON.stringify(sessionItems.filter((item) => !removedSessionItemIds.has(item.id)))],
+    [STORAGE_KEYS.ATTEMPTS, JSON.stringify(attempts.filter((item) => !removedAttemptIds.has(item.id)))],
     [
-      STORAGE_KEYS.ATTEMPTS,
-      JSON.stringify(
-        attempts.filter(
-          (item) =>
-            !removedSessionItemIds.has(item.sessionItemId) &&
-            !Array.from(removedQuestionIds).some((questionId) => item.submissionKey.includes(questionId))
-        )
-      ),
+      STORAGE_KEYS.ATTEMPT_CORRECTIONS,
+      JSON.stringify(filterCorrectionsAfterRemoval(corrections, removedAttemptIds, removedQuestionIds)),
     ],
     [
       STORAGE_KEYS.REVIEW_STATES,
@@ -300,6 +314,7 @@ export async function deleteUnit(unitId: UUID): Promise<void> {
     STORAGE_KEYS.SESSIONS,
     STORAGE_KEYS.SESSION_ITEMS,
     STORAGE_KEYS.ATTEMPTS,
+    STORAGE_KEYS.ATTEMPT_CORRECTIONS,
     STORAGE_KEYS.REVIEW_STATES,
     STORAGE_KEYS.MANUAL_COMPLETIONS,
     STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS,
@@ -321,12 +336,12 @@ export async function deleteUnit(unitId: UUID): Promise<void> {
   }
 
   const specs = parseStoredArray<LearningSpec>(stored, STORAGE_KEYS.LEARNING_SPECS);
-  const nextSpecs = specs
-    .map((spec) => ({
-      ...spec,
-      unitIds: spec.unitIds.filter((id) => !removedUnitIds.has(id)),
-    }))
-    .filter((spec) => spec.unitIds.length > 0);
+  // 삭제 단원만 가리키던 명세만 지운다. 처음부터 단원 지정이 없던 명세는 이 단원과 무관하다.
+  const nextSpecs = specs.flatMap((spec) => {
+    if (!Array.isArray(spec.unitIds) || !spec.unitIds.some((id) => removedUnitIds.has(id))) return [spec];
+    const unitIds = spec.unitIds.filter((id) => !removedUnitIds.has(id));
+    return unitIds.length > 0 ? [{ ...spec, unitIds }] : [];
+  });
   const nextSpecIds = new Set(nextSpecs.map((spec) => spec.id));
   const removedSpecIds = new Set(specs.filter((spec) => !nextSpecIds.has(spec.id)).map((spec) => spec.id));
 
@@ -350,9 +365,19 @@ export async function deleteUnit(unitId: UUID): Promise<void> {
       .map((item) => item.id)
   );
   const attempts = parseStoredArray<Attempt>(stored, STORAGE_KEYS.ATTEMPTS);
+  const corrections = parseStoredArray<AttemptCorrection>(stored, STORAGE_KEYS.ATTEMPT_CORRECTIONS);
   const reviewStates = parseStoredArray<ReviewState>(stored, STORAGE_KEYS.REVIEW_STATES);
   const completions = parseStoredArray<ManualCompletion>(stored, STORAGE_KEYS.MANUAL_COMPLETIONS);
   const customNotes = parseStoredArray<string>(stored, STORAGE_KEYS.CUSTOM_NOTE_QUESTIONS);
+  // 확인 문구의 "관련 풀이 기록": 삭제 문제를 submissionKey로 가리키는 풀이와 그 정정 기록.
+  const removedAttemptIds = selectAttemptIdsForQuestions(
+    attempts,
+    questions.flatMap((question) => [question.id, question.questionId]),
+    removedQuestionIds
+  );
+  attempts
+    .filter((attempt) => removedSessionItemIds.has(attempt.sessionItemId))
+    .forEach((attempt) => removedAttemptIds.add(attempt.id));
 
   const values: [string, string][] = [
     [STORAGE_KEYS.UNITS, JSON.stringify(units.filter((unit) => !removedUnitIds.has(unit.id)))],
@@ -368,7 +393,11 @@ export async function deleteUnit(unitId: UUID): Promise<void> {
     ],
     [
       STORAGE_KEYS.ATTEMPTS,
-      JSON.stringify(attempts.filter((attempt) => !removedSessionItemIds.has(attempt.sessionItemId))),
+      JSON.stringify(attempts.filter((attempt) => !removedAttemptIds.has(attempt.id))),
+    ],
+    [
+      STORAGE_KEYS.ATTEMPT_CORRECTIONS,
+      JSON.stringify(filterCorrectionsAfterRemoval(corrections, removedAttemptIds, removedQuestionIds)),
     ],
     [
       STORAGE_KEYS.REVIEW_STATES,
@@ -391,44 +420,63 @@ export async function replaceTopicUnits(
   topicId: UUID,
   newUnits: { title: string; depth?: 1 | 2 | 3 }[]
 ): Promise<Unit[]> {
-  const allUnits = await getUnits();
-  const otherUnits = allUnits.filter((u) => u.topicId !== topicId);
-  const createdList: Unit[] = newUnits.map((u, idx) => ({
-    id: generateUUID(),
+  // 같은 의미가 확실한 단원은 기존 ID를 유지하고, 대응되지 않아도 기록이 있는 단원은 보존한다.
+  // 문제·학습 명세·완료 기록은 수정하지 않으므로 단원 키 하나만 저장한다.
+  const stored = new Map(await AsyncStorage.multiGet([
+    STORAGE_KEYS.UNITS,
+    STORAGE_KEYS.QUESTIONS,
+    STORAGE_KEYS.LEARNING_SPECS,
+    STORAGE_KEYS.MANUAL_COMPLETIONS,
+  ]));
+  const allUnits = parseStoredArray<Unit>(stored, STORAGE_KEYS.UNITS);
+  const referencedUnitIds = collectReferencedUnitIds(
+    parseStoredArray<QuestionRevision>(stored, STORAGE_KEYS.QUESTIONS),
+    parseStoredArray<LearningSpec>(stored, STORAGE_KEYS.LEARNING_SPECS),
+    parseStoredArray<ManualCompletion>(stored, STORAGE_KEYS.MANUAL_COMPLETIONS)
+  );
+  const { replaced, topicUnits } = planTopicUnitReplacement({
     topicId,
-    parentId: null,
-    depth: u.depth || 1,
-    title: u.title.trim(),
-    orderIndex: idx + 1,
-    createdAt: getCurrentISOTime(),
-  }));
-  const updated = [...otherUnits, ...createdList];
-  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(updated));
-  return createdList;
+    currentUnits: allUnits.filter((u) => u.topicId === topicId),
+    newUnits,
+    referencedUnitIds,
+    now: getCurrentISOTime(),
+    createId: generateUUID,
+  });
+  const otherUnits = allUnits.filter((u) => u.topicId !== topicId);
+  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify([...otherUnits, ...topicUnits]));
+  return replaced;
 }
 
 export async function deduplicateTopicUnits(topicId: UUID): Promise<Unit[]> {
-  const allUnits = await getUnits();
-  const topicUnits = allUnits.filter((u) => u.topicId === topicId);
+  const keys = [
+    STORAGE_KEYS.UNITS,
+    STORAGE_KEYS.QUESTIONS,
+    STORAGE_KEYS.LEARNING_SPECS,
+    STORAGE_KEYS.MANUAL_COMPLETIONS,
+  ] as const;
+  const snapshot = await AsyncStorage.multiGet([...keys]);
+  const stored = new Map(snapshot);
+  const allUnits = parseStoredArray<Unit>(stored, STORAGE_KEYS.UNITS);
+  const plan = planUnitDeduplication({
+    topicUnits: allUnits.filter((u) => u.topicId === topicId),
+    questions: parseStoredArray<QuestionRevision>(stored, STORAGE_KEYS.QUESTIONS),
+    specs: parseStoredArray<LearningSpec>(stored, STORAGE_KEYS.LEARNING_SPECS),
+    completions: parseStoredArray<ManualCompletion>(stored, STORAGE_KEYS.MANUAL_COMPLETIONS),
+  });
   const otherUnits = allUnits.filter((u) => u.topicId !== topicId);
-
-  const seenTitles = new Set<string>();
-  const uniqueTopicUnits: Unit[] = [];
-
-  for (const u of topicUnits) {
-    const trimmedTitle = u.title.trim();
-    if (!seenTitles.has(trimmedTitle)) {
-      seenTitles.add(trimmedTitle);
-      uniqueTopicUnits.push({
-        ...u,
-        orderIndex: uniqueTopicUnits.length + 1,
-      });
-    }
+  const values: [string, string][] = [
+    [STORAGE_KEYS.UNITS, JSON.stringify([...otherUnits, ...plan.topicUnits])],
+  ];
+  // 중복 단원을 지우기 전에 그 단원을 가리키던 기록을 남는 단원으로 함께 옮긴다.
+  if (plan.mergedCount > 0) {
+    values.push(
+      [STORAGE_KEYS.QUESTIONS, JSON.stringify(plan.questions)],
+      [STORAGE_KEYS.LEARNING_SPECS, JSON.stringify(plan.specs)],
+      [STORAGE_KEYS.MANUAL_COMPLETIONS, JSON.stringify(plan.completions)]
+    );
   }
-
-  const updated = [...otherUnits, ...uniqueTopicUnits];
-  await AsyncStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(updated));
-  return uniqueTopicUnits;
+  await writeWithRollback(values, snapshot);
+  return plan.topicUnits;
 }
 
 export async function getLastStudiedTopicId(): Promise<string | null> {

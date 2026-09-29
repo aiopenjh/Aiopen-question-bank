@@ -3,9 +3,10 @@
  * PDF bytes stay in memory only. IndexedDB stores metadata, links and generated learning data.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
+import { File as ExpoFile } from 'expo-file-system';
+import { CryptoDigestAlgorithm, digest } from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
 // The bundled ESM build avoids Metro's production-only interop failure in pdf-lib's
 // unbundled tslib dependency while keeping PDF work local to the device.
@@ -27,7 +28,7 @@ import {
   getTopicSourceLinks,
   linkSourceToTopic,
 } from '../data/db';
-import { base64ToU8, unzipSync, strFromU8, u8ToBase64 } from '../utils/backupArchive';
+import { unzipSync, strFromU8, u8ToBase64 } from '../utils/backupArchive';
 import { showAlert } from '../utils/alert';
 
 const LARGE_PDF_PAGE_THRESHOLD = 30;
@@ -42,39 +43,37 @@ interface PdfMemoryEntry {
 
 const pdfMemoryCache = new Map<string, PdfMemoryEntry>();
 
+// 네이티브는 선택기가 넘겨준 원본 URI(Android content://)를 새 File API로 직접 읽는다.
+// Android는 캐시 복사본을 구형 FileSystem으로 읽을 때 READ 권한 오류가 나므로 원본을 쓴다.
 async function readPickedBytes(file: DocumentPicker.DocumentPickerAsset): Promise<Uint8Array> {
   if (Platform.OS === 'web' && (file as any).file) {
     return new Uint8Array(await (file as any).file.arrayBuffer());
   }
-  const base64 = await FileSystem.readAsStringAsync(file.uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  return base64ToU8(base64);
+  return new ExpoFile(file.uri).bytes();
 }
 
-async function fingerprintBytes(bytes: Uint8Array): Promise<string> {
-  if (globalThis.crypto?.subtle) {
-    const copied = new Uint8Array(bytes.length);
-    copied.set(bytes);
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', copied.buffer);
-    return Array.from(new Uint8Array(digest))
-      .map((value) => value.toString(16).padStart(2, '0'))
-      .join('');
+async function readPickedText(file: DocumentPicker.DocumentPickerAsset): Promise<string> {
+  if (Platform.OS === 'web' && (file as any).file) {
+    return (file as any).file.text();
   }
+  return new ExpoFile(file.uri).text();
+}
 
-  let hash = 2166136261;
-  const stride = Math.max(1, Math.floor(bytes.length / 4096));
-  for (let index = 0; index < bytes.length; index += stride) {
-    hash ^= bytes[index];
-    hash = Math.imul(hash, 16777619);
-  }
-  return `size-${bytes.length}-fnv-${(hash >>> 0).toString(16)}`;
+// 웹·Android·iOS 모두 파일 전체의 SHA-256을 쓴다. 같은 PDF는 기기와 관계없이 같은 식별값이 된다.
+// 대용량 PDF 메모리를 늘리지 않도록 읽은 바이트를 복사하지 않고 그대로 해시한다.
+async function fingerprintBytes(bytes: Uint8Array): Promise<string> {
+  const hash = await digest(CryptoDigestAlgorithm.SHA256, bytes as Uint8Array<ArrayBuffer>);
+  return Array.from(new Uint8Array(hash))
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 async function pickSingleDocument(): Promise<DocumentPicker.DocumentPickerAsset | null> {
   const result = await DocumentPicker.getDocumentAsync({
     type: '*/*',
-    copyToCacheDirectory: true,
+    // Android: 원본 content:// 권한으로 읽는다. iOS: 선택 즉시 읽으려면 캐시 복사가 필요하다
+    // (Expo DocumentPicker 문서). 웹은 브라우저 File 객체를 쓰므로 영향이 없다.
+    copyToCacheDirectory: Platform.OS !== 'android',
   });
   return result.canceled || !result.assets?.length ? null : result.assets[0];
 }
@@ -85,6 +84,7 @@ export function useSourceManager(params: {
 }) {
   const { topics, setSources } = params;
   const [sourceTitle, setSourceTitle] = useState('');
+  const lastSuggestedTitleRef = useRef('');
   const [sourceText, setSourceText] = useState('');
   const [sourceTopicId, setSourceTopicId] = useState<string | null>(null);
   const [sourceFileName, setSourceFileName] = useState<string | null>(null);
@@ -92,6 +92,8 @@ export function useSourceManager(params: {
   const [sourcePageStart, setSourcePageStart] = useState(1);
   const [sourcePageEnd, setSourcePageEnd] = useState(RECOMMENDED_PDF_PAGE_BLOCK);
   const [pendingPdf, setPendingPdf] = useState<PdfMemoryEntry | null>(null);
+  const [isSourceFileLoading, setIsSourceFileLoading] = useState(false);
+  const fileOperationInProgressRef = useRef(false);
 
   function applyLargePdfDefault(pageCount: number): boolean {
     setSourcePageStart(1);
@@ -100,7 +102,7 @@ export function useSourceManager(params: {
 
     showAlert(
       'PDF 페이지가 많습니다',
-      `선택한 PDF는 총 ${pageCount}페이지입니다.\n\n전체 문서를 한 번에 분석하면 처리 시간이 길어지고 Gemini API 무료 할당량을 초과하거나 429 제한이 발생할 수 있습니다.\n\n필요한 페이지를 지정하거나 여러 구간으로 나누어 문제를 출제하는 것을 권장합니다.`,
+      `선택한 PDF는 총 ${pageCount}페이지입니다.\n\n전체 문서를 한 번에 분석하면 처리 시간이 길어지고 연결된 AI 서비스의 무료 할당량을 초과하거나 429 제한이 발생할 수 있습니다.\n\n필요한 페이지를 지정하거나 여러 구간으로 나누어 문제를 출제하는 것을 권장합니다.`,
       [
         {
           text: '20페이지씩 나눠 출제',
@@ -123,9 +125,14 @@ export function useSourceManager(params: {
   }
 
   async function handlePickSourceFile() {
+    if (fileOperationInProgressRef.current) return;
+    fileOperationInProgressRef.current = true;
+    let startedLoading = false;
     try {
       const file = await pickSingleDocument();
       if (!file) return;
+      startedLoading = true;
+      setIsSourceFileLoading(true);
       const fileName = file.name;
       const ext = fileName.split('.').pop()?.toLowerCase() || '';
 
@@ -137,7 +144,15 @@ export function useSourceManager(params: {
         return;
       }
 
-      if (!sourceTitle.trim()) setSourceTitle(fileName.replace(/\.[^/.]+$/, ''));
+      // 새 파일을 읽는 동안 이전 파일의 준비 상태가 새 파일명과 섞이지 않게 비운다.
+      setPendingPdf(null);
+      setSourceText('');
+      setSourcePageCount(null);
+      const suggestedTitle = fileName.replace(/\.[^/.]+$/, '');
+      if (!sourceTitle.trim() || sourceTitle === lastSuggestedTitleRef.current) {
+        setSourceTitle(suggestedTitle);
+      }
+      lastSuggestedTitleRef.current = suggestedTitle;
       setSourceFileName(fileName);
 
       if (ext === 'pdf') {
@@ -153,7 +168,7 @@ export function useSourceManager(params: {
         if (!warnedForSize) {
           showAlert(
             'PDF 불러오기 완료',
-            `${fileName}\n총 ${pageCount}페이지를 확인했습니다.\n\nPDF 원본은 저장하지 않으며 선택한 페이지는 목차나 문제를 만들 때만 Gemini에 전달됩니다.`
+            `${fileName}\n총 ${pageCount}페이지를 확인했습니다.\n\nPDF 원본은 저장하지 않고 Celueste에 연결됩니다. 목차나 문제를 만들 때 선택한 페이지만 AI 분석에 사용됩니다.`
           );
         }
         return;
@@ -172,9 +187,7 @@ export function useSourceManager(params: {
         }
         if (!extractedText) throw new Error('ZIP 안에서 읽을 수 있는 텍스트 자료를 찾지 못했습니다.');
       } else if (ext === 'txt' || ext === 'md' || ext === 'csv' || ext === 'json') {
-        extractedText = Platform.OS === 'web' && (file as any).file
-          ? await (file as any).file.text()
-          : await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.UTF8 });
+        extractedText = await readPickedText(file);
       } else {
         throw new Error('PDF, TXT, MD, CSV, JSON 또는 ZIP 파일만 지원합니다.');
       }
@@ -184,10 +197,17 @@ export function useSourceManager(params: {
     } catch (error: any) {
       console.warn('파일 첨부 실패:', error);
       showAlert('파일 불러오기 실패', error?.message || '파일을 읽지 못했습니다.');
+    } finally {
+      if (startedLoading) setIsSourceFileLoading(false);
+      fileOperationInProgressRef.current = false;
     }
   }
 
   async function handleSaveSource(): Promise<boolean> {
+    if (isSourceFileLoading) {
+      showAlert('알림', '파일을 읽는 중입니다. 용량에 따라 몇 분 걸릴 수 있으니 완료될 때까지 기다려 주세요.');
+      return false;
+    }
     if (!sourceTitle.trim()) {
       showAlert('알림', '자료 이름을 입력해 주세요.');
       return false;
@@ -263,6 +283,7 @@ export function useSourceManager(params: {
         : `“${newSource.title}” 자료를 저장했습니다.`
     );
     setSourceTitle('');
+    lastSuggestedTitleRef.current = '';
     setSourceText('');
     setSourceFileName(null);
     setSourcePageCount(null);
@@ -274,11 +295,16 @@ export function useSourceManager(params: {
   }
 
   async function handleReconnectSource(sourceId: string) {
-    const source = (await getSources()).find((item) => item.id === sourceId);
-    if (!source || source.kind !== 'pdf') return;
+    if (fileOperationInProgressRef.current) return;
+    fileOperationInProgressRef.current = true;
+    let startedLoading = false;
     try {
+      const source = (await getSources()).find((item) => item.id === sourceId);
+      if (!source || source.kind !== 'pdf') return;
       const file = await pickSingleDocument();
       if (!file) return;
+      startedLoading = true;
+      setIsSourceFileLoading(true);
       const bytes = await readPickedBytes(file);
       const fingerprint = await fingerprintBytes(bytes);
       if (source.fingerprint && fingerprint !== source.fingerprint) {
@@ -288,9 +314,15 @@ export function useSourceManager(params: {
       const { PDFDocument } = await loadPdfLibrary();
       const pdf = await PDFDocument.load(bytes, { ignoreEncryption: false });
       pdfMemoryCache.set(sourceId, { bytes, fingerprint, fileName: file.name, pageCount: pdf.getPageCount() });
-      showAlert('원본 PDF 연결 완료', 'PDF는 저장하지 않고 이번 실행 중에만 목차와 문제 출제에 사용합니다.');
+      showAlert(
+        '원본 PDF 연결 완료',
+        'PDF 원본을 저장하지 않고 Celueste에 연결했습니다. 이번 실행 중 목차나 문제를 만들 때 선택한 페이지만 AI 분석에 사용됩니다.'
+      );
     } catch (error: any) {
       showAlert('PDF 연결 실패', error?.message || 'PDF를 다시 읽지 못했습니다.');
+    } finally {
+      if (startedLoading) setIsSourceFileLoading(false);
+      fileOperationInProgressRef.current = false;
     }
   }
 
@@ -360,6 +392,7 @@ export function useSourceManager(params: {
     setSourceTopicId,
     sourceFileName,
     sourcePageCount,
+    isSourceFileLoading,
     sourcePageStart,
     setSourcePageStart,
     sourcePageEnd,

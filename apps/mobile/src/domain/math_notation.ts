@@ -6,6 +6,9 @@
  * ^{..}/^x(위첨자), _{..}/_x(아래첨자), 그리스 문자·시그마·적분·부등호 등 자주 쓰이는
  * 기호 명령(별칭 \le/\ge/\ne 포함). 행렬 등 그 이상의 복잡한 조판은 지원 범위 밖이며
  * 원문 그대로 남는다. $...$ 구분자는 있어도/없어도 동일하게 인식한다(기존 저장 문제 호환).
+ * 단, $...$ 밖에서 밑줄 앞이나 뒤에 영숫자가 2글자 이상 붙은 경우(my_coroutine, create_task,
+ * __init__)는 코드 이름으로 보고 밑줄을 그대로 표시한다. x_i, a_1, x_{max}처럼 한 글자
+ * 또는 중괄호 첨자는 기존대로 아래첨자다.
  */
 
 export interface MathTextNode {
@@ -54,6 +57,33 @@ function protectInlineCode(input: string): string {
   return input.replace(INLINE_CODE_RE, (_whole, code: string) =>
     code.replace(/[_^\\$]/g, (char) => CODE_CHAR_TO_SENTINEL[char])
   );
+}
+
+const IDENTIFIER_CHAR_RE = /[A-Za-z0-9_]/;
+
+function identifierRunLength(text: string, from: number, step: 1 | -1): number {
+  let length = 0;
+  for (let i = from; i >= 0 && i < text.length && IDENTIFIER_CHAR_RE.test(text[i]); i += step) length++;
+  return length;
+}
+
+function protectIdentifierUnderscores(text: string): string {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const isIdentifier = text[i] === '_' &&
+      (identifierRunLength(text, i - 1, -1) >= 2 || identifierRunLength(text, i + 1, 1) >= 2);
+    out += isIdentifier ? CODE_CHAR_TO_SENTINEL['_'] : text[i];
+  }
+  return out;
+}
+
+// $...$ 밖의 코드 이름 밑줄만 보호한다. 짝이 없는 마지막 $ 뒤는 수식 밖으로 본다.
+function protectCodeUnderscoresOutsideMath(input: string): string {
+  const parts = input.split('$');
+  const closed = parts.length % 2 === 1 ? parts.length : parts.length - 1;
+  return parts
+    .map((part, index) => (index % 2 === 1 && index < closed ? part : protectIdentifierUnderscores(part)))
+    .join('$');
 }
 
 function restoreInlineCode(input: string): string {
@@ -122,7 +152,10 @@ function extractBraceGroup(input: string, openBraceIndex: number): { content: st
  * 재귀적으로 다시 파싱되므로 중첩된 분수·제곱근도 올바르게 트리로 표현된다.
  */
 export function parseMathText(input: string): MathBlock[] {
-  input = protectInlineCode(input);
+  return parseBlocks(protectCodeUnderscoresOutsideMath(protectInlineCode(input)));
+}
+
+function parseBlocks(input: string): MathBlock[] {
   const blocks: MathBlock[] = [];
   let i = 0;
   let runStart = 0;
@@ -139,8 +172,8 @@ export function parseMathText(input: string): MathBlock[] {
         flushRun(i);
         blocks.push({
           type: 'frac',
-          numerator: parseMathText(numGroup.content),
-          denominator: parseMathText(denGroup.content),
+          numerator: parseBlocks(numGroup.content),
+          denominator: parseBlocks(denGroup.content),
         });
         i = denGroup.endIndex;
         runStart = i;
@@ -150,7 +183,7 @@ export function parseMathText(input: string): MathBlock[] {
       const contentGroup = extractBraceGroup(input, i + 5);
       if (contentGroup) {
         flushRun(i);
-        blocks.push({ type: 'sqrt', content: parseMathText(contentGroup.content) });
+        blocks.push({ type: 'sqrt', content: parseBlocks(contentGroup.content) });
         i = contentGroup.endIndex;
         runStart = i;
         continue;
