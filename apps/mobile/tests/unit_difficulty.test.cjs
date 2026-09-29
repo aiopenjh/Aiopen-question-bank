@@ -8,6 +8,7 @@ const ts = require('typescript');
 test('generation and reopen use each saved unit level; untouched units inherit topic start', async () => {
   let state = [], cursor = 0, props, hook;
   const calls = [];
+  const generationCalls = [];
   const units = [
     { id: 'a', topicId: 't', title: 'A', difficultyLevel: 20 },
     { id: 'b', topicId: 't', title: 'B' },
@@ -47,10 +48,16 @@ test('generation and reopen use each saved unit level; untouched units inherit t
         if (name === 'react') return react;
         if (name === '../data/db') return db;
         if (name === '../utils/alert') return { showAlert() {} };
-        if (name === './quizGenerationContext') return { buildUnitGenerationContext: () => '' };
+        if (name === './quizGenerationContext') return {
+          buildUnitGenerationContext: () => '',
+          pickOverviewUnitTitles: (titles, count) => Array.from({ length: count }, (_, index) => titles[index % titles.length]),
+        };
         if (name === '../domain/generator') return {
           analyzeUserIntent: (_, __, options) => { calls.push(options); return options; },
-          generateFactBasedQuestions: async () => ({ status: 'FAILED', message: 'Test network boundary' }),
+          generateFactBasedQuestions: async options => {
+            generationCalls.push(options);
+            return { status: 'FAILED', message: 'Test network boundary' };
+          },
         };
         return load(path.resolve(path.dirname(file), name + '.ts'));
       },
@@ -87,4 +94,9 @@ test('generation and reopen use each saved unit level; untouched units inherit t
   await hook.handleQuickGenerateForUnit('t', 'test', 'b', 'B');
   assert.equal(calls.at(-1).difficultyLevel, 3);
   assert.equal(props.topics[0].difficultyLevel, 3);
+  hook.handlePromptQuizCount('t', 'test', 'overview', 'test 핵심 종합', true); render();
+  await hook.handleSelectQuizCount(3, { difficultyLevel: 15 });
+  assert.equal(calls.at(-1).difficultyLevel, 15);
+  assert.match(generationCalls.at(-1).customContext, /1번 문제: "A"/);
+  assert.match(generationCalls.at(-1).customContext, /2번 문제: "B"/);
 });

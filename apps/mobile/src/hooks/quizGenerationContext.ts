@@ -1,5 +1,15 @@
 import { QuestionRevision } from '../contracts/types';
 
+export function pickOverviewUnitTitles(titles: string[], count: number, random = Math.random): string[] {
+  if (titles.length === 0) return [];
+  const shuffled = [...titles];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return Array.from({ length: count }, (_, index) => shuffled[index % shuffled.length]);
+}
+
 export function formatIntentMessage(message: string, choices: string[]): string {
   if (choices.length === 0) return message;
   return `${message}\n\n가능한 해석:\n${choices.map((choice) => `• ${choice}`).join('\n')}`;

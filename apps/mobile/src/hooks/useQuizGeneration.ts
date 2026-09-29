@@ -19,7 +19,7 @@ import {
 } from '../data/db';
 import { showAlert } from '../utils/alert';
 import { difficultyToLegacyLevel, legacyLevelToDifficulty } from '../domain/difficulty';
-import { buildUnitGenerationContext, formatIntentMessage } from './quizGenerationContext';
+import { buildUnitGenerationContext, formatIntentMessage, pickOverviewUnitTitles } from './quizGenerationContext';
 import { getLocalDateString } from '../domain/routine';
 import { CHALLENGE_START_LEVEL, getUnlockedChallengeLevel } from '../domain/challenge_progress';
 import type { ExamStartOptions } from './useExamSession';
@@ -152,7 +152,8 @@ export function useQuizGeneration({
         difficultyLevel?: number;
         shouldReplaceExisting?: boolean;
         questionTypeMode?: QuestionTypeMode;
-      }
+      },
+      isTopicOverview = false
     ) => {
       abortRef.current = false;
       const requestController = new AbortController();
@@ -204,9 +205,16 @@ export function useQuizGeneration({
         // 이 단원에 이미 저장된 문제 최신 DB에서 파악 -> 판박이 중복 방지 및 단원 내 다양한 개념 확장
         const allSavedQuestions = await getQuestions();
         const existingInUnit = allSavedQuestions.filter(
-          (q) => q.topicId === topicId && q.unitId === unitId
+          (q) => q.topicId === topicId && (isTopicOverview || q.unitId === unitId)
         );
-        const customContext = buildUnitGenerationContext(sourceMaterial || '', existingInUnit);
+        const unitTitles = isTopicOverview
+          ? pickOverviewUnitTitles(units.filter((unit) => unit.topicId === topicId).map((unit) => unit.title), targetCount)
+          : [];
+        const overviewContext = unitTitles.length > 0
+          ? `[전체 단원 종합 출제 범위] 아래 단원은 등록된 단원명입니다. 각 번호의 문제는 해당 단원의 핵심 개념에서 출제하고, 다른 단원 문제로 대체하지 마세요. 선택한 레벨 난이도를 모든 문항에 적용하세요.\n${unitTitles.map((title, index) => `${index + 1}번 문제: ${JSON.stringify(title)}`).join('\n')}`
+          : '';
+        const customContext = [overviewContext, buildUnitGenerationContext(sourceMaterial || '', existingInUnit)]
+          .filter(Boolean).join('\n\n') || undefined;
         const outcome = await generateFactBasedQuestions({
           intent: scoped,
           ownerId: 'owner-default',
@@ -310,13 +318,13 @@ export function useQuizGeneration({
             { text: '오늘은 그만 생성', style: 'cancel' },
             {
               text: '추가 생성',
-              onPress: () => handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options),
+              onPress: () => handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options, pendingQuizUnit.allowInitialDifficultySelection === true),
             },
           ]
         );
         return;
       }
-      await handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options);
+      await handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options, pendingQuizUnit.allowInitialDifficultySelection === true);
     },
     [pendingQuizUnit, handleQuickGenerateForUnit, questions]
   );
