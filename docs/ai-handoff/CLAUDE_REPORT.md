@@ -1,5 +1,27 @@
 # Claude 구현 보고서
 
+## 작업 ID `difficulty-bands-20260930` — 구현과 자체 2중 점검
+
+- 브랜치 `feature/difficulty-bands`, 기준 `main@3983154`. 원격 push·main 병합·배포·APK 빌드 없음.
+- 커밋: `12dac47` 코드블록 → `96f2328` 레벨 구간·과목별 기준·빈칸 표시 → `4db2db8` 15문항 안내 제거 → `79bbf6c` 정답 불일치 재출제 → `42364b4` 요청 횟수 안내·한도/형식 오류 구분 → `e4c8021` 레벨 16+ 깊이·검산 지시 → `c20e677` 서술형 개수 기준·재요청 안내 단순화 → `f3177d5` 자체 점검 지적 반영.
+
+| 영역 | 주요 파일 |
+| --- | --- |
+| 코드블록 표시 | `domain/code_block.ts`, `components/common/MathText.tsx`, `domain/prompts.ts` 15번 규칙 |
+| 레벨 구간·유형별 기준 | `domain/difficulty.ts`, `domain/prompts.ts` [난이도 기준], 서술형 예시 개수 자동화 |
+| 과목별 레벨 기준 | `domain/curriculum_generator.ts`(`generateCurriculumPlan`), `Topic.difficultyLadder`(선택 항목), `topic_unit_repository.ts`, `backup_validation.ts`, `useAppData.ts`, `useCurriculumManager.ts` |
+| 빈칸 표시 | `domain/cloze_display.ts`, `ExamActiveView`·`ExamResultView`·`ReviewHouseSection` |
+| 요청 사용량·429 안내 | `domain/ai_usage.ts`, `data/repositories/ai_usage_repository.ts`(백업 제외), `domain/ai_client.ts`, `hooks/aiUsageNotice.ts` |
+| 정답 불일치·형식 오류 | `generator_validation.ts`(`findContradictoryAnswerKey`), `generator.ts` 재요청 루프 |
+
+- 검증: Windows `cmd.exe /c npx tsc --noEmit` 오류 0, 앱 테스트 265개 통과·실패 0. 로컬 웹(데이터 없는 별도 주소)에서 코드블록·레벨 표시·`[빈칸 n]`·결과 화면·사용량 경고(450→451회 증가)를 확인했다.
+- 실제 AI 출제(사용자 키, 약 10회): 한문 3급·문학 과목별 기준 11줄 저장 확인. 문학 레벨 1은 기초 수준. 레벨 1→15 상승은 뚜렷했고, 레벨 16+ 규칙 적용 뒤 레벨 30에서 기초 용어 단답·극단 표현 오답이 사라졌다. 서술형 채점 요소는 여전히 3개가 나와 개수 기준을 현실화했다(28~30은 4개). 수학 단답 1건에서 AI 계산 오류(정답 14를 12로 저장)를 봤고 검산 지시의 효과는 아직 미검증.
+- 자체 점검(code-review, xhigh) 13건: 수정 8건(혼합 429 안내 오표시, 한자 답 안내, 한도 소진 후 횟수 부풀림, 기준 예시 문구 저장, 시간 초과 요청 미집계, 정답 모순 문구 인식 범위, 설명서 15문항 문구, 본 보고서). 보류 5건: 사용량 경고 취소 시 단원 레벨이 먼저 저장되는 기존 순서, 도전 시작값 상수 중복, 모델 ID 이중 정의, 사용량 기록 연결 자동 테스트 부재, 서머타임 전환일 초기화 시각 1시간 오차.
+- 미검증: 실제 429 응답 본문 형식(하루/분당 구분), Android 실기기, PDF 내보내기(코드블록·빈칸 기호는 원문 그대로 출력됨, 사용자 결정으로 보류).
+
+---
+
+
 ## 작업 ID `android-apk12-fixes-20260925` — Codex 1차 검토 재수정 (iteration 1)
 
 - **커밋·검증 미실행.** 이번 세션에서도 `git`·`node --test` 명령이 권한 승인 대기로 막혀 재시도하지 않았다. 변경은 미커밋 작업 트리에 있으며, Codex가 대상 테스트·Windows tsc·한글 커밋을 맡는다. 권장 메시지: `수정: 빈칸형 인접 접미 전체 일치 제한·현행 법령 지침 한정·설명서 AI 전송 안내`
