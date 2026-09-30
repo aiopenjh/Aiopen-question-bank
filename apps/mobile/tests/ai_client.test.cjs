@@ -42,7 +42,7 @@ function harness(fetchImpl, noticeAccepted = true) {
     },
   }, { filename });
   return {
-    call: module.exports.callUniversalAiCompletion, requests, logs, usageEvents,
+    call: module.exports.callUniversalAiCompletion, describe: module.exports.describeAiFailureForUser, requests, logs, usageEvents,
     advance: (milliseconds) => { now += milliseconds; },
   };
 }
@@ -215,4 +215,24 @@ test('a daily 429 mixed with an unclassified 429 is not reported as a used-up da
     { model: 'gemini-3.5-flash-lite', outcome: 'processed' },
     { model: 'gemini-3.5-flash', outcome: 'processed' },
   ]);
+});
+
+test('user-facing AI failure text never names a model, provider, or error code', async () => {
+  const h = harness(() => success());
+  const describe = h.describe;
+  const cases = [
+    new Error('Gemini 모델 [gemini-3.5-flash-lite]로부터 비어있는 응답을 받았습니다.'),
+    new Error('Gemini API 통신 실패 (500)'),
+    new Error('Google Gemini AI 서버가 현재 일시적인 전 세계 트래픽 폭주(503 High Demand) 상태입니다.'),
+    new Error('Claude Sonnet 4.6 통신 실패 (529)'),
+    new Error('OpenAI GPT-4o 통신 실패 (500)'),
+    new Error('등록된 API 키가 유효하지 않습니다 (Google 400 오류). Google AI Studio(https://aistudio.google.com)에서 확인'),
+    Object.assign(new Error('x'), { name: 'GeminiRateLimitError', quotaScope: 'daily' }),
+  ];
+  for (const error of cases) {
+    const text = describe(error);
+    assert.ok(!/gemini|google|claude|openai|gpt|sonnet|\d{3}/i.test(text), `노출 금지 문구: ${text}`);
+  }
+  assert.match(describe(cases[5]), /API 키가 유효하지 않습니다\. 설정에서 API 키를 확인해 주세요/);
+  assert.equal(describe(new Error('PDF 분석을 지원하는 AI 연결이 필요합니다.')), 'PDF 분석을 지원하는 AI 연결이 필요합니다.');
 });

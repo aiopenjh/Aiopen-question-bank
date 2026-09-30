@@ -100,7 +100,7 @@ test('AI 힌트 생성: 정답이 노출된 힌트는 저장하지 않고 거부
   const mod = harness(async () => response({ deepReasoningHint: '정답은 5/6입니다.' }));
   await assert.rejects(
     () => mod.generateHintForExistingQuestion(makeQuestion()),
-    /정답이 노출/
+    /AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요/
   );
 });
 
@@ -108,7 +108,7 @@ test('AI 힌트 생성: 너무 긴 힌트는 거부한다', async () => {
   const mod = harness(async () => response({ deepReasoningHint: 'x'.repeat(201) }));
   await assert.rejects(
     () => mod.generateHintForExistingQuestion(makeQuestion()),
-    /너무 깁니다/
+    /AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요/
   );
 });
 
@@ -116,6 +116,6 @@ test('AI 힌트 생성: 힌트 필드가 비어 있으면 거부한다', async (
   const mod = harness(async () => response({ deepReasoningHint: '   ' }));
   await assert.rejects(
     () => mod.generateHintForExistingQuestion(makeQuestion()),
-    /생성하지 못했습니다/
+    /AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요/
   );
 });

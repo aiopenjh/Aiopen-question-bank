@@ -76,11 +76,6 @@ export function getAiQuotaDay(now: Date = new Date()): string {
   return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`;
 }
 
-/** 태평양 자정을 한국 시간(UTC+9)으로 옮긴 시각: 서머타임이면 16시, 표준시면 17시. */
-export function getQuotaResetKoreanHour(now: Date = new Date()): number {
-  return 9 - getPacificUtcOffsetHours(now);
-}
-
 export function getTodayCounts(usage: AiRequestUsage | null, now: Date = new Date()): Record<string, number> {
   return usage && usage.day === getAiQuotaDay(now) ? usage.counts : {};
 }
@@ -119,9 +114,9 @@ export function readGeminiQuotaScope(body: unknown): GeminiQuotaScope {
   return 'unknown';
 }
 
-export function describeRateLimit(scope: GeminiQuotaScope | undefined, now: Date = new Date()): string {
+export function describeRateLimit(scope: GeminiQuotaScope | undefined): string {
   if (scope === 'daily') {
-    return `오늘 AI 요청 한도를 모두 사용했습니다. 한국 시간 오후 ${getQuotaResetKoreanHour(now) - 12}시에 초기화됩니다.`;
+    return '오늘 AI 요청 한도를 모두 사용했습니다. 한도는 미국 태평양 시간 자정 기준으로 초기화됩니다(약간의 차이가 있을 수 있습니다).';
   }
   if (scope === 'minute') {
     return '짧은 시간에 요청이 많아 잠시 제한되었습니다. 1분쯤 기다린 뒤 다시 시도해 주세요.';

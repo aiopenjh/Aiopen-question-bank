@@ -1,4 +1,5 @@
 import { CognitiveLevel, LearnerKnowledgeLevel, QuestionType } from '../contracts/types';
+import { CHALLENGE_START_LEVEL } from './challenge_progress';
 
 /**
  * 레벨 구간표. 1~30은 3레벨씩 10구간, 31부터는 3레벨씩 올라가는 도전 구간이며 46부터는
@@ -60,7 +61,8 @@ function getBandStep(band: DifficultyBand, level: number): DifficultyProfile['ba
   return { position, total, guide };
 }
 
-export const CHALLENGE_BAND_START = 31;
+// 도전 구간 시작은 순차 도전 규칙(challenge_progress)과 같은 값을 쓴다. 구간표의 31~33 행도 이 값에 맞춰 둔다.
+export const CHALLENGE_BAND_START = CHALLENGE_START_LEVEL;
 
 const CHALLENGE_TYPE_GUIDES: QuestionTypeGuides = {
   multiple_choice: '오답 보기는 숙련자도 헷갈리는 함정으로 만듭니다.',

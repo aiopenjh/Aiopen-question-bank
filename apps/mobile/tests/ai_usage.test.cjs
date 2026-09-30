@@ -27,8 +27,6 @@ test('ai_usage: 하루 기준 날짜는 태평양 자정(서머타임 반영)에
   assert.equal(usage.getPacificUtcOffsetHours(at('2026-03-08T10:00:00Z')), -7);
   assert.equal(usage.getPacificUtcOffsetHours(at('2026-11-01T08:59:00Z')), -7);
   assert.equal(usage.getPacificUtcOffsetHours(at('2026-11-01T09:00:00Z')), -8);
-  assert.equal(usage.getQuotaResetKoreanHour(at('2026-09-30T03:00:00Z')), 16);
-  assert.equal(usage.getQuotaResetKoreanHour(at('2026-12-15T03:00:00Z')), 17);
 });
 
 test('ai_usage: 모델 순서와 하루 한도는 사용자 AI Studio 무료 등급 화면과 같다', () => {
@@ -64,9 +62,8 @@ test('ai_usage: 429 본문으로 하루 한도와 분당 한도를 구분하고 
   assert.equal(usage.readGeminiQuotaScope(body('GenerateRequestsPerDayPerProjectPerModel-FreeTier')), 'daily');
   assert.equal(usage.readGeminiQuotaScope(body('GenerateRequestsPerMinutePerProjectPerModel-FreeTier')), 'minute');
   assert.equal(usage.readGeminiQuotaScope(null), 'unknown');
-  const daily = usage.describeRateLimit('daily', at('2026-09-30T03:00:00Z'));
-  assert.equal(daily, '오늘 AI 요청 한도를 모두 사용했습니다. 한국 시간 오후 4시에 초기화됩니다.');
-  assert.match(usage.describeRateLimit('daily', at('2026-12-15T03:00:00Z')), /오후 5시/);
+  const daily = usage.describeRateLimit('daily');
+  assert.equal(daily, '오늘 AI 요청 한도를 모두 사용했습니다. 한도는 미국 태평양 시간 자정 기준으로 초기화됩니다(약간의 차이가 있을 수 있습니다).');
   assert.match(usage.describeRateLimit('minute'), /1분쯤 기다린 뒤/);
   assert.match(usage.describeRateLimit(undefined), /AI 호출에 실패했습니다/);
   for (const message of [daily, usage.describeRateLimit('minute')]) assert.ok(!/Gemini|429|Google/.test(message));

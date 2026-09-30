@@ -211,3 +211,9 @@ test('cloze_display·ladder: 한자만 있는 답은 명칭형으로, 수식 기
   assert.equal(difficulty.normalizeDifficultyLadder(copied), undefined);
   assert.deepEqual(difficulty.normalizeDifficultyLadder(ladder), ladder);
 });
+
+test('difficulty: 도전 구간 시작 레벨은 순차 도전 규칙의 시작 레벨과 같은 값을 쓴다', () => {
+  const challengeProgress = load('challenge_progress');
+  assert.equal(difficulty.CHALLENGE_BAND_START, challengeProgress.CHALLENGE_START_LEVEL);
+  assert.equal(difficulty.DIFFICULTY_BANDS.find((band) => band.label === '도전 1').start, challengeProgress.CHALLENGE_START_LEVEL);
+});

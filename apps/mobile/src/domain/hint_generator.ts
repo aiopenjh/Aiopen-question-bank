@@ -10,8 +10,11 @@
 
 import { QuestionRevision } from '../contracts/types';
 import { getGeminiApiKey } from '../data/db';
-import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
+import { callUniversalAiCompletion, describeAiFailureForUser, parseAiJsonResponse } from './ai_client';
 import { containsAnswerLeak, MAX_HINT_LENGTH } from './generator_validation';
+
+// 힌트 길이·정답 노출 같은 검사 사유는 내부용이다. 화면에는 요청 실패와 재요청 안내만 보인다.
+const HINT_RETRY_MESSAGE = 'AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요.';
 
 export class HintGenerationError extends Error {
   constructor(message: string) {
@@ -63,30 +66,28 @@ export async function generateHintForExistingQuestion(
     const completion = await callUniversalAiCompletion(apiKey.trim(), buildSingleHintPrompt(question));
     completionText = completion.text;
   } catch (err: any) {
-    throw new HintGenerationError(
-      err?.message || 'AI 힌트 생성 중 통신 오류가 발생했습니다. 다시 시도해 주세요.'
-    );
+    throw new HintGenerationError(describeAiFailureForUser(err));
   }
 
   let parsed: unknown;
   try {
     parsed = parseAiJsonResponse<{ deepReasoningHint?: unknown }>(completionText);
   } catch {
-    throw new HintGenerationError('AI 힌트 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
+    throw new HintGenerationError(HINT_RETRY_MESSAGE);
   }
 
   const raw = (parsed as { deepReasoningHint?: unknown } | null)?.deepReasoningHint;
   const hint = typeof raw === 'string' ? raw.trim() : '';
   if (!hint) {
-    throw new HintGenerationError('AI가 힌트를 생성하지 못했습니다. 다시 시도해 주세요.');
+    throw new HintGenerationError(HINT_RETRY_MESSAGE);
   }
   if (hint.length > MAX_HINT_LENGTH) {
-    throw new HintGenerationError('AI가 생성한 힌트가 너무 깁니다(정답 도출 과정처럼 작성됨). 다시 시도해 주세요.');
+    throw new HintGenerationError(HINT_RETRY_MESSAGE);
   }
 
   const correctOption = question.options.find((option) => option.id === question.answerOptionId);
   if (containsAnswerLeak(hint, correctOption?.text)) {
-    throw new HintGenerationError('AI가 생성한 힌트에 정답이 노출되어 저장하지 않았습니다. 다시 시도해 주세요.');
+    throw new HintGenerationError(HINT_RETRY_MESSAGE);
   }
 
   return hint;

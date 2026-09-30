@@ -5,7 +5,7 @@
 
 import { AiDocumentInput } from '../contracts/types';
 import { ensureAiDataNoticeAccepted } from './ai_data_notice';
-import { GEMINI_MODEL_ORDER, GeminiQuotaScope, readGeminiQuotaScope, reportAiRequest } from './ai_usage';
+import { GEMINI_MODEL_ORDER, GeminiQuotaScope, describeRateLimit, readGeminiQuotaScope, reportAiRequest } from './ai_usage';
 
 // 키와 모델별 단기 대기 상태(끝나는 시각과 한도 종류). 메모리에만 보관하며 저장하거나 로그로 출력하지 않는다.
 const geminiRateLimits = new Map<string, Map<string, { until: number; scope: GeminiQuotaScope }>>();
@@ -34,6 +34,26 @@ function createGeminiRateLimitError(waitSeconds: number): Error {
   );
   error.name = 'GeminiRateLimitError';
   return error;
+}
+
+// 연결 방법을 알려 주는 안내는 그대로 보여 준다(모델·공급자 이름이 없는 문구).
+const PASS_THROUGH_AI_MESSAGES = [
+  '최신 정보 확인 기능을 지원하는 AI 연결이 필요합니다.',
+  'PDF 분석을 지원하는 AI 연결이 필요합니다.',
+];
+
+/**
+ * 목차·힌트 등 화면에 보일 AI 실패 안내. 내부 오류 문구에는 모델·공급자 이름과 오류 번호가 섞이므로
+ * 그대로 보여 주지 않고 사용자가 할 일만 알린다.
+ */
+export function describeAiFailureForUser(err: any): string {
+  if (err?.name === 'GeminiRateLimitError') return describeRateLimit(err.quotaScope);
+  if (err?.name === 'GenerationCancelledError') return '요청이 취소되었습니다.';
+  const message = typeof err?.message === 'string' ? err.message : '';
+  if (PASS_THROUGH_AI_MESSAGES.includes(message)) return message;
+  if (message.includes('API 키가 유효하지 않습니다')) return '등록된 API 키가 유효하지 않습니다. 설정에서 API 키를 확인해 주세요.';
+  if (message.includes('접근 권한 거부')) return 'API 키의 권한이나 활성화 상태를 설정에서 확인해 주세요.';
+  return 'AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요.';
 }
 
 // 429 본문은 한도 종류를 읽는 데만 쓰고 저장하거나 화면·로그에 내보내지 않는다.

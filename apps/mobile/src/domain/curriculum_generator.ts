@@ -6,7 +6,7 @@
 import { AiDocumentInput, LearnerKnowledgeLevel } from '../contracts/types';
 import { getGeminiApiKey } from '../data/db';
 import { buildCurriculumPrompt } from './prompts';
-import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
+import { callUniversalAiCompletion, describeAiFailureForUser, parseAiJsonResponse } from './ai_client';
 import { normalizeDifficultyLadder } from './difficulty';
 import {
   detectObviousInvalidStudyInput,
@@ -170,7 +170,7 @@ export async function generateCurriculumPlan(
         throw err;
       }
       console.error('최신 AI 커리큘럼 생성 실패:', err);
-      throw new Error(`[AI 목차 생성 실패]\n${err?.message || '통신 응답 오류'}\n\n※ 원칙에 따라 가짜 목차를 생성하지 않고 실패를 정직하게 통보합니다.`);
+      throw new Error(`[AI 목차 생성 실패]\n${describeAiFailureForUser(err)}\n\n※ 원칙에 따라 가짜 목차를 생성하지 않고 실패를 정직하게 통보합니다.`);
     }
   }
 

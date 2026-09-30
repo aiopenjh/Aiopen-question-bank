@@ -486,7 +486,7 @@ test('daily quota exhaustion and app validation failures are explained as such, 
   const exhausted = harness(async () => ({ ok: false, status: 429, headers: { get: () => '30' }, json: async () => dailyBody }));
   const quota = await exhausted.generateFactBasedQuestions(args(exhausted));
   assert.equal(quota.status, 'FAILED');
-  assert.match(quota.message, /오늘 AI 요청 한도를 모두 사용했습니다\. 한국 시간 오후 [45]시에 초기화됩니다/);
+  assert.match(quota.message, /오늘 AI 요청 한도를 모두 사용했습니다\. 한도는 미국 태평양 시간 자정 기준으로 초기화됩니다\(약간의 차이가 있을 수 있습니다\)/);
   assert.doesNotMatch(quota.message, /Gemini|429|Google/);
 
   const tooLongHint = harness(async () => response(providerPayload([question({ deepReasoningHint: '가'.repeat(201) })])));
