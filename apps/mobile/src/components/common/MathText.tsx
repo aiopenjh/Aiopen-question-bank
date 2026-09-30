@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleProp, StyleSheet, Text, TextStyle, View } from 'react-native';
-import { colors } from '../../styles/designTokens';
+import { Platform, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { colors, radius } from '../../styles/designTokens';
 import { MathBlock, MathTextNode, mayContainMathNotation, parseMathText } from '../../domain/math_notation';
+import { hasCodeBlock, splitCodeBlocks } from '../../domain/code_block';
 
 export interface MathTextProps {
   text: string;
@@ -13,6 +14,54 @@ const DEFAULT_FONT_SIZE = 14;
 // 중첩된 분수/제곱근 안쪽 글자는 교재처럼 살짝 작게 표시한다(무한히 작아지지 않도록 하한 유지).
 const NESTED_SHRINK = 0.86;
 const MIN_FONT_SIZE = 9;
+const MIN_CODE_FONT_SIZE = 12;
+const CODE_FONT_FAMILY = Platform.select({
+  ios: 'Menlo',
+  android: 'monospace',
+  default: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+});
+// 코드블록이 있으면 바깥 View가 배치를 맡는다. 이 속성은 View로 옮기고 안쪽 글자에는 남기지 않는다.
+const CONTAINER_STYLE_KEYS = [
+  'flex', 'flexGrow', 'flexShrink', 'flexBasis', 'alignSelf', 'width', 'minWidth', 'maxWidth',
+  'margin', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'marginHorizontal', 'marginVertical',
+] as const;
+
+function splitContainerStyle(style: StyleProp<TextStyle>): { container: ViewStyle; text: TextStyle } {
+  const text = { ...(StyleSheet.flatten(style) || {}) } as Record<string, unknown>;
+  const container: Record<string, unknown> = {};
+  for (const key of CONTAINER_STYLE_KEYS) {
+    if (key in text) {
+      container[key] = text[key];
+      delete text[key];
+    }
+  }
+  return { container: container as ViewStyle, text: text as TextStyle };
+}
+
+/** ```코드블록``` 구간은 줄바꿈·들여쓰기를 보존한 고정폭 상자로, 나머지 문장은 MathText로 렌더링한다. */
+function renderWithCodeBlocks(text: string, style: StyleProp<TextStyle>) {
+  const { container, text: textStyle } = splitContainerStyle(style);
+  const baseFontSize = typeof textStyle.fontSize === 'number' ? textStyle.fontSize : DEFAULT_FONT_SIZE;
+  const codeFontSize = Math.max(MIN_CODE_FONT_SIZE, Math.round(baseFontSize * 0.88));
+  return (
+    <View style={[container, styles.codeAwareColumn]}>
+      {splitCodeBlocks(text).map((segment, idx) =>
+        segment.type === 'code' ? (
+          <View key={`code-${idx}`} style={styles.codeBlock}>
+            <Text
+              selectable
+              style={[styles.codeText, { fontSize: codeFontSize, lineHeight: Math.round(codeFontSize * 1.5) }]}
+            >
+              {segment.value}
+            </Text>
+          </View>
+        ) : (
+          <MathText key={`text-${idx}`} text={segment.value} style={textStyle} />
+        )
+      )}
+    </View>
+  );
+}
 
 function renderInlineNodes(nodes: MathTextNode[], baseFontSize: number, keyPrefix: string) {
   return nodes.map((node, idx) => {
@@ -100,9 +149,12 @@ function renderBlock(block: MathBlock, baseFontSize: number, textStyle: StylePro
  * 렌더링한다. (math_notation.ts 참고. 오프라인/CDN 불필요, Expo Web·Android·iOS 동일 코드.)
  *
  * 수식 구성이 전혀 없는 일반 문장은 기존과 동일하게 단일 <Text>로 렌더링해
- * numberOfLines 등 기존 동작을 그대로 보존한다.
+ * numberOfLines 등 기존 동작을 그대로 보존한다. ```코드블록```이 있으면 코드 상자와
+ * 문장을 세로로 나눠 표시하며, 이때 numberOfLines는 적용하지 않는다.
  */
 export const MathText: React.FC<MathTextProps> = ({ text, style, numberOfLines }) => {
+  if (text && hasCodeBlock(text)) return renderWithCodeBlocks(text, style);
+
   if (!text || !mayContainMathNotation(text)) {
     return (
       <Text style={style} numberOfLines={numberOfLines}>
@@ -164,5 +216,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 1.5,
     paddingTop: 1,
     paddingHorizontal: 2,
+  },
+  codeAwareColumn: {
+    gap: 8,
+  },
+  codeBlock: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  codeText: {
+    fontFamily: CODE_FONT_FAMILY,
+    fontWeight: '400',
+    color: colors.ink,
   },
 });
