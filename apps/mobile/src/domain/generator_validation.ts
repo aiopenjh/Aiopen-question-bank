@@ -59,6 +59,21 @@ const CLAIM_ENDING = String.raw`(?:입니다|이다|이며|임|이에요|이야|
 const CLAIMS_CORRECT_RE = new RegExp(`${CLAIM_PREFIX}정답${CLAIM_ENDING}`);
 const CLAIMS_WRONG_RE = new RegExp(`${CLAIM_PREFIX}오답${CLAIM_ENDING}`);
 
+// 보기 순서는 출제 후 바뀐다. 해설은 번호 대신 보기 내용을 설명해야 한다.
+const OPTION_REFERENCE_RE = /(?:[1-4]\s*번\s*(?:보기|선지|옵션)|(?:보기|선지|옵션)\s*[1-4]\s*번|정답(?:은|이|으로)?\s*[:：]?\s*[1-4]\s*번|[1-4]\s*번(?:이|은|을)?\s*정답)/;
+const SELF_CORRECTION_RE = /잠깐\s*[,!…]?\s*(?:정확한\s*)?(?:계산|검산|풀이)|(?:제가|내가)\s*(?:계산|정답)(?:을|이|은)?\s*(?:잘못|틀리게)\s*(?:했|구했|적었)|정확한\s*계산을\s*다시\s*(?:합니다|하겠습니다)/;
+
+/** 모순된 정정 과정·셔플 전 보기 번호가 들어간 해설은 저장 전에 재출제한다. */
+export function findUnreliableExplanation(questions: readonly GeneratedQuestionInput[]): number | null {
+  const index = questions.findIndex((question) => {
+    const texts = [question.explanation, question.modelAnswer || '', question.conceptDefinition || '',
+      ...question.options.map((option) => option.distractorRationale || '')];
+    return texts.some((text) => SELF_CORRECTION_RE.test(text) ||
+      (question.questionType === 'multiple_choice' && OPTION_REFERENCE_RE.test(text)));
+  });
+  return index < 0 ? null : index + 1;
+}
+
 /**
  * 객관식 정답 번호와 AI가 쓴 보기별 설명이 서로 어긋나는 첫 문항 번호(1부터). 없으면 null.
  * 오답 보기 설명이 "정답입니다"로 시작하거나 정답 보기 설명이 "오답입니다"로 시작하면 정답 키를 믿을 수 없다.

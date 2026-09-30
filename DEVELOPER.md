@@ -146,6 +146,14 @@ node --test tests/*.cjs
 - `apps/mobile/src/domain/math_notation.ts`
   - 저장 원문을 변경하지 않고 화면 렌더링 단계에서 수학 표기 처리
 
+### 해설 수식 표시와 생성 방어 (2026-09-30)
+
+- `feature/explanation-math-fix`: `ExamResultView`의 보기별 오답 이유·선택 오답 분석·핵심 개념·모범답안도 공통 `MathText`를 사용한다.
+- `math_notation.ts`는 `quad`·`qquad` 간격과 표시 수식, `array`·`aligned`의 행·열을 텍스트로 표시한다. 전용 표 조판은 아니며 저장 원문은 바꾸지 않는다. 코드블록은 기존 별도 표시 경로를 유지한다.
+- `generator_validation.ts`의 `findUnreliableExplanation`은 대표적인 자기 정정 문구와 객관식 보기 번호 참조를 감지한다. 기존 재요청 루프를 공유해 최대 한 번 다시 요청하고 반복되면 저장하지 않는다. 모든 계산 오류를 증명하거나 이미 저장된 정답을 고치는 기능은 아니다.
+- 출제 지시에는 번호 대신 정답 값·내용으로 설명하고, 조립제법은 단계별 문장과 수식으로 설명하도록 명시했다.
+- 회귀 사례: `tests/math_notation.test.cjs`, `tests/generator.test.cjs` 37개 통과, 전체 281개 통과, 타입 검사 오류 0. 별도 로컬 주소에서 검증용 백업을 복원해 390px 모바일 폭의 오답 분석·간격·조립제법 행 표시를 확인했다. 실제 AI 생성·Android 실기기는 별도 검증 대상이다.
+
 ## 4. 앱 오케스트레이션
 
 - `apps/mobile/App.tsx`

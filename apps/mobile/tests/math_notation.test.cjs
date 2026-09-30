@@ -17,6 +17,17 @@ function loadMathNotation() {
 
 const mod = loadMathNotation();
 
+test('math_notation: 조립제법의 간격·표시 수식·표 행을 읽을 수 있게 표시하고 인라인 코드는 보존', () => {
+  assert.equal(flatten(mod.parseMathText('$1\\quad -2\\qquad 1$')), '1\u2003 -2\u2003\u2003 1');
+  const source = '\\[\\begin{array}{r|rrrr}2 & 1 & -2 & 1 & -3 \\\\ & & 2 & 0 & 2 \\\\ \\hline & 1 & 0 & 1 & -1\\end{array}\\]';
+  const rendered = flatten(mod.parseMathText(source));
+  assert.ok(rendered.includes('\n'));
+  assert.ok(rendered.includes('-1'));
+  assert.doesNotMatch(rendered, /\\|begin|end|hline/);
+  assert.equal(flatten(mod.parseMathText('`\\quad \\\\ \\[x\\]`')), '\\quad \\\\ \\[x\\]');
+  assert.equal(flatten(mod.parseMathText('\\[1\\quad 2')), '1\u2003 2');
+});
+
 // 'run' 블록의 MathTextNode[]에서 순수 텍스트만 이어붙인다.
 function textOf(nodes) {
   return nodes.map((n) => n.value).join('');

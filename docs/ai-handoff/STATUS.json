@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "taskId": "difficulty-bands-20260930",
-  "title": "코드블록·레벨 난이도 구간·AI 요청 사용량 안내",
-  "phase": "complete",
+  "taskId": "explanation-math-fix-20260930",
+  "title": "해설 수식 표시·보기 번호·자기 정정 방어",
+  "phase": "owner_approval",
   "activeAgent": null,
-  "implementationAgent": "claude",
+  "implementationAgent": "codex",
   "reviewAgent": "codex",
-  "iteration": 3,
-  "maxReviewIterations": 3,
+  "iteration": 1,
+  "maxReviewIterations": 2,
   "baseBranch": "main",
-  "workBranch": "feature/difficulty-bands",
-  "baseCommit": "3983154",
-  "headCommit": "f44e919",
-  "note": "사용자의 병합·웹 배포 승인으로 feature/difficulty-bands를 main에 충돌 없이 fast-forward 병합(94c7d91)하고 원격 main에 반영했다. 웹 gh-pages 배포 bb77d76 완료. 공개 version.json 2.3.6 유지, HTML의 index-e7c4b094a0641f3360b2f58dc20f94a3.js와 배포 번들의 SHA-256 일치 확인, 공개 앱 메인 정상 표시·점검 중 실행 오류 없음. 배포 전 타입 검사 오류 0. 전체 테스트 279개 통과는 3차 검토 결과이며 앱 코드가 같아 재실행하지 않았다. Android 실기기·새 코드블록/빈칸 시각 확인·실제 AI 생성은 미검증, APK 빌드 없음. 상세 기록은 CODEX_REVIEW.md 최상단 참조.",
+  "workBranch": "feature/explanation-math-fix",
+  "baseCommit": "6120083",
+  "headCommit": "6120083",
+  "note": "사용자가 테스트·main 반영·웹 배포 승인. 타입 검사 오류 0, 관련 37개 및 전체 281개 테스트 통과. 독립 로컬 주소의 검증용 문제로 390px 결과 화면 수식/오답 분석/조립제법 표시 확인, 콘솔 error 없음. 실제 AI·Android는 미검증. 앱 수정 및 검증 기록 커밋 후 main 병합·웹 배포 진행, 표시 버전 2.3.6 유지. 완료 상태는 공개 파일 일치 확인 후 기록.",
   "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
     "push",
@@ -20,5 +20,5 @@
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-30T15:11:10.729+09:00"
+  "updatedAt": "2026-09-30T15:55:06.649+09:00"
 }

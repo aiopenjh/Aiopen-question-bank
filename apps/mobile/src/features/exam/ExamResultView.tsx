@@ -229,9 +229,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                           )}
                         </View>
                         {opt.distractorRationale ? (
-                          <Text style={styles.distractorRationaleText}>
-                            ↳ 오답 이유: {opt.distractorRationale}
-                          </Text>
+                          <MathText style={styles.distractorRationaleText} text={`↳ 오답 이유: ${opt.distractorRationale}`} />
                         ) : null}
                       </View>
                     );
@@ -241,12 +239,8 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                 {/* 내가 왜 틀렸는지 확인하는 오답 분석 박스 */}
                 {!isQCorrect && chosenOpt && (
                   <View style={styles.wrongAnalysisBox}>
-                    <Text style={styles.wrongAnalysisTitle}>
-                      ❌ 내가 선택한 오답 분석 (내 선택: {chosenOpt.text})
-                    </Text>
-                    <Text style={styles.wrongAnalysisText}>
-                      {chosenOpt.distractorRationale || '문제의 핵심 조건이나 개념에 부합하지 않는 오답입니다.'}
-                    </Text>
+                    <MathText style={styles.wrongAnalysisTitle} text={`❌ 내가 선택한 오답 분석 (내 선택: ${chosenOpt.text})`} />
+                    <MathText style={styles.wrongAnalysisText} text={chosenOpt.distractorRationale || '문제의 핵심 조건이나 개념에 부합하지 않는 오답입니다.'} />
                   </View>
                 )}
               </>
@@ -256,7 +250,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
             {item.conceptDefinition ? (
               <View style={styles.conceptBox}>
                 <Text style={styles.conceptBoxTitle}>📖 오답 극복 핵심 개념 정리</Text>
-                <Text style={styles.conceptBoxText}>{item.conceptDefinition}</Text>
+                <MathText style={styles.conceptBoxText} text={item.conceptDefinition} />
               </View>
             ) : null}
 
@@ -267,9 +261,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                 {item.modelAnswer ? '💡 모범답안 및 해설' : '💡 정답 해설 및 도출 과정'}
               </Text>
               {item.modelAnswer && !isGradingFailed ? (
-                <Text style={[styles.explanationText, { fontWeight: '800', marginBottom: 4 }]}>
-                  {item.modelAnswer}
-                </Text>
+                <MathText style={[styles.explanationText, { fontWeight: '800', marginBottom: 4 }]} text={item.modelAnswer} />
               ) : null}
               <MathText
                 style={styles.explanationText}

@@ -501,6 +501,27 @@ test('multiple-choice answer key contradicting its own option rationale is regen
   assert.match(failed.result.message, /AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요/);
 });
 
+test('해설의 셔플 전 보기 번호·자기 정정은 재출제하고 반복되면 저장하지 않는다', async () => {
+  const clean = question({ explanation: 'P(2) = 8 - 8 + 2 - 3 = -1이므로 나머지는 -1입니다.' });
+  for (const explanation of ['정답은 3번 옵션의 1입니다. 보기 중 -1은 2번입니다.', '잠깐, 정확한 계산을 다시 합니다. P(2) = -1입니다.']) {
+    let calls = 0;
+    const recovered = harness(async () => response(providerPayload([calls++ === 0 ? question({ explanation }) : clean])));
+    const result = await recovered.generateFactBasedQuestions(args(recovered));
+    assert.equal(result.status, 'READY', result.message);
+    assert.equal(calls, 2);
+    assert.equal(result.questions[0].explanation, clean.explanation);
+
+    calls = 0;
+    const failed = harness(async () => { calls++; return response(providerPayload([question({ explanation })])); });
+    const refusal = await failed.generateFactBasedQuestions(args(failed));
+    assert.equal(refusal.status, 'FAILED');
+    assert.equal(calls, 2);
+    assert.match(refusal.message, /AI 응답을 제대로 받지 못했습니다/);
+  }
+  const ordinary = harness(async () => response(providerPayload([question({ explanation: '학생이 계산을 잘못했으므로 같은 절차를 3번 반복하는 대신 조건을 확인합니다.' })])));
+  assert.equal((await ordinary.generateFactBasedQuestions(args(ordinary))).status, 'READY');
+});
+
 test('daily quota exhaustion and app validation failures are explained as such, not as a network failure', async () => {
   const dailyBody = { error: { code: 429, details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } };
   const exhausted = harness(async () => ({ ok: false, status: 429, headers: { get: () => '30' }, json: async () => dailyBody }));

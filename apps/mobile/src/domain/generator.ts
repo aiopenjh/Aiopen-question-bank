@@ -32,7 +32,7 @@ import {
   getKoreanReferenceDate,
   requiresCurrentOfficialSources,
 } from './current_information';
-import { MAX_ESSAY_ANSWER_LENGTH, findContradictoryAnswerKey, readOptionalText, validateGeneratedQuestions } from './generator_validation';
+import { MAX_ESSAY_ANSWER_LENGTH, findContradictoryAnswerKey, findUnreliableExplanation, readOptionalText, validateGeneratedQuestions } from './generator_validation';
 import type { GeneratedQuestionInput } from './generator_validation';
 import { findUnverifiableSubjective } from './subjective_suitability';
 import { describeRateLimit } from './ai_usage';
@@ -397,11 +397,15 @@ async function generateViaUniversalAiApi(params: {
     }
     // 정답 번호와 보기 설명이 어긋난 응답은 정답 키를 믿을 수 없어 저장하지 않고 같은 계획으로 한 번 더 요청한다.
     const contradictoryAnswerKey = findContradictoryAnswerKey(generatedQuestions);
+    const unreliableExplanation = findUnreliableExplanation(generatedQuestions);
     const unsuitable = findUnverifiableSubjective(generatedQuestions);
-    if (contradictoryAnswerKey === null && unsuitable === null) break;
+    if (contradictoryAnswerKey === null && unreliableExplanation === null && unsuitable === null) break;
     if (attempt >= 2) {
       if (contradictoryAnswerKey !== null) {
         throw invalidResponse(`${contradictoryAnswerKey}번 문제 정답 번호와 보기 설명 불일치(재요청 후에도 반복)`);
+      }
+      if (unreliableExplanation !== null) {
+        throw invalidResponse(`${unreliableExplanation}번 문제 해설에 정정 과정 또는 보기 번호 포함(재요청 후에도 반복)`);
       }
       throw invalidResponse(`${unsuitable}번 주관식 문제가 의견·가치판단형이거나 채점 기준이 주관적임(재요청 후에도 반복)`);
     }

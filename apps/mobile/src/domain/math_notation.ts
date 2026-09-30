@@ -37,6 +37,7 @@ export const MATH_SYMBOL_MAP: Record<string, string> = {
   to: '→', gets: '←', leftrightarrow: '↔',
   cup: '∪', cap: '∩', in: '∈', notin: '∉', subset: '⊂', supset: '⊃',
   forall: '∀', exists: '∃', emptyset: '∅', sqrt: '√',
+  quad: '\u2003', qquad: '\u2003\u2003', enspace: '\u2002',
 };
 
 /**
@@ -165,6 +166,7 @@ function restoreInlineCode(input: string): string {
 function applySymbolsAndDollars(text: string): string {
   return text
     .replace(/\$/g, '')
+    .replace(/\\[,;:!]/g, ' ')
     .replace(SYMBOL_RE, (whole, name: string) => MATH_SYMBOL_MAP[name] ?? whole);
 }
 
@@ -224,7 +226,21 @@ function extractBraceGroup(input: string, openBraceIndex: number): { content: st
  * 재귀적으로 다시 파싱되므로 중첩된 분수·제곱근도 올바르게 트리로 표현된다.
  */
 export function parseMathText(input: string): MathBlock[] {
-  return parseBlocks(protectCodeUnderscoresOutsideMath(protectInlineCode(restoreLatexControlChars(input))));
+  return parseBlocks(normalizeMathLayout(protectCodeUnderscoresOutsideMath(protectInlineCode(restoreLatexControlChars(input)))));
+}
+
+// 기존 문제의 조립제법·여러 줄 계산은 표 명령을 노출하지 않고 행과 열을 유지한다.
+// 인라인 코드의 역슬래시는 위에서 보호하므로 코드 문자열에는 적용되지 않는다.
+function normalizeMathLayout(input: string): string {
+  const rows = (value: string) => value
+    .replace(/\\\\(?:\[[^\]\n]*\])?/g, '\n')
+    .replace(/\\hline\b/g, '\n────────\n')
+    .replace(/&/g, '\u2003');
+  return input
+    .replace(/\\begin\{(array|aligned)\}(?:\{[rlc| ]+\})?([\s\S]*?)\\end\{\1\}/g,
+      (_whole, _kind: string, body: string) => rows(body).trim())
+    .replace(/\\\[([\s\S]*?)(?:\\\]|$)/g, (_whole, body: string) => rows(body).trim())
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_whole, body: string) => body);
 }
 
 function parseBlocks(input: string): MathBlock[] {
