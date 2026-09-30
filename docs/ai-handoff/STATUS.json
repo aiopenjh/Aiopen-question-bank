@@ -12,13 +12,13 @@
   "workBranch": "feature/difficulty-bands",
   "baseCommit": "3983154",
   "headCommit": "e3f958c",
-  "note": "구현과 Claude 자체 2중 점검(수정 8건·보류 5건) 완료. Codex는 당장 검토할 수 없어 가능해질 때 검토한다. 테스트 사용자 배포 중이라 main 병합·push·웹 배포·APK 빌드는 하지 않았다.",
-  "nextFile": "docs/ai-handoff/CLAUDE_REPORT.md",
+  "note": "구현과 Claude 자체 2중 점검(13건 중 10건 수정, 3건 보류) 완료. Codex 검토 요청: TASK.md의 \"Codex 검토 요청\" 항목을 따른다. 테스트 사용자 배포 중이라 main 병합·push·웹 배포·APK 빌드는 하지 않았다.",
+  "nextFile": "docs/ai-handoff/TASK.md",
   "approvalRequiredFor": [
     "push",
     "merge",
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-30T14:30:00+09:00"
+  "updatedAt": "2026-09-30T15:00:00+09:00"
 }

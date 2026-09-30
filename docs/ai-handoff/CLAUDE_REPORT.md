@@ -1,45 +1,60 @@
 # Claude 구현 보고서
 
-## 작업 ID `difficulty-bands-20260930` — 구현과 자체 2중 점검
+## 작업 ID `difficulty-bands-20260930` — 구현 완료·Claude 자체 점검 완료, Codex 검토 요청
 
-- 브랜치 `feature/difficulty-bands`, 기준 `main@3983154`. 원격 push·main 병합·배포·APK 빌드 없음.
-- 커밋: `12dac47` 코드블록 → `96f2328` 레벨 구간·과목별 기준·빈칸 표시 → `4db2db8` 15문항 안내 제거 → `79bbf6c` 정답 불일치 재출제 → `42364b4` 요청 횟수 안내·한도/형식 오류 구분 → `e4c8021` 레벨 16+ 깊이·검산 지시 → `c20e677` 서술형 개수 기준·재요청 안내 단순화 → `f3177d5` 자체 점검 지적 반영 → `11da909` 화면 안내 모델명 제거·초기화 안내 단순화 → `e3f958c` 수식 역슬래시 JSON 해석 실패 수정.
+- 브랜치 `feature/difficulty-bands`, 기준 `main@3983154`. 코드 마지막 커밋 `e3f958c`. 원격 push·main 병합·웹 배포·APK 빌드 없음(테스트 사용자 배포 중이라 사용자 승인 전까지 금지).
+- 코드 커밋(순서대로): `12dac47` 코드블록 → `96f2328` 레벨 구간·과목별 기준·빈칸 표시 → `4db2db8` 15문항 확인창 제거 → `79bbf6c` 정답 불일치 재출제 → `42364b4` 요청 횟수 안내·한도/형식 오류 구분 → `e4c8021` 레벨 16+ 깊이·검산 지시 → `c20e677` 서술형 개수 기준·재요청 안내 단순화 → `f3177d5` 자체 점검 지적 반영 → `11da909` 화면 안내 모델명 제거·초기화 안내 단순화 → `e3f958c` 수식 역슬래시 JSON 해석 실패 수정. 나머지 커밋은 인수인계 문서다.
+- 검토 범위 diff: `git diff main...feature/difficulty-bands -- apps/mobile`
 
-| 영역 | 주요 파일 |
-| --- | --- |
-| 코드블록 표시 | `domain/code_block.ts`, `components/common/MathText.tsx`, `domain/prompts.ts` 15번 규칙 |
-| 레벨 구간·유형별 기준 | `domain/difficulty.ts`, `domain/prompts.ts` [난이도 기준], 서술형 예시 개수 자동화 |
-| 과목별 레벨 기준 | `domain/curriculum_generator.ts`(`generateCurriculumPlan`), `Topic.difficultyLadder`(선택 항목), `topic_unit_repository.ts`, `backup_validation.ts`, `useAppData.ts`, `useCurriculumManager.ts` |
-| 빈칸 표시 | `domain/cloze_display.ts`, `ExamActiveView`·`ExamResultView`·`ReviewHouseSection` |
-| 요청 사용량·429 안내 | `domain/ai_usage.ts`, `data/repositories/ai_usage_repository.ts`(백업 제외), `domain/ai_client.ts`, `hooks/aiUsageNotice.ts` |
-| 정답 불일치·형식 오류 | `generator_validation.ts`(`findContradictoryAnswerKey`), `generator.ts` 재요청 루프 |
+### 기능 변경
 
-- 검증: Windows `cmd.exe /c npx tsc --noEmit` 오류 0, 앱 테스트 267개 통과·실패 0. 로컬 웹(데이터 없는 별도 주소)에서 코드블록·레벨 표시·`[빈칸 n]`·결과 화면·사용량 경고(450→451회 증가)를 확인했다.
-- 실제 AI 출제(사용자 키, 약 10회): 한문 3급·문학 과목별 기준 11줄 저장 확인. 문학 레벨 1은 기초 수준. 레벨 1→15 상승은 뚜렷했고, 레벨 16+ 규칙 적용 뒤 레벨 30에서 기초 용어 단답·극단 표현 오답이 사라졌다. 서술형 채점 요소는 여전히 3개가 나와 개수 기준을 현실화했다(28~30은 4개). 수학 단답 1건에서 AI 계산 오류(정답 14를 12로 저장)를 봤고 검산 지시의 효과는 아직 미검증.
-- 자체 점검(code-review, xhigh) 13건: 수정 8건(혼합 429 안내 오표시, 한자 답 안내, 한도 소진 후 횟수 부풀림, 기준 예시 문구 저장, 시간 초과 요청 미집계, 정답 모순 문구 인식 범위, 설명서 15문항 문구, 본 보고서). 이후 사용자 요청으로 도전 시작값을 순차 도전 상수 하나로 묶고, 초기화 안내를 "미국 태평양 시간 자정 기준(약간의 차이 가능)"으로 바꿔 서머타임 오차 문제를 없앴다. 남은 보류 3건: 사용량 경고 취소 시 단원 레벨이 먼저 저장되는 기존 순서, 모델 ID 이중 정의(화면에는 표시 안 됨), 사용량 기록 연결 자동 테스트 부재.
-- 화면 안내 원칙(사용자 결정): 모델·공급자 이름과 오류 번호를 보이지 않는다(목차·힌트 실패도 `describeAiFailureForUser`로 변환). 형식 검사 사유(힌트 길이·정답 노출 등)는 내부용이며 화면에는 "AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요."만 보인다. 요청하지 않은 새 안내 문구는 추가하지 않는다.
-- 수학 출제 실패 원인(2026-09-30 확인): AI가 JSON 문자열 안에 LaTeX 역슬래시를 한 번만 적어 `\sqrt`·`\le` 등은 JSON 해석 실패("AI 응답을 제대로 받지 못했습니다"), `\times`·`\frac`는 탭·폼피드로 바뀌어 저장됐다(저장 문제 해설에서 "3 ⟨탭⟩imes 2" 확인). 이 브랜치 이전부터 있던 문제로, 당시에는 "API 서버와 통신할 수 없습니다"로 표시됐다. 해석 전 역슬래시 교정(`escapeLatexBackslashes`, 명령 목록은 `math_notation.LATEX_COMMANDS_WITH_ESCAPE_LETTER`), 응답 길이 한도 8192→16384, 이미 깨진 수식의 화면 복원(`# Claude 구현 보고서
+| 영역 | 기존 | 변경 | 주요 파일 |
+| --- | --- | --- | --- |
+| 코드블록 | 코드가 일반 글꼴 한 줄로 표시 | ```` ``` ```` 코드블록을 고정폭 상자로 표시, 출제 지시 15번 규칙 | `domain/code_block.ts`, `components/common/MathText.tsx`, `domain/prompts.ts` |
+| 레벨 구간 | 5레벨씩 6구간, 31+ "무한히 높이지 말라" | 1~30은 3레벨씩 10구간, 31~45 도전 5구간, 46+ 유지. 구간 안 3단계, 구간 끝 레벨은 다음 구간 요소를 1문항에 미리 섞음. 유형별 기준(출제 유형만 지시문에 포함). 레벨 16+ 내용 깊이·극단 표현 오답 금지. 서술형 채점 요소 수 레벨별 숫자 명시와 출력 예시 개수 자동화(검증 강제 없음). 저장용 인지 단계 값은 기존 경계 유지 | `domain/difficulty.ts`, `domain/prompts.ts` [난이도 기준] |
+| 과목별 레벨 기준 | 없음 | 과목 등록·목차 생성 때 11줄 기준을 같은 응답으로 받아 `Topic.difficultyLadder`에 저장(없을 때만). 형식이 틀리거나 예시 문구를 베끼면 버림. 출제 지시문에 해당 구간 한 줄 포함 | `domain/curriculum_generator.ts`, `contracts/types.ts`, `data/repositories/topic_unit_repository.ts`, `backup_validation.ts`, `hooks/useAppData.ts`, `hooks/useCurriculumManager.ts`, `hooks/useQuizGeneration.ts`, `domain/generator.ts` |
+| 빈칸 표시 | `( 1 )`, 결과·복습 화면은 `{{1}}` 원문, 모든 빈칸에 정식 명칭 안내 | `[빈칸 n]`(시험·결과·복습), 수·식 답이면 수·식 안내. 출제 지시에 답 형식·다른 표기 포함 | `domain/cloze_display.ts`, `ExamActiveView`·`ExamResultView`·`ReviewHouseSection` |
+| 하루 출제 제한 | 15문항 넘으면 확인창 | 제거 | `hooks/useQuizGeneration.ts`, `QuizCountModal.tsx` 문구 |
+| 요청 횟수 안내 | 없음 | 서버가 처리한 요청(성공·시간 초과)을 모델별로 기기에 기록(태평양 날짜, 백업 제외). 다음에 쓸 모델이 한도 90% 이상이면 출제 전 안내창(계속 생성 가능, 모델명 없음). 한도표: 3.5 Flash-Lite 500, 3.5~3.8 Flash 각 20(2026-09-30 AI Studio 무료 등급) | `domain/ai_usage.ts`, `data/repositories/ai_usage_repository.ts`, `domain/ai_client.ts`, `hooks/aiUsageNotice.ts`, `usePromptGeneration.ts` |
+| 429 안내 | "잠시 기다린 뒤 다시 시도" | 429 본문으로 하루/분당 구분. 모든 후보가 하루 한도일 때만 하루 한도 안내 | `domain/ai_client.ts`, `domain/ai_usage.ts`, `domain/generator.ts` |
+| 정답 불일치 | 그대로 저장 | 오답 보기 설명이 "정답"으로 시작하거나 정답 보기 설명이 "오답"으로 시작하면 같은 계획으로 1회 재요청, 반복되면 저장 안 함 | `domain/generator_validation.ts`, `domain/generator.ts` |
+| 실패 안내 | 형식 오류가 "API 서버와 통신할 수 없습니다"로 표시, 목차·힌트 실패에 모델명·오류 번호 노출 가능, 힌트 버튼은 검사 사유 노출 | 형식 오류·힌트 실패는 재요청 안내 한 문장. 목차·힌트 통신 실패는 `describeAiFailureForUser`로 모델·공급자·오류 번호 제거. 형식 검사 사유는 개발자 콘솔에만 기록(키·응답 원문 없음) | `domain/generator.ts`, `domain/ai_client.ts`, `domain/curriculum_generator.ts`, `domain/hint_generator.ts` |
+| 수식 역슬래시 | AI가 JSON에 `\sqrt`처럼 역슬래시를 한 번만 쓰면 해석 실패, `\times`·`\frac`는 탭·폼피드로 바뀌어 저장 | 해석 전 교정(`escapeLatexBackslashes`: 잘못된 이스케이프는 항상, `\b\f\n\r\t`로 시작하는 LaTeX 명령은 `$...$` 안에서만). 응답 길이 한도 8192→16384. 이미 깨져 저장된 수식은 화면에서만 복원(`$` 안, 원문 미수정) | `domain/ai_client.ts`, `domain/math_notation.ts`, `domain/prompts.ts` 11번 규칙 |
+| 레벨 표시 | "레벨 N · 구간 이름" | "레벨 N"만 | `DifficultyLevelControl.tsx`, `QuizCountModal.tsx` |
 
-## 작업 ID `difficulty-bands-20260930` — 구현과 자체 2중 점검
+### 화면에 보이는 문구(사용자 원칙 대조용)
 
-- 브랜치 `feature/difficulty-bands`, 기준 `main@3983154`. 원격 push·main 병합·배포·APK 빌드 없음.
-- 커밋: `12dac47` 코드블록 → `96f2328` 레벨 구간·과목별 기준·빈칸 표시 → `4db2db8` 15문항 안내 제거 → `79bbf6c` 정답 불일치 재출제 → `42364b4` 요청 횟수 안내·한도/형식 오류 구분 → `e4c8021` 레벨 16+ 깊이·검산 지시 → `c20e677` 서술형 개수 기준·재요청 안내 단순화 → `f3177d5` 자체 점검 지적 반영 → `11da909` 화면 안내 모델명 제거·초기화 안내 단순화 → `e3f958c` 수식 역슬래시 JSON 해석 실패 수정.
+- 사용량 안내창: 제목 `AI 요청 사용량 안내`, 본문 `오늘 AI 요청을 N회 사용했습니다. 무료 한도에 가까워 곧 문제 생성이 제한될 수 있습니다.`, 버튼 `취소`/`계속 생성`
+- 하루 한도: `오늘 AI 요청 한도를 모두 사용했습니다. 한도는 미국 태평양 시간 자정 기준으로 초기화됩니다(약간의 차이가 있을 수 있습니다).`
+- 분당 한도: `짧은 시간에 요청이 많아 잠시 제한되었습니다. 1분쯤 기다린 뒤 다시 시도해 주세요.`
+- 형식 오류·힌트 실패: `AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요.`
+- 빈칸 수·식 답: `각 빈칸에 들어갈 수나 식을 입력하세요.`(명칭형은 기존 문구 유지)
+- 삭제: 설명서 `하루 누적 15문항…` 문장, 출제 팝업 `하루 누적 15문항을 넘기면 추가 확인을 받습니다.`
 
-| 영역 | 주요 파일 |
-| --- | --- |
-| 코드블록 표시 | `domain/code_block.ts`, `components/common/MathText.tsx`, `domain/prompts.ts` 15번 규칙 |
-| 레벨 구간·유형별 기준 | `domain/difficulty.ts`, `domain/prompts.ts` [난이도 기준], 서술형 예시 개수 자동화 |
-| 과목별 레벨 기준 | `domain/curriculum_generator.ts`(`generateCurriculumPlan`), `Topic.difficultyLadder`(선택 항목), `topic_unit_repository.ts`, `backup_validation.ts`, `useAppData.ts`, `useCurriculumManager.ts` |
-| 빈칸 표시 | `domain/cloze_display.ts`, `ExamActiveView`·`ExamResultView`·`ReviewHouseSection` |
-| 요청 사용량·429 안내 | `domain/ai_usage.ts`, `data/repositories/ai_usage_repository.ts`(백업 제외), `domain/ai_client.ts`, `hooks/aiUsageNotice.ts` |
-| 정답 불일치·형식 오류 | `generator_validation.ts`(`findContradictoryAnswerKey`), `generator.ts` 재요청 루프 |
+### 사용자 결정(검토 기준)
 
-- 검증: Windows `cmd.exe /c npx tsc --noEmit` 오류 0, 앱 테스트 267개 통과·실패 0. 로컬 웹(데이터 없는 별도 주소)에서 코드블록·레벨 표시·`[빈칸 n]`·결과 화면·사용량 경고(450→451회 증가)를 확인했다.
-- 실제 AI 출제(사용자 키, 약 10회): 한문 3급·문학 과목별 기준 11줄 저장 확인. 문학 레벨 1은 기초 수준. 레벨 1→15 상승은 뚜렷했고, 레벨 16+ 규칙 적용 뒤 레벨 30에서 기초 용어 단답·극단 표현 오답이 사라졌다. 서술형 채점 요소는 여전히 3개가 나와 개수 기준을 현실화했다(28~30은 4개). 수학 단답 1건에서 AI 계산 오류(정답 14를 12로 저장)를 봤고 검산 지시의 효과는 아직 미검증.
-- 자체 점검(code-review, xhigh) 13건: 수정 8건(혼합 429 안내 오표시, 한자 답 안내, 한도 소진 후 횟수 부풀림, 기준 예시 문구 저장, 시간 초과 요청 미집계, 정답 모순 문구 인식 범위, 설명서 15문항 문구, 본 보고서). 이후 사용자 요청으로 도전 시작값을 순차 도전 상수 하나로 묶고, 초기화 안내를 "미국 태평양 시간 자정 기준(약간의 차이 가능)"으로 바꿔 서머타임 오차 문제를 없앴다. 남은 보류 3건: 사용량 경고 취소 시 단원 레벨이 먼저 저장되는 기존 순서, 모델 ID 이중 정의(화면에는 표시 안 됨), 사용량 기록 연결 자동 테스트 부재.
-- 화면 안내 원칙(사용자 결정): 모델·공급자 이름과 오류 번호를 보이지 않는다(목차·힌트 실패도 `describeAiFailureForUser`로 변환). 형식 검사 사유(힌트 길이·정답 노출 등)는 내부용이며 화면에는 "AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요."만 보인다. 요청하지 않은 새 안내 문구는 추가하지 않는다.
- 안에서만, 원문 미수정), 형식 검사 실패 사유의 개발자 콘솔 기록(화면 비노출)을 추가했다.
-- 미검증: 실제 429 응답 본문 형식(하루/분당 구분), Android 실기기, PDF 내보내기(코드블록·빈칸 기호는 원문 그대로 출력됨, 사용자 결정으로 보류).
+- 화면·설명서에 요청하지 않은 안내를 추가하지 않는다. 모델·공급자 이름과 오류 번호는 보이지 않는다. 내부 사유는 화면에 내보내지 않는다.
+- 요청은 앱에서 임의로 막지 않는다(한도는 사용자 AI 할당량). UI 배치는 유지하고 기능만 바꾼다.
+- 제외: 중복 문제 필터 강화, PDF 내보내기 표시 변경, 단원 소진 안내, 별도 AI 검산 요청, 서술형 개수 강제 검증, APK 반영.
+
+### 검증
+
+- Windows `cmd.exe /c npx tsc --noEmit` 오류 0, 앱 테스트 270개 통과·실패 0.
+- 로컬 웹(데이터 없는 별도 주소 `codecheck.localhost`): 코드블록, 레벨 표시, `[빈칸 n]`(시험·결과·복습), 사용량 경고(450회 주입 후 경고, 계속 생성 뒤 451회), 깨진 수식 복원("3 ⟨탭⟩imes 2" → "3 × 2") 확인.
+- 실제 AI 출제(사용자 키, 약 14회): 과목별 기준 11줄 저장(한문 3급·문학), 문학 레벨 1 기초 수준, 레벨 1→15 상승 확인, 레벨 16+ 규칙 뒤 레벨 30에서 기초 용어 단답·극단 표현 오답 사라짐. 서술형 채점 요소는 3개가 반복돼 기준을 완화했다. 수학 출제 실패의 원인을 개발자 기록으로 "JSON 해석 불가"까지 확인했고, 저장 문제에서 `\times`가 탭으로 바뀐 흔적을 찾아 역슬래시 교정을 넣었다. 교정 뒤 같은 경로(이어서 학습하기 → 새 문제 만들기) 출제 성공.
+- 지시문 길이: 출제 5,815~5,819자 → 7,175~7,640자(+23~31%), 목차+기준 요청 1,757자 → 2,621자.
+
+### Claude 자체 점검(code-review xhigh) 결과
+
+- 13건 중 수정 10건: 혼합 429 하루 한도 오표시, 한자만 있는 빈칸 답 안내, 한도 소진 뒤 횟수 부풀림, 기준 예시 문구 저장, 시간 초과 요청 미집계, 정답 모순 문구 인식 범위, 설명서 15문항 문구, 인수인계 기록, 도전 시작 레벨 상수 중복(순차 도전 상수 사용), 서머타임 전환일 초기화 시각(안내 문구 변경으로 해소).
+- 보류 3건: ① 사용량 안내에서 취소해도 출제 팝업이 먼저 저장한 단원 레벨 변경은 남음(기존 저장 순서, 도전 레벨 흐름과 연결돼 범위가 큼) ② `db.DEFAULT_GEMINI_MODEL`과 `ai_usage.GEMINI_MODEL_ORDER` 이중 정의(기본값은 선호 모델 저장값에만 쓰여 요청 순서·화면에 영향 없음) ③ `useAppData`의 사용량 기록 연결에 자동 테스트 없음(수동 확인만).
+
+### 미검증·알려진 한계
+
+- 실제 429 응답 본문 형식(하루/분당 구분 근거), Android 실기기, 검산 지시·빈칸 답 형식 지시의 효과.
+- PDF·문제집 내보내기는 코드블록 기호와 `{{n}}`을 원문 그대로 출력(사용자 결정으로 보류).
+- 요청 횟수는 이 기기 기준 추정치(다른 기기·AI Studio 사용 미반영), 한도표는 무료 등급 고정값.
+- 복습 화면 등에서 단답형 모범답안이 `$12$`처럼 수식 기호째 보이는 기존 표시 문제(이번 범위 밖, 사용자 결정 대기).
 
 ---
 
