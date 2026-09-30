@@ -249,9 +249,10 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
                                 >
                                   {oIdx + 1}
                                 </Text>
-                                <Text style={[styles.optionReviewText, isCorrectOpt && styles.optionReviewTextCorrect]}>
-                                  {opt.text}
-                                </Text>
+                                <MathText
+                                  style={[styles.optionReviewText, isCorrectOpt && styles.optionReviewTextCorrect]}
+                                  text={opt.text}
+                                />
                                 {isCorrectOpt && <Text style={styles.correctOptTag}>✓ 정답</Text>}
                               </View>
                             );

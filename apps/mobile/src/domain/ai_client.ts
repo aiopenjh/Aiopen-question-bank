@@ -5,12 +5,33 @@
 
 import { AiDocumentInput } from '../contracts/types';
 import { ensureAiDataNoticeAccepted } from './ai_data_notice';
-import { GEMINI_MODEL_ORDER, GeminiQuotaScope, describeRateLimit, readGeminiQuotaScope, reportAiRequest } from './ai_usage';
-// \b \f \n \r \t로 시작해 JSON 이스케이프와 겹치는 LaTeX 명령. $...$ 수식 안에서만 명령으로 본다.
-import { LATEX_COMMANDS_WITH_ESCAPE_LETTER } from './math_notation';
+import {
+  GEMINI_MODEL_ORDER,
+  GeminiQuotaScope,
+  describeRateLimit,
+  getAiQuotaDay,
+  readGeminiQuotaScope,
+  reportAiRequest,
+} from './ai_usage';
+// JSON 해석 뒤 짝이 맞는 수식 구간에서만 \times·\frac 같은 명령을 되살린다(코드·일반 문장 제외).
+import { restoreLatexControlChars } from './math_notation';
 
 // 키와 모델별 단기 대기 상태(끝나는 시각과 한도 종류). 메모리에만 보관하며 저장하거나 로그로 출력하지 않는다.
 const geminiRateLimits = new Map<string, Map<string, { until: number; scope: GeminiQuotaScope }>>();
+// 서버가 오늘 한도 소진(429 PerDay)을 알린 모델. 같은 키·같은 태평양 날짜 동안은 다시 요청하지 않고,
+// 날짜가 바뀌거나 다른 키면 다시 시도한다. 기기에서 센 추정 횟수로는 막지 않는다(메모리에만 보관).
+const geminiDailyExhausted = new Map<string, { day: string; models: Set<string> }>();
+
+function isDailyExhausted(key: string, model: string, day: string): boolean {
+  const record = geminiDailyExhausted.get(key);
+  return !!record && record.day === day && record.models.has(model);
+}
+
+function markDailyExhausted(key: string, model: string, day: string): void {
+  const record = geminiDailyExhausted.get(key);
+  if (!record || record.day !== day) geminiDailyExhausted.set(key, { day, models: new Set([model]) });
+  else record.models.add(model);
+}
 // 2026-09-23 공식 정식 모델 목록 확인. 3.5 Flash-Lite부터 시도한다(순서와 하루 한도는 ai_usage.ts).
 const GEMINI_MODELS: readonly string[] = GEMINI_MODEL_ORDER;
 
@@ -83,34 +104,32 @@ function createAiDataNoticeDeclinedError(): Error {
 }
 
 /**
- * AI JSON 응답 파싱 유틸리티 (마크다운 백틱 제거)
+ * JSON에서 허용되지 않는 역슬래시 이스케이프(예: LaTeX \sqrt, \le를 역슬래시 한 번으로 적은 경우)만
+ * 역슬래시 글자로 바꾼다. 올바른 JSON에는 이런 이스케이프가 없으므로 정상 응답은 한 글자도 바뀌지 않는다.
+ * \frac, \times처럼 JSON 이스케이프(\f, \t)로도 읽히는 경우는 여기서 건드리지 않고,
+ * 해석한 뒤 짝이 맞는 수식 구간에서만 restoreLatexControlChars로 되살린다.
  */
-
-/**
- * AI가 JSON 문자열 안에 LaTeX 역슬래시를 한 번만 적은 경우를 바로잡는다.
- * - \sqrt, \le처럼 JSON에서 허용되지 않는 이스케이프는 항상 역슬래시 글자로 남긴다(그대로면 해석 실패).
- * - \frac, \times처럼 JSON 이스케이프(\f, \t)로도 읽히는 명령은 $...$ 수식 안에서만 역슬래시 글자로 남긴다.
- *   수식 밖의 \n(줄바꿈), \t(탭)는 그대로 둔다(코드블록 줄바꿈 보존).
- */
-export function escapeLatexBackslashes(json: string): string {
+export function escapeInvalidJsonBackslashes(json: string): string {
   let out = '';
   let inString = false;
-  let inMath = false;
   for (let i = 0; i < json.length; i++) {
     const ch = json[i];
-    if (ch === '"') {
-      inString = !inString;
-      if (!inString) inMath = false;
+    if (!inString) {
+      if (ch === '"') inString = true;
       out += ch;
       continue;
     }
-    if (!inString || ch !== '\\') {
-      if (inString && ch === '$') inMath = !inMath;
+    if (ch === '"') {
+      inString = false;
+      out += ch;
+      continue;
+    }
+    if (ch !== '\\') {
       out += ch;
       continue;
     }
     const next = json[i + 1];
-    if (next === '\\' || next === '"' || next === '/') {
+    if (next !== undefined && '"\\/bfnrt'.includes(next)) {
       out += ch + next;
       i++;
       continue;
@@ -120,19 +139,25 @@ export function escapeLatexBackslashes(json: string): string {
       i += 5;
       continue;
     }
-    if (next !== undefined && 'bfnrt'.includes(next)) {
-      const word = /^[A-Za-z]+/.exec(json.slice(i + 1))?.[0] ?? '';
-      if (!(inMath && LATEX_COMMANDS_WITH_ESCAPE_LETTER.has(word))) {
-        out += ch + next;
-        i++;
-        continue;
-      }
-    }
     out += '\\\\';
   }
   return out;
 }
 
+function restoreLatexInValue(value: unknown): unknown {
+  if (typeof value === 'string') return restoreLatexControlChars(value);
+  if (Array.isArray(value)) return value.map(restoreLatexInValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, restoreLatexInValue(item)])
+    );
+  }
+  return value;
+}
+
+/**
+ * AI JSON 응답 파싱 유틸리티 (마크다운 백틱 제거, 수식 역슬래시 보정)
+ */
 export function parseAiJsonResponse<T>(rawText: string): T {
   let cleaned = rawText.trim();
   if (cleaned.startsWith('```json')) {
@@ -143,7 +168,7 @@ export function parseAiJsonResponse<T>(rawText: string): T {
   if (cleaned.endsWith('```')) {
     cleaned = cleaned.slice(0, -3);
   }
-  return JSON.parse(escapeLatexBackslashes(cleaned.trim()));
+  return restoreLatexInValue(JSON.parse(escapeInvalidJsonBackslashes(cleaned.trim()))) as T;
 }
 
 /**
@@ -235,6 +260,7 @@ export async function callUniversalAiCompletion(
 
   let lastError: any = null;
   let rateLimitError: Error | null = null;
+  const quotaDay = getAiQuotaDay(new Date(Date.now()));
   // 분당 한도가 하나라도 있으면 곧 다시 시도할 수 있으므로 분당 안내를 우선하고,
   // 모든 후보가 하루 한도일 때만 하루 한도 소진으로 안내한다.
   const rateLimitScopes = new Set<GeminiQuotaScope>();
@@ -242,6 +268,11 @@ export async function callUniversalAiCompletion(
   // 각 후보는 한 요청당 한 번만 시도한다. 429가 나도 다른 모델의 할당량은 별개다.
   for (const model of GEMINI_MODELS) {
     if (signal?.aborted) throw createGenerationCancelledError();
+    if (isDailyExhausted(trimmedKey, model, quotaDay)) {
+      rateLimitError = createGeminiRateLimitError(60);
+      rateLimitScopes.add('daily');
+      continue;
+    }
     const cooldown = geminiRateLimits.get(trimmedKey)?.get(model);
     if (cooldown && cooldown.until > Date.now()) {
       rateLimitError = createGeminiRateLimitError(Math.ceil((cooldown.until - Date.now()) / 1000));
@@ -310,7 +341,10 @@ export async function callUniversalAiCompletion(
         const limits = geminiRateLimits.get(trimmedKey) ?? new Map<string, { until: number; scope: GeminiQuotaScope }>();
         limits.set(model, { until: Date.now() + waitSeconds * 1000, scope });
         geminiRateLimits.set(trimmedKey, limits);
-        if (scope === 'daily') reportAiRequest({ model, outcome: 'daily_exhausted' });
+        if (scope === 'daily') {
+          markDailyExhausted(trimmedKey, model, quotaDay);
+          reportAiRequest({ model, outcome: 'daily_exhausted' });
+        }
         rateLimitError = createGeminiRateLimitError(waitSeconds);
         rateLimitScopes.add(scope);
         continue;

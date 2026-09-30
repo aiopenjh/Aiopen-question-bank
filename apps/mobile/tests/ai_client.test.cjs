@@ -256,3 +256,37 @@ test('AI JSON with single-backslash LaTeX is repaired without touching real newl
   assert.equal(parse(doubled).stem, String.raw`$\frac{1}{2} + \sqrt{3}$`);
   assert.equal(parse('```json\n{"a":1}\n```').a, 1);
 });
+
+test('valid JSON is never altered: code with a dollar sign keeps its newlines and tabs (Codex R1 counterexample)', () => {
+  const h = harness(() => success());
+  const code = '```python\nprice = "$5"\nabla = 1\n\ttotal = 2\n```';
+  const sentence = '가격은 $5입니다.\nabla 변수를 봅니다.';
+  const currency = '가격은 $5, 할인가 $3\nabla';
+  const escaped = String.raw`비용 \$5와 $x$ 비교` + '\nabla';
+  const inline = '`cost = $5`\nabla';
+  const payload = { code, sentence, currency, escaped, inline, math: '$3 \times 2$' };
+  const parsed = h.parse(JSON.stringify(payload));
+  for (const key of ['code', 'sentence', 'currency', 'escaped', 'inline']) {
+    assert.equal(parsed[key], payload[key], `${key}는 그대로여야 한다`);
+  }
+  assert.equal(parsed.math, String.raw`$3 \times 2$`);
+});
+
+test('models the server reported as used up today are not re-requested on the same Pacific day, but are retried the next day (Codex R2)', async () => {
+  const dailyBody = { error: { code: 429, details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } };
+  const h = harness(() => ({ ok: false, status: 429, headers: { get: () => '30' }, json: async () => dailyBody }));
+  await assert.rejects(h.call('daily-skip-key', 'prompt'), (error) => error.quotaScope === 'daily');
+  assert.equal(h.requests.length, 5);
+
+  h.advance(31_000);
+  await assert.rejects(h.call('daily-skip-key', 'prompt'), (error) => error.quotaScope === 'daily');
+  assert.equal(h.requests.length, 5, '같은 날에는 하루 소진 모델에 다시 요청하지 않는다');
+
+  // 다른 키는 따로 시도한다.
+  await assert.rejects(h.call('another-key', 'prompt'));
+  assert.equal(h.requests.length, 10);
+
+  h.advance(24 * 60 * 60 * 1000);
+  await assert.rejects(h.call('daily-skip-key', 'prompt'));
+  assert.equal(h.requests.length, 15, '태평양 날짜가 바뀌면 다시 시도한다');
+});

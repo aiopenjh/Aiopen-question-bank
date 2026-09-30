@@ -111,6 +111,16 @@ const INVALID_RESPONSE_MESSAGE = 'AI 응답을 제대로 받지 못했습니다.
  * 형식 검사 실패 사유를 개발자 기록(콘솔)에만 남기고 화면용 오류를 만든다.
  * 사유는 앱 검사 코드가 만든 문장이며 API 키·요청 주소·공급자 응답 원문은 넣지 않는다.
  */
+// Gemini 응답 종료 사유 가운데 기록해도 되는 고정 값. 그 밖의 값은 자유 문자열이므로 '알 수 없음'으로 적는다.
+const KNOWN_FINISH_REASONS = new Set([
+  'STOP', 'MAX_TOKENS', 'SAFETY', 'RECITATION', 'LANGUAGE', 'OTHER', 'BLOCKLIST',
+  'PROHIBITED_CONTENT', 'SPII', 'MALFORMED_FUNCTION_CALL', 'FINISH_REASON_UNSPECIFIED',
+]);
+
+function describeFinishReason(reason: string | undefined): string {
+  return reason && KNOWN_FINISH_REASONS.has(reason) ? reason : '알 수 없음';
+}
+
 function invalidResponse(reason: string): GenerationContentError {
   console.warn(`AI 출제 형식 검사 실패: ${reason.slice(0, 200)}`);
   return new GenerationContentError(INVALID_RESPONSE_MESSAGE);
@@ -137,13 +147,13 @@ export { MAX_HINT_LENGTH, containsAnswerLeak } from './generator_validation';
 
 function readStudyIntentDecision(value: unknown): StudyIntentDecision {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new GenerationContentError('AI 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.');
+    throw invalidResponse('응답이 객체 형식이 아님');
   }
 
   const result = value as Record<string, unknown>;
   const status = result.intentStatus;
   if (status !== 'READY' && status !== 'NEEDS_CLARIFICATION' && status !== 'REJECTED') {
-    throw new GenerationContentError('AI가 주제 판정 상태를 올바르게 반환하지 않았습니다. 다시 시도해 주세요.');
+    throw invalidResponse('주제 판정 상태(intentStatus)가 없거나 올바르지 않음');
   }
 
   const clarificationChoices = Array.isArray(result.clarificationChoices)
@@ -351,11 +361,11 @@ async function generateViaUniversalAiApi(params: {
     let parsed: unknown;
     try {
       parsed = parseAiJsonResponse<unknown>(completion.text);
-    } catch (parseError: any) {
-      // 원인 구분용 진단: 종료 사유(잘림 여부), 응답 길이, 해석 오류 종류만 남기고 응답 원문은 남기지 않는다.
-      const parseDetail = String(parseError?.message || '').replace(/"[^"]*"/g, '"…"').slice(0, 80);
+    } catch {
+      // 원인 구분용 진단은 고정 범주·응답 길이(숫자)·허용 목록 안의 종료 사유만 남긴다.
+      // 해석 오류 메시지에는 응답 조각이 섞이므로 기록하지 않는다.
       throw invalidResponse(
-        `응답을 JSON으로 해석할 수 없음(종료 사유 ${completion.finishReason ?? '알 수 없음'}, 길이 ${completion.text.length}자, ${parseDetail})`
+        `JSON 해석 실패(종료 사유 ${describeFinishReason(completion.finishReason)}, 응답 길이 ${completion.text.length}자)`
       );
     }
     const intentDecision = readStudyIntentDecision(parsed);
@@ -383,7 +393,7 @@ async function generateViaUniversalAiApi(params: {
       throw invalidResponse(typeof validationError?.message === 'string' ? validationError.message : '문항 검사 실패');
     }
     if (!matchesQuestionTypePlan(generatedQuestions, questionTypePlan)) {
-      throw new GenerationContentError('AI가 추첨된 문제 유형을 따르지 않았습니다. 다시 출제해 주세요.');
+      throw invalidResponse('추첨된 문제 유형 계획과 응답 유형이 다름');
     }
     // 정답 번호와 보기 설명이 어긋난 응답은 정답 키를 믿을 수 없어 저장하지 않고 같은 계획으로 한 번 더 요청한다.
     const contradictoryAnswerKey = findContradictoryAnswerKey(generatedQuestions);
@@ -393,9 +403,7 @@ async function generateViaUniversalAiApi(params: {
       if (contradictoryAnswerKey !== null) {
         throw invalidResponse(`${contradictoryAnswerKey}번 문제 정답 번호와 보기 설명 불일치(재요청 후에도 반복)`);
       }
-      throw new GenerationContentError(
-        `객관적으로 채점할 수 있는 주관식 문제를 만들지 못했습니다(${unsuitable}번 문제가 의견·가치판단형이거나 채점 기준이 주관적입니다). 단원이나 요청을 더 구체적으로 정하거나 문제 유형을 바꿔 다시 출제해 주세요.`
-      );
+      throw invalidResponse(`${unsuitable}번 주관식 문제가 의견·가치판단형이거나 채점 기준이 주관적임(재요청 후에도 반복)`);
     }
   }
   const questions: QuestionRevision[] = [];

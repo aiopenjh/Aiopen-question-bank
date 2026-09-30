@@ -226,10 +226,26 @@ test('generation follows all-subjective or all-cloze draws even at entry difficu
 });
 
 test('generation rejects an AI response replacing the drawn cloze type with multiple choice', async () => {
-  const generator = harness(async () => response(providerPayload()), { planRandom: () => 0.9 });
+  const logs = [];
+  const generator = harness(async () => response(providerPayload()), { planRandom: () => 0.9, logs });
   const result = await generator.generateFactBasedQuestions(args(generator));
   assert.equal(result.status, 'FAILED');
-  assert.match(result.message, /추첨된 문제 유형/);
+  // 화면에는 재요청 안내만, 사유는 개발자 기록에만 남긴다.
+  assert.match(result.message, /AI 응답을 제대로 받지 못했습니다\. 다시 요청해 주세요/);
+  assert.doesNotMatch(result.message, /추첨된 문제 유형/);
+  assert.match(logs.join('\n'), /추첨된 문제 유형 계획과 응답 유형이 다름/);
+});
+
+test('invalid topic-judgment responses show only the retry notice (Codex R3)', async () => {
+  for (const value of [[1, 2], { intentStatus: 'UNKNOWN', questions: [] }]) {
+    const logs = [];
+    const generator = harness(async () => response(value), { logs });
+    const result = await generator.generateFactBasedQuestions(args(generator));
+    assert.equal(result.status, 'FAILED');
+    assert.match(result.message, /AI 응답을 제대로 받지 못했습니다\. 다시 요청해 주세요/);
+    assert.doesNotMatch(result.message, /주제 판정 상태|형식을 확인할 수 없습니다/);
+    assert.match(logs.join('\n'), /AI 출제 형식 검사 실패/);
+  }
 });
 
 test('provider HTTP failures expose neither the API key nor the provider response body', async () => {
@@ -408,7 +424,9 @@ test('question type mode drives the plan, the prompt and response validation', a
   assert.ok(short.sentPrompt.includes(JSON.stringify(Array(3).fill('short_answer'))));
   const rejected = await run('subjective', 0, mcQuestions);
   assert.equal(rejected.result.status, 'FAILED');
-  assert.match(rejected.result.message, /문제 유형/);
+  // 유형이 다른 응답은 저장하지 않고 화면에는 재요청 안내만 보인다.
+  assert.match(rejected.result.message, /AI 응답을 제대로 받지 못했습니다\. 다시 요청해 주세요/);
+  assert.equal(rejected.result.questions, undefined);
 });
 
 test('opinion-type subjective output is not saved: regenerate once with the same plan, then explain instead of switching type', async () => {
@@ -441,7 +459,9 @@ test('opinion-type subjective output is not saved: regenerate once with the same
   const failed = await run([opinion]);
   assert.equal(failed.prompts.length, 2);
   assert.equal(failed.result.status, 'FAILED');
-  assert.match(failed.result.message, /객관적으로 채점할 수 있는 주관식 문제를 만들지 못했습니다\(1번/);
+  // 사용자 결정: 부적합 주관식이 반복돼도 화면에는 재요청 안내만 보인다(사유는 개발자 기록).
+  assert.match(failed.result.message, /AI 응답을 제대로 받지 못했습니다\. 다시 요청해 주세요/);
+  assert.doesNotMatch(failed.result.message, /의견·가치판단/);
   assert.equal(failed.result.questions, undefined);
 });
 
@@ -509,4 +529,26 @@ test('format-check failure reasons go only to the developer log, never to the on
   assert.doesNotMatch(result.message, /힌트가 너무 깁니다/);
   assert.match(logs.join('\n'), /AI 출제 형식 검사 실패: AI 응답의 1번 문제 힌트가 너무 깁니다/);
   assert.doesNotMatch(logs.join('\n'), /AIza-synthetic-key/);
+});
+
+test('JSON parse failure logs only a fixed category, the response length and an allow-listed finish reason (Codex R6)', async () => {
+  const cases = [
+    { text: '{"stem":"long-long-long-long","b":AUTHKEY_MARKER}', finishReason: 'MAX_TOKENS', expectReason: 'MAX_TOKENS' },
+    { text: '{"stem":"AUTHKEY_MARKER', finishReason: 'AUTHKEY_MARKER_REASON', expectReason: '알 수 없음' },
+  ];
+  for (const { text, finishReason, expectReason } of cases) {
+    const logs = [];
+    const generator = harness(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ candidates: [{ finishReason, content: { parts: [{ text }] } }] }),
+    }), { logs });
+    const result = await generator.generateFactBasedQuestions(args(generator));
+    assert.equal(result.status, 'FAILED');
+    assert.match(result.message, /AI 응답을 제대로 받지 못했습니다\. 다시 요청해 주세요/);
+    const log = logs.join('\n');
+    assert.ok(!log.includes('AUTHKEY_MARKER'), `응답 조각이 기록되면 안 된다: ${log}`);
+    assert.ok(!log.includes('long-long'), '응답 조각이 기록되면 안 된다');
+    assert.ok(log.includes(`JSON 해석 실패(종료 사유 ${expectReason}, 응답 길이 ${text.length}자)`), log);
+  }
 });

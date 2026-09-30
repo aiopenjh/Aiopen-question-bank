@@ -169,7 +169,8 @@ export async function generateCurriculumPlan(
       if (err instanceof StudyIntentResolutionError) {
         throw err;
       }
-      console.error('최신 AI 커리큘럼 생성 실패:', err);
+      // 원본 예외에는 응답 조각·요청 정보가 섞일 수 있어 고정 범주만 기록한다.
+      console.warn(`AI 목차 생성 실패 범주: ${err?.name === 'SyntaxError' ? 'JSON 해석 실패' : err?.name === 'GeminiRateLimitError' ? '요청 한도' : '요청 또는 응답 오류'}`);
       throw new Error(`[AI 목차 생성 실패]\n${describeAiFailureForUser(err)}\n\n※ 원칙에 따라 가짜 목차를 생성하지 않고 실패를 정직하게 통보합니다.`);
     }
   }

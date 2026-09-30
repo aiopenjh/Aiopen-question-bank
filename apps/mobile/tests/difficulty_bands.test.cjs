@@ -217,3 +217,15 @@ test('difficulty: 도전 구간 시작 레벨은 순차 도전 규칙의 시작 
   assert.equal(difficulty.CHALLENGE_BAND_START, challengeProgress.CHALLENGE_START_LEVEL);
   assert.equal(difficulty.DIFFICULTY_BANDS.find((band) => band.label === '도전 1').start, challengeProgress.CHALLENGE_START_LEVEL);
 });
+
+test('cloze_display: 숫자+단위와 LaTeX 식은 수·식 안내, 영문·한자·한글 명칭은 정식 명칭 안내 (Codex R5)', () => {
+  const notice = (...answers) => cloze.getClozeAnswerNotice(answers.map((list) => ({ correctAnswers: list })));
+  for (const value of [['2kg'], ['5km/h'], ['30cm²'], ['3개'], ['12시간'], [String.raw`$\frac{1}{2}$`], [String.raw`\sqrt{2}`], ['50%'], ['sin 30'], ['10', '열']]) {
+    assert.equal(notice(value), cloze.CLOZE_VALUE_NOTICE, `수·식이어야 한다: ${value.join(', ')}`);
+  }
+  for (const name of [['Physical AI'], ['DNA'], ['山'], ['시·도경찰청장'], [String.raw`\text{사과}`], ['x'], ['3급 공무원'], ['']]) {
+    assert.equal(notice(name), cloze.CLOZE_NAME_NOTICE, `명칭이어야 한다: ${name.join(', ')}`);
+  }
+  // 빈칸 하나라도 명칭형이면 명칭 안내를 보인다.
+  assert.equal(notice(['2kg'], ['Physical AI']), cloze.CLOZE_NAME_NOTICE);
+});

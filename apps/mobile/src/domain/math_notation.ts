@@ -52,21 +52,52 @@ export const LATEX_COMMANDS_WITH_ESCAPE_LETTER: ReadonlySet<string> = new Set([
 
 const CONTROL_TO_LETTER: Record<string, string> = { '\b': 'b', '\f': 'f', '\n': 'n', '\r': 'r', '\t': 't' };
 
+// 코드블록(```…```)과 인라인 코드(`…`)는 수식 구간으로 보지 않는다.
+const CODE_SPAN_RE = /```[\s\S]*?```|`[^`\n]*`/g;
+const HANGUL_RE = /[가-힣]/;
+
 /**
- * 역슬래시를 한 번만 적은 AI 응답 때문에 \times가 탭+"imes"처럼 저장된 수식을 화면에서 되살린다.
- * $...$ 안에서 제어 문자 뒤에 알려진 명령 이름이 이어질 때만 바꾸며 저장된 원문은 고치지 않는다.
+ * 짝이 맞는 $...$ 수식 구간의 내용 범위([시작, 끝))를 찾는다. 코드 안의 $, 역슬래시로 이스케이프된 \$,
+ * 짝이 없는 마지막 $는 경계로 쓰지 않고, 한글이 들어간 구간(예: "가격은 $5, 할인가 $3")은 수식으로 보지 않는다.
  */
-function restoreLatexControlChars(input: string): string {
+function findMathSpans(text: string): Array<[number, number]> {
+  const blocked = new Uint8Array(text.length);
+  for (const match of text.matchAll(CODE_SPAN_RE)) {
+    blocked.fill(1, match.index ?? 0, (match.index ?? 0) + match[0].length);
+  }
+  const dollars: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '$' && !blocked[i] && text[i - 1] !== '\\') dollars.push(i);
+  }
+  const spans: Array<[number, number]> = [];
+  for (let i = 0; i + 1 < dollars.length; i += 2) {
+    const start = dollars[i] + 1;
+    const end = dollars[i + 1];
+    if (!HANGUL_RE.test(text.slice(start, end))) spans.push([start, end]);
+  }
+  return spans;
+}
+
+/**
+ * 역슬래시를 한 번만 적은 AI 응답 때문에 \times가 탭+"imes"처럼 바뀐 수식 명령을 되살린다.
+ * 짝이 맞는 수식 구간 안에서 제어 문자 뒤에 알려진 명령 이름이 이어질 때만 바꾸므로
+ * 코드·일반 문장의 줄바꿈과 탭은 그대로 둔다. AI 응답 해석(ai_client)과 화면 표시가 같이 쓴다.
+ */
+export function restoreLatexControlChars(input: string): string {
   if (!input.includes('$') || !/[\b\f\n\r\t]/.test(input)) return input;
-  return input
-    .split('$')
-    .map((part, index) => (index % 2 === 1
-      ? part.replace(/([\b\f\n\r\t])([A-Za-z]+)/g, (whole, control: string, rest: string) => {
-          const word = CONTROL_TO_LETTER[control] + rest;
-          return LATEX_COMMANDS_WITH_ESCAPE_LETTER.has(word) ? `\\${word}` : whole;
-        })
-      : part))
-    .join('$');
+  const spans = findMathSpans(input);
+  if (spans.length === 0) return input;
+  let out = '';
+  let cursor = 0;
+  for (const [start, end] of spans) {
+    out += input.slice(cursor, start);
+    out += input.slice(start, end).replace(/([\b\f\n\r\t])([A-Za-z]+)/g, (whole, control: string, rest: string) => {
+      const word = CONTROL_TO_LETTER[control] + rest;
+      return LATEX_COMMANDS_WITH_ESCAPE_LETTER.has(word) ? `\\${word}` : whole;
+    });
+    cursor = end;
+  }
+  return out + input.slice(cursor);
 }
 
 const SYMBOL_RE = /\\([A-Za-z]+)/g;

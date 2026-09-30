@@ -195,7 +195,8 @@ export function validateGeneratedQuestions(
     const questionType = readQuestionType(question.questionType, number);
     // 호출자가 허용한 유형인지 검증한다. 일반 출제는 모든 레벨에서 주관식을 허용한다.
     if ((questionType === 'short_answer' || questionType === 'essay') && !subjectiveAllowed) {
-      throw new Error(`AI가 이번 난이도에서 허용되지 않는 문제 유형(${questionType})을 반환했습니다. 다시 시도해 주세요.`);
+      // AI가 보낸 유형 값을 그대로 넣지 않는다(개발자 기록에 응답 조각이 남지 않게).
+      throw new Error(`AI가 ${number}번 문제에 이번 난이도에서 허용되지 않는 문제 유형을 반환했습니다. 다시 시도해 주세요.`);
     }
 
     let options: Array<{ text: string; distractorRationale?: string }> = [];

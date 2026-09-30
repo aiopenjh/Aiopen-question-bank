@@ -170,3 +170,14 @@ test('math_notation: 역슬래시가 빠져 탭·폼피드로 저장된 수식 �
   assert.equal(flat('줄1\n줄2'), '줄1\n줄2');
   assert.equal(flat('$a' + '\t' + 'xyz$'), 'a\txyz');
 });
+
+test('math_notation: 짝 없는 $, 코드, 한글이 든 구간의 줄바꿈은 수식 명령으로 되살리지 않는다', () => {
+  const flat = (text) => flatten(mod.parseMathText(text));
+  assert.ok(flat('가격은 $5입니다.\nabla 변수').includes('\nabla'), '짝 없는 $ 뒤 줄바꿈 보존');
+  assert.ok(!flat('가격은 $5입니다.\nabla 변수').includes('∇'));
+  assert.ok(flat('가격은 $5, 할인가 $3\nabla').includes('\nabla'), '한글이 든 구간은 수식이 아님');
+  assert.ok(flat('`cost = $5`\nabla $x$').includes('\nabla'), '인라인 코드의 $는 경계가 아님');
+  // 짝이 맞는 수식 구간 안에서는 되살린다.
+  assert.ok(flat('$a' + '\n' + 'eq b$').includes('≠'));
+  assert.ok(!flat('$a' + '\n' + 'eq b$').includes('\n'));
+});
