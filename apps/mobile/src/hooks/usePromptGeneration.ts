@@ -18,6 +18,7 @@ import {
 } from '../data/db';
 import { analyzeUserIntent, generateFactBasedQuestions } from '../domain/generator';
 import { showAlert } from '../utils/alert';
+import { showAiUsageNoticeIfNeeded } from './aiUsageNotice';
 import { CHALLENGE_START_LEVEL } from '../domain/challenge_progress';
 import type { ExamStartOptions } from './useExamSession';
 
@@ -53,7 +54,7 @@ export function usePromptGeneration({
   setIsGenerating,
   setGeneratingWaitStatus,
 }: UsePromptGenerationProps) {
-  const handleQuickPromptGenerate = useCallback(
+  const runQuickPromptGenerate = useCallback(
     async (prompt: string) => {
       let newlyCreatedTopicId: string | null = null;
       try {
@@ -217,6 +218,15 @@ export function usePromptGeneration({
       setIsGenerating,
       setGeneratingWaitStatus,
     ]
+  );
+
+  // 무료 한도에 가까울 때만 오늘 요청 횟수를 알리고 계속할지는 사용자가 고른다(요청은 막지 않음).
+  const handleQuickPromptGenerate = useCallback(
+    async (prompt: string) => {
+      if (await showAiUsageNoticeIfNeeded(() => { void runQuickPromptGenerate(prompt); })) return;
+      await runQuickPromptGenerate(prompt);
+    },
+    [runQuickPromptGenerate]
   );
 
   return { handleQuickPromptGenerate };

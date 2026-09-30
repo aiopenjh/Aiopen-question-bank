@@ -601,3 +601,25 @@ test('topic difficulty ladder is saved once, survives question-bank backup, and 
   broken.topics[0].difficultyLadder = [1, 2];
   assert.equal((await target.db.restoreBackupJSON(JSON.stringify(broken))).success, false);
 });
+
+test('daily AI request usage is counted per model, reset each Pacific day, kept out of backups', async () => {
+  const session = setup();
+  await session.db.initializeDatabase();
+  const day1 = new Date('2026-09-30T03:00:00Z');
+  await Promise.all([
+    session.db.recordAiRequest({ model: 'gemini-3.5-flash-lite', outcome: 'processed' }, day1),
+    session.db.recordAiRequest({ model: 'gemini-3.5-flash-lite', outcome: 'processed' }, day1),
+    session.db.recordAiRequest({ model: 'gemini-3.5-flash', outcome: 'processed' }, day1),
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify((await session.db.getAiRequestUsage(day1)).counts)), {
+    'gemini-3.5-flash-lite': 2, 'gemini-3.5-flash': 1,
+  });
+  await session.db.recordAiRequest({ model: 'gemini-3.8-flash', outcome: 'daily_exhausted' }, day1);
+  assert.equal((await session.db.getAiRequestUsage(day1)).counts['gemini-3.8-flash'], 20);
+
+  const nextDay = new Date('2026-09-30T08:00:00Z');
+  assert.deepEqual(JSON.parse(JSON.stringify((await session.db.getAiRequestUsage(nextDay)).counts)), {});
+
+  const backup = JSON.parse(await session.db.exportBackupJSON('full'));
+  assert.ok(!JSON.stringify(backup).includes('gemini-3.5-flash-lite'));
+});

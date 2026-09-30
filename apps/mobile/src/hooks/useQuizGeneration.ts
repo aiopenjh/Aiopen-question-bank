@@ -18,6 +18,7 @@ import {
   getAttempts,
 } from '../data/db';
 import { showAlert } from '../utils/alert';
+import { showAiUsageNoticeIfNeeded } from './aiUsageNotice';
 import { difficultyToLegacyLevel, legacyLevelToDifficulty } from '../domain/difficulty';
 import { buildUnitGenerationContext, formatIntentMessage, pickOverviewUnitTitles } from './quizGenerationContext';
 import { CHALLENGE_START_LEVEL, getUnlockedChallengeLevel } from '../domain/challenge_progress';
@@ -301,13 +302,16 @@ export function useQuizGeneration({
       setQuizCountModalVisible(false);
       if (!pendingQuizUnit) return;
       const { topicId, topicName, unitId, unitTitle } = pendingQuizUnit;
-      // 하루 생성 개수로 막지 않는다. 한도는 사용자가 연결한 AI 서비스의 할당량이 정한다.
-      await handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options, pendingQuizUnit.allowInitialDifficultySelection === true);
+      const allowInitialDifficultySelection = pendingQuizUnit.allowInitialDifficultySelection === true;
+      const generate = () => handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options, allowInitialDifficultySelection);
+      // 하루 생성 개수로 막지 않는다. 무료 한도에 가까울 때만 오늘 요청 횟수를 알리고 계속할지는 사용자가 고른다.
+      if (await showAiUsageNoticeIfNeeded(() => { void generate(); })) return;
+      await generate();
     },
     [pendingQuizUnit, handleQuickGenerateForUnit]
   );
 
-  const handleGenerateMoreQuestions = useCallback(async () => {
+  const runGenerateMoreQuestions = useCallback(async () => {
     const currentTopic =
       topics.find((t) => t.id === selectedTopicId) ||
       topics.find((t) => t.id === lastStudiedTopicId) ||
@@ -513,6 +517,11 @@ export function useQuizGeneration({
     getDocumentInputForTopic,
     onOpenSourceManager,
   ]);
+
+  const handleGenerateMoreQuestions = useCallback(async () => {
+    if (await showAiUsageNoticeIfNeeded(() => { void runGenerateMoreQuestions(); })) return;
+    await runGenerateMoreQuestions();
+  }, [runGenerateMoreQuestions]);
 
   const handleApplyScaffolding = useCallback(async (currentExamMistakes?: QuestionRevision[]) => {
     const topicIncorrect = selectedTopicId

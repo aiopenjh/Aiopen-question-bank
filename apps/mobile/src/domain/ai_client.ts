@@ -3,20 +3,14 @@
  * Supports Google Gemini (with smart timeout fallback and cascade), Anthropic Claude, and OpenAI GPT.
  */
 
-import { DEFAULT_GEMINI_MODEL } from '../data/db';
 import { AiDocumentInput } from '../contracts/types';
 import { ensureAiDataNoticeAccepted } from './ai_data_notice';
+import { GEMINI_MODEL_ORDER, GeminiQuotaScope, readGeminiQuotaScope, reportAiRequest } from './ai_usage';
 
-// 키와 모델별 단기 대기 상태. 메모리에만 보관하며 저장하거나 로그로 출력하지 않는다.
-const geminiRateLimits = new Map<string, Map<string, number>>();
-// 2026-09-23 공식 정식 모델 목록 확인. 3.5 Flash-Lite부터 시도한다.
-const GEMINI_MODELS = [
-  'gemini-3.5-flash-lite',
-  DEFAULT_GEMINI_MODEL,
-  'gemini-3.6-flash',
-  'gemini-3.7-flash',
-  'gemini-3.8-flash',
-];
+// 키와 모델별 단기 대기 상태(끝나는 시각과 한도 종류). 메모리에만 보관하며 저장하거나 로그로 출력하지 않는다.
+const geminiRateLimits = new Map<string, Map<string, { until: number; scope: GeminiQuotaScope }>>();
+// 2026-09-23 공식 정식 모델 목록 확인. 3.5 Flash-Lite부터 시도한다(순서와 하루 한도는 ai_usage.ts).
+const GEMINI_MODELS: readonly string[] = GEMINI_MODEL_ORDER;
 
 export type AiCompletionResult = {
   text: string;
@@ -40,6 +34,15 @@ function createGeminiRateLimitError(waitSeconds: number): Error {
   );
   error.name = 'GeminiRateLimitError';
   return error;
+}
+
+// 429 본문은 한도 종류를 읽는 데만 쓰고 저장하거나 화면·로그에 내보내지 않는다.
+async function readErrorBody(res: any): Promise<unknown> {
+  try {
+    return typeof res?.json === 'function' ? await res.json() : null;
+  } catch {
+    return null;
+  }
 }
 
 function createGenerationCancelledError(): Error {
@@ -152,21 +155,24 @@ export async function callUniversalAiCompletion(
 
   // 3. Google Gemini: 3.5 이상 모델만 사용
   for (const [key, limits] of geminiRateLimits) {
-    for (const [model, until] of limits) {
-      if (until <= Date.now()) limits.delete(model);
+    for (const [model, limit] of limits) {
+      if (limit.until <= Date.now()) limits.delete(model);
     }
     if (limits.size === 0) geminiRateLimits.delete(key);
   }
 
   let lastError: any = null;
   let rateLimitError: Error | null = null;
+  // 분당 한도가 하나라도 있으면 곧 다시 시도할 수 있으므로 분당 안내를 우선한다.
+  const rateLimitScopes = new Set<GeminiQuotaScope>();
 
   // 각 후보는 한 요청당 한 번만 시도한다. 429가 나도 다른 모델의 할당량은 별개다.
   for (const model of GEMINI_MODELS) {
     if (signal?.aborted) throw createGenerationCancelledError();
-    const until = geminiRateLimits.get(trimmedKey)?.get(model) ?? 0;
-    if (until > Date.now()) {
-      rateLimitError = createGeminiRateLimitError(Math.ceil((until - Date.now()) / 1000));
+    const cooldown = geminiRateLimits.get(trimmedKey)?.get(model);
+    if (cooldown && cooldown.until > Date.now()) {
+      rateLimitError = createGeminiRateLimitError(Math.ceil((cooldown.until - Date.now()) / 1000));
+      rateLimitScopes.add(cooldown.scope);
       continue;
     }
 
@@ -227,10 +233,13 @@ export async function callUniversalAiCompletion(
 
       if (res.status === 429) {
         const waitSeconds = getRetryAfterSeconds(res.headers.get('retry-after'));
-        const limits = geminiRateLimits.get(trimmedKey) ?? new Map<string, number>();
-        limits.set(model, Date.now() + waitSeconds * 1000);
+        const scope = readGeminiQuotaScope(await readErrorBody(res));
+        const limits = geminiRateLimits.get(trimmedKey) ?? new Map<string, { until: number; scope: GeminiQuotaScope }>();
+        limits.set(model, { until: Date.now() + waitSeconds * 1000, scope });
         geminiRateLimits.set(trimmedKey, limits);
+        if (scope === 'daily') reportAiRequest({ model, outcome: 'daily_exhausted' });
         rateLimitError = createGeminiRateLimitError(waitSeconds);
+        rateLimitScopes.add(scope);
         continue;
       }
 
@@ -240,6 +249,8 @@ export async function callUniversalAiCompletion(
         console.warn(`Gemini 모델 [${model}] 서버 혼잡 (${res.status}) -> 다음 가용 모델 자동 전환`);
         continue;
       }
+
+      if (res.ok) reportAiRequest({ model, outcome: 'processed' });
 
       if (!res.ok) {
         if (res.status === 400) {
@@ -299,7 +310,12 @@ export async function callUniversalAiCompletion(
   }
 
   // 실제 통신 오류가 섞인 경우 전부 사용량 제한이라고 단정하지 않는다.
-  if (!lastError && rateLimitError) throw rateLimitError;
+  if (!lastError && rateLimitError) {
+    (rateLimitError as Error & { quotaScope?: GeminiQuotaScope }).quotaScope = rateLimitScopes.has('minute')
+      ? 'minute'
+      : rateLimitScopes.has('daily') ? 'daily' : 'unknown';
+    throw rateLimitError;
+  }
   const detailedMsg = lastError?.message || '';
   if (detailedMsg.includes('503') || detailedMsg.includes('high demand') || detailedMsg.includes('UNAVAILABLE')) {
     throw new Error('Google Gemini AI 서버가 현재 일시적인 전 세계 트래픽 폭주(503 High Demand) 상태입니다. 약 10~30초 후 다시 시도해 주세요.');

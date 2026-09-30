@@ -480,3 +480,22 @@ test('multiple-choice answer key contradicting its own option rationale is regen
   assert.equal(failed.result.status, 'FAILED');
   assert.match(failed.result.message, /1번 문제의 정답 번호와 보기 설명이 서로 맞지 않아 저장하지 않았습니다/);
 });
+
+test('daily quota exhaustion and app validation failures are explained as such, not as a network failure', async () => {
+  const dailyBody = { error: { code: 429, details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } };
+  const exhausted = harness(async () => ({ ok: false, status: 429, headers: { get: () => '30' }, json: async () => dailyBody }));
+  const quota = await exhausted.generateFactBasedQuestions(args(exhausted));
+  assert.equal(quota.status, 'FAILED');
+  assert.match(quota.message, /오늘 AI 요청 한도를 모두 사용했습니다\. 한국 시간 오후 [45]시에 초기화됩니다/);
+  assert.doesNotMatch(quota.message, /Gemini|429|Google/);
+
+  const tooLongHint = harness(async () => response(providerPayload([question({ deepReasoningHint: '가'.repeat(201) })])));
+  const invalid = await tooLongHint.generateFactBasedQuestions(args(tooLongHint));
+  assert.equal(invalid.status, 'FAILED');
+  assert.match(invalid.message, /1번 문제 힌트가 너무 깁니다/);
+  assert.doesNotMatch(invalid.message, /통신할 수 없습니다/);
+
+  const notJson = harness(async () => ({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: '형식이 아닌 문장' }] } }] }) }));
+  const unparsable = await notJson.generateFactBasedQuestions(args(notJson));
+  assert.match(unparsable.message, /문제 형식 검사를 통과하지 못해 저장하지 않았습니다/);
+});

@@ -5,6 +5,15 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
+function loadAiUsage() {
+  const filename = path.resolve(__dirname, '../src/domain/ai_usage.ts');
+  const module = { exports: {} };
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS },
+  }).outputText, { module, exports: module.exports, JSON, Math, Date }, { filename });
+  return module.exports;
+}
+
 function harness(fetchImpl, noticeAccepted = true) {
   const filename = path.resolve(__dirname, '../src/domain/ai_client.ts');
   const db = fs.readFileSync(path.resolve(__dirname, '../src/data/db.ts'), 'utf8');
@@ -16,12 +25,16 @@ function harness(fetchImpl, noticeAccepted = true) {
   const requests = [];
   let now = Date.now();
   const logs = [];
+  const usage = loadAiUsage();
+  const usageEvents = [];
+  usage.setAiRequestListener((event) => { usageEvents.push({ ...event }); });
   vm.runInNewContext(code, {
     module, exports: module.exports, AbortController, setTimeout, clearTimeout,
     Date: class extends Date { static now() { return now; } },
     console: { warn: (message) => logs.push(message) },
     require: name => name === './ai_data_notice'
       ? { ensureAiDataNoticeAccepted: async () => noticeAccepted }
+      : name === './ai_usage' ? usage
       : { DEFAULT_GEMINI_MODEL: defaultModel },
     fetch: async (url, request) => {
       requests.push({ url, model: url.match(/models\/([^:]+):/)?.[1], request });
@@ -29,7 +42,7 @@ function harness(fetchImpl, noticeAccepted = true) {
     },
   }, { filename });
   return {
-    call: module.exports.callUniversalAiCompletion, requests, logs,
+    call: module.exports.callUniversalAiCompletion, requests, logs, usageEvents,
     advance: (milliseconds) => { now += milliseconds; },
   };
 }
@@ -151,4 +164,33 @@ test('Anthropic key rejects PDF and current-information requests before any netw
   await assert.rejects(h.call('sk-ant-synthetic', 'p', undefined, undefined, { enableGoogleSearch: true }),
     /최신 정보 확인/);
   assert.equal(h.requests.length, 0);
+});
+
+test('successful Gemini responses are counted per model and a daily 429 marks that model as used up', async () => {
+  const dailyBody = { error: { code: 429, details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } };
+  const h = harness((url) => url.includes('3.5-flash-lite:')
+    ? { ok: false, status: 429, headers: { get: () => '30' }, json: async () => dailyBody }
+    : success());
+  await h.call('usage-key', 'prompt');
+  assert.deepEqual(h.usageEvents, [
+    { model: 'gemini-3.5-flash-lite', outcome: 'daily_exhausted' },
+    { model: 'gemini-3.5-flash', outcome: 'processed' },
+  ]);
+});
+
+test('exhausted candidates report whether the daily or per-minute limit was reached, without counting 429s as used requests', async () => {
+  const quotaBody = (quotaId) => ({ error: { code: 429, details: [{ violations: [{ quotaId }] }] } });
+  const allDaily = harness(() => ({ ok: false, status: 429, headers: { get: () => '30' }, json: async () => quotaBody('GenerateRequestsPerDayPerProjectPerModel-FreeTier') }));
+  await assert.rejects(allDaily.call('daily-key', 'prompt'), (error) => error.name === 'GeminiRateLimitError' && error.quotaScope === 'daily');
+  assert.ok(allDaily.usageEvents.every((event) => event.outcome === 'daily_exhausted'));
+
+  const mixed = harness((url) => ({
+    ok: false, status: 429, headers: { get: () => '30' },
+    json: async () => quotaBody(url.includes('3.5-flash-lite:') ? 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' : 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier'),
+  }));
+  await assert.rejects(mixed.call('mixed-key', 'prompt'), (error) => error.quotaScope === 'minute');
+
+  const noBody = harness(() => failure(429));
+  await assert.rejects(noBody.call('plain-key', 'prompt'), (error) => error.quotaScope === 'unknown');
+  assert.deepEqual(noBody.usageEvents, []);
 });

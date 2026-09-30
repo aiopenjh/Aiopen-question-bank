@@ -35,6 +35,7 @@ import {
 import { MAX_ESSAY_ANSWER_LENGTH, findContradictoryAnswerKey, readOptionalText, validateGeneratedQuestions } from './generator_validation';
 import type { GeneratedQuestionInput } from './generator_validation';
 import { findUnverifiableSubjective } from './subjective_suitability';
+import { describeRateLimit } from './ai_usage';
 
 // 100% 하위 호환성을 위한 re-export
 export {
@@ -102,6 +103,8 @@ class GenerationContentError extends Error {
     this.name = 'GenerationContentError';
   }
 }
+
+const INVALID_RESPONSE_MESSAGE = 'AI 응답이 문제 형식 검사를 통과하지 못해 저장하지 않았습니다. 다시 출제해 주세요.';
 
 const inFlightGenerations = new Map<string, Promise<GenerationOutcome>>();
 
@@ -235,7 +238,7 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
       safeMessage = '문제 출제가 취소되었습니다.';
       failureCategory = 'cancelled';
     } else if (err?.name === 'GeminiRateLimitError') {
-      safeMessage = 'AI 호출에 실패했습니다. 잠시 기다린 뒤 다시 시도해 주세요.';
+      safeMessage = describeRateLimit(err.quotaScope);
       failureCategory = 'rate_limited';
     }
     // 원본 예외에는 API 키, 요청 URL, 제공자 응답 등이 섞일 수 있어 기록하지 않는다.
@@ -335,7 +338,12 @@ async function generateViaUniversalAiApi(params: {
       documentInput,
       { enableGoogleSearch: currentInformationRequired }
     );
-    const parsed = parseAiJsonResponse<unknown>(completion.text);
+    let parsed: unknown;
+    try {
+      parsed = parseAiJsonResponse<unknown>(completion.text);
+    } catch {
+      throw new GenerationContentError(INVALID_RESPONSE_MESSAGE);
+    }
     const intentDecision = readStudyIntentDecision(parsed);
     if (intentDecision.status !== 'READY') {
       return {
@@ -348,14 +356,23 @@ async function generateViaUniversalAiApi(params: {
         clarificationChoices: intentDecision.clarificationChoices || [],
       };
     }
-    generatedQuestions = validateGeneratedQuestions(
-      parsed,
-      intent.targetCount,
-      currentInformationRequired,
-      referenceDate,
-      completion.groundingSources.length > 0,
-      true
-    );
+    try {
+      generatedQuestions = validateGeneratedQuestions(
+        parsed,
+        intent.targetCount,
+        currentInformationRequired,
+        referenceDate,
+        completion.groundingSources.length > 0,
+        true
+      );
+    } catch (validationError: any) {
+      // 앱 검사가 만든 안내만 보여 준다. 네트워크 오류처럼 보이지 않게 형식 문제임을 알린다.
+      throw new GenerationContentError(
+        typeof validationError?.message === 'string' && validationError.message.startsWith('AI ')
+          ? validationError.message
+          : INVALID_RESPONSE_MESSAGE
+      );
+    }
     if (!matchesQuestionTypePlan(generatedQuestions, questionTypePlan)) {
       throw new GenerationContentError('AI가 추첨된 문제 유형을 따르지 않았습니다. 다시 출제해 주세요.');
     }

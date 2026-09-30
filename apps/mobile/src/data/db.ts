@@ -335,6 +335,8 @@ export async function saveRoutine(routine: RoutineRevision): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.ROUTINE, JSON.stringify(routine));
 }
 
+export { getAiRequestUsage, recordAiRequest } from './repositories/ai_usage_repository';
+
 export async function clearAllData(): Promise<void> {
   await deleteEncryptedApiKey();
   await AsyncStorage.clear();

@@ -32,6 +32,7 @@ export const STORAGE_KEYS = {
   RANKING_RECOVERY_SEED: '@celueste:ranking_recovery_seed',
   ATTEMPT_CORRECTIONS: '@celueste:attempt_corrections',
   AI_DATA_NOTICE: '@celueste:ai_data_notice_version',
+  AI_REQUEST_USAGE: '@celueste:ai_request_usage',
 };
 
 export const CURRENT_DB_VERSION = 4;

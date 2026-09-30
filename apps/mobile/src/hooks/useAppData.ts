@@ -18,6 +18,7 @@ import {
 } from '../contracts/types';
 import {
   initializeDatabase,
+  recordAiRequest,
   getRoutine,
   saveRoutine,
   getTopics,
@@ -43,6 +44,7 @@ import {
   getCurrentISOTime,
 } from '../data/db';
 import { GeneratedUnitItem, generateCurriculumPlan } from '../domain/curriculum_generator';
+import { setAiRequestListener } from '../domain/ai_usage';
 import {
   AlarmConfig,
   DEFAULT_ALARM_CONFIG,
@@ -77,6 +79,12 @@ export function useAppData(callbacks?: {
 
   useEffect(() => {
     loadAppData();
+  }, []);
+
+  useEffect(() => {
+    // 실제 AI 요청이 끝날 때마다 오늘 사용량을 이 기기에 기록한다(한도 안내용, 요청은 막지 않음).
+    setAiRequestListener((event) => recordAiRequest(event));
+    return () => setAiRequestListener(null);
   }, []);
 
   async function loadAppData(isPullRefresh: boolean = false) {
