@@ -500,3 +500,13 @@ test('daily quota exhaustion and app validation failures are explained as such, 
   const unparsable = await notJson.generateFactBasedQuestions(args(notJson));
   assert.match(unparsable.message, /AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요/);
 });
+
+test('format-check failure reasons go only to the developer log, never to the on-screen message', async () => {
+  const logs = [];
+  const generator = harness(async () => response(providerPayload([question({ deepReasoningHint: '가'.repeat(201) })])), { logs });
+  const result = await generator.generateFactBasedQuestions(args(generator));
+  assert.equal(result.status, 'FAILED');
+  assert.doesNotMatch(result.message, /힌트가 너무 깁니다/);
+  assert.match(logs.join('\n'), /AI 출제 형식 검사 실패: AI 응답의 1번 문제 힌트가 너무 깁니다/);
+  assert.doesNotMatch(logs.join('\n'), /AIza-synthetic-key/);
+});

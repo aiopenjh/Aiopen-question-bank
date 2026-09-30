@@ -107,6 +107,15 @@ class GenerationContentError extends Error {
 // 응답 형식 검사에 걸린 세부 사유(예: 힌트 길이)는 내부 검사용이라 화면에는 요청 실패와 재요청 안내만 보인다.
 const INVALID_RESPONSE_MESSAGE = 'AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요.';
 
+/**
+ * 형식 검사 실패 사유를 개발자 기록(콘솔)에만 남기고 화면용 오류를 만든다.
+ * 사유는 앱 검사 코드가 만든 문장이며 API 키·요청 주소·공급자 응답 원문은 넣지 않는다.
+ */
+function invalidResponse(reason: string): GenerationContentError {
+  console.warn(`AI 출제 형식 검사 실패: ${reason.slice(0, 200)}`);
+  return new GenerationContentError(INVALID_RESPONSE_MESSAGE);
+}
+
 const inFlightGenerations = new Map<string, Promise<GenerationOutcome>>();
 
 function getGenerationRequestKey(params: GenerationParams): string {
@@ -342,8 +351,12 @@ async function generateViaUniversalAiApi(params: {
     let parsed: unknown;
     try {
       parsed = parseAiJsonResponse<unknown>(completion.text);
-    } catch {
-      throw new GenerationContentError(INVALID_RESPONSE_MESSAGE);
+    } catch (parseError: any) {
+      // 원인 구분용 진단: 종료 사유(잘림 여부), 응답 길이, 해석 오류 종류만 남기고 응답 원문은 남기지 않는다.
+      const parseDetail = String(parseError?.message || '').replace(/"[^"]*"/g, '"…"').slice(0, 80);
+      throw invalidResponse(
+        `응답을 JSON으로 해석할 수 없음(종료 사유 ${completion.finishReason ?? '알 수 없음'}, 길이 ${completion.text.length}자, ${parseDetail})`
+      );
     }
     const intentDecision = readStudyIntentDecision(parsed);
     if (intentDecision.status !== 'READY') {
@@ -366,8 +379,8 @@ async function generateViaUniversalAiApi(params: {
         completion.groundingSources.length > 0,
         true
       );
-    } catch {
-      throw new GenerationContentError(INVALID_RESPONSE_MESSAGE);
+    } catch (validationError: any) {
+      throw invalidResponse(typeof validationError?.message === 'string' ? validationError.message : '문항 검사 실패');
     }
     if (!matchesQuestionTypePlan(generatedQuestions, questionTypePlan)) {
       throw new GenerationContentError('AI가 추첨된 문제 유형을 따르지 않았습니다. 다시 출제해 주세요.');
@@ -377,7 +390,9 @@ async function generateViaUniversalAiApi(params: {
     const unsuitable = findUnverifiableSubjective(generatedQuestions);
     if (contradictoryAnswerKey === null && unsuitable === null) break;
     if (attempt >= 2) {
-      if (contradictoryAnswerKey !== null) throw new GenerationContentError(INVALID_RESPONSE_MESSAGE);
+      if (contradictoryAnswerKey !== null) {
+        throw invalidResponse(`${contradictoryAnswerKey}번 문제 정답 번호와 보기 설명 불일치(재요청 후에도 반복)`);
+      }
       throw new GenerationContentError(
         `객관적으로 채점할 수 있는 주관식 문제를 만들지 못했습니다(${unsuitable}번 문제가 의견·가치판단형이거나 채점 기준이 주관적입니다). 단원이나 요청을 더 구체적으로 정하거나 문제 유형을 바꿔 다시 출제해 주세요.`
       );

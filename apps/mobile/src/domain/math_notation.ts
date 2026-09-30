@@ -39,6 +39,36 @@ export const MATH_SYMBOL_MAP: Record<string, string> = {
   forall: '∀', exists: '∃', emptyset: '∅', sqrt: '√',
 };
 
+/**
+ * \b \f \n \r \t로 시작해 JSON 이스케이프와 겹치는 LaTeX 명령 이름(역슬래시 뒤 단어 전체).
+ * AI 응답 해석(ai_client)과 이미 저장된 수식 복원(아래)이 같은 목록을 쓴다.
+ */
+export const LATEX_COMMANDS_WITH_ESCAPE_LETTER: ReadonlySet<string> = new Set([
+  'frac', 'forall', 'beta', 'bar', 'binom', 'bigcup', 'bigcap', 'bot', 'bullet',
+  'neq', 'ne', 'nu', 'nabla', 'notin', 'not', 'neg', 'nexists',
+  'rho', 'right', 'rangle', 'rightarrow', 'rfloor', 'rceil',
+  'times', 'theta', 'tau', 'to', 'text', 'tan', 'triangle', 'tilde', 'top', 'therefore',
+]);
+
+const CONTROL_TO_LETTER: Record<string, string> = { '\b': 'b', '\f': 'f', '\n': 'n', '\r': 'r', '\t': 't' };
+
+/**
+ * 역슬래시를 한 번만 적은 AI 응답 때문에 \times가 탭+"imes"처럼 저장된 수식을 화면에서 되살린다.
+ * $...$ 안에서 제어 문자 뒤에 알려진 명령 이름이 이어질 때만 바꾸며 저장된 원문은 고치지 않는다.
+ */
+function restoreLatexControlChars(input: string): string {
+  if (!input.includes('$') || !/[\b\f\n\r\t]/.test(input)) return input;
+  return input
+    .split('$')
+    .map((part, index) => (index % 2 === 1
+      ? part.replace(/([\b\f\n\r\t])([A-Za-z]+)/g, (whole, control: string, rest: string) => {
+          const word = CONTROL_TO_LETTER[control] + rest;
+          return LATEX_COMMANDS_WITH_ESCAPE_LETTER.has(word) ? `\\${word}` : whole;
+        })
+      : part))
+    .join('$');
+}
+
 const SYMBOL_RE = /\\([A-Za-z]+)/g;
 const BAR_RE = /\\bar\{([^{}]*)\}/g;
 // 위/아래첨자 지시자: 중괄호 묶음 또는 영숫자/부호 1글자.
@@ -152,7 +182,7 @@ function extractBraceGroup(input: string, openBraceIndex: number): { content: st
  * 재귀적으로 다시 파싱되므로 중첩된 분수·제곱근도 올바르게 트리로 표현된다.
  */
 export function parseMathText(input: string): MathBlock[] {
-  return parseBlocks(protectCodeUnderscoresOutsideMath(protectInlineCode(input)));
+  return parseBlocks(protectCodeUnderscoresOutsideMath(protectInlineCode(restoreLatexControlChars(input))));
 }
 
 function parseBlocks(input: string): MathBlock[] {

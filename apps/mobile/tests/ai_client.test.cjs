@@ -5,8 +5,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function loadAiUsage() {
-  const filename = path.resolve(__dirname, '../src/domain/ai_usage.ts');
+function loadDomain(name) {
+  const filename = path.resolve(__dirname, `../src/domain/${name}.ts`);
   const module = { exports: {} };
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS },
@@ -25,7 +25,8 @@ function harness(fetchImpl, noticeAccepted = true) {
   const requests = [];
   let now = Date.now();
   const logs = [];
-  const usage = loadAiUsage();
+  const usage = loadDomain('ai_usage');
+  const mathNotation = loadDomain('math_notation');
   const usageEvents = [];
   usage.setAiRequestListener((event) => { usageEvents.push({ ...event }); });
   vm.runInNewContext(code, {
@@ -35,6 +36,7 @@ function harness(fetchImpl, noticeAccepted = true) {
     require: name => name === './ai_data_notice'
       ? { ensureAiDataNoticeAccepted: async () => noticeAccepted }
       : name === './ai_usage' ? usage
+      : name === './math_notation' ? mathNotation
       : { DEFAULT_GEMINI_MODEL: defaultModel },
     fetch: async (url, request) => {
       requests.push({ url, model: url.match(/models\/([^:]+):/)?.[1], request });
@@ -42,7 +44,7 @@ function harness(fetchImpl, noticeAccepted = true) {
     },
   }, { filename });
   return {
-    call: module.exports.callUniversalAiCompletion, describe: module.exports.describeAiFailureForUser, requests, logs, usageEvents,
+    call: module.exports.callUniversalAiCompletion, describe: module.exports.describeAiFailureForUser, parse: module.exports.parseAiJsonResponse, requests, logs, usageEvents,
     advance: (milliseconds) => { now += milliseconds; },
   };
 }
@@ -235,4 +237,22 @@ test('user-facing AI failure text never names a model, provider, or error code',
   }
   assert.match(describe(cases[5]), /API 키가 유효하지 않습니다\. 설정에서 API 키를 확인해 주세요/);
   assert.equal(describe(new Error('PDF 분석을 지원하는 AI 연결이 필요합니다.')), 'PDF 분석을 지원하는 AI 연결이 필요합니다.');
+});
+
+test('AI JSON with single-backslash LaTeX is repaired without touching real newlines, tabs or escapes', () => {
+  const h = harness(() => success());
+  const parse = h.parse;
+  // JSON 원문: 역슬래시를 한 번만 적은 LaTeX(\sqrt, \le는 해석 실패, \frac, \times는 글자가 몰래 바뀌는 경우)
+  const single = String.raw`{"stem":"$\sqrt{2} \le \frac{3}{2} \times 1$","e":"줄1\n줄2\t끝","code":"u = 1\nu = 2","q":"\"인용\"","hex":"é","bad":"\underline{x}"}`;
+  const parsed = parse(single);
+  assert.equal(parsed.stem, String.raw`$\sqrt{2} \le \frac{3}{2} \times 1$`);
+  assert.equal(parsed.e, '줄1\n줄2\t끝');
+  assert.equal(parsed.code, 'u = 1\nu = 2', '수식 밖의 \n은 줄바꿈 그대로(\nu로 오인하지 않음)');
+  assert.equal(parsed.q, '"인용"');
+  assert.equal(parsed.hex, 'é');
+  assert.equal(parsed.bad, String.raw`\underline{x}`);
+  // 역슬래시를 올바르게 두 번 쓴 JSON은 그대로 해석된다.
+  const doubled = String.raw`{"stem":"$\frac{1}{2} + \sqrt{3}$"}`;
+  assert.equal(parse(doubled).stem, String.raw`$\frac{1}{2} + \sqrt{3}$`);
+  assert.equal(parse('```json\n{"a":1}\n```').a, 1);
 });

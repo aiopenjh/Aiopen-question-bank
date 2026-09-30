@@ -160,3 +160,13 @@ test('math_notation: 한 글자·중괄호 첨자와 $ 안의 첨자는 기존�
   const frac = mod.parseMathText('$\\frac{SS_E}{df}$').find((block) => block.type === 'frac');
   assert.ok(frac.numerator[0].nodes.some((node) => node.type === 'sub' && node.value === 'E'));
 });
+
+test('math_notation: 역슬래시가 빠져 탭·폼피드로 저장된 수식 명령은 $ 안에서만 되살린다', () => {
+  const flat = (text) => flatten(mod.parseMathText(text));
+  // 저장된 원문: \times → 탭+"imes", \frac → 폼피드+"rac" (이전 버전 AI 응답 해석 결과)
+  assert.equal(flat('$3 \timesimes 2$'.replace('\timesimes', '\t' + 'imes')), '3 × 2');
+  assert.equal(flat('$' + '\f' + 'rac{1}{2}$'), '1/2');
+  // $ 밖의 탭·줄바꿈과, 명령 이름이 아닌 단어는 그대로 둔다.
+  assert.equal(flat('줄1\n줄2'), '줄1\n줄2');
+  assert.equal(flat('$a' + '\t' + 'xyz$'), 'a\txyz');
+});

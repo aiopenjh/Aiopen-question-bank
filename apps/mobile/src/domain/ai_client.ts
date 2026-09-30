@@ -6,6 +6,8 @@
 import { AiDocumentInput } from '../contracts/types';
 import { ensureAiDataNoticeAccepted } from './ai_data_notice';
 import { GEMINI_MODEL_ORDER, GeminiQuotaScope, describeRateLimit, readGeminiQuotaScope, reportAiRequest } from './ai_usage';
+// \b \f \n \r \t로 시작해 JSON 이스케이프와 겹치는 LaTeX 명령. $...$ 수식 안에서만 명령으로 본다.
+import { LATEX_COMMANDS_WITH_ESCAPE_LETTER } from './math_notation';
 
 // 키와 모델별 단기 대기 상태(끝나는 시각과 한도 종류). 메모리에만 보관하며 저장하거나 로그로 출력하지 않는다.
 const geminiRateLimits = new Map<string, Map<string, { until: number; scope: GeminiQuotaScope }>>();
@@ -15,6 +17,8 @@ const GEMINI_MODELS: readonly string[] = GEMINI_MODEL_ORDER;
 export type AiCompletionResult = {
   text: string;
   groundingSources: Array<{ title: string; uri: string }>;
+  /** Gemini 응답 종료 사유(예: MAX_TOKENS면 길이 제한으로 잘림). 진단 기록용. */
+  finishReason?: string;
 };
 
 function getRetryAfterSeconds(headerValue: string | null): number {
@@ -81,6 +85,54 @@ function createAiDataNoticeDeclinedError(): Error {
 /**
  * AI JSON 응답 파싱 유틸리티 (마크다운 백틱 제거)
  */
+
+/**
+ * AI가 JSON 문자열 안에 LaTeX 역슬래시를 한 번만 적은 경우를 바로잡는다.
+ * - \sqrt, \le처럼 JSON에서 허용되지 않는 이스케이프는 항상 역슬래시 글자로 남긴다(그대로면 해석 실패).
+ * - \frac, \times처럼 JSON 이스케이프(\f, \t)로도 읽히는 명령은 $...$ 수식 안에서만 역슬래시 글자로 남긴다.
+ *   수식 밖의 \n(줄바꿈), \t(탭)는 그대로 둔다(코드블록 줄바꿈 보존).
+ */
+export function escapeLatexBackslashes(json: string): string {
+  let out = '';
+  let inString = false;
+  let inMath = false;
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i];
+    if (ch === '"') {
+      inString = !inString;
+      if (!inString) inMath = false;
+      out += ch;
+      continue;
+    }
+    if (!inString || ch !== '\\') {
+      if (inString && ch === '$') inMath = !inMath;
+      out += ch;
+      continue;
+    }
+    const next = json[i + 1];
+    if (next === '\\' || next === '"' || next === '/') {
+      out += ch + next;
+      i++;
+      continue;
+    }
+    if (next === 'u' && /^[0-9a-fA-F]{4}$/.test(json.slice(i + 2, i + 6))) {
+      out += json.slice(i, i + 6);
+      i += 5;
+      continue;
+    }
+    if (next !== undefined && 'bfnrt'.includes(next)) {
+      const word = /^[A-Za-z]+/.exec(json.slice(i + 1))?.[0] ?? '';
+      if (!(inMath && LATEX_COMMANDS_WITH_ESCAPE_LETTER.has(word))) {
+        out += ch + next;
+        i++;
+        continue;
+      }
+    }
+    out += '\\\\';
+  }
+  return out;
+}
+
 export function parseAiJsonResponse<T>(rawText: string): T {
   let cleaned = rawText.trim();
   if (cleaned.startsWith('```json')) {
@@ -91,7 +143,7 @@ export function parseAiJsonResponse<T>(rawText: string): T {
   if (cleaned.endsWith('```')) {
     cleaned = cleaned.slice(0, -3);
   }
-  return JSON.parse(cleaned.trim());
+  return JSON.parse(escapeLatexBackslashes(cleaned.trim()));
 }
 
 /**
@@ -235,7 +287,7 @@ export async function callUniversalAiCompletion(
           ...(options?.enableGoogleSearch ? { tools: [{ google_search: {} }] } : {}),
           generationConfig: {
             responseMimeType: 'application/json',
-            maxOutputTokens: 8192,
+            maxOutputTokens: 16384,
             temperature: 0.2, // 환각(Hallucination) 방지를 위한 엄격한 결정론적 온도 설정
           },
         }),
@@ -297,7 +349,11 @@ export async function callUniversalAiCompletion(
             .filter((web: any) => typeof web?.uri === 'string' && typeof web?.title === 'string')
             .map((web: any) => ({ title: web.title, uri: web.uri }))
         : [];
-      return { text: rawJson, groundingSources };
+      return {
+        text: rawJson,
+        groundingSources,
+        ...(typeof candidate?.finishReason === 'string' ? { finishReason: candidate.finishReason } : {}),
+      };
     } catch (err: any) {
       if (timeoutTimer) clearTimeout(timeoutTimer);
       if (signal && externalAbortHandler) {
