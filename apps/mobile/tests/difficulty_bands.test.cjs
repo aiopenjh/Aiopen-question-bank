@@ -157,3 +157,20 @@ test('cloze_display: 수·식 답만 있으면 수·식 안내, 명칭형 답이
   assert.equal(cloze.getClozeAnswerNotice(blanks(['2'], ['시·도경찰청장'])), cloze.CLOZE_NAME_NOTICE);
   assert.equal(cloze.getClozeAnswerNotice([]), cloze.CLOZE_NAME_NOTICE);
 });
+
+test('prompts: 레벨 16부터 내용 깊이 규칙과 극단 표현 오답 금지를 넣고, 검산 규칙은 모든 레벨에 넣는다', () => {
+  const low = promptFor(15, ['multiple_choice', 'short_answer']);
+  assert.ok(!low.includes('지문을 길게 늘이거나'));
+  assert.ok(!low.includes('극단적인 표현'));
+
+  const high = promptFor(30, ['multiple_choice', 'short_answer']);
+  assert.match(high, /지문을 길게 늘이거나 표현만 어렵게 바꾸는 방식으로 난이도를 올리지 않습니다/);
+  assert.match(high, /기초 용어 하나만 묻는 문제는 내지 않습니다/);
+  assert.match(high, /'항상', '절대', '반드시', '모든', '예외 없는'/);
+  // 객관식을 출제하지 않으면 오답 보기 규칙은 넣지 않는다.
+  assert.ok(!promptFor(30, ['essay']).includes('극단적인 표현'));
+
+  for (const level of [1, 16, 31]) {
+    assert.match(promptFor(level, ['short_answer']), /16\. 계산이나 여러 단계 풀이가 필요한 문제는 정답.*다시 계산해 검산/);
+  }
+});
