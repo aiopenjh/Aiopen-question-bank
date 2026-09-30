@@ -1,5 +1,19 @@
 # Claude 구현 보고서
 
+## 작업 ID `difficulty-bands-20260930` — Codex 최종 검토 잔여 2건 재수정
+
+- 커밋 `f44e919`(기준: Codex 2차 검토 HEAD `eb44338`, 코드 `7ccf06a`). push·병합·배포·APK 빌드 없음.
+- 검증: Windows `cmd.exe /c npx tsc --noEmit` 오류 0, 앱 테스트 **279개 통과·실패 0**(276 → 279).
+
+| 잔여 | 수정 | 회귀 테스트 |
+| --- | --- | --- |
+| R1 잔여: 코드블록 앞뒤 `$`가 코드 안 줄바꿈 복원을 켬 | `findMathSpans`가 코드블록·인라인 코드를 경계로 문장을 나눈 뒤 각 조각 안에서만 `$`를 짝짓는다. 수식 구간이 코드를 가로지르지 않는다. 백틱이 든 구간(줄바꿈이 낀 코드 조각)도 수식으로 보지 않는다. 해석 후 단계와 화면 복원이 같은 함수를 쓴다 | `ai_client.test.cjs`: Codex 반례(`Costs $5` + Python 코드블록 첫 줄 `abla = 1` + `and $3.`)와 줄바꿈 낀 인라인 코드가 그대로 보존. 코드블록 앞뒤의 실제 수식 구간은 각각 복원 |
+| R2 잔여: 태평양 자정 직후 전날 하루 한도 대기 | 서버가 알린 하루 한도(PerDay)는 날짜를 가진 기록(`geminiDailyExhausted`)으로만 처리하고 짧은 대기 기록(`geminiRateLimits`)에는 넣지 않는다. 분당·분류 불가 제한의 Retry-After 대기와 키별 분리는 그대로 | `ai_client.test.cjs`: 06:59:50Z(태평양 23:59:50) 하루 한도 → 5초 뒤 요청 없음 → 07:00:10Z(태평양 00:00:10) 바로 5개 모델 재시도. 분당 제한은 30초 대기 동안 요청 없음·대기 뒤 재시도 |
+
+- 검토 반복 2회 한도에 도달했다(`docs/ai-handoff/README.md` 공통 규칙 6). 추가 Codex 검토 여부와 main 반영·배포는 사용자 결정 사항이다.
+
+---
+
 ## 작업 ID `difficulty-bands-20260930` — Codex 1차 검토 재수정 (R1~R6)
 
 - 브랜치 `feature/difficulty-bands`, 재수정 커밋 `7ccf06a`(기준: Codex 검토 HEAD `48fab29`, 코드 `e3f958c`). push·병합·배포·APK 빌드 없음.
