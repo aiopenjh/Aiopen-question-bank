@@ -289,7 +289,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
             <Text style={styles.privacyNote}>
               {selectedDifficulty >= CHALLENGE_START_LEVEL
                 ? '순차 도전은 3문제로 고정됩니다.'
-                : 'API 요청 제한을 줄이기 위해 한 번에 3~5문항을 권장하며, 하루 누적 15문항을 넘기면 추가 확인을 받습니다.'}
+                : 'API 요청 제한을 줄이기 위해 한 번에 3~5문항을 권장합니다.'}
             </Text>
             <View style={styles.countList}>
               {COUNT_OPTIONS.filter(item => selectedDifficulty < CHALLENGE_START_LEVEL || item.count === 3).map((item) => (

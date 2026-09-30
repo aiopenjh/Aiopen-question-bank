@@ -20,17 +20,9 @@ import {
 import { showAlert } from '../utils/alert';
 import { difficultyToLegacyLevel, legacyLevelToDifficulty } from '../domain/difficulty';
 import { buildUnitGenerationContext, formatIntentMessage, pickOverviewUnitTitles } from './quizGenerationContext';
-import { getLocalDateString } from '../domain/routine';
 import { CHALLENGE_START_LEVEL, getUnlockedChallengeLevel } from '../domain/challenge_progress';
 import type { ExamStartOptions } from './useExamSession';
 import type { QuestionTypeMode } from '../domain/question_type_plan';
-
-const DAILY_FREE_QUESTION_GUIDE = 15;
-
-function isCreatedToday(createdAt: string): boolean {
-  const date = new Date(createdAt);
-  return Number.isNaN(date.getTime()) ? false : getLocalDateString(date) === getLocalDateString();
-}
 
 export interface GeneratingWaitStatus {
   active: boolean;
@@ -95,7 +87,6 @@ export function useQuizGeneration({
   // 문제 출제 취소 제어용 ref
   const abortRef = useRef(false);
   const requestControllerRef = useRef<AbortController | null>(null);
-  const budgetOverrideRef = useRef(false);
 
   const handleCancelGeneration = useCallback(() => {
     abortRef.current = true;
@@ -310,46 +301,13 @@ export function useQuizGeneration({
       setQuizCountModalVisible(false);
       if (!pendingQuizUnit) return;
       const { topicId, topicName, unitId, unitTitle } = pendingQuizUnit;
-      const todayCount = questions.filter((question) => isCreatedToday(question.createdAt)).length;
-      if (todayCount + count > DAILY_FREE_QUESTION_GUIDE) {
-        showAlert(
-          '오늘의 무료 사용 기준 안내',
-          `오늘 생성한 문제는 ${todayCount}개입니다. ${count}문제를 추가하면 하루 권장 기준인 ${DAILY_FREE_QUESTION_GUIDE}문제를 넘습니다.\n\n추가 생성은 연결된 AI 서비스의 무료 할당량을 사용하거나 429 제한이 발생할 수 있습니다.`,
-          [
-            { text: '오늘은 그만 생성', style: 'cancel' },
-            {
-              text: '추가 생성',
-              onPress: () => handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options, pendingQuizUnit.allowInitialDifficultySelection === true),
-            },
-          ]
-        );
-        return;
-      }
+      // 하루 생성 개수로 막지 않는다. 한도는 사용자가 연결한 AI 서비스의 할당량이 정한다.
       await handleQuickGenerateForUnit(topicId, topicName, unitId, unitTitle, count, options, pendingQuizUnit.allowInitialDifficultySelection === true);
     },
-    [pendingQuizUnit, handleQuickGenerateForUnit, questions]
+    [pendingQuizUnit, handleQuickGenerateForUnit]
   );
 
   const handleGenerateMoreQuestions = useCallback(async () => {
-    const todayCount = questions.filter((question) => isCreatedToday(question.createdAt)).length;
-    if (!budgetOverrideRef.current && todayCount + 3 > DAILY_FREE_QUESTION_GUIDE) {
-      showAlert(
-        '오늘의 무료 사용 기준 안내',
-        `오늘 생성한 문제는 ${todayCount}개입니다. 추가 출제 시 하루 권장 기준인 ${DAILY_FREE_QUESTION_GUIDE}문제를 넘고 연결된 AI 서비스의 무료 할당량 또는 429 제한에 영향을 줄 수 있습니다.`,
-        [
-          { text: '오늘은 그만 생성', style: 'cancel' },
-          {
-            text: '추가 생성',
-            onPress: () => {
-              budgetOverrideRef.current = true;
-              void handleGenerateMoreQuestions();
-            },
-          },
-        ]
-      );
-      return;
-    }
-    budgetOverrideRef.current = false;
     const currentTopic =
       topics.find((t) => t.id === selectedTopicId) ||
       topics.find((t) => t.id === lastStudiedTopicId) ||
