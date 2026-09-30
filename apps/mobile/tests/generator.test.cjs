@@ -450,7 +450,7 @@ test('multiple-choice answer key contradicting its own option rationale is regen
     correctOptionNumber: 1,
     options: [
       { text: '3', distractorRationale: '오답입니다. 2+2는 3이 아닙니다.' },
-      { text: '4', distractorRationale: '정답입니다. 2에 2를 더하면 4입니다.' },
+      { text: '4', distractorRationale: '이 보기가 정답이에요. 2에 2를 더하면 4입니다.' },
       { text: '5', distractorRationale: '하나 더 셌습니다.' },
       { text: '6', distractorRationale: '두 번 더했습니다.' },
     ],

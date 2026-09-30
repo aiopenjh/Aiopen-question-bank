@@ -614,8 +614,12 @@ test('daily AI request usage is counted per model, reset each Pacific day, kept 
   assert.deepEqual(JSON.parse(JSON.stringify((await session.db.getAiRequestUsage(day1)).counts)), {
     'gemini-3.5-flash-lite': 2, 'gemini-3.5-flash': 1,
   });
+  // 한도 소진 알림은 횟수를 부풀리지 않고 따로 기록한다.
   await session.db.recordAiRequest({ model: 'gemini-3.8-flash', outcome: 'daily_exhausted' }, day1);
-  assert.equal((await session.db.getAiRequestUsage(day1)).counts['gemini-3.8-flash'], 20);
+  await session.db.recordAiRequest({ model: 'gemini-3.8-flash', outcome: 'daily_exhausted' }, day1);
+  const afterExhausted = await session.db.getAiRequestUsage(day1);
+  assert.equal(afterExhausted.counts['gemini-3.8-flash'], undefined);
+  assert.deepEqual(Array.from(afterExhausted.exhausted), ['gemini-3.8-flash']);
 
   const nextDay = new Date('2026-09-30T08:00:00Z');
   assert.deepEqual(JSON.parse(JSON.stringify((await session.db.getAiRequestUsage(nextDay)).counts)), {});

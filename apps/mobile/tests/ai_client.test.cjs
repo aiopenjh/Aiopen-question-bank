@@ -194,3 +194,25 @@ test('exhausted candidates report whether the daily or per-minute limit was reac
   await assert.rejects(noBody.call('plain-key', 'prompt'), (error) => error.quotaScope === 'unknown');
   assert.deepEqual(noBody.usageEvents, []);
 });
+
+test('a daily 429 mixed with an unclassified 429 is not reported as a used-up day, and timed-out requests are counted', async () => {
+  const dailyBody = { error: { code: 429, details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } };
+  const mixed = harness((url) => url.includes('3.5-flash-lite:')
+    ? { ok: false, status: 429, headers: { get: () => '30' }, json: async () => dailyBody }
+    : failure(429));
+  await assert.rejects(mixed.call('mixed-unknown-key', 'prompt'), (error) => error.quotaScope === 'unknown');
+
+  const timeout = harness((url) => {
+    if (url.includes('3.5-flash-lite:')) {
+      const error = new Error('The operation was aborted');
+      error.name = 'AbortError';
+      throw error;
+    }
+    return success();
+  });
+  await timeout.call('timeout-key', 'prompt');
+  assert.deepEqual(timeout.usageEvents, [
+    { model: 'gemini-3.5-flash-lite', outcome: 'processed' },
+    { model: 'gemini-3.5-flash', outcome: 'processed' },
+  ]);
+});

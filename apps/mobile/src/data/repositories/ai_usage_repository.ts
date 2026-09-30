@@ -4,12 +4,7 @@
  */
 import AsyncStorage from '../app_storage';
 import { STORAGE_KEYS } from '../storage_keys';
-import {
-  AiRequestEvent,
-  AiRequestUsage,
-  GEMINI_DAILY_REQUEST_LIMITS,
-  getAiQuotaDay,
-} from '../../domain/ai_usage';
+import { AiRequestEvent, AiRequestUsage, getAiQuotaDay } from '../../domain/ai_usage';
 
 let writeQueue: Promise<void> = Promise.resolve();
 
@@ -21,12 +16,15 @@ function readUsage(raw: string | null, day: string): AiRequestUsage {
       for (const [model, value] of Object.entries(parsed.counts as Record<string, unknown>)) {
         if (typeof value === 'number' && Number.isFinite(value) && value > 0) counts[model] = Math.floor(value);
       }
-      return { day, counts };
+      const exhausted = Array.isArray(parsed.exhausted)
+        ? parsed.exhausted.filter((model: unknown): model is string => typeof model === 'string')
+        : [];
+      return { day, counts, exhausted };
     }
   } catch {
     // 손상된 기록은 새 날짜 기록으로 다시 시작한다.
   }
-  return { day, counts: {} };
+  return { day, counts: {}, exhausted: [] };
 }
 
 export async function getAiRequestUsage(now: Date = new Date()): Promise<AiRequestUsage> {
@@ -37,11 +35,14 @@ export async function getAiRequestUsage(now: Date = new Date()): Promise<AiReque
 export function recordAiRequest(event: AiRequestEvent, now: Date = new Date()): Promise<void> {
   const run = writeQueue.then(async () => {
     const usage = readUsage(await AsyncStorage.getItem(STORAGE_KEYS.AI_REQUEST_USAGE), getAiQuotaDay(now));
-    const current = usage.counts[event.model] ?? 0;
-    // 서버가 오늘 한도 소진을 알리면 이 기기에서 센 횟수가 적어도 한도에 닿은 것으로 맞춘다.
-    usage.counts[event.model] = event.outcome === 'daily_exhausted'
-      ? Math.max(current, GEMINI_DAILY_REQUEST_LIMITS[event.model] ?? current)
-      : current + 1;
+    if (event.outcome === 'daily_exhausted') {
+      // 한도 소진은 횟수와 따로 기록해 안내 문구에는 이 기기에서 실제로 보낸 횟수만 보인다.
+      const exhausted = new Set(usage.exhausted ?? []);
+      exhausted.add(event.model);
+      usage.exhausted = Array.from(exhausted);
+    } else {
+      usage.counts[event.model] = (usage.counts[event.model] ?? 0) + 1;
+    }
     await AsyncStorage.setItem(STORAGE_KEYS.AI_REQUEST_USAGE, JSON.stringify(usage));
   });
   writeQueue = run.catch(() => {});

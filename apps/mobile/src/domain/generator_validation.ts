@@ -53,8 +53,11 @@ export function containsAnswerLeak(hint: string, correctAnswerText?: string): bo
 }
 
 // 보기 설명 첫머리의 정답·오답 판정. "정답이 아닙니다"처럼 부정하는 표현은 정답 주장으로 보지 않는다.
-const CLAIMS_CORRECT_RE = /^\s*(?:이\s*보기는\s*)?정답(?:입니다|이다|이며|임)/;
-const CLAIMS_WRONG_RE = /^\s*(?:이\s*보기는\s*)?오답(?:입니다|이다|이며|임)/;
+// "이 보기가 정답입니다", "정답이에요", "정답!", "정답:"처럼 흔한 변형도 함께 본다.
+const CLAIM_PREFIX = String.raw`^\s*(?:이\s*보기[는가]\s*|이것[은이]\s*)?(?:바로\s*)?`;
+const CLAIM_ENDING = String.raw`(?:입니다|이다|이며|임|이에요|이야|[.!,:·]|\s*$)`;
+const CLAIMS_CORRECT_RE = new RegExp(`${CLAIM_PREFIX}정답${CLAIM_ENDING}`);
+const CLAIMS_WRONG_RE = new RegExp(`${CLAIM_PREFIX}오답${CLAIM_ENDING}`);
 
 /**
  * 객관식 정답 번호와 AI가 쓴 보기별 설명이 서로 어긋나는 첫 문항 번호(1부터). 없으면 null.

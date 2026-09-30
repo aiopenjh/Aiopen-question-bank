@@ -27,7 +27,8 @@ export const AI_USAGE_WARNING_RATIO = 0.9;
 
 export interface AiRequestUsage {
   day: string; // 태평양 시간 기준 YYYY-MM-DD
-  counts: Record<string, number>;
+  counts: Record<string, number>; // 이 기기에서 실제로 보낸 요청 수
+  exhausted?: string[]; // 서버가 오늘 한도 소진(429)을 알린 모델. 횟수와 따로 둔다.
 }
 
 /** processed: 서버가 요청을 처리함(한도에 포함). daily_exhausted: 서버가 오늘 한도 소진(429)을 알림. */
@@ -84,14 +85,21 @@ export function getTodayCounts(usage: AiRequestUsage | null, now: Date = new Dat
   return usage && usage.day === getAiQuotaDay(now) ? usage.counts : {};
 }
 
+function getTodayExhausted(usage: AiRequestUsage | null, now: Date): Set<string> {
+  return new Set(usage && usage.day === getAiQuotaDay(now) ? usage.exhausted ?? [] : []);
+}
+
 /**
  * 다음에 쓰일 모델(한도가 남은 첫 모델)이 90% 이상 찼거나 모든 모델이 한도에 닿았으면 안내 문구를 돌려준다.
  * 모델 이름은 보여주지 않고 오늘 요청 횟수만 알린다.
  */
 export function getAiUsageWarning(usage: AiRequestUsage | null, now: Date = new Date()): string | null {
   const counts = getTodayCounts(usage, now);
+  const exhausted = getTodayExhausted(usage, now);
   const total = Object.values(counts).reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
-  const next = GEMINI_MODEL_ORDER.find((model) => (counts[model] ?? 0) < GEMINI_DAILY_REQUEST_LIMITS[model]);
+  const next = GEMINI_MODEL_ORDER.find((model) =>
+    !exhausted.has(model) && (counts[model] ?? 0) < GEMINI_DAILY_REQUEST_LIMITS[model]
+  );
   if (next && (counts[next] ?? 0) < Math.ceil(GEMINI_DAILY_REQUEST_LIMITS[next] * AI_USAGE_WARNING_RATIO)) {
     return null;
   }

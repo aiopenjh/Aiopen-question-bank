@@ -80,3 +80,14 @@ test('ai_usage: 기록 함수가 실패해도 AI 요청 흐름에 예외를 내�
   await new Promise((resolve) => setTimeout(resolve, 0));
   usage.setAiRequestListener(null);
 });
+
+test('ai_usage: 한도 소진 모델은 건너뛰고, 안내 횟수는 실제로 보낸 요청 수만 센다', () => {
+  const now = at('2026-09-30T03:00:00Z');
+  const day = '2026-09-29';
+  const exhaustedLite = (flashCount) => ({ day, counts: { 'gemini-3.5-flash-lite': 10, 'gemini-3.5-flash': flashCount }, exhausted: ['gemini-3.5-flash-lite'] });
+  assert.equal(usage.getAiUsageWarning(exhaustedLite(0), now), null);
+  assert.equal(usage.getAiUsageWarning(exhaustedLite(18), now),
+    '오늘 AI 요청을 28회 사용했습니다. 무료 한도에 가까워 곧 문제 생성이 제한될 수 있습니다.');
+  const allExhausted = { day, counts: { 'gemini-3.5-flash-lite': 3 }, exhausted: Array.from(usage.GEMINI_MODEL_ORDER) };
+  assert.match(usage.getAiUsageWarning(allExhausted, now), /오늘 AI 요청을 3회 사용했습니다/);
+});

@@ -163,7 +163,8 @@ export async function callUniversalAiCompletion(
 
   let lastError: any = null;
   let rateLimitError: Error | null = null;
-  // 분당 한도가 하나라도 있으면 곧 다시 시도할 수 있으므로 분당 안내를 우선한다.
+  // 분당 한도가 하나라도 있으면 곧 다시 시도할 수 있으므로 분당 안내를 우선하고,
+  // 모든 후보가 하루 한도일 때만 하루 한도 소진으로 안내한다.
   const rateLimitScopes = new Set<GeminiQuotaScope>();
 
   // 각 후보는 한 요청당 한 번만 시도한다. 429가 나도 다른 모델의 할당량은 별개다.
@@ -287,6 +288,7 @@ export async function callUniversalAiCompletion(
       if (signal?.aborted) {
         throw createGenerationCancelledError();
       }
+      if (err?.name === 'AbortError') reportAiRequest({ model, outcome: 'processed' });
       // 통신 시간 만료, AbortError, 서버 혼잡 시 다음 3.5 이상 모델로만 전환
       if (
         msg.includes('404') ||
@@ -313,7 +315,7 @@ export async function callUniversalAiCompletion(
   if (!lastError && rateLimitError) {
     (rateLimitError as Error & { quotaScope?: GeminiQuotaScope }).quotaScope = rateLimitScopes.has('minute')
       ? 'minute'
-      : rateLimitScopes.has('daily') ? 'daily' : 'unknown';
+      : rateLimitScopes.size > 0 && Array.from(rateLimitScopes).every((scope) => scope === 'daily') ? 'daily' : 'unknown';
     throw rateLimitError;
   }
   const detailedMsg = lastError?.message || '';

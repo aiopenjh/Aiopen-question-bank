@@ -200,3 +200,14 @@ test('difficulty: 서술형 채점 요소 개수는 레벨별 숫자로 정하�
     assert.equal(list.reduce((sum, item) => sum + item.points, 0), 100);
   }
 });
+
+test('cloze_display·ladder: 한자만 있는 답은 명칭형으로, 수식 기호 답은 수·식으로 보고, 예시 문구를 베낀 기준은 버린다', () => {
+  const blanks = (...answers) => answers.map((list) => ({ correctAnswers: list }));
+  assert.equal(cloze.getClozeAnswerNotice(blanks(['山'])), cloze.CLOZE_NAME_NOTICE);
+  assert.equal(cloze.getClozeAnswerNotice(blanks(['√2', '2√3'])), cloze.CLOZE_VALUE_NOTICE);
+  assert.equal(cloze.getClozeAnswerNotice(blanks(['3×4'])), cloze.CLOZE_VALUE_NOTICE);
+
+  const copied = difficulty.describeLadderRanges().map((range) => `${range} 기준 한 문장`);
+  assert.equal(difficulty.normalizeDifficultyLadder(copied), undefined);
+  assert.deepEqual(difficulty.normalizeDifficultyLadder(ladder), ladder);
+});

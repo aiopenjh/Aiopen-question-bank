@@ -229,10 +229,15 @@ export function describeLadderRanges(): string[] {
 }
 
 /** 저장·응답된 과목별 레벨 기준을 검사한다. 형식이 틀리면 버리고 공통 기준만 쓴다. */
+// 목차 지시문의 JSON 예시 문구("레벨 1~3 기준 한 문장")를 AI가 그대로 베낀 응답은 기준으로 인정하지 않는다.
+const LADDER_PLACEHOLDER_RE = /기준\s*한\s*문장\s*$/;
+
 export function normalizeDifficultyLadder(value: unknown): string[] | undefined {
   if (!Array.isArray(value) || value.length !== DIFFICULTY_LADDER_SIZE) return undefined;
   const entries = value.map((entry) => (typeof entry === 'string' ? entry.trim() : ''));
-  return entries.every((entry) => entry.length > 0 && entry.length <= MAX_LADDER_ENTRY_LENGTH)
+  return entries.every((entry) =>
+    entry.length > 0 && entry.length <= MAX_LADDER_ENTRY_LENGTH && !LADDER_PLACEHOLDER_RE.test(entry)
+  )
     ? entries
     : undefined;
 }

@@ -123,7 +123,7 @@ export const USER_MANUAL_SECTIONS: UserManualSection[] = [
             • <Text style={styles.bold}>ZIP</Text>: 압축 안의 TXT, MD, CSV, JSON 텍스트 파일을 함께 불러옵니다.{'\n'}
             • <Text style={styles.bold}>PDF</Text>: 선택한 페이지를 목차·문제 생성 요청에 전달합니다. PDF 분석을 지원하는 AI 연결이 필요하며 파일 원본과 전체 본문은 저장하지 않습니다.{'\n'}
             • 텍스트 자료는 다시 사용할 수 있지만, 앱을 다시 연 뒤 PDF를 사용할 때는 <Text style={styles.bold}>[+ 자료]</Text> 목록의 <Text style={styles.bold}>[원본 선택]</Text>을 눌러 같은 원본 파일을 다시 선택해야 합니다. 연결되면 <Text style={styles.bold}>[연결됨]</Text>으로 표시됩니다.{'\n'}
-            • 30페이지가 넘는 PDF는 10~20페이지씩 나누고, 문제도 한 번에 3~5문항씩 생성하는 것을 권장합니다. 하루 누적 15문항을 넘기면 무료 할당량 소진이나 429 제한이 발생할 수 있습니다.
+            • 30페이지가 넘는 PDF는 10~20페이지씩 나누고, 문제도 한 번에 3~5문항씩 생성하는 것을 권장합니다. 연결한 AI 서비스의 무료 할당량에 가까워지면 문제를 만들기 전에 오늘 AI 요청 횟수를 알려 줍니다.
           </Text>
         </View>
 
