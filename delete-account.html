@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Celueste 랭킹 계정 삭제 요청</title>
+    <style>
+      :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #403a43; background: #fbeff3; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 28px 16px 64px; }
+      main { max-width: 560px; margin: 0 auto; }
+      .brand { color: #a95f75; font-size: 14px; font-weight: 700; letter-spacing: .03em; }
+      h1 { margin: 10px 0 12px; font-size: 27px; line-height: 1.3; }
+      h2 { margin: 0 0 12px; font-size: 18px; }
+      p, li { line-height: 1.65; }
+      .lead { color: #625c63; margin-bottom: 24px; }
+      .card { background: #fff; border: 1px solid #e9e2e4; border-radius: 18px; padding: 22px; margin-top: 16px; box-shadow: 0 4px 12px #403a430f; }
+      .details { margin: 0 0 20px; padding-left: 20px; color: #625c63; }
+      label { display: block; font-weight: 600; margin: 16px 0 8px; }
+      input, textarea { width: 100%; padding: 12px; border: 1px solid #d5cbd0; border-radius: 10px; background: #fff; color: #403a43; font: inherit; font-size: 16px; }
+      textarea { min-height: 86px; resize: vertical; }
+      button { width: 100%; min-height: 46px; margin-top: 18px; border: 0; border-radius: 12px; background: #a95f75; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+      button:disabled { opacity: .55; cursor: wait; }
+      .muted { color: #777178; font-size: 14px; }
+      .status { min-height: 24px; margin: 12px 0 0; font-weight: 600; }
+      .status.error { color: #b64555; }
+      .status.success { color: #306a59; }
+      a { color: #8d4c62; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">Celueste</div>
+      <h1>랭킹 계정 삭제 요청</h1>
+      <p class="lead">앱을 삭제했어도 이 페이지에서 랭킹 계정 삭제를 요청할 수 있습니다.</p>
+
+      <section class="card" aria-labelledby="backup-title">
+        <h2 id="backup-title">전체 백업 파일이 있는 경우</h2>
+        <p>앱에서 만든 <strong>전체 백업 JSON</strong>을 선택하고 요청해 주세요. 파일은 이 브라우저에서만 읽으며, 랭킹 참가자 ID와 복구 토큰만 Celueste 랭킹 서버에 전송합니다. 학습 기록과 교재는 전송하지 않습니다.</p>
+        <ul class="details">
+          <li>요청 직후 닉네임과 기록이 공개 랭킹에서 숨겨집니다.</li>
+          <li>서버의 랭킹 계정과 집계 기록은 3일 유예가 지난 뒤 정기 삭제됩니다. 유예 기간에 계정을 복구하면 삭제 요청이 취소됩니다.</li>
+          <li>기기에 저장된 학습 데이터와 직접 보관 중인 백업 파일은 별도로 삭제해야 합니다.</li>
+        </ul>
+        <form id="backup-form">
+          <label for="backup-file">전체 백업 JSON 파일</label>
+          <input id="backup-file" type="file" accept=".json,application/json" required>
+          <button id="backup-submit" type="submit">랭킹 계정 삭제 요청</button>
+          <p id="backup-status" class="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="help-title">
+        <h2 id="help-title">백업 파일이 없는 경우</h2>
+        <p>아래에서 삭제 요청을 접수해 주세요. 운영자가 계정 소유 확인 방법을 이메일로 안내합니다. 이 양식에는 백업 파일이나 복구 토큰을 보내지 마세요.</p>
+        <form id="help-form">
+          <label for="nickname">랭킹 닉네임</label>
+          <input id="nickname" name="nickname" maxlength="12" required autocomplete="off">
+          <label for="reply-email">답변받을 이메일</label>
+          <input id="reply-email" name="email" type="email" required autocomplete="email">
+          <label for="details">추가 설명 (선택)</label>
+          <textarea id="details" name="message" maxlength="500"></textarea>
+          <p class="muted">이 양식의 닉네임·이메일·설명은 요청 접수를 위해 Formspree로 전송됩니다.</p>
+          <button id="help-submit" type="submit">삭제 요청 접수</button>
+          <p id="help-status" class="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+    <script>
+      const rankingEndpoint = 'https://celueste-ranking-api.celueste-ranking-worker.workers.dev/v1/participants/deletion-request';
+      const feedbackEndpoint = 'https://formspree.io/f/xgavekne';
+
+      function setStatus(id, message, kind = '') {
+        const element = document.getElementById(id);
+        element.textContent = message;
+        element.className = `status ${kind}`;
+      }
+
+      async function postJson(url, body) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 20000);
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+          const result = await response.json().catch(() => null);
+          if (!response.ok) {
+            if (response.status === 429) throw new Error('요청이 많습니다. 잠시 후 다시 시도해 주세요.');
+            throw new Error(result?.error?.message || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+          }
+          return result;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      document.getElementById('backup-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const button = document.getElementById('backup-submit');
+        const fileInput = document.getElementById('backup-file');
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        button.disabled = true;
+        setStatus('backup-status', '백업 파일에서 랭킹 복구 정보를 확인하고 있습니다.');
+        try {
+          const backup = JSON.parse(await file.text());
+          const participantId = backup?.rankingParticipantId;
+          const recoveryToken = backup?.rankingRecoveryToken;
+          if (!/^pt_[0-9a-f]{48}$/.test(participantId) || !/^rt_[0-9a-f]{48}$/.test(recoveryToken)) {
+            throw new Error('이 파일에는 랭킹 계정 복구 정보가 없습니다. 랭킹에 참여한 상태에서 만든 전체 백업 JSON을 확인해 주세요.');
+          }
+          setStatus('backup-status', '랭킹 서버에 삭제를 요청하고 있습니다.');
+          const result = await postJson(rankingEndpoint, { participantId, recoveryToken });
+          const date = result?.scheduledDeletionAt
+            ? new Date(result.scheduledDeletionAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+            : '3일 후';
+          setStatus('backup-status', `삭제 요청이 접수됐습니다. 공개 랭킹에서는 즉시 숨겨지며, 서버 기록은 ${date} 이후 정기 삭제됩니다.`, 'success');
+          fileInput.value = '';
+        } catch (error) {
+          setStatus('backup-status', error instanceof SyntaxError
+            ? '올바른 JSON 백업 파일이 아닙니다.'
+            : error.name === 'AbortError'
+              ? '응답이 늦습니다. 잠시 후 다시 확인해 주세요.'
+              : error.message || '삭제 요청에 실패했습니다.', 'error');
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      document.getElementById('help-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const button = document.getElementById('help-submit');
+        button.disabled = true;
+        setStatus('help-status', '요청을 접수하고 있습니다.');
+        try {
+          await postJson(feedbackEndpoint, {
+            _subject: 'Celueste 랭킹 계정 삭제 요청',
+            requestType: 'ranking-account-deletion',
+            nickname: document.getElementById('nickname').value.trim(),
+            email: document.getElementById('reply-email').value.trim(),
+            message: document.getElementById('details').value.trim(),
+          });
+          setStatus('help-status', '삭제 요청을 접수했습니다. 운영자가 이메일로 계정 확인 방법을 안내합니다.', 'success');
+          document.getElementById('help-form').reset();
+        } catch (error) {
+          setStatus('help-status', error.name === 'AbortError'
+            ? '응답이 늦습니다. 잠시 후 다시 확인해 주세요.'
+            : error.message || '요청을 접수하지 못했습니다.', 'error');
+        } finally {
+          button.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
