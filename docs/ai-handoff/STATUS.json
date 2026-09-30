@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "taskId": "explanation-math-fix-20260930",
   "title": "해설 수식 표시·보기 번호·자기 정정 방어",
-  "phase": "owner_approval",
+  "phase": "complete",
   "activeAgent": null,
   "implementationAgent": "codex",
   "reviewAgent": "codex",
@@ -11,8 +11,8 @@
   "baseBranch": "main",
   "workBranch": "feature/explanation-math-fix",
   "baseCommit": "6120083",
-  "headCommit": "6120083",
-  "note": "사용자가 테스트·main 반영·웹 배포 승인. 타입 검사 오류 0, 관련 37개 및 전체 281개 테스트 통과. 독립 로컬 주소의 검증용 문제로 390px 결과 화면 수식/오답 분석/조립제법 표시 확인, 콘솔 error 없음. 실제 AI·Android는 미검증. 앱 수정 및 검증 기록 커밋 후 main 병합·웹 배포 진행, 표시 버전 2.3.6 유지. 완료 상태는 공개 파일 일치 확인 후 기록.",
+  "headCommit": "10d329d",
+  "note": "사용자가 승인한 테스트·main 반영·웹 배포 완료. 앱 커밋 10d329d 충돌 없이 병합. 타입 검사 오류 0, 관련 37개 및 전체 281개 테스트 통과. 별도 로컬 주소의 검증용 문제로 390px 결과 화면의 오답 분석/간격/조립제법 표시 확인, error 로그 없음. gh-pages 279df30 공개 HTML/번들 SHA-256 일치 확인, version.json 2.3.6 유지. README/DEVELOPER/CHANGELOG/CODEX_REVIEW 기록. 기존 운영 데이터·API 키 미변경. 실제 AI·Android 실기기는 미검증, APK 빌드 없음. 검증용 로컬 서버 종료.",
   "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
     "push",
@@ -20,5 +20,5 @@
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-30T15:55:06.649+09:00"
+  "updatedAt": "2026-09-30T15:57:03.705+09:00"
 }
