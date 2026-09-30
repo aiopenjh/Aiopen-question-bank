@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "taskId": "difficulty-bands-20260930",
   "title": "코드블록·레벨 난이도 구간·AI 요청 사용량 안내",
-  "phase": "owner_approval",
+  "phase": "complete",
   "activeAgent": null,
   "implementationAgent": "claude",
   "reviewAgent": "codex",
@@ -12,7 +12,7 @@
   "workBranch": "feature/difficulty-bands",
   "baseCommit": "3983154",
   "headCommit": "f44e919",
-  "note": "사용자가 승인한 Codex 3차 검토 완료(코드 f44e919, 문서/HEAD dd73373). 잔여 2건 검토 통과: 코드블록·인라인 코드 경계를 넘는 달러 짝짓기 없음, 태평양 자정 직후 하루 제한 대기 없이 즉시 재시도. 독립 타입 검사 오류 0, 전체 테스트 279개 통과. CODEX_REVIEW.md 최상단 참조. 앱 코드 수정·push·병합·배포·APK 빌드 없음. main 반영과 배포는 별도 사용자 결정 대기.",
+  "note": "사용자의 병합·웹 배포 승인으로 feature/difficulty-bands를 main에 충돌 없이 fast-forward 병합(94c7d91)하고 원격 main에 반영했다. 웹 gh-pages 배포 bb77d76 완료. 공개 version.json 2.3.6 유지, HTML의 index-e7c4b094a0641f3360b2f58dc20f94a3.js와 배포 번들의 SHA-256 일치 확인, 공개 앱 메인 정상 표시·점검 중 실행 오류 없음. 배포 전 타입 검사 오류 0. 전체 테스트 279개 통과는 3차 검토 결과이며 앱 코드가 같아 재실행하지 않았다. Android 실기기·새 코드블록/빈칸 시각 확인·실제 AI 생성은 미검증, APK 빌드 없음. 상세 기록은 CODEX_REVIEW.md 최상단 참조.",
   "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
     "push",
@@ -20,5 +20,5 @@
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-30T14:35:27+09:00"
+  "updatedAt": "2026-09-30T15:11:10.729+09:00"
 }

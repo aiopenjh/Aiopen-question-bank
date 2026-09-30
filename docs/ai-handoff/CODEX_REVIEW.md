@@ -1,5 +1,18 @@
 # Codex 검토
 
+## 작업 ID difficulty-bands-20260930 — 사용자 승인 main 병합·웹 배포 완료 (2026-09-30)
+
+- 사용자 승인: "오케이 병합해" → "배포해". APK 빌드는 포함하지 않았다.
+- 검토 문서 2개를 feature/difficulty-bands에 94c7d91로 커밋한 뒤 main@3983154에서 fast-forward 병합했다. 충돌 없음. 원격 main 반영 완료. 앱 코드 마지막 커밋 f44e919는 그대로다.
+- 배포 전 cmd.exe /c npx tsc --noEmit: 종료 코드 0, 오류 0. 앱 코드가 변경되지 않아 3차 검토에서 통과한 전체 테스트 279개는 반복하지 않았다.
+- 앞선 독립 로컬 웹 점검: PC 폭과 모바일 폭 390px에서 메인·자료함·설정, 저장 객관식 문제, 풀이공간 열기/닫기, 채점 없이 시험 종료 후 자료함 복귀, 출제 설정, 문제집 내보내기 선택창 정상. 새 코드블록·빈칸 예제의 시각 표시와 Android 실기기는 직접 확인하지 못했다.
+- deploy-gh-pages.ps1의 정적 내보내기와 gh-pages 업로드 성공. 배포 커밋 bb77d765031bdcfba52107e6af157c1edc95416c. 버전 2.3.6 유지.
+- 공개 주소 https://aiopenjh.github.io/Aiopen-question-bank/ 와 version.json HTTP 200. 공개 HTML이 index-e7c4b094a0641f3360b2f58dc20f94a3.js를 참조하는 것을 CDN 반영 후 확인했다. 로컬/공개 번들의 SHA-256 모두 78524d92bdb201fcd353e562270cbb61a7e78a640d7e5fb1d9bb0d106d2dfc6b.
+- 공개 웹 앱 메인 표시 확인, 점검 중 브라우저 error 기록 없음. 실제 AI 생성·실제 429·Android·PDF 생성은 이번 배포에서 검증하지 않았다.
+- 사용자 학습 데이터·운영 DB·API 키·기존 미추적 파일은 수정하지 않았다. STATUS.json을 complete로 갱신했다. 이 완료는 이번 로컬 병합·원격 main 반영·웹 배포에 한정한다.
+
+---
+
 ## 작업 ID difficulty-bands-20260930 — 사용자 승인 3차 검토 / 잔여 2건 (2026-09-30)
 
 - 판정: **이번 잔여 2건 검토 통과(owner_approval)**. 2차 검토에서 남긴 코드 경계와 태평양 자정 경계 결함을 독립 반례로 재확인했으며 추가 수정 요청은 없다.
