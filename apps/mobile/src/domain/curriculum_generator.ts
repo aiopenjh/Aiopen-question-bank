@@ -7,6 +7,7 @@ import { AiDocumentInput, LearnerKnowledgeLevel } from '../contracts/types';
 import { getGeminiApiKey } from '../data/db';
 import { buildCurriculumPrompt } from './prompts';
 import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
+import { normalizeDifficultyLadder } from './difficulty';
 import {
   detectObviousInvalidStudyInput,
   StudyIntentResolutionError,
@@ -17,6 +18,12 @@ export interface GeneratedUnitItem {
   title: string;
   description?: string;
   depth: 1 | 2 | 3;
+}
+
+export interface GeneratedCurriculumPlan {
+  units: GeneratedUnitItem[];
+  /** 요청했고 형식이 맞을 때만 채운다. 틀리면 단원은 그대로 쓰고 기준만 버린다. */
+  difficultyLadder?: string[];
 }
 
 function readIntentStatus(value: Record<string, unknown>): StudyIntentStatus {
@@ -38,11 +45,7 @@ function readClarificationChoices(value: unknown): string[] {
     .slice(0, 3);
 }
 
-/**
- * AI 커리큘럼(단원/목차) 자동 설계 엔진
- * 사용자가 주제만 입력하면 AI가 학습 수준에 맞춰 체계적인 4~6개 단원 목차를 자동 생성합니다.
- */
-export async function generateCurriculumUnits(params: {
+type CurriculumParams = {
   topicName: string;
   topicDescription?: string;
   category?: string;
@@ -54,7 +57,20 @@ export async function generateCurriculumUnits(params: {
   existingUnitTitles?: string[];
   signal?: AbortSignal;
   documentInput?: AiDocumentInput;
-}): Promise<GeneratedUnitItem[]> {
+};
+
+/**
+ * AI 커리큘럼(단원/목차) 자동 설계 엔진
+ * 사용자가 주제만 입력하면 AI가 학습 수준에 맞춰 체계적인 4~6개 단원 목차를 자동 생성합니다.
+ */
+export async function generateCurriculumUnits(params: CurriculumParams): Promise<GeneratedUnitItem[]> {
+  return (await generateCurriculumPlan(params)).units;
+}
+
+/** 단원 목차와 함께, 요청한 경우 과목별 레벨 기준(difficultyLadder)도 받아 온다. */
+export async function generateCurriculumPlan(
+  params: CurriculumParams & { includeDifficultyLadder?: boolean }
+): Promise<GeneratedCurriculumPlan> {
   const {
     topicName,
     topicDescription,
@@ -67,6 +83,7 @@ export async function generateCurriculumUnits(params: {
     existingUnitTitles = [],
     signal,
     documentInput,
+    includeDifficultyLadder = false,
   } = params;
   const apiKey = await getGeminiApiKey();
   const obviousInvalid = detectObviousInvalidStudyInput(topicName);
@@ -90,6 +107,7 @@ export async function generateCurriculumUnits(params: {
         startUnitIndex,
         stageName,
         existingUnitTitles,
+        includeDifficultyLadder,
       });
 
       const documentPrompt = documentInput
@@ -119,7 +137,7 @@ export async function generateCurriculumUnits(params: {
       }
 
       const knownTitles = new Set<string>();
-      return result.units.map((rawUnit, index) => {
+      const units: GeneratedUnitItem[] = result.units.map((rawUnit, index) => {
         if (typeof rawUnit !== 'object' || rawUnit === null || Array.isArray(rawUnit)) {
           throw new Error(`AI 응답의 ${index + 1}번째 단원 형식이 올바르지 않습니다.`);
         }
@@ -143,6 +161,10 @@ export async function generateCurriculumUnits(params: {
           depth: 1,
         };
       });
+      const difficultyLadder = includeDifficultyLadder
+        ? normalizeDifficultyLadder(result.difficultyLadder)
+        : undefined;
+      return { units, ...(difficultyLadder ? { difficultyLadder } : {}) };
     } catch (err: any) {
       if (err instanceof StudyIntentResolutionError) {
         throw err;

@@ -9,7 +9,6 @@ import {
 import { LearnerKnowledgeLevel } from '../../contracts/types';
 import {
   difficultyToLegacyLevel,
-  getDifficultyProfile,
   legacyLevelToDifficulty,
 } from '../../domain/difficulty';
 import { UniversalModal as Modal } from '../common/UniversalModal';
@@ -134,7 +133,6 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
     }
   }, [visible, fixedDifficulty]);
 
-  const selectedProfile = getDifficultyProfile(selectedDifficulty);
   const isModifiedFromDefault = selectedDifficulty !== fixedDifficulty;
 
   const applyLevelChange = async (count: number, replaceExisting: boolean) => {
@@ -223,7 +221,7 @@ export const QuizCountModal: React.FC<QuizCountModalProps> = ({
               <View style={styles.currentLevelCopy}>
                 <Text style={styles.currentLevelLabel}>현재 난이도</Text>
                 <Text style={styles.currentLevelValue}>
-                  레벨 {selectedDifficulty} · {selectedProfile.bandLabel}
+                  레벨 {selectedDifficulty}
                 </Text>
               </View>
               <Text style={styles.originTag}>{allowInitialDifficultySelection ? '자유 선택' : canAdjustDifficulty ? '추가 출제' : '첫 출제 고정'}</Text>

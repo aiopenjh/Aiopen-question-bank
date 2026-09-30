@@ -260,6 +260,7 @@ export function useAppController() {
     units,
     questions,
     setUnits,
+    setTopics,
     startExam,
     setGeneratingWaitStatus,
     getDocumentInputForTopic,

@@ -101,6 +101,7 @@ export interface Topic {
   category?: string; // 대단위/대분류 (예: '💻 IT/개발', '📐 수학', '🌐 언어/어학', '📊 경제/경영', '📚 일반')
   learnerLevel?: LearnerKnowledgeLevel; // 과목 생성 시 기본 설정된 학습 난이도
   difficultyLevel?: number; // 1부터 시작하는 세분화 난이도. 30 이후도 확장 가능
+  difficultyLadder?: string[]; // 과목별 레벨 구간 기준(11개, difficulty.ts). 없는 과목은 공통 기준만 사용
   archivedAt: ISODateTimeString | null;
   createdAt: ISODateTimeString;
 }

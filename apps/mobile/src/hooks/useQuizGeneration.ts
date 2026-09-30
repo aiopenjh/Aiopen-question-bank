@@ -224,6 +224,7 @@ export function useQuizGeneration({
           unitId,
           unitTitle,
           customContext,
+          difficultyLadder: currentTopic?.difficultyLadder,
           documentInput: documentInput || undefined,
           signal: requestController.signal,
         });
@@ -439,6 +440,7 @@ export function useQuizGeneration({
         unitId: targetUnitId,
         unitTitle: targetUnitTitle,
         customContext,
+        difficultyLadder: currentTopic.difficultyLadder,
         documentInput: documentInput || undefined,
         signal: requestController.signal,
       });

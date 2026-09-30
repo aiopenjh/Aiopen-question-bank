@@ -9,6 +9,7 @@ import { CurrentReferenceNotice } from '../../components/common/CurrentReference
 import { colors } from '../../styles/designTokens';
 import type { ExamAnswerResult } from './ExamSessionScreen';
 import { MathText } from '../../components/common/MathText';
+import { formatClozeStemForDisplay } from '../../domain/cloze_display';
 
 export interface ExamResultViewProps {
   questions: QuestionRevision[];
@@ -147,7 +148,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
             </View>
 
             {/* 지문 */}
-            <MathText style={styles.reviewStem} text={item.stem} />
+            <MathText style={styles.reviewStem} text={isCloze ? formatClozeStemForDisplay(item.stem) : item.stem} />
 
             {isCloze ? (
               <View style={{ gap: 8 }}>

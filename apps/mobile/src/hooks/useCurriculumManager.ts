@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef } from 'react';
 import { AiDocumentInput, Topic, Unit, QuestionRevision } from '../contracts/types';
-import { generateCurriculumUnits } from '../domain/generator';
+import { generateCurriculumPlan } from '../domain/curriculum_generator';
 import {
+  getTopics,
   getUnits,
+  saveTopicDifficultyLadderIfMissing,
   replaceTopicUnits,
   createUnit,
   deduplicateTopicUnits,
@@ -23,6 +25,8 @@ export interface UseCurriculumManagerProps {
   units: Unit[];
   questions: QuestionRevision[];
   setUnits: (units: Unit[]) => void;
+  /** 과목별 레벨 기준을 새로 저장했을 때 화면 상태의 과목 목록을 갱신한다. */
+  setTopics?: (topics: Topic[]) => void;
   startExam: (questions: QuestionRevision[]) => void;
   setGeneratingWaitStatus: (
     status: { active: boolean; count: number; title: string; message: string } | null
@@ -53,6 +57,7 @@ export function useCurriculumManager({
   units,
   questions,
   setUnits,
+  setTopics,
   startExam,
   setGeneratingWaitStatus,
   getDocumentInputForTopic,
@@ -113,7 +118,8 @@ export function useCurriculumManager({
           );
           return;
         }
-        const generatedUnits = await generateCurriculumUnits({
+        // 과목별 레벨 기준이 아직 없는 과목만 목차 응답에 함께 요청한다(추가 호출 없음).
+        const plan = await generateCurriculumPlan({
           topicName,
           learnerLevel: currentTopic?.learnerLevel,
           difficultyLevel: currentTopic?.difficultyLevel,
@@ -122,7 +128,9 @@ export function useCurriculumManager({
           existingUnitTitles: existingTitles,
           signal: requestController.signal,
           documentInput: documentInput || undefined,
+          includeDifficultyLadder: !currentTopic?.difficultyLadder,
         });
+        const generatedUnits = plan.units;
 
         if (abortRef.current) {
           return;
@@ -143,6 +151,9 @@ export function useCurriculumManager({
 
         const updatedUnits = await getUnits();
         setUnits(updatedUnits);
+        if (plan.difficultyLadder && await saveTopicDifficultyLadderIfMissing(topicId, plan.difficultyLadder)) {
+          setTopics?.(await getTopics());
+        }
 
         const startPad = String(startUnitIndex).padStart(2, '0');
         const endPad = String(startUnitIndex + 4).padStart(2, '0');
@@ -176,7 +187,7 @@ export function useCurriculumManager({
         setGeneratingWaitStatus(null);
       }
     },
-    [getDocumentInputForTopic, onOpenSourceManager, topics, setUnits, setGeneratingWaitStatus]
+    [getDocumentInputForTopic, onOpenSourceManager, topics, setUnits, setTopics, setGeneratingWaitStatus]
   );
 
   const handleGenerateCurriculumForTopic = useCallback(

@@ -42,8 +42,7 @@ import {
   linkSourceToTopic,
   getCurrentISOTime,
 } from '../data/db';
-import { generateCurriculumUnits } from '../domain/generator';
-import { GeneratedUnitItem } from '../domain/curriculum_generator';
+import { GeneratedUnitItem, generateCurriculumPlan } from '../domain/curriculum_generator';
 import {
   AlarmConfig,
   DEFAULT_ALARM_CONFIG,
@@ -164,10 +163,11 @@ export function useAppData(callbacks?: {
   ) {
     const categoryName = options?.category?.trim() || '📚 일반';
     let generatedUnits: GeneratedUnitItem[] = [];
+    let difficultyLadder: string[] | undefined;
 
     // AI 주제 판정과 목차 검증이 끝나기 전에는 과목을 저장하지 않습니다.
     if ((!options?.customUnits || options.customUnits.length === 0) && options?.autoCurriculum !== false) {
-      generatedUnits = await generateCurriculumUnits({
+      const plan = await generateCurriculumPlan({
         topicName: name,
         topicDescription: description,
         category: categoryName,
@@ -175,7 +175,10 @@ export function useAppData(callbacks?: {
         difficultyLevel: options?.difficultyLevel,
         knownScope: options?.sourceText,
         documentInput: options?.sourceDocument,
+        includeDifficultyLadder: true,
       });
+      generatedUnits = plan.units;
+      difficultyLadder = plan.difficultyLadder;
     }
 
     const unitsToCreate = options?.customUnits && options.customUnits.length > 0
@@ -187,6 +190,7 @@ export function useAppData(callbacks?: {
       category: categoryName,
       learnerLevel: options?.learnerLevel,
       difficultyLevel: options?.difficultyLevel,
+      difficultyLadder,
       units: unitsToCreate,
     });
     const generatedCount = createdUnits.length;

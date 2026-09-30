@@ -9,7 +9,7 @@ import { isGradingIncomplete } from './attempt_outcome';
 import { getLocalDateString } from './routine';
 
 export const CONSISTENCY_MIN_QUESTIONS = 3;
-/** 초고난도 도전 랭킹(PRODUCT_ROADMAP_AND_BETA_PLAN.md §Step 1)의 킬러 문항 기준. difficulty.ts의 "확장 학습" 구간 시작값과 같다. */
+/** 초고난도 도전 랭킹(PRODUCT_ROADMAP_AND_BETA_PLAN.md §Step 1)의 킬러 문항 기준. difficulty.ts의 도전 구간 시작값(CHALLENGE_BAND_START)과 같다. */
 export const KILLER_LEVEL_THRESHOLD = CHALLENGE_START_LEVEL;
 
 /**

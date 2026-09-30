@@ -5,6 +5,7 @@ import { getCustomNoteQuestionIds, toggleCustomNoteQuestion } from '../../data/d
 import { StateIllustration } from '../../components/common/StateIllustration';
 import { CurrentReferenceNotice } from '../../components/common/CurrentReferenceNotice';
 import { MathText } from '../../components/common/MathText';
+import { formatClozeStemForDisplay } from '../../domain/cloze_display';
 import { hasMissingOptions, MISSING_OPTIONS_LABEL } from '../../domain/question_integrity';
 import { styles } from './libraryStyles';
 
@@ -230,7 +231,10 @@ export const ReviewHouseSection: React.FC<ReviewHouseSectionProps> = ({
                           )}
                         </View>
 
-                        <MathText style={styles.questionStemText} text={q.stem} />
+                        <MathText
+                          style={styles.questionStemText}
+                          text={q.questionType === 'cloze' ? formatClozeStemForDisplay(q.stem) : q.stem}
+                        />
 
                         <View style={styles.optionsReviewBox}>
                           {q.options.map((opt, oIdx) => {

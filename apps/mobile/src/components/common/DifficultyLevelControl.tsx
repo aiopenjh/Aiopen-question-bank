@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getDifficultyProfile, normalizeDifficultyLevel } from '../../domain/difficulty';
+import { normalizeDifficultyLevel } from '../../domain/difficulty';
 import { colors, radius, spacing } from '../../styles/designTokens';
 
 interface DifficultyLevelControlProps {
@@ -21,7 +21,6 @@ export const DifficultyLevelControl: React.FC<DifficultyLevelControlProps> = ({
   maxLevel = 31,
 }) => {
   const level = normalizeDifficultyLevel(value);
-  const profile = getDifficultyProfile(level);
 
   return (
     <View>
@@ -37,7 +36,6 @@ export const DifficultyLevelControl: React.FC<DifficultyLevelControlProps> = ({
         </TouchableOpacity>
         <View style={styles.levelValueBox}>
           <Text style={styles.levelValue}>레벨 {level}</Text>
-          <Text style={styles.bandLabel}>{profile.bandLabel}</Text>
         </View>
         <TouchableOpacity
           accessibilityRole="button"
@@ -111,12 +109,6 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontSize: 16,
     fontWeight: '900',
-  },
-  bandLabel: {
-    color: colors.primaryPressed,
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 2,
   },
   quickRow: {
     flexDirection: 'row',

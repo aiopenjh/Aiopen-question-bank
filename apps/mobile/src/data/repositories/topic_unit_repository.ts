@@ -21,7 +21,7 @@ import {
   AttemptCorrection,
 } from '../../contracts/types';
 import { STORAGE_KEYS, generateUUID, getCurrentISOTime } from '../storage_keys';
-import { legacyLevelToDifficulty, normalizeDifficultyLevel } from '../../domain/difficulty';
+import { legacyLevelToDifficulty, normalizeDifficultyLadder, normalizeDifficultyLevel } from '../../domain/difficulty';
 import {
   collectReferencedUnitIds,
   filterCorrectionsAfterRemoval,
@@ -76,6 +76,11 @@ export async function getTopics(): Promise<Topic[]> {
       t.difficultyLevel,
       legacyLevelToDifficulty(t.learnerLevel)
     );
+    if (t.difficultyLadder !== undefined) {
+      const ladder = normalizeDifficultyLadder(t.difficultyLadder);
+      if (ladder) t.difficultyLadder = ladder;
+      else delete t.difficultyLadder;
+    }
     return t;
   });
 }
@@ -112,6 +117,7 @@ export async function createTopicWithUnits(params: {
   category?: string;
   learnerLevel?: LearnerKnowledgeLevel;
   difficultyLevel?: number;
+  difficultyLadder?: string[];
   units?: { title: string; depth?: 1 | 2 | 3 }[];
 }): Promise<{ topic: Topic; units: Unit[] }> {
   const snapshot = await AsyncStorage.multiGet([
@@ -144,6 +150,8 @@ export async function createTopicWithUnits(params: {
     archivedAt: null,
     createdAt: getCurrentISOTime(),
   };
+  const difficultyLadder = normalizeDifficultyLadder(params.difficultyLadder);
+  if (difficultyLadder) topic.difficultyLadder = difficultyLadder;
   const createdUnits: Unit[] = (params.units || [])
     .filter((unit) => unit.title.trim().length > 0)
     .map((unit, index) => ({
@@ -168,6 +176,18 @@ export async function addTopic(topic: Topic): Promise<void> {
   const topics = await getTopics();
   topics.push(topic);
   await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(topics));
+}
+
+/** 과목별 레벨 기준을 처음 받았을 때만 저장한다. 이미 있으면 바꾸지 않는다. */
+export async function saveTopicDifficultyLadderIfMissing(topicId: UUID, ladder: string[]): Promise<boolean> {
+  const normalized = normalizeDifficultyLadder(ladder);
+  if (!normalized) return false;
+  const topics = await getTopics();
+  const topic = topics.find((item) => item.id === topicId);
+  if (!topic || topic.difficultyLadder) return false;
+  topic.difficultyLadder = normalized;
+  await AsyncStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(topics));
+  return true;
 }
 
 export async function updateUnitDifficulty(

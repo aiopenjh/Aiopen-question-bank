@@ -4,6 +4,7 @@ import { QuestionRevision } from '../../contracts/types';
 import { styles } from './examStyles';
 import { colors } from '../../styles/designTokens';
 import { MathText } from '../../components/common/MathText';
+import { CLOZE_NAME_NOTICE, formatClozeStemForDisplay, getClozeAnswerNotice } from '../../domain/cloze_display';
 
 export interface ExamActiveViewProps {
   questions: QuestionRevision[];
@@ -20,13 +21,8 @@ export interface ExamActiveViewProps {
   isSaving: boolean;
 }
 
-// cloze 지문의 {{1}},{{2}}... 마커를 읽기 좋은 빈칸 표시로 바꿔서 보여준다(입력은 아래 별도 칸에서).
-function renderClozeStemPreview(stem: string): string {
-  return stem.replace(/\{\{(\d+)\}\}/g, (_match, n) => `( ${n} )`);
-}
-
-// 빈칸형 입력 전 안내. 저장된 정답 목록은 노출하지 않고 채점 기준만 알린다. 모든 빈칸형에 동일 적용.
-export const CLOZE_ABBREVIATION_NOTICE = '정식 명칭으로 입력하세요. 약어는 정답으로 등록된 경우에만 인정됩니다.';
+// 빈칸형 입력 전 안내. 저장된 정답 목록은 노출하지 않고, 명칭형 답이면 이 안내를, 수·식 답이면 수·식 입력 안내를 보인다.
+export const CLOZE_ABBREVIATION_NOTICE = CLOZE_NAME_NOTICE;
 
 export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
   questions,
@@ -138,7 +134,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
           <Text style={styles.questionIndexLabel}>Q{currentIndex + 1}.</Text>
           <MathText
             style={styles.questionStem}
-            text={q.questionType === 'cloze' ? renderClozeStemPreview(q.stem) : q.stem}
+            text={q.questionType === 'cloze' ? formatClozeStemForDisplay(q.stem) : q.stem}
           />
         </View>
 
@@ -171,7 +167,7 @@ export const ExamActiveView: React.FC<ExamActiveViewProps> = ({
         ) : q.questionType === 'cloze' ? (
           // 빈칸형: 지문 안의 {{N}} 순서대로 빈칸마다 별도 입력칸. fontSize 16 고정(Law #6/#7)
           <View style={{ gap: 10 }}>
-            <Text style={{ fontSize: 13, color: colors.inkMuted }}>{CLOZE_ABBREVIATION_NOTICE}</Text>
+            <Text style={{ fontSize: 13, color: colors.inkMuted }}>{getClozeAnswerNotice(q.clozeBlanks || [])}</Text>
             {(q.clozeBlanks || []).map((blank, idx) => (
               <View key={blank.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={styles.optionIndexBadge}>

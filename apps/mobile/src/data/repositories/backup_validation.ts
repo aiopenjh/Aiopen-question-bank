@@ -68,7 +68,7 @@ const SHAPES: Record<string, Shape> = {
     required: { id: 'id', name: 'string' },
     optional: {
       ownerId: 'string', description: 'string', category: 'string', learnerLevel: 'string',
-      difficultyLevel: 'number', archivedAt: 'string', createdAt: 'string',
+      difficultyLevel: 'number', difficultyLadder: 'stringArray', archivedAt: 'string', createdAt: 'string',
     },
   },
   units: {

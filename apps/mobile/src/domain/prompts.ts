@@ -1,7 +1,55 @@
 import { LearnerKnowledgeLevel, QuestionType } from '../contracts/types';
 import { createQuestionTypePlan } from './question_type_plan';
 import { ScopedIntent } from './intent';
-import { getDifficultyProfile, legacyLevelToDifficulty, normalizeDifficultyLevel } from './difficulty';
+import {
+  DifficultyProfile,
+  describeLadderRanges,
+  formatBandRange,
+  getDifficultyProfile,
+  legacyLevelToDifficulty,
+  normalizeDifficultyLadder,
+  normalizeDifficultyLevel,
+} from './difficulty';
+
+const QUESTION_TYPE_NAMES: Record<QuestionType, string> = {
+  multiple_choice: '객관식',
+  short_answer: '단답형',
+  essay: '서술형',
+  cloze: '빈칸형',
+};
+
+const LEVEL_MEANING = '레벨 1은 원문 주제 범위에서 가장 쉬운 입구이고, 레벨 30은 원문 주제가 목표로 하는 수준입니다. 원문 주제에 급수나 과정 수준(예: 1급, 3급, 기초 과정, 중급)이 있으면 그 수준을 레벨 30의 목표로 해석합니다. 레벨 31 이상은 그 목표를 넘어서는 도전입니다. 레벨은 원문 주제 안에서의 상대 위치이며 다른 주제와 같은 지식량을 뜻하지 않습니다.';
+
+function buildDifficultyInstruction(
+  profile: DifficultyProfile,
+  questionTypePlan: QuestionType[],
+  difficultyLadder?: string[]
+): string {
+  const ladder = normalizeDifficultyLadder(difficultyLadder);
+  const plannedTypes = (Object.keys(QUESTION_TYPE_NAMES) as QuestionType[])
+    .filter((type) => questionTypePlan.includes(type));
+  const lines = [
+    '[난이도 기준]',
+    `- 레벨의 의미: ${LEVEL_MEANING}`,
+    `- 이번 레벨: 레벨 ${profile.level} · ${profile.bandLabel} (${formatBandRange({ start: profile.bandStart, end: profile.bandEnd })} 구간)`,
+    ladder ? `- 이 과목의 ${describeLadderRanges()[profile.ladderIndex]} 내용 기준: ${ladder[profile.ladderIndex]}` : '',
+    `- 가정하는 학습자: ${profile.learner}.`,
+    `- 풀이 부담: ${profile.load}.`,
+    profile.bandStep
+      ? `- 구간 안 단계: ${profile.bandStep.total}단계 중 ${profile.bandStep.position}단계. ${profile.bandStep.guide} 레벨이 1 오를 때마다 선행지식과 사고 부담을 조금씩만 높입니다.`
+      : '',
+    '- 이번에 출제하는 유형별 기준:',
+    ...plannedTypes.map((type) => `  - ${QUESTION_TYPE_NAMES[type]}: ${profile.typeGuides[type]}`),
+    profile.nextBandLoad
+      ? `- 이 구간의 마지막 레벨이므로 문항 하나에만 다음 구간 요소를 가볍게 섞습니다: ${profile.nextBandLoad}.`
+      : '',
+    profile.isChallenge
+      ? '- 도전 레벨은 조건과 단계를 늘려도 정답이 하나로 정해져야 하며, 원문 주제 범위와 검증 가능한 지식을 벗어나지 않습니다.'
+      : '',
+    '- 채점 기준(정답으로 인정하는 범위)은 레벨과 관계없이 같게 유지합니다. 낮은 레벨은 묻는 내용과 양으로 쉽게 만들고, 정답 인정 범위를 넓히지 않습니다.',
+  ];
+  return lines.filter(Boolean).join('\n');
+}
 
 export function buildQuestionGenerationPrompt(params: {
   intent: ScopedIntent;
@@ -11,9 +59,11 @@ export function buildQuestionGenerationPrompt(params: {
   customContext?: string;
   currentInformationInstruction?: string;
   questionTypePlan?: QuestionType[];
+  difficultyLadder?: string[];
 }): string {
-  const { intent, resolvedDomain, category, unitTitle, customContext, currentInformationInstruction } = params;
+  const { intent, resolvedDomain, category, unitTitle, customContext, currentInformationInstruction, difficultyLadder } = params;
   const questionTypePlan = params.questionTypePlan ?? createQuestionTypePlan(intent.targetCount, undefined, intent.questionTypeMode);
+  const difficultyProfile = getDifficultyProfile(normalizeDifficultyLevel(intent.difficultyLevel));
 
   return `당신은 사용자가 선택한 어떤 학습 주제에도 대응하는 문제 출제 전문가입니다.
 아래 주제의 의미를 먼저 판정한 뒤, 지정된 JSON 중 하나만 출력하세요.
@@ -22,12 +72,13 @@ export function buildQuestionGenerationPrompt(params: {
 - 원문 주제: ${resolvedDomain}
 ${category ? `- 보관함 표시 분류: ${category} (정리용 메타데이터이며 출제 주제를 바꾸거나 대신할 수 없음)` : ''}
 ${unitTitle ? `- 선택 단원: ${unitTitle}` : ''}
-- 세분화 난이도: ${intent.levelLabel} (숫자가 1씩 높아질 때 선행지식과 사고 부담도 조금씩만 높일 것)
+- 세분화 난이도: 레벨 ${difficultyProfile.level} (아래 [난이도 기준]을 따를 것)
 ${intent.knownScope ? `- 학습자가 밝힌 현재 도달점: ${intent.knownScope}` : ''}
-- 출제 기준: ${intent.levelBriefing || '학습자 수준에 맞는 난이도'}
 - 사용자의 세부 요청: ${intent.focusConcepts.join(', ')}
 ${customContext ? `- 사용자 자료 및 추가 조건:\n${customContext}` : ''}
 ${currentInformationInstruction ? `\n${currentInformationInstruction}` : ''}
+
+${buildDifficultyInstruction(difficultyProfile, questionTypePlan, difficultyLadder)}
 
 [주제 판정]
 1. READY: 주제가 낯설거나 희귀해도 학습 의도가 일관되고 문제를 만들 수 있으면 선택합니다.
@@ -40,11 +91,11 @@ ${currentInformationInstruction ? `\n${currentInformationInstruction}` : ''}
 
 [READY일 때 문제 작성 규칙]
 1. 정확히 ${intent.targetCount}문항을 작성합니다.
-2. 앱이 각 문항의 유형을 정했습니다. questions 배열의 questionType은 다음 순서를 정확히 따르세요: ${JSON.stringify(questionTypePlan)}. 같은 유형만 연속되거나 전체가 한 유형이어도 그대로 출제합니다. 비율을 맞추거나 유형을 변경하지 마세요. 모든 난이도에서 모든 유형을 허용하되, 단답형·서술형의 요구 지식과 답안 길이도 지정된 학습자 수준에 맞추세요.
+2. 앱이 각 문항의 유형을 정했습니다. questions 배열의 questionType은 다음 순서를 정확히 따르세요: ${JSON.stringify(questionTypePlan)}. 같은 유형만 연속되거나 전체가 한 유형이어도 그대로 출제합니다. 비율을 맞추거나 유형을 변경하지 마세요. 모든 난이도에서 모든 유형을 허용하되, 유형별 요구 수준은 [난이도 기준]의 유형별 기준을 따르세요.
 3. questionType이 "multiple_choice"인 문제는 보기 1번, 2번, 3번, 4번의 4지선다이며 정답은 하나만 존재해야 합니다. correctOptionNumber에는 사용자에게 보이는 정답 번호 1, 2, 3, 4 중 하나를 기록합니다. 0부터 시작하는 번호를 사용하지 마세요. 오답은 실제로 혼동하기 쉬운 인접 개념으로 만들고, 각 오답 이유를 설명합니다.
-4. questionType이 "cloze"인 문제는 options/correctOptionNumber를 생략합니다. stem 안에 빈칸을 {{1}}, {{2}}... 순서대로(1부터, 건너뛰지 않고) 표시하고, blanks 배열에 그 순서와 정확히 대응하는 항목을 각각 작성합니다. blanks 각 항목의 correctAnswers는 그 빈칸에 들어갈 정답 표현들의 배열입니다(표기가 여러 개 가능하면 모두 나열, 최소 1개). 한 문제에 빈칸은 1~3개로 합니다. 빈칸이 명칭이나 용어를 물을 때는 아래 두 경우 중 실제 근거에 맞는 하나만 따르고, 지문에 적은 요구 형식과 correctAnswers의 채점 기준이 항상 서로 일치하게 하세요: (a) 자료에 그 약어가 명확히 쓰여 있어 정답으로도 인정하는 경우, correctAnswers에 정식 명칭과 그 약어를 함께 넣고 지문에는 정답 약어 자체를 쓰지 않은 채 "정식 명칭이나 자료에 쓰인 약어로 답하세요"처럼 약어가 허용된다는 사실만 밝힙니다. (b) 그런 근거가 없으면 지문에 정식 명칭(풀네임)으로만 답하도록 명시하고 correctAnswers에도 정식 명칭만 넣습니다(약어 허용을 언급하지 않음). 약어의 의미를 추정해서 확인 없이 정답 목록에 넣지 마세요. 현재 시행 중인 제도·법령을 묻는 빈칸이라면 correctAnswers에는 현행 기준으로 맞는 표현만 넣고, 법령 개정 등으로 바뀐 옛 기관·직위 명칭을 섞지 마세요(역사나 옛 법령 명칭 자체를 묻는 문제는 자료에 적힌 당시 명칭을 따릅니다).
+4. questionType이 "cloze"인 문제는 options/correctOptionNumber를 생략합니다. stem 안에 빈칸을 {{1}}, {{2}}... 순서대로(1부터, 건너뛰지 않고) 표시하고, blanks 배열에 그 순서와 정확히 대응하는 항목을 각각 작성합니다. blanks 각 항목의 correctAnswers는 그 빈칸에 들어갈 정답 표현들의 배열입니다(표기가 여러 개 가능하면 모두 나열, 최소 1개). 한 문제에 빈칸은 1~3개이며, 개수는 [난이도 기준]의 빈칸형 기준을 따릅니다. 지문은 빈칸에 무엇을 채워야 하는지 드러나게 쓰고, 답이 수나 식이면 답의 형식(예: 정수, 기약분수)을 지문에 밝히며 같은 값의 흔한 다른 표기(예: 3/2와 1.5)도 correctAnswers에 함께 넣습니다. 빈칸이 명칭이나 용어를 물을 때는 아래 두 경우 중 실제 근거에 맞는 하나만 따르고, 지문에 적은 요구 형식과 correctAnswers의 채점 기준이 항상 서로 일치하게 하세요: (a) 자료에 그 약어가 명확히 쓰여 있어 정답으로도 인정하는 경우, correctAnswers에 정식 명칭과 그 약어를 함께 넣고 지문에는 정답 약어 자체를 쓰지 않은 채 "정식 명칭이나 자료에 쓰인 약어로 답하세요"처럼 약어가 허용된다는 사실만 밝힙니다. (b) 그런 근거가 없으면 지문에 정식 명칭(풀네임)으로만 답하도록 명시하고 correctAnswers에도 정식 명칭만 넣습니다(약어 허용을 언급하지 않음). 약어의 의미를 추정해서 확인 없이 정답 목록에 넣지 마세요. 현재 시행 중인 제도·법령을 묻는 빈칸이라면 correctAnswers에는 현행 기준으로 맞는 표현만 넣고, 법령 개정 등으로 바뀐 옛 기관·직위 명칭을 섞지 마세요(역사나 옛 법령 명칭 자체를 묻는 문제는 자료에 적힌 당시 명칭을 따릅니다).
 5. questionType이 "short_answer"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(핵심 키워드 중심의 짧은 모범답안 한 문장)만 작성합니다. 답이 여러 표현으로 가능하면 modelAnswer에 핵심 키워드를 명시합니다.
-6. questionType이 "essay"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(모범답안 전체)와 gradingChecklist(모범답안의 핵심 요소 2~5개, 각 항목의 판정 기준 criterion과 배점 points, 배점 합계는 반드시 100)를 작성합니다. "논리적 일관성" 같은 주관적 기준이 아니라, 답안에 그 핵심 요소가 실제로 포함되었는지로만 판정 가능한 기준을 씁니다.
+6. questionType이 "essay"인 문제는 options/correctOptionNumber를 생략하고 modelAnswer(모범답안 전체)와 gradingChecklist(모범답안의 핵심 요소 2~5개이며 개수는 [난이도 기준]의 서술형 기준을 따름, 각 항목의 판정 기준 criterion과 배점 points, 배점 합계는 반드시 100)를 작성합니다. "논리적 일관성" 같은 주관적 기준이 아니라, 답안에 그 핵심 요소가 실제로 포함되었는지로만 판정 가능한 기준을 씁니다.
 7. 기존 문제와 지문·핵심 질문·정답 개념이 사실상 같은 문제를 반복하지 않습니다.
 8. 해설에는 정답의 근거와 오답을 구분하는 기준을 분명하게 적습니다(단답형/서술형/빈칸형은 모범답안의 핵심 근거를 설명).
 9. 아래 예시는 유형별 필드 형태만 보여줍니다. 실제 문항 수와 유형 순서는 위에서 지정한 추첨 결과를 따르세요.
@@ -137,6 +188,7 @@ export function buildCurriculumPrompt(params: {
   startUnitIndex?: number;
   stageName?: string;
   existingUnitTitles?: string[];
+  includeDifficultyLadder?: boolean;
 }): string {
   const {
     topicName,
@@ -148,6 +200,7 @@ export function buildCurriculumPrompt(params: {
     startUnitIndex = 1,
     stageName,
     existingUnitTitles = [],
+    includeDifficultyLadder = false,
   } = params;
 
   const normalizedDifficulty = normalizeDifficultyLevel(
@@ -160,6 +213,18 @@ export function buildCurriculumPrompt(params: {
   const endIdx = startIdx + 4;
   const startPad = String(startIdx).padStart(2, '0');
   const endPad = String(endIdx).padStart(2, '0');
+  const ladderRanges = describeLadderRanges();
+  const ladderSection = includeDifficultyLadder
+    ? `
+
+[과목 레벨 기준 작성]
+units와 함께 "difficultyLadder"에 이 과목의 레벨 기준을 정확히 ${ladderRanges.length}개 문자열로 작성합니다. 각 항목은 해당 구간에서 다룰 내용 범위와 깊이를 이 과목에 맞게 한 문장(100자 이내)으로 씁니다. 항목 순서와 대상 구간: ${ladderRanges.map((range, index) => `${index + 1}) ${range}`).join(', ')}.
+첫 항목은 원문 주제 범위에서 가장 쉬운 입구, ${ladderRanges.length - 1}번째 항목은 원문 주제가 목표로 하는 수준, 마지막 항목은 그 목표를 넘어서는 도전 범위입니다. 뒤 항목일수록 조금씩 깊어지게 하고, 확인할 수 없는 시험 범위·배점·수치를 지어내지 마세요. 이 기준은 시작 난이도와 관계없이 과목 전체 레벨을 다룹니다.`
+    : '';
+  const ladderJson = includeDifficultyLadder
+    ? `,
+  "difficultyLadder": ${JSON.stringify(ladderRanges.map((range) => `${range} 기준 한 문장`))}`
+    : '';
 
   return `당신은 사용자가 원하는 어떤 주제든 점진적인 학습 단원으로 설계하는 전문가입니다.
 먼저 주제의 의미를 판정한 뒤, 지정된 JSON 중 하나만 출력하세요.
@@ -168,7 +233,7 @@ export function buildCurriculumPrompt(params: {
 - 사용자가 입력한 원문 주제: ${topicName}
 ${category ? `- 보관함 표시 분류: ${category} (정리용 메타데이터이며 학습 주제를 바꾸거나 대신할 수 없음)` : ''}
 ${topicDescription ? `- 사용자가 적은 설명 또는 목표: ${topicDescription}` : ''}
-- 시작 난이도: 레벨 ${normalizedDifficulty} · ${difficultyProfile.bandLabel}
+- 시작 난이도: 레벨 ${normalizedDifficulty} · ${difficultyProfile.bandLabel} (${formatBandRange({ start: difficultyProfile.bandStart, end: difficultyProfile.bandEnd })} 구간)
 - 난이도 기준: ${difficultyProfile.briefing}
 ${knownScope ? `- 사용자가 이미 아는 범위: ${knownScope}` : ''}
 - 이번 생성 범위: ${startPad}단원부터 ${endPad}단원까지 정확히 5개
@@ -187,10 +252,10 @@ ${existingUnitTitles.length > 0 ? `- 기존 단원(중복 금지):\n${existingUn
 [READY일 때 단원 설계 규칙]
 1. 각 단원은 한 개의 핵심 개념이나 기능에 집중합니다.
 2. 바로 전 단원에서 다음 단원으로 넘어갈 때 필요한 선행지식이 급격히 뛰지 않게 합니다.
-3. 숫자 레벨은 모든 주제에 동일한 지식량을 뜻하지 않습니다. 사용자가 입력한 주제 안에서 레벨 ${normalizedDifficulty}에 맞는 상대적 깊이와 사고 부담을 적용합니다.
+3. ${LEVEL_MEANING} 사용자가 입력한 주제 안에서 레벨 ${normalizedDifficulty}에 맞는 상대적 깊이와 사고 부담을 적용합니다.
 4. 기존 단원과 같은 제목이나 사실상 같은 학습 목표를 반복하지 않습니다.
 5. 단원 제목은 ${startPad}단원부터 ${endPad}단원까지 순서대로 번호를 붙입니다.
-6. 30단원 이후에는 난이도를 무한히 올리기보다 새로운 범위, 사례, 관점과 활용으로 확장합니다.
+6. 30단원 이후에는 난이도를 무한히 올리기보다 새로운 범위, 사례, 관점과 활용으로 확장합니다.${ladderSection}
 
 [출력 JSON]
 READY:
@@ -202,7 +267,7 @@ READY:
     { "title": "${String(startIdx + 2).padStart(2, '0')}단원. ...", "description": "핵심 학습 목표" },
     { "title": "${String(startIdx + 3).padStart(2, '0')}단원. ...", "description": "핵심 학습 목표" },
     { "title": "${endPad}단원. ...", "description": "핵심 학습 목표" }
-  ]
+  ]${ladderJson}
 }
 
 NEEDS_CLARIFICATION:

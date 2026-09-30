@@ -86,6 +86,8 @@ type GenerationParams = {
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
+  /** 과목에 저장된 레벨 구간별 내용 기준. 없으면 공통 기준만 사용한다. */
+  difficultyLadder?: string[];
   documentInput?: AiDocumentInput;
   signal?: AbortSignal;
 };
@@ -169,7 +171,7 @@ export function generateFactBasedQuestions(params: GenerationParams): Promise<Ge
 }
 
 async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise<GenerationOutcome> {
-  const { intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, documentInput, signal } = params;
+  const { intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, difficultyLadder, documentInput, signal } = params;
   // 모든 출제 진입점(자유 입력·추가 학습 포함)에 동일한 순차 규칙 적용. API 호출 전에 검사한다.
   if ((intent.difficultyLevel ?? 0) >= CHALLENGE_START_LEVEL) {
     const error = getChallengeGenerationError(intent.difficultyLevel!, intent.targetCount,
@@ -208,6 +210,7 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
       unitId,
       unitTitle,
       customContext,
+      difficultyLadder,
       documentInput,
       signal,
     });
@@ -257,6 +260,7 @@ async function generateViaUniversalAiApi(params: {
   unitId?: UUID;
   unitTitle?: string;
   customContext?: string;
+  difficultyLadder?: string[];
   documentInput?: AiDocumentInput;
   signal?: AbortSignal;
 }): Promise<
@@ -277,7 +281,7 @@ async function generateViaUniversalAiApi(params: {
       clarificationChoices: string[];
     }
 > {
-  const { apiKey, intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, documentInput, signal } = params;
+  const { apiKey, intent, ownerId, topicId, topicName, category, unitId, unitTitle, customContext, difficultyLadder, documentInput, signal } = params;
 
   const specId = generateUUID();
   const spec: LearningSpec = {
@@ -311,6 +315,7 @@ async function generateViaUniversalAiApi(params: {
     category,
     unitTitle,
     customContext,
+    difficultyLadder,
     currentInformationInstruction: referenceDate
       ? buildCurrentInformationInstruction(referenceDate)
       : undefined,

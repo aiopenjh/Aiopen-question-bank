@@ -42,6 +42,7 @@ function harness() {
         if (name === 'react-native') return native;
         if (name.endsWith('designTokens')) return load(path.join(ROOT, 'src/styles/designTokens.ts'));
         if (name.endsWith('common/MathText')) return { MathText: (props) => jsx('Text', { children: props.text }) };
+        if (name.includes('/domain/')) return load(path.resolve(path.dirname(file), `${name}.ts`));
         if (name.endsWith('Styles')) return new Proxy({}, { get: () => new Proxy({}, { get: () => ({}) }) });
         return new Proxy({}, { get: (_t, k) => (k === '__esModule' ? true : String(k)) });
       },

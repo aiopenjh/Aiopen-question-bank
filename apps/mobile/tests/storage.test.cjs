@@ -568,3 +568,36 @@ test('existing stored opinion-type subjective questions are kept as-is; the new 
   const saved = await restarted.db.getQuestions('t');
   assert.deepEqual(JSON.parse(JSON.stringify(saved.slice(0, 2))), [opinionEssay, opinionShort]);
 });
+
+test('topic difficulty ladder is saved once, survives question-bank backup, and malformed ladders are ignored', async () => {
+  const ladder = Array.from({ length: 11 }, (_, i) => `ladder-${i + 1}`);
+  const source = setup();
+  await source.db.initializeDatabase();
+  const { topic } = await source.db.createTopicWithUnits({ name: 'ladder topic', difficultyLadder: ladder, units: [] });
+  assert.deepEqual(Array.from((await source.db.getTopics()).find(item => item.id === topic.id).difficultyLadder), ladder);
+
+  // 이미 기준이 있는 과목은 다시 받은 기준으로 덮어쓰지 않는다.
+  assert.equal(await source.db.saveTopicDifficultyLadderIfMissing(topic.id, ladder.map(entry => `new-${entry}`)), false);
+  const plain = await source.db.createTopic('plain topic');
+  assert.equal(await source.db.saveTopicDifficultyLadderIfMissing(plain.id, ['too short']), false);
+  assert.equal(await source.db.saveTopicDifficultyLadderIfMissing(plain.id, ladder), true);
+
+  const backup = await source.db.exportBackupJSON();
+  const target = setup();
+  await target.db.initializeDatabase();
+  assert.equal((await target.db.restoreBackupJSON(backup)).success, true);
+  const restored = await target.db.getTopics();
+  assert.deepEqual(Array.from(restored.find(item => item.name === 'ladder topic').difficultyLadder), ladder);
+  assert.deepEqual(Array.from(restored.find(item => item.name === 'plain topic').difficultyLadder), ladder);
+
+  // 저장소에 형식이 틀린 기준이 있으면 읽을 때 버리고 공통 기준으로 동작한다.
+  const stored = JSON.parse(target.data.get(key('topics')));
+  stored[0].difficultyLadder = ['only one'];
+  target.data.set(key('topics'), JSON.stringify(stored));
+  assert.equal('difficultyLadder' in (await target.db.getTopics())[0], false);
+
+  // 문자열 배열이 아닌 기준이 든 백업은 복원 전에 거부한다.
+  const broken = JSON.parse(backup);
+  broken.topics[0].difficultyLadder = [1, 2];
+  assert.equal((await target.db.restoreBackupJSON(JSON.stringify(broken))).success, false);
+});
