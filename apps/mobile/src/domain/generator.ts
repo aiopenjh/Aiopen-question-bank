@@ -104,7 +104,8 @@ class GenerationContentError extends Error {
   }
 }
 
-const INVALID_RESPONSE_MESSAGE = 'AI 응답이 문제 형식 검사를 통과하지 못해 저장하지 않았습니다. 다시 출제해 주세요.';
+// 응답 형식 검사에 걸린 세부 사유(예: 힌트 길이)는 내부 검사용이라 화면에는 요청 실패와 재요청 안내만 보인다.
+const INVALID_RESPONSE_MESSAGE = 'AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요.';
 
 const inFlightGenerations = new Map<string, Promise<GenerationOutcome>>();
 
@@ -365,13 +366,8 @@ async function generateViaUniversalAiApi(params: {
         completion.groundingSources.length > 0,
         true
       );
-    } catch (validationError: any) {
-      // 앱 검사가 만든 안내만 보여 준다. 네트워크 오류처럼 보이지 않게 형식 문제임을 알린다.
-      throw new GenerationContentError(
-        typeof validationError?.message === 'string' && validationError.message.startsWith('AI ')
-          ? validationError.message
-          : INVALID_RESPONSE_MESSAGE
-      );
+    } catch {
+      throw new GenerationContentError(INVALID_RESPONSE_MESSAGE);
     }
     if (!matchesQuestionTypePlan(generatedQuestions, questionTypePlan)) {
       throw new GenerationContentError('AI가 추첨된 문제 유형을 따르지 않았습니다. 다시 출제해 주세요.');
@@ -381,11 +377,7 @@ async function generateViaUniversalAiApi(params: {
     const unsuitable = findUnverifiableSubjective(generatedQuestions);
     if (contradictoryAnswerKey === null && unsuitable === null) break;
     if (attempt >= 2) {
-      if (contradictoryAnswerKey !== null) {
-        throw new GenerationContentError(
-          `AI가 만든 ${contradictoryAnswerKey}번 문제의 정답 번호와 보기 설명이 서로 맞지 않아 저장하지 않았습니다. 다시 출제해 주세요.`
-        );
-      }
+      if (contradictoryAnswerKey !== null) throw new GenerationContentError(INVALID_RESPONSE_MESSAGE);
       throw new GenerationContentError(
         `객관적으로 채점할 수 있는 주관식 문제를 만들지 못했습니다(${unsuitable}번 문제가 의견·가치판단형이거나 채점 기준이 주관적입니다). 단원이나 요청을 더 구체적으로 정하거나 문제 유형을 바꿔 다시 출제해 주세요.`
       );

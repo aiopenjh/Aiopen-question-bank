@@ -478,7 +478,7 @@ test('multiple-choice answer key contradicting its own option rationale is regen
   const failed = await run([contradictory]);
   assert.equal(failed.calls(), 2);
   assert.equal(failed.result.status, 'FAILED');
-  assert.match(failed.result.message, /1번 문제의 정답 번호와 보기 설명이 서로 맞지 않아 저장하지 않았습니다/);
+  assert.match(failed.result.message, /AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요/);
 });
 
 test('daily quota exhaustion and app validation failures are explained as such, not as a network failure', async () => {
@@ -492,10 +492,11 @@ test('daily quota exhaustion and app validation failures are explained as such, 
   const tooLongHint = harness(async () => response(providerPayload([question({ deepReasoningHint: '가'.repeat(201) })])));
   const invalid = await tooLongHint.generateFactBasedQuestions(args(tooLongHint));
   assert.equal(invalid.status, 'FAILED');
-  assert.match(invalid.message, /1번 문제 힌트가 너무 깁니다/);
-  assert.doesNotMatch(invalid.message, /통신할 수 없습니다/);
+  // 내부 검사 사유(힌트 길이 등)는 보여 주지 않고 재요청만 안내한다.
+  assert.match(invalid.message, /AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요/);
+  assert.doesNotMatch(invalid.message, /힌트가 너무 깁니다|통신할 수 없습니다/);
 
   const notJson = harness(async () => ({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: '형식이 아닌 문장' }] } }] }) }));
   const unparsable = await notJson.generateFactBasedQuestions(args(notJson));
-  assert.match(unparsable.message, /문제 형식 검사를 통과하지 못해 저장하지 않았습니다/);
+  assert.match(unparsable.message, /AI 응답을 제대로 받지 못했습니다. 다시 요청해 주세요/);
 });

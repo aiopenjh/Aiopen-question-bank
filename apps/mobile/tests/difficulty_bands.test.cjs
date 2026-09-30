@@ -174,3 +174,29 @@ test('prompts: 레벨 16부터 내용 깊이 규칙과 극단 표현 오답 금�
     assert.match(promptFor(level, ['short_answer']), /16\. 계산이나 여러 단계 풀이가 필요한 문제는 정답.*다시 계산해 검산/);
   }
 });
+
+test('difficulty: 서술형 채점 요소 개수는 레벨별 숫자로 정하고, 출력 예시도 그 개수를 따른다', () => {
+  const guide = (level) => difficulty.getDifficultyProfile(level).typeGuides.essay;
+  assert.match(guide(1), /gradingChecklist는 정확히 2개로 씁니다/);
+  assert.match(guide(9), /정확히 3개/);
+  assert.match(guide(16), /3~4개/);
+  assert.match(guide(30), /정확히 4개/);
+  assert.match(guide(31), /4~5개/);
+  assert.match(guide(60), /4~5개/);
+  for (const band of difficulty.DIFFICULTY_BANDS) {
+    const [min, max] = band.essayChecklist;
+    assert.ok(min >= 2 && max <= 5 && min <= max, `${band.label}: 검증 범위 2~5 안이어야 한다`);
+  }
+
+  const checklistOf = (prompt) => {
+    const block = prompt.match(/"gradingChecklist": \[([\s\S]*?)\]/)[1];
+    return JSON.parse(`[${block}]`);
+  };
+  const low = checklistOf(promptFor(2, ['essay']));
+  assert.equal(low.length, 2);
+  const high = checklistOf(promptFor(30, ['essay']));
+  assert.equal(high.length, 4);
+  for (const list of [low, high, checklistOf(promptFor(9, ['essay']))]) {
+    assert.equal(list.reduce((sum, item) => sum + item.points, 0), 100);
+  }
+});

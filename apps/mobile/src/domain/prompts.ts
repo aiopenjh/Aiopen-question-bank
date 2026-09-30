@@ -23,6 +23,15 @@ const DEPTH_RULE_START_LEVEL = 16;
 
 const LEVEL_MEANING ='레벨 1은 원문 주제 범위에서 가장 쉬운 입구이고, 레벨 30은 원문 주제가 목표로 하는 수준입니다. 원문 주제에 급수나 과정 수준(예: 1급, 3급, 기초 과정, 중급)이 있으면 그 수준을 레벨 30의 목표로 해석합니다. 레벨 31 이상은 그 목표를 넘어서는 도전입니다. 레벨은 원문 주제 안에서의 상대 위치이며 다른 주제와 같은 지식량을 뜻하지 않습니다.';
 
+// 서술형 예시의 채점 요소 개수를 이번 레벨 기준과 같게 만든다(예시 개수를 AI가 따라 하므로). 배점 합계는 100.
+function buildChecklistExample(count: number): string {
+  const base = Math.floor(100 / count);
+  return Array.from({ length: count }, (_, index) => {
+    const points = index === 0 ? 100 - base * (count - 1) : base;
+    return `        { "criterion": "핵심 요소 ${index + 1} 포함 여부", "points": ${points} }`;
+  }).join(',\n');
+}
+
 function buildDifficultyInstruction(
   profile: DifficultyProfile,
   questionTypePlan: QuestionType[],
@@ -163,9 +172,7 @@ READY (questionType별로 필드가 다름에 유의):
       "stem": "서술형 문제 지문",
       "modelAnswer": "모범답안 전체",
       "gradingChecklist": [
-        { "criterion": "핵심 요소 1 포함 여부", "points": 40 },
-        { "criterion": "핵심 요소 2 포함 여부", "points": 30 },
-        { "criterion": "핵심 요소 3 포함 여부", "points": 30 }
+${buildChecklistExample(difficultyProfile.essayChecklistCount)}
       ],
       "explanation": "정답 근거 해설",
       "deepReasoningHint": "정답을 노출하지 않는 짧은 개념 안내"
