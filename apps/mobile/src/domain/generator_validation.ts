@@ -52,6 +52,27 @@ export function containsAnswerLeak(hint: string, correctAnswerText?: string): bo
   );
 }
 
+// 보기 설명 첫머리의 정답·오답 판정. "정답이 아닙니다"처럼 부정하는 표현은 정답 주장으로 보지 않는다.
+const CLAIMS_CORRECT_RE = /^\s*(?:이\s*보기는\s*)?정답(?:입니다|이다|이며|임)/;
+const CLAIMS_WRONG_RE = /^\s*(?:이\s*보기는\s*)?오답(?:입니다|이다|이며|임)/;
+
+/**
+ * 객관식 정답 번호와 AI가 쓴 보기별 설명이 서로 어긋나는 첫 문항 번호(1부터). 없으면 null.
+ * 오답 보기 설명이 "정답입니다"로 시작하거나 정답 보기 설명이 "오답입니다"로 시작하면 정답 키를 믿을 수 없다.
+ */
+export function findContradictoryAnswerKey(questions: readonly GeneratedQuestionInput[]): number | null {
+  const index = questions.findIndex((question) => {
+    if (question.questionType !== 'multiple_choice') return false;
+    return question.options.some((option, optionIndex) => {
+      const rationale = option.distractorRationale || '';
+      return optionIndex === question.correctOptionNumber - 1
+        ? CLAIMS_WRONG_RE.test(rationale)
+        : CLAIMS_CORRECT_RE.test(rationale);
+    });
+  });
+  return index < 0 ? null : index + 1;
+}
+
 export function readOptionalText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }

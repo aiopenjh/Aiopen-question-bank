@@ -444,3 +444,39 @@ test('opinion-type subjective output is not saved: regenerate once with the same
   assert.match(failed.result.message, /객관적으로 채점할 수 있는 주관식 문제를 만들지 못했습니다\(1번/);
   assert.equal(failed.result.questions, undefined);
 });
+
+test('multiple-choice answer key contradicting its own option rationale is regenerated once, then refused', async () => {
+  const contradictory = question({
+    correctOptionNumber: 1,
+    options: [
+      { text: '3', distractorRationale: '오답입니다. 2+2는 3이 아닙니다.' },
+      { text: '4', distractorRationale: '정답입니다. 2에 2를 더하면 4입니다.' },
+      { text: '5', distractorRationale: '하나 더 셌습니다.' },
+      { text: '6', distractorRationale: '두 번 더했습니다.' },
+    ],
+  });
+  const consistent = question({
+    options: [
+      { text: '3', distractorRationale: '하나 덜 셌습니다.' },
+      { text: '4', distractorRationale: '' },
+      { text: '5', distractorRationale: '정답이 아닙니다. 하나 더 셌습니다.' },
+      { text: '6', distractorRationale: '두 번 더했습니다.' },
+    ],
+  });
+  const run = async (responses) => {
+    let calls = 0;
+    const generator = harness(async () => response(providerPayload([responses[Math.min(calls++, responses.length - 1)]])));
+    return { result: await generator.generateFactBasedQuestions(args(generator)), calls: () => calls };
+  };
+
+  const retried = await run([contradictory, consistent]);
+  assert.equal(retried.result.status, 'READY', retried.result.message);
+  assert.equal(retried.calls(), 2);
+  const saved = retried.result.questions[0];
+  assert.equal(saved.options.find((option) => option.id === saved.answerOptionId).text, '4');
+
+  const failed = await run([contradictory]);
+  assert.equal(failed.calls(), 2);
+  assert.equal(failed.result.status, 'FAILED');
+  assert.match(failed.result.message, /1번 문제의 정답 번호와 보기 설명이 서로 맞지 않아 저장하지 않았습니다/);
+});

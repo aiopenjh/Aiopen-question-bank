@@ -32,7 +32,7 @@ import {
   getKoreanReferenceDate,
   requiresCurrentOfficialSources,
 } from './current_information';
-import { MAX_ESSAY_ANSWER_LENGTH, readOptionalText, validateGeneratedQuestions } from './generator_validation';
+import { MAX_ESSAY_ANSWER_LENGTH, findContradictoryAnswerKey, readOptionalText, validateGeneratedQuestions } from './generator_validation';
 import type { GeneratedQuestionInput } from './generator_validation';
 import { findUnverifiableSubjective } from './subjective_suitability';
 
@@ -359,9 +359,16 @@ async function generateViaUniversalAiApi(params: {
     if (!matchesQuestionTypePlan(generatedQuestions, questionTypePlan)) {
       throw new GenerationContentError('AI가 추첨된 문제 유형을 따르지 않았습니다. 다시 출제해 주세요.');
     }
+    // 정답 번호와 보기 설명이 어긋난 응답은 정답 키를 믿을 수 없어 저장하지 않고 같은 계획으로 한 번 더 요청한다.
+    const contradictoryAnswerKey = findContradictoryAnswerKey(generatedQuestions);
     const unsuitable = findUnverifiableSubjective(generatedQuestions);
-    if (unsuitable === null) break;
+    if (contradictoryAnswerKey === null && unsuitable === null) break;
     if (attempt >= 2) {
+      if (contradictoryAnswerKey !== null) {
+        throw new GenerationContentError(
+          `AI가 만든 ${contradictoryAnswerKey}번 문제의 정답 번호와 보기 설명이 서로 맞지 않아 저장하지 않았습니다. 다시 출제해 주세요.`
+        );
+      }
       throw new GenerationContentError(
         `객관적으로 채점할 수 있는 주관식 문제를 만들지 못했습니다(${unsuitable}번 문제가 의견·가치판단형이거나 채점 기준이 주관적입니다). 단원이나 요청을 더 구체적으로 정하거나 문제 유형을 바꿔 다시 출제해 주세요.`
       );
