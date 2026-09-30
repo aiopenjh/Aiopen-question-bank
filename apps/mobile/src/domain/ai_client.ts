@@ -338,12 +338,15 @@ export async function callUniversalAiCompletion(
       if (res.status === 429) {
         const waitSeconds = getRetryAfterSeconds(res.headers.get('retry-after'));
         const scope = readGeminiQuotaScope(await readErrorBody(res));
-        const limits = geminiRateLimits.get(trimmedKey) ?? new Map<string, { until: number; scope: GeminiQuotaScope }>();
-        limits.set(model, { until: Date.now() + waitSeconds * 1000, scope });
-        geminiRateLimits.set(trimmedKey, limits);
         if (scope === 'daily') {
+          // 하루 한도는 날짜를 가진 기록으로만 처리한다. 짧은 대기를 따로 두지 않아
+          // 태평양 자정이 지나면 전날 제한 없이 바로 다시 시도한다.
           markDailyExhausted(trimmedKey, model, quotaDay);
           reportAiRequest({ model, outcome: 'daily_exhausted' });
+        } else {
+          const limits = geminiRateLimits.get(trimmedKey) ?? new Map<string, { until: number; scope: GeminiQuotaScope }>();
+          limits.set(model, { until: Date.now() + waitSeconds * 1000, scope });
+          geminiRateLimits.set(trimmedKey, limits);
         }
         rateLimitError = createGeminiRateLimitError(waitSeconds);
         rateLimitScopes.add(scope);

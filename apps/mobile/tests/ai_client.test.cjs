@@ -290,3 +290,48 @@ test('models the server reported as used up today are not re-requested on the sa
   await assert.rejects(h.call('daily-skip-key', 'prompt'));
   assert.equal(h.requests.length, 15, '태평양 날짜가 바뀌면 다시 시도한다');
 });
+
+
+test('a daily limit reported just before Pacific midnight does not block the first request after midnight (Codex R2 remainder)', async () => {
+  const dailyBody = { error: { code: 429, details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } };
+  const h = harness(() => ({ ok: false, status: 429, headers: { get: () => '30' }, json: async () => dailyBody }));
+  // 2026-09-30 06:59:50Z = 태평양 9월 29일 23:59:50(서머타임)
+  h.advance(Date.parse('2026-09-30T06:59:50Z') - Date.now());
+  await assert.rejects(h.call('midnight-key', 'prompt'), (error) => error.quotaScope === 'daily');
+  assert.equal(h.requests.length, 5);
+  h.advance(5_000);
+  await assert.rejects(h.call('midnight-key', 'prompt'));
+  assert.equal(h.requests.length, 5, '자정 전에는 다시 요청하지 않는다');
+  h.advance(15_000); // 07:00:10Z = 태평양 9월 30일 00:00:10
+  await assert.rejects(h.call('midnight-key', 'prompt'));
+  assert.equal(h.requests.length, 10, '자정이 지나면 30초 대기가 남아 있어도 바로 다시 시도한다');
+});
+
+test('per-minute limits still keep their short Retry-After wait', async () => {
+  const minuteBody = { error: { code: 429, details: [{ violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier' }] }] } };
+  const h = harness(() => ({ ok: false, status: 429, headers: { get: () => '30' }, json: async () => minuteBody }));
+  await assert.rejects(h.call('minute-key', 'prompt'), (error) => error.quotaScope === 'minute');
+  assert.equal(h.requests.length, 5);
+  h.advance(10_000);
+  await assert.rejects(h.call('minute-key', 'prompt'), (error) => error.quotaScope === 'minute');
+  assert.equal(h.requests.length, 5, '분당 제한은 대기 시간 동안 다시 요청하지 않는다');
+  h.advance(21_000);
+  await assert.rejects(h.call('minute-key', 'prompt'));
+  assert.equal(h.requests.length, 10, '대기가 끝나면 다시 시도한다');
+});
+
+test('a code block between two dollar signs is never treated as math (Codex R1 remainder)', () => {
+  const h = harness(() => success());
+  const fence = '```';
+  const text = 'Costs $5\n' + fence + 'python\nabla = 1\n\tvalue = 2\n' + fence + '\nand $3.';
+  const inline = 'a $1 `x = 1\nabla` b $2';
+  const parsed = h.parse(JSON.stringify({ text, inline }));
+  assert.equal(parsed.text, text, '코드블록을 가로지르는 $ 사이는 수식이 아니다');
+  assert.equal(parsed.inline, inline, '인라인 코드를 가로지르는 $ 사이도 수식이 아니다');
+  // 코드블록 앞뒤의 실제 수식 구간은 각각 복원된다.
+  const mixed = '$3 \times 2$ ' + fence + '\nnabla\n' + fence + ' $a\neq b$';
+  const restored = h.parse(JSON.stringify({ mixed })).mixed;
+  assert.ok(restored.startsWith(String.raw`$3 \times 2$`), restored);
+  assert.ok(restored.includes(fence + '\nnabla\n' + fence), '코드 안 줄바꿈 보존');
+  assert.ok(restored.endsWith(String.raw`$a\neq b$`), restored);
+});

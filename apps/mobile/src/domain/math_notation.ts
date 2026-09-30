@@ -61,19 +61,30 @@ const HANGUL_RE = /[가-힣]/;
  * 짝이 없는 마지막 $는 경계로 쓰지 않고, 한글이 들어간 구간(예: "가격은 $5, 할인가 $3")은 수식으로 보지 않는다.
  */
 function findMathSpans(text: string): Array<[number, number]> {
-  const blocked = new Uint8Array(text.length);
+  // 코드 구간을 경계로 문장을 나누고, 각 조각 안에서만 $를 짝짓는다. 그래서 수식 구간이
+  // 코드블록·인라인 코드를 가로질러 이어지지 않는다(예: "비용 $5 ```코드``` 그리고 $3").
+  const segments: Array<[number, number]> = [];
+  let cursor = 0;
   for (const match of text.matchAll(CODE_SPAN_RE)) {
-    blocked.fill(1, match.index ?? 0, (match.index ?? 0) + match[0].length);
+    const codeStart = match.index ?? 0;
+    segments.push([cursor, codeStart]);
+    cursor = codeStart + match[0].length;
   }
-  const dollars: number[] = [];
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === '$' && !blocked[i] && text[i - 1] !== '\\') dollars.push(i);
-  }
+  segments.push([cursor, text.length]);
+
   const spans: Array<[number, number]> = [];
-  for (let i = 0; i + 1 < dollars.length; i += 2) {
-    const start = dollars[i] + 1;
-    const end = dollars[i + 1];
-    if (!HANGUL_RE.test(text.slice(start, end))) spans.push([start, end]);
+  for (const [segmentStart, segmentEnd] of segments) {
+    const dollars: number[] = [];
+    for (let i = segmentStart; i < segmentEnd; i++) {
+      if (text[i] === '$' && text[i - 1] !== '\\') dollars.push(i);
+    }
+    for (let i = 0; i + 1 < dollars.length; i += 2) {
+      const start = dollars[i] + 1;
+      const end = dollars[i + 1];
+      const content = text.slice(start, end);
+      // LaTeX 수식에는 백틱을 쓰지 않으므로 백틱이 든 구간(줄바꿈이 낀 코드 조각 등)은 수식으로 보지 않는다.
+      if (!HANGUL_RE.test(content) && !content.includes('`')) spans.push([start, end]);
+    }
   }
   return spans;
 }
