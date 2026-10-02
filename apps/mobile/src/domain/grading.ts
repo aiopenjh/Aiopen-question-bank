@@ -11,7 +11,7 @@
 
 import { ClozeBlank, QuestionRevision } from '../contracts/types';
 import { getGeminiApiKey } from '../data/db';
-import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
+import { callUniversalAiCompletion, parseAiJsonResponse, hasAiConnection } from './ai_client';
 import { normalizeComparableText } from './generator_validation';
 
 export interface SubjectiveGradingResult {
@@ -108,7 +108,7 @@ export async function gradeSubjectiveAnswer(
 
   try {
     const apiKey = await getGeminiApiKey();
-    if (!apiKey || apiKey.trim().length < 8) {
+    if (!(await hasAiConnection(apiKey))) {
       return {
         gradingStatus: 'failed',
         gradingFailedReason: 'AI 채점을 위한 연결이 필요합니다. 설정 탭에서 AI 연결을 완료해 주세요.',
@@ -116,7 +116,7 @@ export async function gradeSubjectiveAnswer(
     }
 
     const prompt = buildGradingPrompt(question, trimmedAnswer);
-    const completion = await callUniversalAiCompletion(apiKey.trim(), prompt);
+    const completion = await callUniversalAiCompletion((apiKey ?? '').trim(), prompt);
     const parsed = parseAiJsonResponse<Record<string, unknown>>(completion.text);
 
     const response = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;

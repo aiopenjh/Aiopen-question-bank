@@ -21,7 +21,7 @@ function gradingWith(responseText) {
   return compile(path.join(ROOT, 'src/domain/grading.ts'), name => {
     if (name === '../data/db') return { getGeminiApiKey: async () => 'test-key-123456' };
     if (name === './ai_client') {
-      return { callUniversalAiCompletion: async () => ({ text: responseText }), parseAiJsonResponse: JSON.parse };
+      return { hasAiConnection: async () => true, callUniversalAiCompletion: async () => ({ text: responseText }), parseAiJsonResponse: JSON.parse };
     }
     if (name === './generator_validation') return { normalizeComparableText: text => text };
     throw new Error(`Unexpected dependency ${name}`);
@@ -35,6 +35,7 @@ test('cancelling the AI data notice fails grading with a notice reason, not a ne
     if (name === '../data/db') return { getGeminiApiKey: async () => 'test-key-123456' };
     if (name === './ai_client') {
       return {
+        hasAiConnection: async () => true,
         callUniversalAiCompletion: async () => { const e = new Error('declined'); e.name = 'GenerationCancelledError'; throw e; },
         parseAiJsonResponse: JSON.parse,
       };

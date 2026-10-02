@@ -37,6 +37,7 @@ function gradingWith(responseText) {
     if (name === '../data/db') return { getGeminiApiKey: async () => 'test-key-123456' };
     if (name === './ai_client') {
       return {
+        hasAiConnection: async () => true,
         callUniversalAiCompletion: async (_key, prompt) => { prompts.push(prompt); return { text: responseText }; },
         parseAiJsonResponse: JSON.parse,
       };

@@ -17,6 +17,8 @@ import { DAILY_GOAL_DEFAULT } from '../domain/daily_goal';
 import { AppController } from '../hooks/useAppController';
 import { StorageSafeModeScreen } from './common/StorageSafeModeScreen';
 import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler';
+import { hasAiConnection } from '../domain/ai_client';
+import { isDesktopConnectorEnvironment } from '../integrations/desktop_ai_connector';
 
 export function AppView({ controller }: { controller: AppController }) {  const {
     loading, storageError, currentPage, goToPage, apiKey, setApiKey, setIsSourceUploadModalOpen,
@@ -47,6 +49,30 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     appAlert, setAppAlert,
   } = controller;
   const [feedbackVisible, setFeedbackVisible] = useState(false);
+  const [aiConnectionReady, setAiConnectionReady] = useState(apiKey.trim().length > 8);
+  useEffect(() => {
+    let active = true, sequence = 0;
+    const check = () => {
+      const current = ++sequence;
+      void hasAiConnection(apiKey, 9).then(ready => {
+        if (active && current === sequence) setAiConnectionReady(ready);
+      }).catch(() => { if (active && current === sequence) setAiConnectionReady(false); });
+    };
+    check();
+    if (isDesktopConnectorEnvironment()) {
+      window.addEventListener('focus', check);
+      window.addEventListener('storage', check);
+      window.addEventListener('ai-login-connector:selectionchange', check);
+    }
+    return () => {
+      active = false;
+      if (isDesktopConnectorEnvironment()) {
+        window.removeEventListener('focus', check);
+        window.removeEventListener('storage', check);
+        window.removeEventListener('ai-login-connector:selectionchange', check);
+      }
+    };
+  }, [apiKey, currentPage, refreshing]);
   const libraryBackHandlerRef = useRef<(() => boolean) | null>(null);
   // Retain visited pages so paging and modal state survive navigation.
   const [visitedPages, setVisitedPages] = useState(() => new Set([currentPage]));
@@ -86,7 +112,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
         <Header
           currentPage={currentPage}
           onSelectPage={(p) => goToPage(p, true)}
-          hasApiKey={apiKey.length > 8}
+          hasAiConnection={aiConnectionReady}
           onOpenSourceUpload={() => setIsSourceUploadModalOpen(true)}
         />
 

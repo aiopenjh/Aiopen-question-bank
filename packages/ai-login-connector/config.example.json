@@ -1,0 +1,10 @@
+{
+  "appName": "AI Login Connector",
+  "port": 0,
+  "google": {
+    "clientId": "",
+    "clientSecret": "",
+    "projectId": "",
+    "apiAccess": false
+  }
+}

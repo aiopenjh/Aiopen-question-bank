@@ -6,14 +6,14 @@ import { RankingLeaderboardCard } from '../../features/study/RankingLeaderboardC
 export interface HeaderProps {
   currentPage: number;
   onSelectPage: (page: number) => void;
-  hasApiKey: boolean;
+  hasAiConnection: boolean;
   onOpenSourceUpload?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentPage,
   onSelectPage,
-  hasApiKey,
+  hasAiConnection,
   onOpenSourceUpload,
 }) => {
   return (
@@ -87,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
           style={[
             styles.navTab,
             currentPage === 2 && styles.navTabActive,
-            !hasApiKey && currentPage !== 2 && styles.navTabAlert,
+            !hasAiConnection && currentPage !== 2 && styles.navTabAlert,
           ]}
           activeOpacity={0.8}
         >
@@ -95,11 +95,11 @@ export const Header: React.FC<HeaderProps> = ({
             style={[
               styles.navTabText,
               currentPage === 2 && styles.navTabTextActive,
-              !hasApiKey && currentPage !== 2 && styles.navTabTextAlert,
+              !hasAiConnection && currentPage !== 2 && styles.navTabTextAlert,
             ]}
             numberOfLines={1}
           >
-            설정{!hasApiKey ? '  !' : ''}
+            설정{!hasAiConnection ? '  !' : ''}
           </Text>
         </TouchableOpacity>
       </View>

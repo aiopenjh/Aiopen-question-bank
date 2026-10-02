@@ -5,6 +5,8 @@ import { styles } from './settingsStyles';
 import { PullRefreshIndicator } from '../../components/common/PullRefreshIndicator';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { ApiKeySection } from './ApiKeySection';
+import { DesktopAiConnectionSection } from './DesktopAiConnectionSection';
+import { isDesktopConnectorEnvironment } from '../../integrations/desktop_ai_connector';
 import { AlarmConfigSection } from './AlarmConfigSection';
 import { DailyGoalSection } from './DailyGoalSection';
 import { DataBackupSection } from './DataBackupSection';
@@ -254,7 +256,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         description="문제 생성에 사용할 AI 연결 상태를 관리합니다."
         collapsible
       >
-        <ApiKeySection
+        {isDesktopConnectorEnvironment() ? <DesktopAiConnectionSection /> : <ApiKeySection
           apiKey={apiKey}
           onChangeApiKey={onChangeApiKey}
           onSaveApiKey={onSaveApiKey}
@@ -263,7 +265,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             focusedApiInputRef.current = input;
             if (Platform.OS === 'android') revealApiInput();
           }}
-        />
+        />}
       </SettingsGroup>
 
       <SettingsGroup

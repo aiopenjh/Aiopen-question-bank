@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI 연결</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <main class="shell">
+    <div class="brand"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="5" y="6" width="48" height="52" rx="10" fill="#A95F75"/><path d="M15 20c7-3 12-2 17 2v24c-5-4-10-5-17-2zm34 0c-7-3-12-2-17 2v24c5-4 10-5 17-2z" fill="#FBEFF3"/><path d="M47 10a9 9 0 1 0 10 12 10 10 0 0 1-10-12" fill="#D9BE78"/><path d="m57 5 1 3 3 1-3 1-1 3-1-3-3-1 3-1z" fill="#C9788E"/></svg><span>Celueste <span class="sparkle">✦</span></span></div>
+    <p class="eyebrow">나만의 학습을 이어가는 곳</p>
+    <h1>어떤 AI와 공부할까요?</h1>
+    <p class="intro">내 계정으로 연결하고, 배움을 시작하세요.</p>
+    <section id="providers" class="providers" aria-label="AI 로그인">
+      <div class="provider" data-provider="openai"><button type="button" disabled>GPT로 연결</button><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">가입</a><p class="hint"></p></div>
+      <div class="provider" data-provider="google"><button type="button" disabled>Gemini로 연결</button><a href="https://accounts.google.com/signup" target="_blank" rel="noopener noreferrer">가입</a><p class="hint"></p></div>
+    </section>
+    <section id="models" hidden>
+      <p id="model-label">사용 가능한 모델</p>
+      <div class="model-picker">
+        <button id="model-trigger" type="button" disabled aria-haspopup="listbox" aria-expanded="false" aria-labelledby="model-label model-name"><span id="model-name">모델 선택</span><span aria-hidden="true">⌄</span></button>
+        <div id="model-menu" class="model-menu" role="listbox" aria-labelledby="model-label" hidden></div>
+      </div>
+      <label id="api-consent-row" class="api-consent" hidden><input id="api-consent" type="checkbox"> Google 프로젝트의 API 사용 한도·과금 조건을 확인했습니다.</label>
+    </section>
+    <p id="notice" class="notice" role="status" aria-live="polite">연결 준비 중…</p>
+    <a id="hosted-app" class="continue" hidden>문제은행 열기 →</a>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

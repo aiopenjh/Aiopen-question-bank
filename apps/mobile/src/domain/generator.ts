@@ -16,7 +16,7 @@ import { generateUUID, getCurrentISOTime, getGeminiApiKey, getAttempts } from '.
 import { CHALLENGE_START_LEVEL, getChallengeGenerationError, getUnlockedChallengeLevel } from './challenge_progress';
 import { buildQuestionGenerationPrompt } from './prompts';
 import { createQuestionTypePlan, matchesQuestionTypePlan } from './question_type_plan';
-import { callUniversalAiCompletion, parseAiJsonResponse } from './ai_client';
+import { callUniversalAiCompletion, parseAiJsonResponse, hasAiConnection, describeAiFailureForUser } from './ai_client';
 import {
   ScopedIntent,
   StudyIntentDecision,
@@ -213,7 +213,7 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
   const apiKey = await getGeminiApiKey();
 
   // API Key 미연동 시: 가짜 문제를 억지로 내지 않고 솔직한 통로 안내 반환
-  if (!apiKey || apiKey.trim().length < 8) {
+  if (!(await hasAiConnection(apiKey))) {
     return {
       status: 'NEEDS_CONNECTION',
       provider: 'AI_PROVIDER',
@@ -224,7 +224,7 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
 
   try {
     const generated = await generateViaUniversalAiApi({
-      apiKey: apiKey.trim(),
+      apiKey: (apiKey ?? '').trim(),
       intent,
       ownerId,
       topicId,
@@ -260,6 +260,8 @@ async function generateFactBasedQuestionsOnce(params: GenerationParams): Promise
     } else if (err?.name === 'GeminiRateLimitError') {
       safeMessage = describeRateLimit(err.quotaScope);
       failureCategory = 'rate_limited';
+    } else if (err?.name === 'DesktopAiConnectionError') {
+      safeMessage = describeAiFailureForUser(err);
     }
     // 원본 예외에는 API 키, 요청 URL, 제공자 응답 등이 섞일 수 있어 기록하지 않는다.
     console.warn(`AI 출제 실패 범주: ${failureCategory}`);

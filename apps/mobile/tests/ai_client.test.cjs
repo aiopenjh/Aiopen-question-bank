@@ -35,6 +35,10 @@ function harness(fetchImpl, noticeAccepted = true) {
     console: { warn: (message) => logs.push(message) },
     require: name => name === './ai_data_notice'
       ? { ensureAiDataNoticeAccepted: async () => noticeAccepted }
+      : name === '../integrations/desktop_ai_connector' ? {
+        resolveAiConnection: async () => ({ mode: 'api-key' }),
+        hasUsableAiConnection: async key => Boolean(key && key.trim().length >= 8),
+      }
       : name === './ai_usage' ? usage
       : name === './math_notation' ? mathNotation
       : { DEFAULT_GEMINI_MODEL: defaultModel },

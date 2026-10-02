@@ -19,6 +19,7 @@ import {
 } from '../data/db';
 import { showAlert } from '../utils/alert';
 import { showAiUsageNoticeIfNeeded } from './aiUsageNotice';
+import { hasAiConnection } from '../domain/ai_client';
 import { difficultyToLegacyLevel, legacyLevelToDifficulty } from '../domain/difficulty';
 import { buildUnitGenerationContext, formatIntentMessage, pickOverviewUnitTitles } from './quizGenerationContext';
 import { CHALLENGE_START_LEVEL, getUnlockedChallengeLevel } from '../domain/challenge_progress';
@@ -330,7 +331,7 @@ export function useQuizGeneration({
 
     const existingQuestions = questions.filter((q) => q.topicId === currentTopic.id);
 
-    if (!apiKey || apiKey.trim().length <= 8) {
+    if (!(await hasAiConnection(apiKey, 9))) {
       showAlert(
         'AI 연결 필요',
         '새로운 문제를 만들기 위한 AI 연결이 없어 문제를 만들지 못했습니다.\n\n기존에 학습했던 문제를 복습하시겠습니까?',

@@ -1,0 +1,7 @@
+node_modules/
+.local/
+*.log
+*.enc
+*.tmp
+.env
+client_secret*.json

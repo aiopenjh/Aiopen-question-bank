@@ -10,7 +10,7 @@
 
 import { QuestionRevision } from '../contracts/types';
 import { getGeminiApiKey } from '../data/db';
-import { callUniversalAiCompletion, describeAiFailureForUser, parseAiJsonResponse } from './ai_client';
+import { callUniversalAiCompletion, describeAiFailureForUser, parseAiJsonResponse, hasAiConnection } from './ai_client';
 import { containsAnswerLeak, MAX_HINT_LENGTH } from './generator_validation';
 
 // 힌트 길이·정답 노출 같은 검사 사유는 내부용이다. 화면에는 요청 실패와 재요청 안내만 보인다.
@@ -55,7 +55,7 @@ export async function generateHintForExistingQuestion(
   question: QuestionRevision
 ): Promise<string> {
   const apiKey = await getGeminiApiKey();
-  if (!apiKey || apiKey.trim().length < 8) {
+  if (!(await hasAiConnection(apiKey))) {
     throw new HintGenerationError(
       'AI 힌트를 만들려면 먼저 설정 탭에서 AI 연결을 완료해 주세요.'
     );
@@ -63,7 +63,7 @@ export async function generateHintForExistingQuestion(
 
   let completionText: string;
   try {
-    const completion = await callUniversalAiCompletion(apiKey.trim(), buildSingleHintPrompt(question));
+    const completion = await callUniversalAiCompletion((apiKey ?? '').trim(), buildSingleHintPrompt(question));
     completionText = completion.text;
   } catch (err: any) {
     throw new HintGenerationError(describeAiFailureForUser(err));

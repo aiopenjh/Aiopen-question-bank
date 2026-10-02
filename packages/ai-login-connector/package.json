@@ -1,0 +1,10 @@
+{
+  "name": "ai-login-connector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Independent local AI account connection module",
+  "engines": { "node": ">=22.12" },
+  "exports": { ".": { "types": "./src/index.d.ts", "import": "./src/index.js" } },
+  "scripts": { "start": "node desktop/server.js", "example": "node examples/in-process.js" }
+}

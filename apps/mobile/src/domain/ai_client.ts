@@ -5,6 +5,8 @@
 
 import { AiDocumentInput } from '../contracts/types';
 import { ensureAiDataNoticeAccepted } from './ai_data_notice';
+import { completeWithDesktopAi, resolveAiConnection } from '../integrations/desktop_ai_connector';
+export { hasUsableAiConnection as hasAiConnection } from '../integrations/desktop_ai_connector';
 import {
   GEMINI_MODEL_ORDER,
   GeminiQuotaScope,
@@ -72,6 +74,7 @@ const PASS_THROUGH_AI_MESSAGES = [
  * 그대로 보여 주지 않고 사용자가 할 일만 알린다.
  */
 export function describeAiFailureForUser(err: any): string {
+  if (err?.name === 'DesktopAiConnectionError') return err.message;
   if (err?.name === 'GeminiRateLimitError') return describeRateLimit(err.quotaScope);
   if (err?.name === 'GenerationCancelledError') return '요청이 취소되었습니다.';
   const message = typeof err?.message === 'string' ? err.message : '';
@@ -189,6 +192,14 @@ export async function callUniversalAiCompletion(
   // 데이터 전송 안내를 확인하지 않으면 네트워크 요청을 보내지 않는다.
   if (!(await ensureAiDataNoticeAccepted())) throw createAiDataNoticeDeclinedError();
   if (signal?.aborted) throw createGenerationCancelledError();
+
+  const connection = await resolveAiConnection(apiKey);
+  if (connection.mode === 'desktop') {
+    if (options?.enableGoogleSearch) throw new Error('최신 정보 확인 기능을 지원하는 AI 연결이 필요합니다.');
+    if (documentInput) throw new Error('PDF 분석을 지원하는 AI 연결이 필요합니다.');
+    // The key is deliberately ignored. A failed login must not charge a saved API key.
+    return { text: await completeWithDesktopAi(connection, prompt, signal), groundingSources: [], finishReason: 'STOP' };
+  }
 
   // 1. Anthropic Claude Sonnet 4.6 지원 (sk-ant- 시작 키)
   if (trimmedKey.startsWith('sk-ant-')) {

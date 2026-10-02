@@ -1,24 +1,23 @@
 {
   "schemaVersion": 1,
-  "taskId": "explanation-math-fix-20260930",
-  "title": "해설 수식 표시·보기 번호·자기 정정 방어",
-  "phase": "complete",
-  "activeAgent": null,
+  "taskId": "ai-login-pilot-20261002",
+  "title": "독립 AI 로그인 모듈 데스크톱 시범 연결",
+  "phase": "implementation",
+  "activeAgent": "codex",
   "implementationAgent": "codex",
   "reviewAgent": "codex",
   "iteration": 1,
   "maxReviewIterations": 2,
   "baseBranch": "main",
-  "workBranch": "feature/explanation-math-fix",
-  "baseCommit": "6120083",
-  "headCommit": "10d329d",
-  "note": "사용자가 승인한 테스트·main 반영·웹 배포 완료. 앱 커밋 10d329d 충돌 없이 병합. 타입 검사 오류 0, 관련 37개 및 전체 281개 테스트 통과. 별도 로컬 주소의 검증용 문제로 390px 결과 화면의 오답 분석/간격/조립제법 표시 확인, error 로그 없음. gh-pages 279df30 공개 HTML/번들 SHA-256 일치 확인, version.json 2.3.6 유지. README/DEVELOPER/CHANGELOG/CODEX_REVIEW 기록. 기존 운영 데이터·API 키 미변경. 실제 AI·Android 실기기는 미검증, APK 빌드 없음. 검증용 로컬 서버 종료.",
+  "workBranch": "feature/ai-login-connector",
+  "baseCommit": "c1e7ad9",
+  "headCommit": "c1e7ad9",
+  "note": "작업 브랜치 커밋·원격 push 사용자 승인. GPT/Google 로그인 모듈, 로컬 AI 요청 연결, 로그인 후 앱 자동 진입 및 추가 AI 연결, 설정 2열 카드 반영. Google 실계정 로그인·기존 계정 앱 진입 확인. 실제 AI 응답 완료 및 Gemini API 출제 검증은 남음. Google OAuth 비밀값·학습 데이터·개인 문서 제외. main 병합·공개 배포·APK 미승인.",
   "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
-    "push",
     "merge",
     "deploy",
     "destructive_change"
   ],
-  "updatedAt": "2026-09-30T15:57:03.705+09:00"
+  "updatedAt": "2026-10-02T17:58:04+09:00"
 }

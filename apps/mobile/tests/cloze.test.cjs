@@ -30,6 +30,7 @@ const grading = compile(gradingFile, name => {
   if (name === '../data/db') return { getGeminiApiKey: async () => 'unused-test-key' };
   if (name === './ai_client') {
     return {
+      hasAiConnection: async () => true,
       callUniversalAiCompletion: async () => { throw new Error('should-not-call-provider'); },
       parseAiJsonResponse: JSON.parse,
     };

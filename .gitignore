@@ -41,6 +41,7 @@ dist/
 apps/*/dist/
 dist-review/
 apps/*/dist-review/
+apps/*/dist-login-pilot/
 web-build/
 apps/*/web-build/
 .build-tools/
