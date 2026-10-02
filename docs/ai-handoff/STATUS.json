@@ -11,7 +11,7 @@
   "baseBranch": "main",
   "workBranch": "feature/ai-login-connector",
   "baseCommit": "c1e7ad9",
-  "headCommit": "c1e7ad9",
+  "headCommit": "ecf87ae6d7b7e908f47c03ff4b85436e86198434",
   "note": "작업 브랜치 커밋·원격 push 사용자 승인. GPT/Google 로그인 모듈, 로컬 AI 요청 연결, 로그인 후 앱 자동 진입 및 추가 AI 연결, 설정 2열 카드 반영. Google 실계정 로그인·기존 계정 앱 진입 확인. 실제 AI 응답 완료 및 Gemini API 출제 검증은 남음. Google OAuth 비밀값·학습 데이터·개인 문서 제외. main 병합·공개 배포·APK 미승인.",
   "nextFile": "docs/ai-handoff/CODEX_REVIEW.md",
   "approvalRequiredFor": [
