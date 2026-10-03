@@ -59,6 +59,12 @@ test('generation and reopen use each saved unit level; untouched units inherit t
             return { status: 'FAILED', message: 'Test network boundary' };
           },
         };
+        if (name === '../domain/ai_client') return {
+          hasAiConnection: async value => Boolean(value && value.trim().length >= 8),
+        };
+        if (name === '../integrations/desktop_ai_connector') return {
+          isDesktopAiSelected: async () => false,
+        };
         return load(path.resolve(path.dirname(file), name + '.ts'));
       },
     });

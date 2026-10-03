@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, sep, extname } from 'node:path';
 import { spawn } from 'node:child_process';
-import { AIConnector, WindowsEncryptedStore, createOpenAIProvider, createClaudeProvider, createGeminiProvider, ConnectorError } from '../src/index.js';
+import { AIConnector, WindowsEncryptedStore, createOpenAIProvider, createGeminiProvider, ConnectorError } from '../src/index.js';
 import { publicError } from '../src/errors.js';
 import { randomValue, sameSecret } from '../src/oidc.js';
 
@@ -19,7 +19,7 @@ if (appDirectory && !/^\/[A-Za-z0-9_-]+$/.test(appMount)) throw new Error('앱 �
 const hostedApp = appDirectory ? { name: process.env.AI_CONNECTOR_APP_NAME ?? '연결된 앱', path: `${appMount}/` } : null;
 const contentTypes = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ico': 'image/x-icon' };
 const store = new WindowsEncryptedStore(join(process.env.LOCALAPPDATA, 'AI_Login_Connector', 'credentials.enc'));
-const connector = new AIConnector({ store, providers: [createOpenAIProvider({ appName }), createClaudeProvider(), createGeminiProvider(config.google)] });
+const connector = new AIConnector({ store, providers: [createOpenAIProvider({ appName }), createGeminiProvider(config.google)] });
 const assets = new Map([
   ['/', { file: 'index.html', type: 'text/html; charset=utf-8' }],
   ['/app.js', { file: 'app.js', type: 'text/javascript; charset=utf-8' }],

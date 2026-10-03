@@ -61,5 +61,4 @@ export class WindowsEncryptedStore implements CredentialStore {
 }
 export class ConnectorError extends Error { constructor(code: string, message: string, status?: number); code: string; status: number }
 export function createOpenAIProvider(options?: { appName?: string }): ProviderAdapter;
-export function createClaudeProvider(): ProviderAdapter;
 export function createGeminiProvider(options?: { clientId?: string; clientSecret?: string; projectId?: string; apiAccess?: boolean }): ProviderAdapter;

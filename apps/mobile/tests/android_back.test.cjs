@@ -65,6 +65,8 @@ function createHarness(platform) {
         if (name.endsWith('Styles') || name.endsWith('examStyles') || name.endsWith('appStyles')) {
           return new Proxy({}, { get: () => new Proxy({}, { get: () => ({}) }) });
         }
+        if (name.endsWith('domain/ai_client')) return { hasAiConnection: async () => false };
+        if (name.endsWith('integrations/desktop_ai_connector')) return { isDesktopConnectorEnvironment: () => false };
         return stubModule;
       },
     }, { filename: file });

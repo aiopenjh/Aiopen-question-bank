@@ -49,7 +49,7 @@ export function AppView({ controller }: { controller: AppController }) {  const 
     appAlert, setAppAlert,
   } = controller;
   const [feedbackVisible, setFeedbackVisible] = useState(false);
-  const [aiConnectionReady, setAiConnectionReady] = useState(apiKey.trim().length > 8);
+  const [aiConnectionReady, setAiConnectionReady] = useState(typeof apiKey === 'string' && apiKey.trim().length > 8);
   useEffect(() => {
     let active = true, sequence = 0;
     const check = () => {
