@@ -82,7 +82,6 @@ export const DesktopAiConnectionSection: React.FC = () => {
       const hint = !provider ? '' : provider.status === 'connecting' ? '로그인 중…'
         : provider.canInfer ? choice.mode === 'desktop' && choice.providerId === entry.id && model ? '출제 준비됨' : '모델 확인 중…'
         : provider.status === 'identity-only' ? '로그인됨 · AI 사용 권한은 별도'
-        : entry.id === 'anthropic' ? '구독 로그인 연결 미지원'
         : entry.id === 'google' && !provider.canConnect ? 'Google 로그인 앱 등록 필요' : '';
       return <View key={entry.id} style={s.providerCard}>
         <Text style={s.providerName}>{entry.name}</Text>

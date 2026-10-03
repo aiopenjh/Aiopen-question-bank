@@ -9,7 +9,6 @@
 AIConnector — 계정 선택, 요청 직렬화, 인증 시도, 사용 권한 확인
        ├─ OpenAIProvider : 공식 ChatGPT OAuth / Responses
        ├─ GeminiProvider : Google OAuth / 선택한 경우만 Gemini API
-       ├─ ClaudeProvider : 미지원 상태 / 허용된 별도 연결부로 교체
        └─ CredentialStore : MemoryStore 또는 WindowsEncryptedStore
 
 desktop/server.js : 시범용 로컬 HTTP 호스트와 브라우저 로그인 화면
@@ -39,7 +38,6 @@ Android나 원격 웹 앱이 이 Node 모듈을 그대로 실행할 수 있다�
 
 공급자는 표시 정보·기능 지원 여부와 `begin / exchange / refresh / revoke / models / generate`를 구현합니다.
 새로운 연결 경로가 허용되면 `providers` 생성 목록에 해당 연결부를 넣으면 됩니다.
-Claude는 현재 공식적인 자체 앱 구독 로그인 경로가 없는 상태를 명시합니다. 토큰 가져오기·웹 로그인 자동화·숨겨진 엔드포인트 우회는 구현하지 않았습니다.
 
 사용할 연결부와 저장소는 프로젝트가 주입합니다. 허용된 공급자만 목록에 넣을 수도 있습니다.
 외부 연결부가 신뢰하지 않는 인증 URL·JWKS 주소·API 엔드포인트를 쓰지 않도록 검토하는 책임은 호스트에 있습니다.
@@ -59,7 +57,7 @@ UI는 AI 텍스트를 `textContent`로 표시하며 HTML로 실행하지 않습�
 
 1. 작성한 코드의 문법·오프라인 인증 경계·Windows 저장소 동작 확인.
 2. 사용자가 공식 화면에서 로그인한 뒤 첫 응답까지 실계정 확인.
-3. Claude의 허용된 자체 연결 경로와 Gemini 개인 구독 연결 가능 여부 결정.
+3. Gemini 개인 구독 연결 가능 여부 결정.
 4. 검증된 계약으로 문제은행에 연결. 기존 API 호출부를 대체하는 작업은 별도 범위.
 5. 패키징, 배포 라이선스, Google 앱 검증, 웹/Android 확장 검토.
 

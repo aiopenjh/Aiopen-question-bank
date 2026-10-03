@@ -12,10 +12,8 @@
 | GPT / ChatGPT | 자체 OAuth + PKCE, 동적 앱 등록, ID 토큰 서명 검증, 계정 전환, 자격 증명 갱신, 계정별 모델 조회, Responses 스트림, 연결 해제 | 사용자의 승인·지원 계정·OpenAI 서비스 적용 조건 확인 및 실계정 검증 |
 | Gemini / Google | 자체 Google OAuth + PKCE, ID 토큰 검증, 계정 전환·갱신·해제 | 개발자의 Desktop OAuth 앱 등록 필요. 기본값은 로그인 신원 확인만 지원 |
 | Gemini API 선택 모드 | Google OAuth 자격 증명으로 모델 목록 및 텍스트 생성 요청 | 별도 Cloud 프로젝트·API 활성화·권한·과금 조건 필요. 기본 비활성화 |
-| Claude | 미지원 연결부 교체 구조, 사용자 화면에서는 제외 | 자체 앱의 Claude 구독 로그인은 구현하지 않음. 허용되는 연결 경로 필요 |
 
 Google 로그인은 Gemini 개인 구독 사용 권한을 의미하지 않습니다. 선택 모드를 켜도 Gemini 구독 한도로 바뀌지 않습니다.
-Claude 연결부는 의도적으로 `unavailable`을 반환하며 성공한 것처럼 표시하지 않습니다.
 
 ## 실행
 
@@ -31,7 +29,7 @@ npm start
 종료는 실행 터미널에서 `Ctrl+C`입니다. 시작 스크립트는 자동 실행·서비스·방화벽·기존 프로젝트 설정을 변경하지 않습니다.
 
 첫 화면은 같은 스타일의 GPT·Gemini 연결 버튼과 가입 링크를 제공합니다. 문제은행 연결판은 하나라도 로그인되어 있으면 앱으로 자동 진입합니다. 새 로그인도 같은 창에서 진행하고, 성공한 콜백은 앱으로 바로 이동합니다. 앱 설정의 AI 연결은 반반 나눈 2열 카드이며, 다른 AI를 추가 연결해도 기존 공급자 계정은 유지됩니다. 실제 AI 권한이 있는 연결의 모델만 선택할 수 있습니다.
-문제은행 연결판은 저장소 루트의 `start-login-pilot.ps1`로 실행합니다. 문제은행 설정의 기존 API 키 입력 자리에 AI 연결 버튼이 표시됩니다. GPT·Claude·Gemini 버튼을 누르면 해당 공급자의 실제 계정 모델만 보여줍니다. 작은 모델 메뉴에서 선택하면 출제·목차·힌트·주관식 채점에 바로 적용되며 선택 표시가 붙습니다. 문제의 정답·해설은 출제 결과에 포함됩니다. 로그인과 모델 선택 자체는 문제 생성 요청을 보내지 않습니다.
+문제은행 연결판은 저장소 루트의 `start-login-pilot.ps1`로 실행합니다. 문제은행 설정의 기존 API 키 입력 자리에 AI 연결 버튼이 표시됩니다. GPT·Gemini 버튼을 누르면 해당 공급자의 실제 계정 모델만 보여줍니다. 작은 모델 메뉴에서 선택하면 출제·목차·힌트·주관식 채점에 바로 적용되며 선택 표시가 붙습니다. 문제의 정답·해설은 출제 결과에 포함됩니다. 로그인과 모델 선택 자체는 문제 생성 요청을 보내지 않습니다.
 
 첫 연결 화면과 같은 로컬 origin의 호스트는 `localStorage`의 `ai-login-connector:model-selection-v1`에서 `{mode:'desktop', providerId, model, acceptApiUsage}`를 읽습니다. 이 값은 비밀이 아닌 선택 정보이며 로그인 자격 증명이나 API 키를 포함하지 않습니다. 호스트에서 선택을 바꾸면 같은 값도 갱신해야 합니다. 문제은행 공통 AI 요청 경로는 매 호출마다 이 선택을 읽고 로컬 백엔드에 공급자·모델을 전달합니다. 백엔드는 로그인·실제 모델 목록·사용 권한을 다시 확인하고, 실패할 때 다른 AI나 기존 API 키로 전환하지 않습니다. 공개 웹·Android에서는 이 로컬 선택을 읽지 않습니다.
 
@@ -105,7 +103,6 @@ GPT 실계정 연결 상태와 모델 조회를 확인했습니다. 승인 거�
 - [OpenAI 등록과 로그인](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)
 - [OpenAI 계정·갱신·해제](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions)
 - [OpenAI 모델 및 응답 완료](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference)
-- [Claude 자체 앱 로그인 제한](https://code.claude.com/docs/en/legal-and-compliance)
 - [Gemini API OAuth](https://ai.google.dev/gemini-api/docs/oauth)
 - [Gemini API 키 만들기](https://ai.google.dev/gemini-api/docs/api-key)
 - [Gemini 무료 등급과 가격](https://ai.google.dev/gemini-api/docs/pricing)

@@ -46,7 +46,10 @@ function harness(fetchImpl = async () => { throw new Error('unexpected provider 
       fetch: fetchImpl,
       setTimeout,
       // 데이터 전송 안내는 이미 확인한 상태로 둔다(ai_data_notice.test.cjs에서 따로 검증).
-      require: (name) => name === './ai_data_notice' ? { ensureAiDataNoticeAccepted: async () => true } : name === '../data/db'
+      require: (name) => name === '../integrations/desktop_ai_connector' ? {
+        resolveAiConnection: async () => ({ mode: 'api-key' }),
+        hasUsableAiConnection: async value => Boolean(value && value.trim().length >= 8),
+      } : name === './ai_data_notice' ? { ensureAiDataNoticeAccepted: async () => true } : name === '../data/db'
         ? {
             DEFAULT_GEMINI_MODEL,
             generateUUID: () => String(++id),
