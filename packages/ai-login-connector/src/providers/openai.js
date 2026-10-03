@@ -133,16 +133,20 @@ export function createOpenAIProvider({ appName = 'AI Login Connector' } = {}) {
         method: 'POST', headers: { authorization: `Bearer ${account.accessToken}`, 'content-type': 'application/json' },
         body: JSON.stringify({ model, input: [{ role: 'user', content: prompt }], store: false, stream: true }), signal,
       });
-      let text = '', complete = false;
+      let text = '', complete = false, refused = false;
       for await (const event of eventsFrom(response)) {
-        if ((event.type === 'response.output_text.delta' || event.type === 'response.refusal.delta') && typeof event.delta === 'string') {
+        if (event.type === 'response.refusal.delta' && typeof event.delta === 'string') {
+          refused = true;
+        } else if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') {
           text += event.delta;
           if (text.length > 1_000_000) throw new ConnectorError('OUTPUT_TOO_LARGE', '응답이 시범 모듈의 크기 제한을 넘었습니다.');
           await onDelta?.(event.delta);
         } else if (event.type === 'response.completed') {
+          const outputs = (event.response?.output ?? []).flatMap(item => item.content ?? []);
+          if (!refused) refused = outputs.some(item => typeof item.refusal === 'string');
+          if (refused) throw new ConnectorError('INFERENCE_REFUSED', 'AI가 이 요청에 대한 응답을 거부했습니다.', 502);
           if (!text) {
-            text = (event.response?.output ?? []).flatMap(item => item.content ?? [])
-              .map(item => typeof item.text === 'string' ? item.text : typeof item.refusal === 'string' ? item.refusal : '').join('');
+            text = outputs.map(item => typeof item.text === 'string' ? item.text : '').join('');
             if (text.length > 1_000_000) throw new ConnectorError('OUTPUT_TOO_LARGE', '응답이 시범 모듈의 크기 제한을 넘었습니다.');
             if (text) await onDelta?.(text);
           }

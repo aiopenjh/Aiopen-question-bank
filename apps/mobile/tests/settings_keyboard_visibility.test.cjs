@@ -61,6 +61,7 @@ function harness() {
         if (name.endsWith('buildInfo')) return { PRIVACY_POLICY_URL: '' };
         if (name.endsWith('settingsStyles')) return { styles: new Proxy({}, { get: () => ({}) }) };
         if (name.endsWith('utils/alert')) return { showAlert() {} };
+        if (name.endsWith('desktop_ai_connector')) return { isDesktopConnectorEnvironment: () => false };
         return new Proxy({}, { get: (_target, key) => key === '__esModule' ? true : String(key) });
       },
     }, { filename: file });

@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const names = { openai: 'GPT', anthropic: 'Claude', google: 'Gemini' };
+const names = { openai: 'GPT', google: 'Gemini' };
 // Non-secret selection shared with a host on this local origin. Credentials stay in the backend.
 const selectionKey = 'ai-login-connector:model-selection-v1';
 let csrf = '', providers = [], selectedProvider = '', selectedAccount = null, poll = null, modelSequence = 0, models = [], chosenModel = '';
@@ -56,7 +56,6 @@ function renderProviders() {
     hint.textContent = !provider ? '' : provider.status === 'connecting' ? '로그인 중…'
       : provider.canInfer ? '연결됨 · 버튼을 누르면 모델을 확인합니다.'
       : provider.status === 'identity-only' ? '로그인됨 · AI 사용 권한은 별도입니다.'
-      : provider.id === 'anthropic' ? '구독 로그인 연결 미지원'
       : provider.id === 'google' && !provider.canConnect ? 'Google 로그인 앱 등록 필요' : '';
     if (provider?.canInfer) { button.textContent = names[provider.id] + ' · 연결됨'; button.disabled = false; }
     if (provider?.signupUrl) row.querySelector('a').href = provider.signupUrl;

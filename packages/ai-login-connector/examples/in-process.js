@@ -1,9 +1,9 @@
 // This example only reads local state. It never starts login or inference.
-import { AIConnector, MemoryStore, createOpenAIProvider, createClaudeProvider, createGeminiProvider } from '../src/index.js';
+import { AIConnector, MemoryStore, createOpenAIProvider, createGeminiProvider } from '../src/index.js';
 
 const connector = new AIConnector({
   store: new MemoryStore(),
-  providers: [createOpenAIProvider({ appName: 'My Learning App' }), createClaudeProvider(), createGeminiProvider()],
+  providers: [createOpenAIProvider({ appName: 'My Learning App' }), createGeminiProvider()],
 });
 
 try {

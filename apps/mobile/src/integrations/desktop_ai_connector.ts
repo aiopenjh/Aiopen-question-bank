@@ -3,7 +3,7 @@ import AsyncStorage from '../data/app_storage';
 
 const CHOICE_KEY = '@celueste:ai_connection_v1';
 const SHARED_CHOICE_KEY = 'ai-login-connector:model-selection-v1';
-export type DesktopProviderId = 'openai' | 'anthropic' | 'google';
+export type DesktopProviderId = 'openai' | 'google';
 export type AiConnectionChoice =
   | { mode: 'api-key' }
   | { mode: 'desktop'; providerId: DesktopProviderId; model: string; acceptApiUsage: boolean };
@@ -28,6 +28,7 @@ const messages: Record<string, string> = {
   LOGIN_REQUIRED: '설정에서 AI 계정을 먼저 연결하세요.',
   REAUTH_REQUIRED: '로그인이 만료됐습니다. 설정에서 다시 연결하세요.',
   INFERENCE_NOT_AUTHORIZED: '연결한 계정에 AI 사용 권한이 없습니다. 설정에서 연결 상태를 확인하세요.',
+  INFERENCE_REFUSED: 'AI가 이 요청에 대한 응답을 거부했습니다.',
   MODEL_UNAVAILABLE: '설정에서 이 계정으로 사용할 모델을 다시 선택하세요.',
   API_USAGE_CONFIRMATION: 'Google API 사용량·과금 조건을 확인한 뒤 이 연결을 선택하세요.',
   USAGE_LIMIT: '연결한 계정의 AI 사용 한도에 도달했습니다. 공급자에서 한도를 확인하세요.',
@@ -60,7 +61,7 @@ export async function readAiConnectionChoice(): Promise<AiConnectionChoice> {
   try {
     const value = JSON.parse(raw);
     if (value?.mode === 'api-key') return { mode: 'api-key' };
-    if (value?.mode === 'desktop' && ['openai', 'anthropic', 'google'].includes(value.providerId)
+    if (value?.mode === 'desktop' && ['openai', 'google'].includes(value.providerId)
       && typeof value.model === 'string' && value.model.length > 0 && value.model.length <= 160) {
       return { mode: 'desktop', providerId: value.providerId, model: value.model, acceptApiUsage: value.acceptApiUsage === true };
     }
